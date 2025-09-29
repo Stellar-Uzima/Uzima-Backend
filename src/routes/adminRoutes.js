@@ -3,6 +3,7 @@ import { backupDatabase, restoreDatabase } from '../controllers/dbController.js'
 import protect from '../middleware/authMiddleware.js';
 import hasPermission from '../middleware/rbac.js';
 import { adminRateLimit } from '../middleware/rateLimiter.js';
+import cache from '../services/cacheService.js';
 
 const router = express.Router();
 
@@ -25,3 +26,9 @@ router.delete('/purge/record/:id', protect, hasPermission('manage_users'), recor
 
 
 export default router;
+
+// Admin cache metrics
+router.get('/cache/metrics', protect, hasPermission('manage_users'), async (req, res) => {
+  const metrics = await cache.metrics();
+  res.json({ success: true, data: metrics });
+});

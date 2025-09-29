@@ -2,6 +2,8 @@ import Record from '../models/Record.js';
 import ApiResponse from '../utils/apiResponse.js';
 import transactionLog from '../models/transactionLog.js';
 import { withTransaction } from '../utils/withTransaction.js';
+import cache from '../services/cacheService.js';
+import { recordByIdKey, cacheNamespaces } from '../utils/cacheKeys.js';
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
 const recordController = {
@@ -71,6 +73,9 @@ const recordController = {
         createdBy: req.user._id,
       });
       await record.save();
+      try {
+        await cache.mdel(`${cacheNamespaces.records}:list`);
+      } catch {}
       return ApiResponse.success(res, { record }, 'Record created successfully');
     } catch (error) {
       console.error('Error creating record:', error);
@@ -91,6 +96,10 @@ const recordController = {
       if (diagnosis) record.diagnosis = diagnosis;
       if (treatment) record.treatment = treatment;
       await record.save();
+      try {
+        await cache.del(recordByIdKey(id));
+        await cache.mdel(`${cacheNamespaces.records}:list`);
+      } catch {}
       return ApiResponse.success(res, { record }, 'Record updated successfully');
     } catch (error) {
       console.error('Error updating record:', error);
@@ -109,6 +118,10 @@ const recordController = {
       record.deletedAt = new Date();
       record.deletedBy = req.user && req.user._id ? req.user._id : null;
       await record.save();
+      try {
+        await cache.del(recordByIdKey(id));
+        await cache.mdel(`${cacheNamespaces.records}:list`);
+      } catch {}
       return ApiResponse.success(res, null, 'Record soft-deleted successfully');
     } catch (error) {
       console.error('Error deleting record:', error);

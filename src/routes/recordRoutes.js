@@ -6,6 +6,8 @@ import protect from '../middleware/authMiddleware.js';
 import hasRole from '../middleware/requireRole.js';
 import handleUpload from '../middleware/uploadMiddleware.js';
 import { uploadRateLimit } from '../middleware/rateLimiter.js';
+import { cacheGet } from '../middleware/cache.js';
+import { recordListKey, recordByIdKey } from '../utils/cacheKeys.js';
 
 const router = express.Router();
 
@@ -29,7 +31,7 @@ router.use(protect);
  *       403:
  *         description: Forbidden - User doesn't have required permissions
  */
-router.get('/', hasRole('doctor', 'admin'), recordController.getAllRecords);
+router.get('/', hasRole('doctor', 'admin'), cacheGet((req) => recordListKey({ page: req.query.page || 1, limit: req.query.limit || 20 }), 60), recordController.getAllRecords);
 
 /**
  * @swagger
@@ -57,7 +59,7 @@ router.get('/', hasRole('doctor', 'admin'), recordController.getAllRecords);
  *       404:
  *         description: Record not found
  */
-router.get('/:id', hasRole('doctor', 'admin', 'patient'), recordController.getRecordById);
+router.get('/:id', hasRole('doctor', 'admin', 'patient'), cacheGet((req) => recordByIdKey(req.params.id), 180), recordController.getRecordById);
 
 /**
  * @swagger

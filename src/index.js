@@ -38,10 +38,11 @@ import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import './cron/reminderJob.js';
 import stellarRoutes from './routes/stellarRoutes.js';
-import * as Sentry from '@sentry/node';
-import * as Tracing from '@sentry/tracing';
+import * as SentryNode from '@sentry/node';
+import * as TracingNode from '@sentry/tracing';
 import { getNetworkStatus } from './service/stellarService.js';
 import './cron/outboxJob.js';
+import { scheduleCacheWarm } from './jobs/cacheWarmJob.js';
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import { createRequire } from 'module';
 
@@ -128,6 +129,12 @@ try {
 try {
   schedulePermanentDeletionJob();
   console.log('GDPR background jobs initialized');
+  try {
+    scheduleCacheWarm();
+    console.log('Cache warm job scheduled');
+  } catch (e) {
+    console.warn('Cache warm job not scheduled:', e.message);
+  }
 } catch (e) {
   console.warn('GDPR jobs not loaded:', e.message);
 }

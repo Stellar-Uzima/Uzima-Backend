@@ -130,6 +130,18 @@ async function main() {
     await testGeneralRateLimit();
     await testAuthRateLimit();
 
+    // Basic cached endpoint load check (requires auth in real app)
+    try {
+      const start = Date.now();
+      for (let i = 0; i < 5; i++) {
+        await makeRequest('/api');
+      }
+      const elapsed = Date.now() - start;
+      console.log('\n⚡ Basic cached fetch loop elapsed ms:', elapsed);
+    } catch (e) {
+      console.log('Cache loop skipped:', e.message);
+    }
+
     console.log('\n✅ Rate limiting tests completed!');
     console.log('\nNote: If you see rate limiting in action, the implementation is working correctly.');
     console.log('Rate limits will reset after the specified time window.');

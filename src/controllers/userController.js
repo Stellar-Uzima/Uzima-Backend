@@ -2,6 +2,8 @@ import User from '../models/User.js';
 import ApiResponse from '../utils/apiResponse.js';
 import transactionLog from '../models/transactionLog.js';
 import { withTransaction } from '../utils/withTransaction.js';
+import cache from '../services/cacheService.js';
+import { userByIdKey, cacheNamespaces, userListKey } from '../utils/cacheKeys.js';
 
 const userController = {
   // Get all users (with optional soft-deleted)
@@ -74,6 +76,11 @@ const userController = {
           { session }
         );
       });
+      // Invalidate user cache entries
+      try {
+        await cache.del(userByIdKey(req.params.id));
+        await cache.mdel(`${cacheNamespaces.users}:list`);
+      } catch {}
       return ApiResponse.success(res, null, 'User restored successfully');
     } catch (error) {
       const status = error.message.includes('not found') ? 404 : 500;
@@ -107,6 +114,10 @@ const userController = {
           { session }
         );
       });
+      try {
+        await cache.del(userByIdKey(req.params.id));
+        await cache.mdel(`${cacheNamespaces.users}:list`);
+      } catch {}
       return ApiResponse.success(res, null, 'User permanently purged');
     } catch (error) {
       const status = error.message.includes('not found') ? 404 : 500;

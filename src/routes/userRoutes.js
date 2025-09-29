@@ -2,6 +2,9 @@ import express from 'express';
 import userController from '../controllers/userController.js';
 import protect from '../middleware/authMiddleware.js';
 import hasPermission from '../middleware/rbac.js';
+import { cacheGet } from '../middleware/cache.js';
+import { userListKey, userByIdKey } from '../utils/cacheKeys.js';
+import { getCreditScoreCached } from '../services/creditScoreService.js';
 
 const router = express.Router();
 
@@ -40,7 +43,7 @@ router.use(protect);
  *       403:
  *         description: Forbidden - User doesn't have required permissions
  */
-router.get('/', hasPermission('view_users'), userController.getAllUsers);
+router.get('/', hasPermission('view_users'), cacheGet((req) => userListKey({ includeDeleted: req.query.includeDeleted === 'true', page: req.query.page || 1, limit: req.query.limit || 20 }), 120), userController.getAllUsers);
 
 /**
  * @swagger
@@ -81,6 +84,12 @@ router.get('/', hasPermission('view_users'), userController.getAllUsers);
  *       404:
  *         description: User not found
  */
-router.get('/:id', hasPermission('view_own_record'), userController.getUserById);
+router.get('/:id', hasPermission('view_own_record'), cacheGet((req) => userByIdKey(req.params.id), 300), userController.getUserById);
 
 export default router;
+
+// Credit score route example (cached)
+router.get('/:id/credit-score', hasPermission('view_own_record'), async (req, res) => {
+  const data = await getCreditScoreCached(req.params.id);
+  res.json({ success: true, data });
+});
