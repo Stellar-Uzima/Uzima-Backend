@@ -27,6 +27,8 @@ import './cron/backupJob.js';
 import './workers/emailWorker.js';
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import { initRealtime } from './service/realtime.service.js';
+import http from 'http';
+import { initWebSocket } from './wsServer.js';
 
 // Load environment variables
 dotenv.config();
@@ -41,27 +43,24 @@ connectDB();
 // Initialize Sentry SDK
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
-  integrations: [
-    new Tracing.Integrations.Express({ app }),
-  ],
+  integrations: [new Tracing.Integrations.Express({ app })],
   tracesSampleRate: 1.0,
 });
 
 // Initialize i18n middleware
 app.use(i18nextMiddleware.handle(i18next));
 
-
 // Middleware
 
-app.use(cors())
-app.use(morgan("dev"))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
-app.use(requestLogger)
-app.use(correlationIdMiddleware)
+app.use(cors());
+app.use(morgan('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
+app.use(correlationIdMiddleware);
 
 app.use(cors());
-app.use(morgan("dev"));
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
@@ -79,12 +78,12 @@ app.use(generalRateLimit);
 
 // Swagger Documentation
 app.use(
-  "/docs",
+  '/docs',
   swaggerUi.serve,
   swaggerUi.setup(specs, {
     explorer: true,
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "Uzima API Documentation",
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Uzima API Documentation',
   })
 );
 
@@ -116,8 +115,8 @@ try {
 }
 
 // Debug route for Sentry testing
-app.get("/debug-sentry", (req, res) => {
-  throw new Error("Sentry test error");
+app.get('/debug-sentry', (req, res) => {
+  throw new Error('Sentry test error');
 });
 
 // Error handling
@@ -127,13 +126,12 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     // eslint-disable-next-line no-console
-    console.log("Checking Stellar network connectivity...");
+    console.log('Checking Stellar network connectivity...');
     // const stellarStatus = await getNetworkStatus();
     // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
 
     // --- Option 1: Start with WebSocket server ---
-    const httpServer = require("http").createServer(app);
-    const { initWebSocket } = require("./wsServer.js");
+    const httpServer = http.createServer(app);
     initWebSocket(httpServer);
 
     httpServer.listen(port, () => {
