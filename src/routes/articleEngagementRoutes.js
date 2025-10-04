@@ -1,7 +1,7 @@
 // Routes for articles engagement metrics
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/articleEngagementController');
+const controller = require('../../controllers/articleEngagementController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // Update engagement metrics (views, likes, shares)
