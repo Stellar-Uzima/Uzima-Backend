@@ -1,5 +1,5 @@
 // Controller for updating articles engagement metrics
-const Article = require('../models/Article');
+const Article = require('../src/models/Article');
 
 // PATCH /api/articles/:id/engagement
 exports.updateEngagement = async (req, res) => {

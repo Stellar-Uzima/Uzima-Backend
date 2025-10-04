@@ -7,4 +7,3 @@ export function sha256Hash(data) {
   return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
 }
 
-export default sha256Hash;
