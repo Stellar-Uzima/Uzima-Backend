@@ -23,3 +23,4 @@ export const anonymizeData = async (req, res) => {
     res.status(500).json({ message: "Server error during anonymization" });
   }
 };
+// 
