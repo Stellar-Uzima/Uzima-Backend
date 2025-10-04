@@ -6,32 +6,28 @@ import swaggerUi from "swagger-ui-express";
 import i18nextMiddleware from "i18next-http-middleware";
 import i18next from "./config/i18n.js";
 
-import connectDB from "./config/database.js";
-import errorHandler from "./middleware/errorHandler.js";
-import correlationIdMiddleware from "./middleware/correlationId.js";
-import requestLogger from "./middleware/requestLogger.js";
-import routes from "./routes/index.js";
-import inventoryRoutes from "./routes/inventoryRoutes.js";
-import appointmentsRouter from "./controllers/appointments.controller.js";
-import specs from "./config/swagger.js";
-import { setupGraphQL } from "./graphql/index.js";
-import "./cron/reminderJob.js";
-import stellarRoutes from "./routes/stellar.js";
-import * as Sentry from "@sentry/node";
-import * as Tracing from "@sentry/tracing";
-import { createRequire } from "module";
-import { generalRateLimit } from "./middleware/rateLimiter.js";
-import "./config/redis.js";
+import connectDB from "./config/database.js"
+import errorHandler from "./middleware/errorHandler.js"
+import correlationIdMiddleware from "./middleware/correlationId.js"
+import requestLogger from "./middleware/requestLogger.js"
+import routes from "./routes/index.js"
+import inventoryRoutes from "./routes/inventoryRoutes.js"
+import appointmentsRouter from "./controllers/appointments.controller.js"
+import specs from "./config/swagger.js"
+import { setupGraphQL } from "./graphql/index.js"
+import stellarRoutes from "./routes/stellar.js"
+import * as Sentry from "@sentry/node"
+import * as Tracing from "@sentry/tracing"
+import { generalRateLimit } from "./middleware/rateLimiter.js"
 
-import { getNetworkStatus } from "./service/stellarService.js";
-import "./cron/outboxJob.js";
-import "./cron/backupJob.js";
-import { schedulePermanentDeletionJob } from "./jobs/gdprJobs.js";
-import { initRealtime } from "./service/realtime.service.js";
-
-// Create require function for ES modules
-const require = createRequire(import.meta.url);
-const stellarService = require("./service/stellarService.js");
+import { getNetworkStatus } from './service/stellarService.js';
+import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
+import { initRealtime } from './service/realtime.service.js';
+import './config/redis.js';
+import './cron/reminderJob.js';
+import './cron/outboxJob.js';
+import './cron/backupJob.js';
+import './workers/emailWorker.js';
 
 // Load environment variables
 dotenv.config();
@@ -55,11 +51,12 @@ Sentry.init({
 // Initialize i18n middleware
 app.use(i18nextMiddleware.handle(i18next));
 
-// Middleware
 app.use(cors());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
+app.use(correlationIdMiddleware);
 app.use(requestLogger);
 app.use(correlationIdMiddleware);
 

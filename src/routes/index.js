@@ -8,6 +8,7 @@ import adminGDPRRoutes from './adminGDPRRoutes.js';
 import webhookRoutes from './webhookRoutes.js';
 import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
 const router = express.Router();
 
 // Import route modules here
@@ -30,5 +31,6 @@ router.use('/admin/backups', backupRoutes); // Backup admin routes
 router.use('/payments', webhookRoutes); // Payment webhook routes
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
+router.use('/notify', notificationRoutes); // Notification routes
 
 export default router;
