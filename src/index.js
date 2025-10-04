@@ -24,12 +24,9 @@ import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
 import './cron/backupJob.js';
+import './workers/emailWorker.js';
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import { initRealtime } from './service/realtime.service.js';
-
-// Create require function for ES modules (if needed)
-const require = createRequire(import.meta.url);
-const stellarService = require('./service/stellarService.js');
 
 // Load environment variables
 dotenv.config();
@@ -45,15 +42,26 @@ connectDB();
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   integrations: [
-    // new Sentry.Integrations.Http({ tracing: true }),
     new Tracing.Integrations.Express({ app }),
   ],
   tracesSampleRate: 1.0,
 });
 
+// Initialize i18n middleware
+app.use(i18nextMiddleware.handle(i18next));
+
+
 // Middleware
+
+app.use(cors())
+app.use(morgan("dev"))
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(requestLogger)
+app.use(correlationIdMiddleware)
+
 app.use(cors());
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
@@ -71,12 +79,12 @@ app.use(generalRateLimit);
 
 // Swagger Documentation
 app.use(
-  '/docs',
+  "/docs",
   swaggerUi.serve,
   swaggerUi.setup(specs, {
     explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Uzima API Documentation',
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Uzima API Documentation",
   })
 );
 
@@ -107,44 +115,45 @@ try {
   console.warn('GDPR jobs not loaded:', e.message);
 }
 
-// Sentry debug route - for testing Sentry integration
-app.get('/debug-sentry', (req, res) => {
-  throw new Error('Sentry test error');
+// Debug route for Sentry testing
+app.get("/debug-sentry", (req, res) => {
+  throw new Error("Sentry test error");
 });
 
 // Error handling
-// app.use(Sentry.Handlers.errorHandler());
 app.use(errorHandler);
 
-// Check Stellar network status before starting the server
+// Server bootstrap
 const startServer = async () => {
   try {
     // eslint-disable-next-line no-console
-    console.log('Checking Stellar network connectivity...');
-    // const startTime = Date.now();
+    console.log("Checking Stellar network connectivity...");
     // const stellarStatus = await getNetworkStatus();
-    // const checkDuration = Date.now() - startTime;
+    // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
 
-    // console.log(
-    //   `Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger} (${stellarStatus.responseTime}ms)`
-    // );
+    // --- Option 1: Start with WebSocket server ---
+    const httpServer = require("http").createServer(app);
+    const { initWebSocket } = require("./wsServer.js");
+    initWebSocket(httpServer);
 
-    // Start server
-    const server = app.listen(port, () => {
+    httpServer.listen(port, () => {
       // eslint-disable-next-line no-console
       console.log(`Server is running on http://localhost:${port}`);
       // eslint-disable-next-line no-console
       console.log(`API Documentation available at http://localhost:${port}/docs`);
       // eslint-disable-next-line no-console
       console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
+      console.log(`WebSocket server available at ws://localhost:${port}/ws`);
     });
-    initRealtime(server);
+
+    // --- Option 2: Init custom realtime service ---
+    initRealtime(httpServer);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to connect to Stellar network');
     // eslint-disable-next-line no-console
     console.error(error.message);
-    process.exit(1); // Exit with error code
+    process.exit(1);
   }
 };
 

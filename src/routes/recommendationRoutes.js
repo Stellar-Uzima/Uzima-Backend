@@ -1,7 +1,7 @@
 // Routes for recommendations
 const express = require('express');
 const router = express.Router();
-const recommendationController = require('../controllers/recommendationController');
+const recommendationController = require('../../controllers/recommendationController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // Get recommendations (paginated)

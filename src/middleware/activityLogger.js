@@ -1,11 +1,6 @@
 import ActivityLog from '../models/ActivityLog.js';
 import { v4 as uuidv4 } from 'uuid';
 
-/**
- * Activity Logger Middleware
- * Captures user actions for audit trail and compliance
- */
-
 // Helper function to determine action type based on route and method
 const determineAction = (method, path, body = {}) => {
   const normalizedPath = path.toLowerCase();
@@ -69,13 +64,13 @@ const determineAction = (method, path, body = {}) => {
     if (normalizedPath.includes('/consume')) return 'inventory_consume';
   }
   
-  // Payment actions
+  // Payment actions for App
   if (normalizedPath.includes('/payment')) {
     if (method === 'POST') return 'payment_create';
     return 'payment_access';
   }
   
-  // Stellar/Contract actions
+  // For Stellar/Contract actions
   if (normalizedPath.includes('/stellar') || normalizedPath.includes('/contract')) {
     return 'contract_interaction';
   }
@@ -212,7 +207,7 @@ export const activityLogger = (options = {}) => {
         let result = 'success';
         if (statusCode >= 400) {
           result = 'failure';
-          if (!logFailures) return; // Skip logging failures if disabled
+          if (!logFailures) return; 
         } else if (statusCode >= 300) {
           result = 'partial';
         }
