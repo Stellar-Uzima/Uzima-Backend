@@ -7,6 +7,7 @@ on:
 jobs:
   verify-migrations:
     runs-on: ubuntu-latest
+
     services:
       mongo:
         image: mongo:6
@@ -20,6 +21,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -28,4 +30,6 @@ jobs:
         run: npm ci
 
       - name: Run DB migrations
-        run: npx migrate-mongo up --config migrate-mongo-config.mjs
+        run: npx migrate-mongo up
+        env:
+          MIGRATE_MONGO_CONFIG: migrate-mongo-config.mjs
