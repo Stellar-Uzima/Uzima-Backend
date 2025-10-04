@@ -3,6 +3,11 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 
 const userSchema = new mongoose.Schema({
+  // User preference for personalized recommendations
+  recommendationsOptOut: {
+    type: Boolean,
+    default: false,
+  },
   username: {
     type: String,
     required: true,

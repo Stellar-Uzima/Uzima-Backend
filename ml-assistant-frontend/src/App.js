@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Recommended from './Recommended';
 import { trainModel, allSymptoms, allConditions, encodeSymptoms } from './mlModel';
 import { logQueryToBackend } from './queryLogger';
 
@@ -39,6 +40,8 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 500, margin: '2rem auto', fontFamily: 'sans-serif' }}>
+      {/* Recommended for You section (token prop to be replaced with real auth token) */}
+      <Recommended token={window.localStorage.getItem('auth_token') || ''} />
       <h2>Symptom Checker</h2>
       <p style={{ color: 'red', fontWeight: 'bold' }}>{disclaimer}</p>
       <form onSubmit={handleSubmit}>

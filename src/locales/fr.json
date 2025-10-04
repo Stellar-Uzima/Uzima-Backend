@@ -1,0 +1,6 @@
+{
+  "greeting": "Bienvenue sur l'API Uzima!",
+  "error_not_found": "Ressource non trouvée.",
+  "error_internal": "Erreur interne du serveur.",
+  "success": "Opération réussie."
+}

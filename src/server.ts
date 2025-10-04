@@ -1,5 +1,15 @@
 import express from 'express';
 const app = express();
+app.use(express.json());
+
+// Register article engagement routes
+const articleEngagementRoutes = require('../routes/articleEngagementRoutes');
+app.use('/api/articles', articleEngagementRoutes);
+
+// Register recommendation routes
+const recommendationRoutes = require('../routes/recommendationRoutes');
+app.use('/api/recommendations', recommendationRoutes);
+
 await setupGraphQL(app);
 
 import { Express } from 'express';
