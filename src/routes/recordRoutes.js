@@ -5,8 +5,19 @@ import recordController from '../controllers/recordController.js';
 import protect from '../middleware/authMiddleware.js';
 import hasRole from '../middleware/requireRole.js';
 import handleUpload from '../middleware/uploadMiddleware.js';
+import { validate } from '../middleware/validationMiddleware.js';
 import { uploadRateLimit } from '../middleware/rateLimiter.js';
 import { activityLogger } from '../middleware/activityLogger.js';
+import {
+  createRecordSchema,
+  updateRecordSchema,
+  getRecordByIdSchema,
+  deleteRecordSchema,
+  getRecordsListSchema,
+  shareRecordSchema,
+  addAttachmentSchema,
+  removeAttachmentSchema,
+} from '../validations/recordValidators.js';
 
 const router = express.Router();
 
@@ -30,7 +41,13 @@ router.use(protect);
  *       403:
  *         description: Forbidden - User doesn't have required permissions
  */
-router.get('/', hasRole('doctor', 'admin'), activityLogger({ action: 'view_all_records' }), recordController.getAllRecords);
+router.get(
+  '/',
+  hasRole('doctor', 'admin'),
+  validate(getRecordsListSchema),
+  activityLogger({ action: 'view_all_records' }),
+  recordController.getAllRecords
+);
 
 /**
  * @swagger
@@ -58,7 +75,13 @@ router.get('/', hasRole('doctor', 'admin'), activityLogger({ action: 'view_all_r
  *       404:
  *         description: Record not found
  */
-router.get('/:id', hasRole('doctor', 'admin', 'patient'), activityLogger({ action: 'view_record' }), recordController.getRecordById);
+router.get(
+  '/:id',
+  hasRole('doctor', 'admin', 'patient'),
+  validate(getRecordByIdSchema),
+  activityLogger({ action: 'view_record' }),
+  recordController.getRecordById
+);
 
 /**
  * @swagger
@@ -99,7 +122,13 @@ router.get('/:id', hasRole('doctor', 'admin', 'patient'), activityLogger({ actio
  *       403:
  *         description: Forbidden - User doesn't have required permissions
  */
-router.post('/', hasRole('doctor'), activityLogger({ action: 'create_record' }), recordController.createRecord);
+router.post(
+  '/',
+  hasRole('doctor'),
+  validate(createRecordSchema),
+  activityLogger({ action: 'create_record' }),
+  recordController.createRecord
+);
 
 /**
  * @swagger
@@ -142,7 +171,13 @@ router.post('/', hasRole('doctor'), activityLogger({ action: 'create_record' }),
  *       404:
  *         description: Record not found
  */
-router.put('/:id', hasRole('doctor'), activityLogger({ action: 'update_record' }), recordController.updateRecord);
+router.put(
+  '/:id',
+  hasRole('doctor'),
+  validate(updateRecordSchema),
+  activityLogger({ action: 'update_record' }),
+  recordController.updateRecord
+);
 
 /**
  * @swagger
@@ -170,7 +205,13 @@ router.put('/:id', hasRole('doctor'), activityLogger({ action: 'update_record' }
  *       404:
  *         description: Record not found
  */
-router.delete('/:id', hasRole('admin'), activityLogger({ action: 'delete_record' }), recordController.deleteRecord);
+router.delete(
+  '/:id',
+  hasRole('admin'),
+  validate(deleteRecordSchema),
+  activityLogger({ action: 'delete_record' }),
+  recordController.deleteRecord
+);
 
 /**
  * @swagger
@@ -225,7 +266,14 @@ router.delete('/:id', hasRole('admin'), activityLogger({ action: 'delete_record'
  *       404:
  *         description: Record not found
  */
-router.post('/:id/files', hasRole('doctor', 'admin'), uploadRateLimit, handleUpload, activityLogger({ action: 'upload_file' }), fileController.uploadFile);
+router.post(
+  '/:id/files',
+  hasRole('doctor', 'admin'),
+  uploadRateLimit,
+  handleUpload,
+  activityLogger({ action: 'upload_file' }),
+  fileController.uploadFile
+);
 
 /**
  * @swagger
@@ -279,9 +327,19 @@ router.post('/:id/files', hasRole('doctor', 'admin'), uploadRateLimit, handleUpl
  *       404:
  *         description: Record not found
  */
-router.get('/:id/files', hasRole('doctor', 'admin', 'patient'), activityLogger({ action: 'view_files' }), fileController.getFiles);
+router.get(
+  '/:id/files',
+  hasRole('doctor', 'admin', 'patient'),
+  activityLogger({ action: 'view_files' }),
+  fileController.getFiles
+);
 
 // PDF generation route
-router.get('/:id/pdf', hasRole('doctor', 'admin'), activityLogger({ action: 'generate_pdf' }), pdfController.generatePDF);
+router.get(
+  '/:id/pdf',
+  hasRole('doctor', 'admin'),
+  activityLogger({ action: 'generate_pdf' }),
+  pdfController.generatePDF
+);
 
 export default router;

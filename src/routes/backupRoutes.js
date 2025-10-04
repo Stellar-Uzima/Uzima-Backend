@@ -6,19 +6,19 @@ import {
   triggerBackup,
   deleteBackup,
   verifyBackup,
-  downloadBackup
+  downloadBackup,
 } from '../controllers/backupController.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/requireRole.js';
-import { rateLimiter } from '../middleware/rateLimiter.js';
+import { auth } from '../middleware/authMiddleware.js';
+import requireRoles from '../middleware/requireRole.js';
+import { createCustomRateLimit } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
 // Apply authentication middleware to all backup routes
-router.use(authMiddleware);
+router.use(auth);
 
 // Apply admin role requirement to all backup routes
-router.use(requireRole(['admin', 'super_admin']));
+router.use(requireRoles(['admin', 'super_admin']));
 
 /**
  * @swagger
@@ -191,7 +191,7 @@ router.get('/stats', getBackupStatistics);
  *       403:
  *         description: Insufficient permissions
  */
-router.post('/trigger', rateLimiter({ windowMs: 15 * 60 * 1000, max: 5 }), triggerBackup);
+router.post('/trigger', createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), triggerBackup);
 
 /**
  * @swagger
