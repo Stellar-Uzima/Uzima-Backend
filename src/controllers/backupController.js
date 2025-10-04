@@ -1,7 +1,7 @@
 import BackupService from '../service/backupService.js';
 import Backup from '../models/Backup.js';
 import { triggerManualBackup, getBackupStats } from '../cron/backupJob.js';
-import { apiResponse } from '../utils/apiResponse.js';
+import ApiResponse from '../utils/apiResponse.js';
 
 const backupService = new BackupService();
 
@@ -47,7 +47,7 @@ export const getBackups = async (req, res) => {
       };
     });
     
-    return apiResponse(res, 200, 'Backups retrieved successfully', {
+    return ApiResponse(res, 200, 'Backups retrieved successfully', {
       backups: enrichedBackups,
       pagination: {
         currentPage: parseInt(page),
@@ -60,7 +60,7 @@ export const getBackups = async (req, res) => {
     
   } catch (error) {
     console.error('Error retrieving backups:', error);
-    return apiResponse(res, 500, 'Failed to retrieve backups', null, error.message);
+    return ApiResponse(res, 500, 'Failed to retrieve backups', null, error.message);
   }
 };
 
@@ -80,14 +80,14 @@ export const getBackupStatistics = async (req, res) => {
       lastBackupTime: await getLastBackupTime()
     };
     
-    return apiResponse(res, 200, 'Backup statistics retrieved successfully', {
+    return ApiResponse(res, 200, 'Backup statistics retrieved successfully', {
       ...stats,
       ...additionalStats
     });
     
   } catch (error) {
     console.error('Error retrieving backup statistics:', error);
-    return apiResponse(res, 500, 'Failed to retrieve backup statistics', null, error.message);
+    return ApiResponse(res, 500, 'Failed to retrieve backup statistics', null, error.message);
   }
 };
 
@@ -101,7 +101,7 @@ export const getBackupDetails = async (req, res) => {
     
     const backup = await Backup.findOne({ backupId }).select('-__v');
     if (!backup) {
-      return apiResponse(res, 404, 'Backup not found');
+      return ApiResponse(res, 404, 'Backup not found');
     }
     
     // Get S3 information
@@ -117,7 +117,7 @@ export const getBackupDetails = async (req, res) => {
       }
     }
     
-    return apiResponse(res, 200, 'Backup details retrieved successfully', {
+    return ApiResponse(res, 200, 'Backup details retrieved successfully', {
       ...backup.toObject(),
       s3Info: s3Info || null,
       downloadUrl: s3Info ? s3Info.url : null,
@@ -126,7 +126,7 @@ export const getBackupDetails = async (req, res) => {
     
   } catch (error) {
     console.error('Error retrieving backup details:', error);
-    return apiResponse(res, 500, 'Failed to retrieve backup details', null, error.message);
+    return ApiResponse(res, 500, 'Failed to retrieve backup details', null, error.message);
   }
 };
 
@@ -139,7 +139,7 @@ export const triggerBackup = async (req, res) => {
     // Check if there's already a backup in progress
     const inProgressBackup = await Backup.findOne({ status: 'in_progress' });
     if (inProgressBackup) {
-      return apiResponse(res, 409, 'A backup is already in progress', {
+      return ApiResponse(res, 409, 'A backup is already in progress', {
         inProgressBackup: inProgressBackup.backupId
       });
     }
@@ -149,13 +149,13 @@ export const triggerBackup = async (req, res) => {
       console.error('Manual backup failed:', error);
     });
     
-    return apiResponse(res, 202, 'Backup triggered successfully', {
+    return ApiResponse(res, 202, 'Backup triggered successfully', {
       message: 'Backup has been started and will run in the background'
     });
     
   } catch (error) {
     console.error('Error triggering backup:', error);
-    return apiResponse(res, 500, 'Failed to trigger backup', null, error.message);
+    return ApiResponse(res, 500, 'Failed to trigger backup', null, error.message);
   }
 };
 
@@ -169,7 +169,7 @@ export const deleteBackup = async (req, res) => {
     
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
-      return apiResponse(res, 404, 'Backup not found');
+      return ApiResponse(res, 404, 'Backup not found');
     }
     
     // Delete from S3 if exists
@@ -180,11 +180,11 @@ export const deleteBackup = async (req, res) => {
     // Delete from database
     await Backup.deleteOne({ backupId });
     
-    return apiResponse(res, 200, 'Backup deleted successfully');
+    return ApiResponse(res, 200, 'Backup deleted successfully');
     
   } catch (error) {
     console.error('Error deleting backup:', error);
-    return apiResponse(res, 500, 'Failed to delete backup', null, error.message);
+    return ApiResponse(res, 500, 'Failed to delete backup', null, error.message);
   }
 };
 
@@ -198,11 +198,11 @@ export const verifyBackup = async (req, res) => {
     
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
-      return apiResponse(res, 404, 'Backup not found');
+      return ApiResponse(res, 404, 'Backup not found');
     }
     
     if (!backup.s3Key) {
-      return apiResponse(res, 400, 'Backup has no S3 key for verification');
+      return ApiResponse(res, 400, 'Backup has no S3 key for verification');
     }
     
     const verificationResult = await backupService.verifyBackupIntegrity(backup.s3Key);
@@ -211,11 +211,11 @@ export const verifyBackup = async (req, res) => {
       await backup.markVerified(backup.hash);
     }
     
-    return apiResponse(res, 200, 'Backup verification completed', verificationResult);
+    return ApiResponse(res, 200, 'Backup verification completed', verificationResult);
     
   } catch (error) {
     console.error('Error verifying backup:', error);
-    return apiResponse(res, 500, 'Failed to verify backup', null, error.message);
+    return ApiResponse(res, 500, 'Failed to verify backup', null, error.message);
   }
 };
 
@@ -229,17 +229,17 @@ export const downloadBackup = async (req, res) => {
     
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
-      return apiResponse(res, 404, 'Backup not found');
+      return ApiResponse(res, 404, 'Backup not found');
     }
     
     if (!backup.s3Key) {
-      return apiResponse(res, 400, 'Backup file not available for download');
+      return ApiResponse(res, 400, 'Backup file not available for download');
     }
     
     // Generate pre-signed URL for download (valid for 1 hour)
     const downloadUrl = await backupService.generateDownloadUrl(backup.s3Key, 3600);
     
-    return apiResponse(res, 200, 'Download URL generated successfully', {
+    return ApiResponse(res, 200, 'Download URL generated successfully', {
       downloadUrl,
       expiresIn: 3600,
       filename: `${backupId}.tar.gz.enc`
@@ -247,7 +247,7 @@ export const downloadBackup = async (req, res) => {
     
   } catch (error) {
     console.error('Error generating download URL:', error);
-    return apiResponse(res, 500, 'Failed to generate download URL', null, error.message);
+    return ApiResponse(res, 500, 'Failed to generate download URL', null, error.message);
   }
 };
 

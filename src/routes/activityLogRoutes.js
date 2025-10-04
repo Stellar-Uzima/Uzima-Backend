@@ -8,9 +8,10 @@ import {
   getTopActions,
   getSuspiciousActivity,
   exportActivityLogs,
-  logActivity
+  logActivity,
 } from '../controllers/activityLogController.js';
-import { protect, restrictTo } from '../middleware/authMiddleware.js';
+import { auth } from '../middleware/authMiddleware.js';
+import requireRoles from '../middleware/requireRole.js';
 
 const router = express.Router();
 
@@ -187,7 +188,7 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.get('/:userId', protect, getUserActivityLogs);
+router.get('/:userId', auth, getUserActivityLogs);
 
 /**
  * @swagger
@@ -239,7 +240,7 @@ router.get('/:userId', protect, getUserActivityLogs);
  *       500:
  *         description: Server error
  */
-router.get('/:userId/summary', protect, getUserActivitySummary);
+router.get('/:userId/summary', auth, getUserActivitySummary);
 
 // Admin routes - require admin or super_admin role
 /**
@@ -328,7 +329,7 @@ router.get('/:userId/summary', protect, getUserActivitySummary);
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity', protect, restrictTo('admin', 'super_admin'), getAllActivityLogs);
+router.get('/admin/activity', auth, requireRoles('admin', 'super_admin'), getAllActivityLogs);
 
 /**
  * @swagger
@@ -371,7 +372,12 @@ router.get('/admin/activity', protect, restrictTo('admin', 'super_admin'), getAl
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity/statistics', protect, restrictTo('admin', 'super_admin'), getActivityStatistics);
+router.get(
+  '/admin/activity/statistics',
+  auth,
+  requireRoles('admin', 'super_admin'),
+  getActivityStatistics
+);
 
 /**
  * @swagger
@@ -422,7 +428,7 @@ router.get('/admin/activity/statistics', protect, restrictTo('admin', 'super_adm
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity/trends', protect, restrictTo('admin', 'super_admin'), getActivityTrends);
+router.get('/admin/activity/trends', auth, requireRoles('admin', 'super_admin'), getActivityTrends);
 
 /**
  * @swagger
@@ -466,7 +472,12 @@ router.get('/admin/activity/trends', protect, restrictTo('admin', 'super_admin')
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity/top-actions', protect, restrictTo('admin', 'super_admin'), getTopActions);
+router.get(
+  '/admin/activity/top-actions',
+  auth,
+  requireRoles('admin', 'super_admin'),
+  getTopActions
+);
 
 /**
  * @swagger
@@ -504,7 +515,12 @@ router.get('/admin/activity/top-actions', protect, restrictTo('admin', 'super_ad
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity/suspicious', protect, restrictTo('admin', 'super_admin'), getSuspiciousActivity);
+router.get(
+  '/admin/activity/suspicious',
+  auth,
+  requireRoles('admin', 'super_admin'),
+  getSuspiciousActivity
+);
 
 /**
  * @swagger
@@ -566,7 +582,12 @@ router.get('/admin/activity/suspicious', protect, restrictTo('admin', 'super_adm
  *       500:
  *         description: Server error
  */
-router.get('/admin/activity/export', protect, restrictTo('admin', 'super_admin'), exportActivityLogs);
+router.get(
+  '/admin/activity/export',
+  auth,
+  requireRoles('admin', 'super_admin'),
+  exportActivityLogs
+);
 
 /**
  * @swagger
@@ -631,6 +652,6 @@ router.get('/admin/activity/export', protect, restrictTo('admin', 'super_admin')
  *       500:
  *         description: Server error
  */
-router.post('/admin/activity', protect, restrictTo('admin', 'super_admin'), logActivity);
+router.post('/admin/activity', auth, requireRoles('admin', 'super_admin'), logActivity);
 
 export default router;

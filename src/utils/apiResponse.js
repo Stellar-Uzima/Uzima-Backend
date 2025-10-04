@@ -15,6 +15,14 @@ class ApiResponse {
       message,
     });
   }
+
+  static validationError(res, message = 'Validation failed', errors = {}) {
+    return res.status(422).json({
+      success: false,
+      message,
+      errors,
+    });
+  }
 }
 
 export default ApiResponse;
