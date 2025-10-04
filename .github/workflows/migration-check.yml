@@ -1,0 +1,16 @@
+name: Migration Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  verify-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx migrate-mongo up
