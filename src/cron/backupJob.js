@@ -1,18 +1,22 @@
 import cron from 'node-cron';
 import BackupService from '../service/backupService.js';
 import Backup from '../models/Backup.js';
+import BackupAlertService from '../services/backupAlertService.js';
+import RestoreTestingService from '../services/restoreTestingService.js';
 
 const backupService = new BackupService();
+const backupAlertService = new BackupAlertService();
+const restoreTestingService = new RestoreTestingService();
 
 /**
- * Execute backup process
+ * Execute backup process (full backup)
  */
 async function executeBackup() {
-  const backupId = `backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  const backupId = `full-backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
   let backupRecord = null;
   
   try {
-    console.log(`Starting scheduled backup: ${backupId}`);
+    console.log(`Starting scheduled full backup: ${backupId}`);
     
     // Create backup record in database
     const retentionDate = new Date();
@@ -20,6 +24,7 @@ async function executeBackup() {
     
     backupRecord = new Backup({
       backupId,
+      backupType: 'full',
       status: 'in_progress',
       database: backupService.extractDatabaseName(process.env.MONGO_URI),
       retentionDate
@@ -27,8 +32,8 @@ async function executeBackup() {
     
     await backupRecord.save();
     
-    // Execute backup
-    const backupInfo = await backupService.createBackup();
+    // Execute full backup
+    const backupInfo = await backupService.createBackup('full');
     
     // Update backup record with completion details
     await backupRecord.markCompleted(
@@ -48,20 +53,96 @@ async function executeBackup() {
       await backupRecord.markVerified(backupInfo.hash);
     }
     
-    console.log(`Backup completed successfully: ${backupId}`);
+    console.log(`Full backup completed successfully: ${backupId}`);
+    
+    // Send success notification
+    const duration = Math.round((Date.now() - backupRecord.startedAt.getTime()) / 1000);
+    await backupAlertService.sendBackupSuccessNotification(
+      backupId, 
+      'full', 
+      backupInfo.size, 
+      duration
+    );
     
     // Cleanup old backups
     await cleanupOldBackups();
     
   } catch (error) {
-    console.error(`Backup failed: ${backupId}`, error);
+    console.error(`Full backup failed: ${backupId}`, error);
     
     if (backupRecord) {
       await backupRecord.markFailed(error.message);
     }
     
-    // Send notification about backup failure (if notification service exists)
-    await notifyBackupFailure(backupId, error.message);
+    // Send notification about backup failure
+    await backupAlertService.sendBackupFailureAlert(backupId, error.message, 'full');
+  }
+}
+
+/**
+ * Execute incremental backup process
+ */
+async function executeIncrementalBackup() {
+  const backupId = `incremental-backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  let backupRecord = null;
+  
+  try {
+    console.log(`Starting scheduled incremental backup: ${backupId}`);
+    
+    // Get the latest full backup to use as parent
+    const latestFullBackup = await backupService.getLatestFullBackup();
+    if (!latestFullBackup) {
+      console.log('No full backup found, skipping incremental backup');
+      return;
+    }
+    
+    // Create backup record in database
+    const retentionDate = new Date();
+    retentionDate.setDate(retentionDate.getDate() + (parseInt(process.env.BACKUP_RETENTION_DAYS) || 30));
+    
+    backupRecord = new Backup({
+      backupId,
+      backupType: 'incremental',
+      parentBackupId: latestFullBackup.backupId,
+      status: 'in_progress',
+      database: backupService.extractDatabaseName(process.env.MONGO_URI),
+      retentionDate
+    });
+    
+    await backupRecord.save();
+    
+    // Execute incremental backup
+    const backupInfo = await backupService.createBackup('incremental', latestFullBackup.backupId);
+    
+    // Update backup record with completion details
+    await backupRecord.markCompleted(
+      backupInfo.s3Key,
+      backupInfo.hash,
+      backupInfo.size,
+      {
+        totalDocuments: 0, // This would be populated from actual dump stats
+        totalSize: backupInfo.size,
+        compressionRatio: 0.8 // Incremental backups typically have better compression
+      }
+    );
+    
+    // Verify backup integrity
+    const verification = await backupService.verifyBackupIntegrity(backupInfo.s3Key);
+    if (verification.verified) {
+      await backupRecord.markVerified(backupInfo.hash);
+    }
+    
+    console.log(`Incremental backup completed successfully: ${backupId}`);
+    
+  } catch (error) {
+    console.error(`Incremental backup failed: ${backupId}`, error);
+    
+    if (backupRecord) {
+      await backupRecord.markFailed(error.message);
+    }
+    
+    // Send notification about backup failure
+    await backupAlertService.sendBackupFailureAlert(backupId, error.message, 'incremental');
   }
 }
 
@@ -86,19 +167,25 @@ async function cleanupOldBackups() {
 }
 
 /**
- * Notify about backup failure
+ * Check backup health and send alerts
+ */
+async function checkBackupHealth() {
+  try {
+    console.log('Starting backup health check...');
+    await backupAlertService.checkBackupHealth();
+    console.log('Backup health check completed');
+  } catch (error) {
+    console.error('Backup health check failed:', error);
+  }
+}
+
+/**
+ * Notify about backup failure (legacy function - now handled by BackupAlertService)
  */
 async function notifyBackupFailure(backupId, errorMessage) {
   try {
-    // This would integrate with your notification service
-    // For now, just log the error
     console.error(`BACKUP FAILURE NOTIFICATION: ${backupId} - ${errorMessage}`);
-    
-    // In a real implementation, you might:
-    // - Send email to administrators
-    // - Post to Slack/Teams
-    // - Create an alert in monitoring system
-    
+    // This function is now deprecated - alerts are handled by BackupAlertService
   } catch (error) {
     console.error('Failed to send backup failure notification:', error);
   }
@@ -126,15 +213,26 @@ async function triggerManualBackup() {
   await executeBackup();
 }
 
-// Schedule backup job
-// Default: Daily at 2:00 AM UTC (configurable via BACKUP_SCHEDULE env var)
-const backupSchedule = process.env.BACKUP_SCHEDULE || '0 2 * * *';
+// Schedule backup jobs
+// Default: Daily full backup at 2:00 AM UTC (configurable via BACKUP_SCHEDULE env var)
+const fullBackupSchedule = process.env.BACKUP_SCHEDULE || '0 2 * * *';
+// Default: Hourly incremental backup (configurable via INCREMENTAL_BACKUP_SCHEDULE env var)
+const incrementalBackupSchedule = process.env.INCREMENTAL_BACKUP_SCHEDULE || '0 * * * *';
 
-console.log(`Scheduling backup job with cron pattern: ${backupSchedule}`);
+console.log(`Scheduling full backup job with cron pattern: ${fullBackupSchedule}`);
+console.log(`Scheduling incremental backup job with cron pattern: ${incrementalBackupSchedule}`);
 
-const backupJob = cron.schedule(backupSchedule, async () => {
-  console.log('Scheduled backup job started');
+const fullBackupJob = cron.schedule(fullBackupSchedule, async () => {
+  console.log('Scheduled full backup job started');
   await executeBackup();
+}, {
+  scheduled: true,
+  timezone: 'UTC'
+});
+
+const incrementalBackupJob = cron.schedule(incrementalBackupSchedule, async () => {
+  console.log('Scheduled incremental backup job started');
+  await executeIncrementalBackup();
 }, {
   scheduled: true,
   timezone: 'UTC'
@@ -157,27 +255,61 @@ const statsJob = cron.schedule('0 1 * * *', async () => {
   timezone: 'UTC'
 });
 
+// Schedule backup health check (Every 6 hours)
+const healthCheckJob = cron.schedule('0 */6 * * *', async () => {
+  console.log('Scheduled backup health check started');
+  await checkBackupHealth();
+}, {
+  scheduled: true,
+  timezone: 'UTC'
+});
+
+// Schedule quarterly restore testing (First day of each quarter at 4:00 AM UTC)
+const quarterlyTestJob = cron.schedule('0 4 1 1,4,7,10 *', async () => {
+  console.log('Scheduled quarterly restore testing started');
+  try {
+    await restoreTestingService.runQuarterlyRestoreTest();
+    console.log('Quarterly restore testing completed successfully');
+  } catch (error) {
+    console.error('Quarterly restore testing failed:', error);
+  }
+}, {
+  scheduled: true,
+  timezone: 'UTC'
+});
+
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('Stopping backup cron jobs...');
-  backupJob.stop();
+  fullBackupJob.stop();
+  incrementalBackupJob.stop();
   cleanupJob.stop();
   statsJob.stop();
+  healthCheckJob.stop();
+  quarterlyTestJob.stop();
 });
 
 process.on('SIGINT', () => {
   console.log('Stopping backup cron jobs...');
-  backupJob.stop();
+  fullBackupJob.stop();
+  incrementalBackupJob.stop();
   cleanupJob.stop();
   statsJob.stop();
+  healthCheckJob.stop();
+  quarterlyTestJob.stop();
 });
 
 export { 
-  executeBackup, 
+  executeBackup,
+  executeIncrementalBackup,
   cleanupOldBackups, 
   triggerManualBackup, 
   getBackupStats,
-  backupJob,
+  checkBackupHealth,
+  fullBackupJob,
+  incrementalBackupJob,
   cleanupJob,
-  statsJob
+  statsJob,
+  healthCheckJob,
+  quarterlyTestJob
 };
