@@ -9,9 +9,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles --forceExit",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -34,17 +34,21 @@
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.59.0",
+    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
+    "dompurify": "^3.2.7",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "graphql": "^16.11.0",
+    "graphql-tag": "^2.12.6",
     "i18next": "^25.5.3",
     "i18next-fs-backend": "^2.6.0",
     "i18next-http-middleware": "^3.8.1",
     "ioredis": "^5.8.0",
     "ipfs-http-client": "^60.0.1",
     "joi": "^17.13.3",
+    "jsdom": "^27.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.2",
     "morgan": "^1.10.0",
@@ -54,6 +58,7 @@
     "pdfkit": "^0.17.1",
     "rate-limit-redis": "^4.2.2",
     "redis": "^5.8.2",
+    "socket.io": "^4.8.1",
     "resend": "^6.1.2",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
@@ -64,6 +69,7 @@
     "@babel/preset-env": "^7.27.2",
     "@eslint/js": "^8.57.0",
     "@types/express": "^5.0.2",
+    "@vitest/ui": "^3.2.4",
     "babel-jest": "^30.0.0-beta.3",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
@@ -73,23 +79,7 @@
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.0.2",
     "prettier": "^3.2.4",
-    "supertest": "^7.1.1"
-  },
-  "jest": {
-    "transform": {
-      "^.+\\.js$": [
-        "babel-jest",
-        {
-          "configFile": "./babel.config.json"
-        }
-      ]
-    },
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": [
-      "./src/__tests__/setup.js"
-    ],
-    "transformIgnorePatterns": [
-      "node_modules/(?!(i18next|i18next-http-middleware|i18next-fs-backend)/)"
-    ]
+    "supertest": "^7.1.1",
+    "vitest": "^3.2.4"
   }
 }
