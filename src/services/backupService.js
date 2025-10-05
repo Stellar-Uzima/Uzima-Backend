@@ -35,15 +35,15 @@ class BackupService {
   }
 
   /**
-   * Create a MongoDB backup
+   * Create a MongoDB backup (full or incremental)
    */
-  async createBackup() {
+  async createBackup(backupType = 'full', parentBackupId = null) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupId = `backup-${timestamp}`;
+    const backupId = `${backupType}-backup-${timestamp}`;
     const tempDir = path.join(process.cwd(), 'temp', backupId);
     
     try {
-      console.log(`Starting backup: ${backupId}`);
+      console.log(`Starting ${backupType} backup: ${backupId}`);
       
       // Ensure temp directory exists
       await fs.mkdir(tempDir, { recursive: true });
@@ -52,9 +52,13 @@ class BackupService {
       const mongoUri = process.env.MONGO_URI;
       const dbName = this.extractDatabaseName(mongoUri);
       
-      // Create MongoDB dump
+      // Create MongoDB dump (full or incremental)
       const dumpPath = path.join(tempDir, 'dump');
-      await this.createMongoDump(mongoUri, dbName, dumpPath);
+      if (backupType === 'incremental') {
+        await this.createIncrementalDump(mongoUri, dbName, dumpPath, parentBackupId);
+      } else {
+        await this.createMongoDump(mongoUri, dbName, dumpPath);
+      }
       
       // Create archive from dump
       const archivePath = path.join(tempDir, `${backupId}.tar.gz`);
@@ -75,6 +79,8 @@ class BackupService {
       
       const backupInfo = {
         id: backupId,
+        backupType,
+        parentBackupId,
         timestamp: new Date(),
         s3Key,
         hash,
@@ -83,11 +89,11 @@ class BackupService {
         status: 'completed'
       };
       
-      console.log(`Backup completed successfully: ${backupId}`);
+      console.log(`${backupType} backup completed successfully: ${backupId}`);
       return backupInfo;
       
     } catch (error) {
-      console.error(`Backup failed: ${backupId}`, error);
+      console.error(`${backupType} backup failed: ${backupId}`, error);
       
       // Clean up temp files on error
       try {
@@ -126,6 +132,70 @@ class BackupService {
       console.log('MongoDB dump created successfully');
     } catch (error) {
       throw new Error(`MongoDB dump failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create incremental MongoDB dump using oplog
+   */
+  async createIncrementalDump(mongoUri, dbName, outputPath, parentBackupId) {
+    try {
+      // Get the timestamp of the parent backup to determine incremental start point
+      const parentTimestamp = await this.getParentBackupTimestamp(parentBackupId);
+      
+      if (!parentTimestamp) {
+        throw new Error(`Parent backup not found: ${parentBackupId}`);
+      }
+
+      // Create incremental dump using oplog
+      const command = `mongodump --uri="${mongoUri}" --db="${dbName}" --query='{"ts":{"$gt":{"$timestamp":{"t":${Math.floor(parentTimestamp.getTime() / 1000)},"i":0}}}}' --out="${outputPath}"`;
+      
+      const { stdout, stderr } = await execAsync(command);
+      if (stderr && !stderr.includes('done dumping')) {
+        console.warn('Incremental mongodump warnings:', stderr);
+      }
+      console.log('Incremental MongoDB dump created successfully');
+    } catch (error) {
+      throw new Error(`Incremental MongoDB dump failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get the timestamp of a parent backup
+   */
+  async getParentBackupTimestamp(parentBackupId) {
+    try {
+      // Import Backup model dynamically to avoid circular dependency
+      const { default: Backup } = await import('../models/Backup.js');
+      const parentBackup = await Backup.findOne({ backupId: parentBackupId });
+      
+      if (!parentBackup) {
+        return null;
+      }
+      
+      return parentBackup.completedAt || parentBackup.createdAt;
+    } catch (error) {
+      console.error('Failed to get parent backup timestamp:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get the latest full backup for incremental backup chain
+   */
+  async getLatestFullBackup() {
+    try {
+      // Import Backup model dynamically to avoid circular dependency
+      const { default: Backup } = await import('../models/Backup.js');
+      const latestFullBackup = await Backup.findOne({ 
+        status: 'completed',
+        backupType: 'full'
+      }).sort({ createdAt: -1 });
+      
+      return latestFullBackup;
+    } catch (error) {
+      console.error('Failed to get latest full backup:', error);
+      return null;
     }
   }
 

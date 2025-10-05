@@ -13,6 +13,17 @@ const backupSchema = new mongoose.Schema({
     default: 'pending',
     required: true
   },
+  backupType: {
+    type: String,
+    enum: ['full', 'incremental'],
+    default: 'full',
+    required: true
+  },
+  parentBackupId: {
+    type: String,
+    required: false,
+    index: true
+  },
   database: {
     type: String,
     required: true
@@ -135,6 +146,46 @@ backupSchema.statics.cleanupExpired = async function() {
   });
   
   return result.deletedCount;
+};
+
+// Static method to get backup chain (full backup + its incrementals)
+backupSchema.statics.getBackupChain = async function(fullBackupId) {
+  const fullBackup = await this.findOne({ backupId: fullBackupId, backupType: 'full' });
+  if (!fullBackup) {
+    throw new Error(`Full backup not found: ${fullBackupId}`);
+  }
+
+  const incrementals = await this.find({
+    parentBackupId: fullBackupId,
+    backupType: 'incremental',
+    status: 'completed'
+  }).sort({ createdAt: 1 });
+
+  return {
+    fullBackup,
+    incrementals
+  };
+};
+
+// Static method to get latest full backup
+backupSchema.statics.getLatestFullBackup = async function() {
+  return await this.findOne({
+    backupType: 'full',
+    status: 'completed'
+  }).sort({ createdAt: -1 });
+};
+
+// Method to get all incremental backups in this chain
+backupSchema.methods.getIncrementalChain = async function() {
+  if (this.backupType !== 'full') {
+    return [];
+  }
+  
+  return await this.constructor.find({
+    parentBackupId: this.backupId,
+    backupType: 'incremental',
+    status: 'completed'
+  }).sort({ createdAt: 1 });
 };
 
 const Backup = mongoose.model('Backup', backupSchema);

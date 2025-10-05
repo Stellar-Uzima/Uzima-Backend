@@ -13,8 +13,9 @@ The Uzima Backend now includes a comprehensive automated backup system that prov
 ## Features
 
 ### ✅ Automated Daily Backups
-- Scheduled daily backups using node-cron (default: 2:00 AM UTC)
-- Configurable schedule via `BACKUP_SCHEDULE` environment variable
+- Scheduled daily full backups using node-cron (default: 2:00 AM UTC)
+- Scheduled hourly incremental backups (default: every hour)
+- Configurable schedules via environment variables
 - Automatic cleanup of old backups based on retention policy
 
 ### ✅ Security & Encryption
@@ -41,8 +42,22 @@ The Uzima Backend now includes a comprehensive automated backup system that prov
 ### ✅ Monitoring & Logging
 - Comprehensive logging for all backup operations
 - Backup status tracking in MongoDB
-- Error handling and notification system
+- Automated alert system with email notifications
+- Backup health checks every 6 hours
 - Performance metrics and statistics
+
+### ✅ Automated Restore Testing
+- Quarterly automated restore testing to staging environment
+- Full backup chain testing (full + incremental)
+- Data integrity validation after restore
+- Comprehensive test reporting and notifications
+
+### ✅ Advanced Alert System
+- Backup failure notifications with cooldown periods
+- Storage quota warnings (80% threshold)
+- Integrity verification failure alerts
+- Quarterly test result notifications
+- Configurable admin email recipients
 
 ## Configuration
 
@@ -62,6 +77,15 @@ S3_BACKUP_PREFIX=mongodb-backups/
 BACKUP_RETENTION_DAYS=30
 BACKUP_ENCRYPTION_KEY=your_backup_encryption_key_32_chars
 BACKUP_SCHEDULE=0 2 * * *
+INCREMENTAL_BACKUP_SCHEDULE=0 * * * *
+BACKUP_STORAGE_LIMIT_GB=100
+
+# Staging Environment for Restore Testing
+STAGING_MONGO_URI=mongodb://localhost:27017/uzima-staging
+
+# Alert Configuration
+BACKUP_ADMIN_EMAILS=admin1@uzima.com,admin2@uzima.com
+ADMIN_EMAIL=admin@uzima.com
 ```
 
 ### AWS S3 Setup
