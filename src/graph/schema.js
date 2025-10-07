@@ -22,9 +22,45 @@ export const typeDefs = gql`
     email: String
   }
 
+  type VitalsPoint {
+    bucket: String
+    avgHeartRate: Float
+    avgSystolic: Float
+    avgDiastolic: Float
+    avgTemperatureC: Float
+    avgSpo2: Float
+    avgRespiratoryRate: Float
+    count: Int
+  }
+
+  type HeatCell {
+    dow: Int
+    hour: Int
+    avgHeartRate: Float
+    count: Int
+  }
+
+  type VitalsMetrics {
+    bucket: String!
+    range: Range!
+    series: [VitalsPoint!]!
+    heatmap: [HeatCell!]!
+  }
+
+  input DateRangeInput {
+    from: String
+    to: String
+  }
+
+  type Range {
+    from: String!
+    to: String!
+  }
+
   type Query {
     record(id: ID!): Record
     appointments: [Appointment]
     me: User
+    vitalsMetrics(patientId: ID, bucket: String, range: DateRangeInput): VitalsMetrics
   }
 `;

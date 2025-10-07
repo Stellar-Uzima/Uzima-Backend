@@ -62,7 +62,8 @@
     "resend": "^6.1.2",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "recharts": "^2.12.7"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
