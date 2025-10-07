@@ -10,7 +10,7 @@ const config = {
       useUnifiedTopology: true,
     },
   },
-  migrationsDir: "migrations",
+  migrationsDir: "src/migrations",
   changelogCollectionName: "changelog",
   migrationFileExtension: ".js",
 };
