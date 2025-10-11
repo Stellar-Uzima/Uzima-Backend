@@ -1,4 +1,4 @@
-import { getAppointments, getAppointmentsForTomorrow } from '../model/appointmentModel.js';
+import { getAppointments, getAppointmentsForTomorrow } from '../models/appointmentModel.js';
 import RecordModel from '../models/Record.js';
 import UserModel from '../models/User.js';
 import { getVitalsMetrics } from '../controllers/metrics.controller.js';

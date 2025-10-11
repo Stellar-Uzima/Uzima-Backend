@@ -1,12 +1,12 @@
 import http from 'http';
 import { Server } from 'socket.io';
-import redisAdapter from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
 import jwt from 'jsonwebtoken';
-import config from '../config';
 
 let io;
 
-export function initWebSocket(server) {
+export async function initWebSocket(server) {
   io = new Server(server, {
     path: '/ws',
     transports: ['websocket', 'polling'],
@@ -15,15 +15,18 @@ export function initWebSocket(server) {
 
   // Redis adapter for scalability
   if (process.env.REDIS_URL) {
-    io.adapter(redisAdapter({ host: process.env.REDIS_HOST, port: process.env.REDIS_PORT }));
-  }
+    const pubClient = createClient({ host: process.env.REDIS_HOST, port: process.env.REDIS_PORT });
+    const subClient = pubClient.duplicate();
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+}
 
   // Auth middleware
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token || socket.handshake.query?.token;
     if (!token) return next(new Error('Authentication required'));
     try {
-      const user = jwt.verify(token, config.jwtSecret);
+      const user = jwt.verify(token, process.env.JWT_SECRET || 'secret');
       socket.user = user;
       next();
     } catch (err) {
