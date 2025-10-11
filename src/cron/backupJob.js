@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import BackupService from '../service/backupService.js';
+import BackupService from '../services/backupService.js';
 import Backup from '../models/Backup.js';
 import BackupAlertService from '../services/backupAlertService.js';
 import RestoreTestingService from '../services/restoreTestingService.js';

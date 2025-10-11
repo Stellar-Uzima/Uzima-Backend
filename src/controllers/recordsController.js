@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 /* eslint-disable no-console */
 /* eslint-disable no-undef */
-import { saveAndAnchorRecord, verifyRecord } from '../service/recordService.js';
+import { saveAndAnchorRecord, verifyRecord } from '../services/recordService.js';
 
 export async function createRecord(req, res) {
   try {

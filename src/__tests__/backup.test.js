@@ -2,7 +2,7 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../index.js';
 import Backup from '../models/Backup.js';
-import BackupService from '../service/backupService.js';
+import BackupService from '../services/backupService.js';
 import { generateToken } from '../utils/generateToken.js';
 import User from '../models/User.js';
 

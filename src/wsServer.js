@@ -1,6 +1,6 @@
 import http from 'http';
 import { Server } from 'socket.io';
-import redisAdapter from 'socket.io-redis';
+import redisAdapter from 'socket.io';
 import jwt from 'jsonwebtoken';
 import config from '../config';
 

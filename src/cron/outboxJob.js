@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import Outbox from '../models/Outbox.js';
 import Record from '../models/Record.js';
 import { sha256Hash } from '../utils/hashUtils.js';
-import { submitTransaction } from '../service/stellarService.js';
+import { submitTransaction } from '../services/stellarService.js';
 import { withTransaction } from '../utils/withTransaction.js';
 
 const BATCH_SIZE = 10;

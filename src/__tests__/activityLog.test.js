@@ -6,7 +6,7 @@ import ActivityLog from '../models/ActivityLog.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { activityLogger } from '../middleware/activityLogger.js';
-import activityLogService from '../service/activityLogService.js';
+import activityLogService from '../services/activityLogService.js';
 
 describe('Activity Logging System', () => {
   let server;

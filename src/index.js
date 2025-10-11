@@ -26,7 +26,7 @@ import './cron/outboxJob.js';
 import './cron/backupJob.js';
 import './workers/emailWorker.js';
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
-import { initRealtime } from './service/realtime.service.js';
+import { initRealtime } from './services/realtime.service.js';
 import http from 'http';
 import { initWebSocket } from './wsServer.js';
 
