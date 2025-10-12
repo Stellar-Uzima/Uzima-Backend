@@ -1,4 +1,4 @@
-import ActivityLogService from '../service/activityLogService.js';
+import ActivityLogService from '../services/activityLogService.js';
 import mongoose from 'mongoose';
 
 /**

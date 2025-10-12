@@ -11,7 +11,7 @@ import {
 } from '../validations/authValidation.js';
 import TwoFactorService from '../services/twoFactorService.js';
 import { sendSMS, validatePhoneNumber, generateVerificationCode } from '../utils/smsUtils.js';
-import mailer from '../service/email.Service.js';
+import mailer from '../services/email.Service.js';
 import crypto from 'crypto';
 import { resetPasswordEmail } from '../templates/resetPasswordEmail.js';
 

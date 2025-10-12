@@ -1,4 +1,4 @@
-import BackupService from '../service/backupService.js';
+import BackupService from '../services/backupService.js';
 import Backup from '../models/Backup.js';
 import { triggerManualBackup, getBackupStats } from '../cron/backupJob.js';
 import ApiResponse from '../utils/apiResponse.js';

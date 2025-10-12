@@ -1,8 +1,8 @@
 import express from 'express';
 import InventoryItem from '../models/InventoryItem.js';
-import { logInventoryChange } from '../service/inventoryAudit.service.js';
-import { emitInventoryUpdate } from '../service/realtime.service.js';
-import { checkAndNotifyLowStock } from '../service/inventoryAlert.service.js';
+import { logInventoryChange } from '../services/inventoryAudit.service.js';
+import { emitInventoryUpdate } from '../services/realtime.service.js';
+import { checkAndNotifyLowStock } from '../services/inventoryAlert.service.js';
 
 const router = express.Router();
 

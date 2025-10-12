@@ -1,6 +1,6 @@
 import express from 'express';
-import { addAppointment } from '../model/appointmentModel.js';
-import mailer from '../service/email.Service.js';
+import { addAppointment } from '../models/appointmentModel.js';
+import mailer from '../services/email.Service.js';
 import confirmationEmail from '../templates/confimationEmail.js';
 
 const router = express.Router();

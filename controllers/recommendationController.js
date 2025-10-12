@@ -1,4 +1,4 @@
-const { logClick } = require('../service/abTestService');
+const { logClick } = require('../services/abTestService');
 
 // POST /api/recommendations/abtest/click { articleId, group }
 exports.logAbTestClick = async (req, res) => {
@@ -12,8 +12,8 @@ exports.logAbTestClick = async (req, res) => {
   }
 };
 // Controller for recommendations API
-const { getRecommendedArticles } = require('../service/recommendationService');
-const { assignGroup, logImpression } = require('../service/abTestService');
+const { getRecommendedArticles } = require('../services/recommendationService');
+const { assignGroup, logImpression } = require('../services/abTestService');
 const User = require('../src/models/User');
 
 // GET /api/recommendations?page=1&limit=10
