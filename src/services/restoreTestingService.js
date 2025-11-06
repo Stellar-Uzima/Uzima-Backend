@@ -5,7 +5,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import mongoose from 'mongoose';
-import { Backup } from '../models/Backup.js';
+import Backup  from '../models/Backup.js';
 import BackupService from './backupService.js';
 import BackupAlertService from './backupAlertService.js';
 
