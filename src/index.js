@@ -7,7 +7,7 @@ import i18nextMiddleware from 'i18next-http-middleware';
 import * as Sentry from '@sentry/node';
 import * as Tracing from '@sentry/tracing';
 import { createRequire } from 'module';
-
+import { gracefulShutdown } from './shutdown.js';
 import { validateEnv } from './config/validateEnv.js';
 import i18next from './config/i18n.js';
 import connectDB from './config/database.js';
@@ -30,7 +30,6 @@ import './cron/outboxJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
-
 
 // Load environment variables
 dotenv.config();
@@ -180,6 +179,13 @@ const startServer = async () => {
       // eslint-disable-next-line no-console
       console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
     });
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
+
+    // --- Option 2: Init custom realtime service ---
+    initRealtime(httpServer);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
