@@ -18,6 +18,7 @@ try {
 } catch (e) {
   // Create a stub router if webhookRoutes doesn't exist
   webhookRoutes = express.Router();
+  console.warn('Webhook routes not loaded:', e.message);
 }
 
 const router = express.Router();
