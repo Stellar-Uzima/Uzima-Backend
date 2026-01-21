@@ -26,11 +26,13 @@ class BackupService {
     this.encryptionKey = process.env.BACKUP_ENCRYPTION_KEY;
     
     if (!this.bucketName) {
-      throw new Error('S3_BACKUP_BUCKET environment variable is required');
+      console.warn('S3_BACKUP_BUCKET not configured - backup service will not function');
+      // Don't throw - allow service to be created but methods will fail gracefully
     }
     
     if (!this.encryptionKey || this.encryptionKey.length !== 32) {
-      throw new Error('BACKUP_ENCRYPTION_KEY must be exactly 32 characters');
+      console.warn('BACKUP_ENCRYPTION_KEY not configured or invalid - encryption will not work');
+      // Don't throw - allow service to be created
     }
   }
 

@@ -14,6 +14,7 @@ import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import correlationIdMiddleware from './middleware/correlationId.js';
 import requestLogger from './middleware/requestLogger.js';
+import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
@@ -24,12 +25,11 @@ import stellarRoutes from './routes/stellarRoutes.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
-import './cron/backupJob.js';
-import './workers/emailWorker.js';
+// Backup job disabled - requires S3 configuration
+// import './cron/backupJob.js';
+// Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
-import { initRealtime } from './services/realtime.service.js';
 import http from 'http';
-import { initWebSocket } from './wsServer.js';
 
 // Load environment variables
 dotenv.config();
@@ -62,16 +62,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(correlationIdMiddleware);
-
-app.use(cors());
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
-app.use(correlationIdMiddleware);
-
-// Initialize i18n middleware
-app.use(i18nextMiddleware.handle(i18next));
 
 // Apply general rate limiting to all routes
 app.use(generalRateLimit);
@@ -123,7 +113,12 @@ app.get('/debug-sentry', (req, res) => {
   throw new Error('Sentry test error');
 });
 
-// Error handling
+// 404 handler for undefined routes (must be before error handler)
+app.use((req, res, next) => {
+  next(new NotFoundError(`Route ${req.method} ${req.path} not found`));
+});
+
+// Error handling middleware (must be last)
 app.use(errorHandler);
 
 // Server bootstrap
@@ -134,9 +129,47 @@ const startServer = async () => {
     // const stellarStatus = await getNetworkStatus();
     // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
 
-    // --- Option 1: Start with WebSocket server ---
+    // --- Start HTTP server ---
     const httpServer = http.createServer(app);
-    initWebSocket(httpServer);
+    
+    // Initialize WebSocket if available
+    try {
+      const wsModule = await import('./wsServer.js');
+      if (wsModule.initWebSocket) {
+        wsModule.initWebSocket(httpServer);
+        // eslint-disable-next-line no-console
+        console.log('WebSocket server initialized');
+      }
+    } catch (e) {
+      // WebSocket server not available - continue without it
+      // eslint-disable-next-line no-console
+      console.log('WebSocket server not available, continuing without it');
+    }
+
+    // Initialize realtime service if available
+    try {
+      const realtimeModule = await import('./services/realtime.service.js');
+      if (realtimeModule.initRealtime) {
+        realtimeModule.initRealtime(httpServer);
+        // eslint-disable-next-line no-console
+        console.log('Realtime service initialized');
+      }
+    } catch (e) {
+      // Realtime service not available - continue without it
+      // eslint-disable-next-line no-console
+      console.log('Realtime service not available, continuing without it');
+    }
+
+    // Initialize email worker if available
+    try {
+      await import('./workers/emailWorker.js');
+      // eslint-disable-next-line no-console
+      console.log('Email worker initialized');
+    } catch (e) {
+      // Email worker not available - continue without it
+      // eslint-disable-next-line no-console
+      console.log('Email worker not available, continuing without it');
+    }
 
     httpServer.listen(port, () => {
       // eslint-disable-next-line no-console
@@ -145,7 +178,6 @@ const startServer = async () => {
       console.log(`API Documentation available at http://localhost:${port}/docs`);
       // eslint-disable-next-line no-console
       console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
-      console.log(`WebSocket server available at ws://localhost:${port}/ws`);
     });
 
     // Handle graceful shutdown
@@ -156,7 +188,7 @@ const startServer = async () => {
     initRealtime(httpServer);
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to connect to Stellar network');
+    console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
     // eslint-disable-next-line no-console
     console.error(error.message);
     process.exit(1);

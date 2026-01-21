@@ -69,6 +69,12 @@ const activityLogSchema = new mongoose.Schema({
       'inventory_adjust',
       'inventory_consume',
       
+      // Prescription actions
+      'prescription_create',
+      'prescription_verify',
+      'prescription_reject',
+      'prescription_view',
+      
       // Payment actions
       'payment_create',
       'payment_complete',
