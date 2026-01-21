@@ -1,5 +1,6 @@
 // Stub email queue for prescription verification system
-import { Queue, QueueScheduler } from 'bullmq';
+import pkg from 'bullmq';
+const { Queue } = pkg;
 import { URL } from 'url';
 
 const queueName = 'email-queue';
@@ -16,7 +17,6 @@ function parseRedisUrl(urlString) {
 }
 
 const connection = parseRedisUrl(process.env.REDIS_URL);
-const scheduler = new QueueScheduler(queueName, { connection });
 const emailQueue = new Queue(queueName, { connection });
 
 export async function enqueueEmail(data) {
