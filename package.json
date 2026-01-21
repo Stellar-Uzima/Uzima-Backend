@@ -57,6 +57,7 @@
     "node-cron": "^4.0.7",
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.1",
+    "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.2.2",
     "recharts": "^2.12.7",
     "redis": "^5.8.2",
