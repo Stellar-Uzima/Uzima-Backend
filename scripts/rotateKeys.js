@@ -13,7 +13,7 @@ dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const ENCRYPTED_MODELS = [
   { model: User, fields: ['email'] },
-  { model: Patient, fields: ['email', 'phoneNumber', 'address'] },
+  { model: Patient, fields: ['email', 'phone', 'address'] },
   { model: Record, fields: ['diagnosis', 'treatment', 'history'] },
 ];
 
