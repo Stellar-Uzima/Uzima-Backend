@@ -1,22 +1,46 @@
 // Stub email queue for prescription verification system
-export function enqueueEmail(data) {
-  // Stub implementation
-  console.log('Email queued (stub):', data);
-  return Promise.resolve();
+import { Queue, QueueScheduler } from 'bullmq';
+import { URL } from 'url';
+
+const queueName = 'email-queue';
+
+function parseRedisUrl(urlString) {
+  const u = new URL(urlString || 'redis://localhost:6379');
+  return {
+    host: u.hostname,
+    port: Number(u.port || 6379),
+    username: u.username || undefined,
+    password: u.password || undefined,
+    db: u.pathname ? Number(u.pathname.replace('/', '')) || 0 : 0,
+  };
 }
 
-export function getQueueStats() {
-  // Stub implementation
+const connection = parseRedisUrl(process.env.REDIS_URL);
+const scheduler = new QueueScheduler(queueName, { connection });
+const emailQueue = new Queue(queueName, { connection });
+
+export async function enqueueEmail(data) {
+  return emailQueue.add('send-email', data, {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: true,
+    removeOnFail: false,
+  });
+}
+
+export async function getQueueStats() {
+  const counts = await emailQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
   return {
-    waiting: 0,
-    active: 0,
-    completed: 0,
-    failed: 0,
+    waiting: counts.waiting || 0,
+    active: counts.active || 0,
+    completed: counts.completed || 0,
+    failed: counts.failed || 0,
+    delayed: counts.delayed || 0,
   };
 }
 
 export default {
-  add: () => Promise.resolve(),
-  process: () => {},
+  add: enqueueEmail,
   getStats: getQueueStats,
+  queue: emailQueue,
 };
