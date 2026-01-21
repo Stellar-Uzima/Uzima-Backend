@@ -8,6 +8,7 @@ import * as Sentry from '@sentry/node';
 import * as Tracing from '@sentry/tracing';
 import { createRequire } from 'module';
 
+import { validateEnv } from './config/validateEnv.js';
 import i18next from './config/i18n.js';
 import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
@@ -29,8 +30,12 @@ import './cron/outboxJob.js';
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
 
+
 // Load environment variables
 dotenv.config();
+
+// Validate environment variables
+validateEnv();
 
 // Initialize Express app
 const app = express();
