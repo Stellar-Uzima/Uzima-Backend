@@ -7,7 +7,7 @@ import i18nextMiddleware from 'i18next-http-middleware';
 import * as Sentry from '@sentry/node';
 import * as Tracing from '@sentry/tracing';
 import { createRequire } from 'module';
-
+import { gracefulShutdown } from './shutdown.js';
 import { validateEnv } from './config/validateEnv.js';
 import i18next from './config/i18n.js';
 import connectDB from './config/database.js';
@@ -30,7 +30,6 @@ import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import { initRealtime } from './services/realtime.service.js';
 import http from 'http';
 import { initWebSocket } from './wsServer.js';
-
 
 // Load environment variables
 dotenv.config();
@@ -148,6 +147,10 @@ const startServer = async () => {
       console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
       console.log(`WebSocket server available at ws://localhost:${port}/ws`);
     });
+
+    // Handle graceful shutdown
+    process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
 
     // --- Option 2: Init custom realtime service ---
     initRealtime(httpServer);

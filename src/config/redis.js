@@ -6,7 +6,7 @@ dotenv.config();
 // Redis client configuration
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
-  retry_strategy: (options) => {
+  retry_strategy: options => {
     if (options.error && options.error.code === 'ECONNREFUSED') {
       // End reconnecting on a specific error and flush all commands with a individual error
       return new Error('The server refused the connection');
@@ -21,11 +21,11 @@ const redisClient = createClient({
     }
     // Reconnect after
     return Math.min(options.attempt * 100, 3000);
-  }
+  },
 });
 
 // Handle Redis connection events
-redisClient.on('error', (err) => {
+redisClient.on('error', err => {
   console.error('Redis Client Error:', err);
 });
 
@@ -50,6 +50,12 @@ const connectRedis = async () => {
     console.error('Failed to connect to Redis:', error);
     // In production, you might want to exit the process
     // process.exit(1);
+  }
+};
+
+export const closeRedis = async () => {
+  if (redisClient) {
+    await redisClient.quit();
   }
 };
 
