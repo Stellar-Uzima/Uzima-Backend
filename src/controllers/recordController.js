@@ -1,8 +1,7 @@
 import Record from '../models/Record.js';
 import ApiResponse from '../utils/apiResponse.js';
 import transactionLog from '../models/transactionLog.js';
-import { notifyUser, notifyResource } from '../wsServer.js';   // ✅ from WebSocket branch
-import { withTransaction } from '../utils/withTransaction.js'; // ✅ from main
+import { withTransaction } from '../utils/withTransaction.js';
 
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
@@ -80,16 +79,6 @@ const recordController = {
       });
       await record.save();
 
-      
-      const safePayload = {
-        _id: record._id,
-        createdBy: record.createdBy,
-        createdAt: record.createdAt,
-        event: 'recordCreated',
-      };
-      notifyUser(record.createdBy, 'recordCreated', safePayload);
-      notifyResource(record._id, 'recordCreated', safePayload);
-
       return ApiResponse.success(res, { record }, 'Record created successfully');
     } catch (error) {
       console.error('Error creating record:', error);
@@ -140,7 +129,6 @@ const recordController = {
     }
   },
 
-
   restoreRecord: async (req, res) => {
     try {
       await withTransaction(async session => {
@@ -179,7 +167,6 @@ const recordController = {
     }
   },
 
-  
   purgeRecord: async (req, res) => {
     try {
       await withTransaction(async session => {
