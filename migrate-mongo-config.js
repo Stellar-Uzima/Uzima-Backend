@@ -1,6 +1,7 @@
 // migrate-mongo config file (default name that migrate-mongo looks for)
-// This uses CommonJS format to work with migrate-mongo and .cjs migration files
-require('dotenv').config();
+// Uses ES module syntax since package.json has "type": "module"
+import { config as dotenvConfig } from 'dotenv';
+dotenvConfig();
 
 const config = {
   mongodb: {
@@ -17,4 +18,4 @@ const config = {
   moduleSystem: 'commonjs'
 };
 
-module.exports = config;
+export default config;
