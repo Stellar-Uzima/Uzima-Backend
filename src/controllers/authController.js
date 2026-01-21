@@ -146,6 +146,11 @@ const authController = {
     }
   },
 
+  loginWith2FA: async (req, res) => {
+    // Stub implementation for 2FA login
+    return ApiResponse.error(res, '2FA login not implemented yet', 501);
+  },
+
   login: async (req, res) => {
     // Validate request body
     const { error, value } = loginSchema.validate(req.body, { abortEarly: false });
@@ -289,6 +294,29 @@ const authController = {
     } catch (error) {
       return ApiResponse.error(res, 'An error occurred processing your request', 500);
     }
+  },
+
+  // 2FA stub methods
+  enableSMS2FA: async (req, res) => {
+    return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
+  },
+  verifySMS2FA: async (req, res) => {
+    return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
+  },
+  enableTOTP2FA: async (req, res) => {
+    return ApiResponse.error(res, 'TOTP 2FA not implemented yet', 501);
+  },
+  verifyTOTP2FA: async (req, res) => {
+    return ApiResponse.error(res, 'TOTP 2FA not implemented yet', 501);
+  },
+  get2FAStatus: async (req, res) => {
+    return ApiResponse.success(res, { enabled: false, method: null }, '2FA status');
+  },
+  disable2FA: async (req, res) => {
+    return ApiResponse.error(res, '2FA not implemented yet', 501);
+  },
+  revokeTrustedDevice: async (req, res) => {
+    return ApiResponse.error(res, 'Trusted devices not implemented yet', 501);
   },
 };
 

@@ -36,8 +36,9 @@ export const getUserActivityLogs = async (req, res) => {
     
     // Check authorization - users can only view their own logs unless they're admin
     const requestingUser = req.user;
-    const isAdmin = ['admin', 'super_admin'].includes(requestingUser.role);
-    const isOwnUser = requestingUser._id.toString() === userId;
+    const requestingUserId = requestingUser?._id?.toString() || requestingUser?.id?.toString();
+    const isAdmin = ['admin', 'super_admin'].includes(requestingUser?.role);
+    const isOwnUser = requestingUserId === userId;
     
     if (!isAdmin && !isOwnUser) {
       return res.status(403).json({
