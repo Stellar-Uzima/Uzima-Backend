@@ -65,7 +65,8 @@
     "socket.io": "^4.8.1",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
