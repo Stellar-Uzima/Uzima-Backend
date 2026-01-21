@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import encryptedFieldPlugin from './plugins/encryptedField.js';
 
 const fileSchema = new mongoose.Schema({
   cid: {
@@ -19,7 +20,7 @@ const fileSchema = new mongoose.Schema({
   uploadedAt: {
     type: Date,
     default: Date.now,
-  }
+  },
 });
 
 const recordSchema = new mongoose.Schema({
@@ -72,17 +73,19 @@ const recordSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null,
-    index: true
+    index: true,
   },
   deletedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    default: null,
   },
 });
 
+recordSchema.plugin(encryptedFieldPlugin, { fields: ['diagnosis', 'treatment'] });
+
 // Update the updatedAt timestamp before saving
-recordSchema.pre('save', function(next) {
+recordSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
@@ -92,4 +95,4 @@ recordSchema.index({ clientUUID: 1, syncTimestamp: 1 }, { unique: true });
 // Index for deletedAt
 recordSchema.index({ deletedAt: 1 });
 
-export default mongoose.model('Record', recordSchema); 
+export default mongoose.model('Record', recordSchema);
