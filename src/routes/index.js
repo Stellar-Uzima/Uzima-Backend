@@ -10,6 +10,7 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import templateRoutes from './templateRoutes.js';
 
 // Optional webhook routes (may not exist)
 let webhookRoutes;
@@ -45,5 +46,6 @@ router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
+router.use('/templates', templateRoutes); // Email template preview routes
 
 export default router;
