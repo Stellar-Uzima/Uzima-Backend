@@ -42,6 +42,10 @@ const recordSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  history: {
+    type: String,
+    required: false,
+  },
   txHash: {
     type: String,
     required: true,
@@ -82,7 +86,7 @@ const recordSchema = new mongoose.Schema({
   },
 });
 
-recordSchema.plugin(encryptedFieldPlugin, { fields: ['diagnosis', 'treatment'] });
+recordSchema.plugin(encryptedFieldPlugin, { fields: ['diagnosis', 'treatment', 'history'] });
 
 // Update the updatedAt timestamp before saving
 recordSchema.pre('save', function (next) {

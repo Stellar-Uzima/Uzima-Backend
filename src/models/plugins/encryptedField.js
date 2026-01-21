@@ -89,6 +89,16 @@ const encryptedFieldPlugin = (schema, options) => {
     next();
   };
 
+  // Helper to decrypt a single document
+  const decryptDocument = doc => {
+    if (!doc) return;
+    fields.forEach(field => {
+      if (doc[field] && isEncrypted(doc[field])) {
+        doc[field] = decrypt(doc[field]);
+      }
+    });
+  };
+
   schema.pre('find', queryMiddleware);
   schema.pre('findOne', queryMiddleware);
   schema.pre('findOneAndUpdate', queryMiddleware);
@@ -97,6 +107,22 @@ const encryptedFieldPlugin = (schema, options) => {
   schema.pre('deleteMany', queryMiddleware);
   schema.pre('updateOne', queryMiddleware);
   schema.pre('updateMany', queryMiddleware);
+
+  // Post-find middleware to decrypt results explicitly
+  // This is important for lean() queries or when init hooks might be bypassed
+  schema.post('find', function (docs) {
+    if (Array.isArray(docs)) {
+      docs.forEach(doc => decryptDocument(doc));
+    }
+  });
+
+  schema.post('findOne', function (doc) {
+    decryptDocument(doc);
+  });
+
+  schema.post('findOneAndUpdate', function (doc) {
+    decryptDocument(doc);
+  });
 };
 
 export default encryptedFieldPlugin;

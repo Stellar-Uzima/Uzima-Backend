@@ -71,7 +71,8 @@ export const decrypt = encryptedText => {
 
     return decrypted;
   } catch (error) {
-    console.error(`Decryption failed for version ${version}:`, error);
+    // Avoid logging sensitive error details or keys
+    console.error(`Decryption failed for version ${version}`);
     throw new Error('Decryption failed');
   }
 };
