@@ -72,14 +72,26 @@ app.use(generalRateLimit);
 
 // Swagger Documentation
 app.use(
-  '/docs',
+  '/api-docs',
   swaggerUi.serve,
   swaggerUi.setup(specs, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Uzima API Documentation',
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestDuration: true,
+    },
   })
 );
+
+// Serve raw OpenAPI JSON spec
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(specs);
+});
 
 // Routes
 app.use('/api', routes);
@@ -131,7 +143,7 @@ const startServer = async () => {
 
     // --- Start HTTP server ---
     const httpServer = http.createServer(app);
-    
+
     // Initialize WebSocket if available
     try {
       const wsModule = await import('./wsServer.js');
@@ -185,7 +197,7 @@ const startServer = async () => {
       // eslint-disable-next-line no-console
       console.log(`Server is running on http://localhost:${port}`);
       // eslint-disable-next-line no-console
-      console.log(`API Documentation available at http://localhost:${port}/docs`);
+      console.log(`API Documentation available at http://localhost:${port}/api-docs`);
       // eslint-disable-next-line no-console
       console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
     });

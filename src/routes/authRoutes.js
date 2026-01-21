@@ -22,6 +22,41 @@ const twoFactorVerifySchema = { body: loginSchema };
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     description: Create a new user account with username, email, password, and role
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *           example:
+ *             username: johndoe
+ *             email: john.doe@example.com
+ *             password: SecureP@ss123
+ *             role: patient
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Validation error or user already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       500:
+ *         description: Server error
+ */
 // Basic authentication with strict rate limiting and validation
 router.post(
   '/register',
@@ -31,6 +66,43 @@ router.post(
   authController.register
 );
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: User login
+ *     description: Authenticate user with email and password to receive JWT tokens
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           example:
+ *             email: john.doe@example.com
+ *             password: SecureP@ss123
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ */
 router.post(
   '/login',
   authRateLimit,
@@ -39,6 +111,45 @@ router.post(
   authController.login
 );
 
+/**
+ * @swagger
+ * /api/auth/login-2fa:
+ *   post:
+ *     summary: Login with 2FA
+ *     description: Complete login with two-factor authentication code
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *               - code
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *                 description: 2FA verification code
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials or 2FA code
+ *       501:
+ *         description: 2FA not implemented
+ */
 router.post(
   '/login-2fa',
   twoFactorRateLimit,
@@ -47,6 +158,37 @@ router.post(
   authController.loginWith2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     description: Send a password reset link to the user's email
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john.doe@example.com
+ *     responses:
+ *       200:
+ *         description: Password reset email sent (if account exists)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Validation error
+ */
 router.post(
   '/forgot-password',
   passwordResetRateLimit,
@@ -55,6 +197,41 @@ router.post(
   authController.forgotPassword
 );
 
+/**
+ * @swagger
+ * /api/auth/reset-password/{token}:
+ *   post:
+ *     summary: Reset password
+ *     description: Reset password using the token received via email
+ *     tags: [Auth]
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Password reset token from email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 8
+ *                 example: NewSecureP@ss456
+ *     responses:
+ *       200:
+ *         description: Password reset successful
+ *       400:
+ *         description: Invalid or expired token
+ */
 router.post(
   '/reset-password/:token',
   passwordResetRateLimit,
@@ -63,6 +240,46 @@ router.post(
   authController.resetPassword
 );
 
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     description: Exchange a valid refresh token for a new access token
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 example: a1b2c3d4e5f6...
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
+ *                       type: string
+ *       401:
+ *         description: Invalid or expired refresh token
+ */
 // Token refresh & logout (public; use refresh token in body)
 router.post(
   '/refresh',
@@ -71,11 +288,73 @@ router.post(
   authController.refresh
 );
 
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     description: Revoke the refresh token to logout the user
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     revoked:
+ *                       type: boolean
+ */
 router.post('/logout', authRateLimit, activityLogger({ action: 'logout' }), authController.logout);
 
 // 2FA Management (Protected routes)
 router.use(protect); // Apply authentication middleware to all routes below
 
+/**
+ * @swagger
+ * /api/auth/2fa/sms/enable:
+ *   post:
+ *     summary: Enable SMS 2FA
+ *     description: Enable SMS-based two-factor authentication
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "+1234567890"
+ *     responses:
+ *       200:
+ *         description: SMS 2FA enabled, verification code sent
+ *       401:
+ *         description: Unauthorized
+ *       501:
+ *         description: Not implemented
+ */
 // SMS 2FA with rate limiting and validation
 router.post(
   '/2fa/sms/enable',
@@ -85,6 +364,35 @@ router.post(
   authController.enableSMS2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/sms/verify:
+ *   post:
+ *     summary: Verify SMS 2FA code
+ *     description: Verify the SMS code to complete 2FA setup
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: SMS 2FA verified successfully
+ *       401:
+ *         description: Invalid code
+ *       501:
+ *         description: Not implemented
+ */
 router.post(
   '/2fa/sms/verify',
   twoFactorRateLimit,
@@ -93,6 +401,39 @@ router.post(
   authController.verifySMS2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/totp/enable:
+ *   post:
+ *     summary: Enable TOTP 2FA
+ *     description: Enable authenticator app (TOTP) based two-factor authentication
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: TOTP secret generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     secret:
+ *                       type: string
+ *                       description: TOTP secret for authenticator app
+ *                     qrCode:
+ *                       type: string
+ *                       description: QR code data URL
+ *       401:
+ *         description: Unauthorized
+ *       501:
+ *         description: Not implemented
+ */
 // TOTP 2FA with rate limiting and validation
 router.post(
   '/2fa/totp/enable',
@@ -101,6 +442,35 @@ router.post(
   authController.enableTOTP2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/totp/verify:
+ *   post:
+ *     summary: Verify TOTP code
+ *     description: Verify the TOTP code from authenticator app
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: TOTP verified successfully
+ *       401:
+ *         description: Invalid code
+ *       501:
+ *         description: Not implemented
+ */
 router.post(
   '/2fa/totp/verify',
   twoFactorRateLimit,
@@ -109,6 +479,37 @@ router.post(
   authController.verifyTOTP2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/status:
+ *   get:
+ *     summary: Get 2FA status
+ *     description: Get the current 2FA configuration status for the user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 2FA status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     enabled:
+ *                       type: boolean
+ *                     method:
+ *                       type: string
+ *                       nullable: true
+ *                       enum: [sms, totp, null]
+ *       401:
+ *         description: Unauthorized
+ */
 // 2FA Status and Management
 router.get(
   '/2fa/status',
@@ -116,6 +517,32 @@ router.get(
   authController.get2FAStatus
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/disable:
+ *   post:
+ *     summary: Disable 2FA
+ *     description: Disable two-factor authentication for the user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 description: Current password for confirmation
+ *     responses:
+ *       200:
+ *         description: 2FA disabled successfully
+ *       401:
+ *         description: Unauthorized or invalid password
+ *       501:
+ *         description: Not implemented
+ */
 router.post(
   '/2fa/disable',
   twoFactorRateLimit,
@@ -124,6 +551,32 @@ router.post(
   authController.disable2FA
 );
 
+/**
+ * @swagger
+ * /api/auth/2fa/devices/{deviceId}:
+ *   delete:
+ *     summary: Revoke trusted device
+ *     description: Remove a device from the list of trusted devices
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: deviceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Device ID to revoke
+ *     responses:
+ *       200:
+ *         description: Device revoked successfully
+ *       404:
+ *         description: Device not found
+ *       401:
+ *         description: Unauthorized
+ *       501:
+ *         description: Not implemented
+ */
 // Trusted Device Management
 router.delete(
   '/2fa/devices/:deviceId',
