@@ -172,6 +172,16 @@ const startServer = async () => {
       console.log('Email worker not available, continuing without it');
     }
 
+    // Initialize webhook worker if available
+    try {
+      await import('./workers/webhookWorker.js');
+      // eslint-disable-next-line no-console
+      console.log('Webhook worker initialized');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('Webhook worker not available, continuing without it');
+    }
+
     httpServer.listen(port, () => {
       // eslint-disable-next-line no-console
       console.log(`Server is running on http://localhost:${port}`);

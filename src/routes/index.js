@@ -42,6 +42,7 @@ router.use('/admin', adminRoutes);
 router.use('/admin', adminGDPRRoutes); // GDPR admin routes
 router.use('/admin/backups', backupRoutes); // Backup admin routes
 router.use('/payments', webhookRoutes); // Payment webhook routes
+router.use('/', webhookRoutes); // Webhook subscription routes under /webhooks
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
