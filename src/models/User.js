@@ -30,47 +30,6 @@ const userSchema = new mongoose.Schema({
     enum: ['patient', 'doctor', 'educator', 'admin'],
     required: true,
   },
-  // 2FA Configuration
-  twoFactorAuth: {
-    isEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    methods: {
-      sms: {
-        enabled: { type: Boolean, default: false },
-        phoneNumber: { type: String },
-        verified: { type: Boolean, default: false },
-      },
-      totp: {
-        enabled: { type: Boolean, default: false },
-        secret: { type: String }, // Encrypted TOTP secret
-        verified: { type: Boolean, default: false },
-        backupCodes: [
-          {
-            code: String,
-            used: { type: Boolean, default: false },
-            usedAt: Date,
-          },
-        ],
-      },
-    },
-    // Remember device tokens
-    trustedDevices: [
-      {
-        deviceId: String,
-        deviceInfo: String,
-        ipAddress: String,
-        userAgent: String,
-        createdAt: { type: Date, default: Date.now },
-        expiresAt: {
-          type: Date,
-          default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        },
-        revoked: { type: Boolean, default: false },
-      },
-    ],
-  },
   // Security settings
   security: {
     loginAttempts: { type: Number, default: 0 },
