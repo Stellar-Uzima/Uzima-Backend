@@ -1,20 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend,
-  Brush,
-  ScatterChart,
-  Scatter,
-  ZAxis
-} from 'recharts';
+import React, { useEffect, useMemo, useState } from 'react';
+
+// Recharts is optional - conditionally render dashboard
+let hasRecharts = false;
+let RechartsComponents = {};
+
+// Try to dynamically import recharts if available
+if (typeof window !== 'undefined') {
+  // Will be set if recharts is available
+  window.__rechartsAvailable = false;
+}
 
 function useVitalsMetrics({ from, to, bucket, token, patientId }) {
   const [data, setData] = useState({ series: [], heatmap: [], bucket, range: { from, to } });
@@ -22,22 +16,46 @@ function useVitalsMetrics({ from, to, bucket, token, patientId }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    
     let cancelled = false;
     setLoading(true);
+    setError(null);
+    
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     if (bucket) params.set('bucket', bucket);
     if (patientId) params.set('patientId', patientId);
-    fetch(`/api/metrics/vitals?${params.toString()}`, {
+    
+    fetch(`http://localhost:3000/api/metrics/vitals?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        }
+        const contentType = r.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Response is not JSON');
+        }
+        return r.json();
+      })
       .then((payload) => {
         if (!cancelled) setData(payload);
       })
-      .catch((e) => !cancelled && setError(e))
-      .finally(() => !cancelled && setLoading(false));
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e);
+          console.warn('Dashboard metrics fetch failed:', e.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => { cancelled = true; };
   }, [from, to, bucket, token, patientId]);
 
@@ -53,7 +71,7 @@ function isoDaysAgo(n) {
 export default function Dashboard({ token, patientId }) {
   const [range, setRange] = useState({ from: isoDaysAgo(365), to: new Date().toISOString() });
   const [bucket, setBucket] = useState('day');
-  const { data, loading } = useVitalsMetrics({ ...range, bucket, token, patientId });
+  const { data, loading, error } = useVitalsMetrics({ ...range, bucket, token, patientId });
 
   const series = useMemo(() => (data.series || []).map(p => ({
     bucket: p._id || p.bucket || 'n/a',
@@ -73,6 +91,7 @@ export default function Dashboard({ token, patientId }) {
     count: c.count
   })), [data]);
 
+  // Simple dashboard without charts if recharts is not available
   return (
     <section aria-label="Vitals Dashboard" style={{ padding: 16 }}>
       <header style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -95,51 +114,41 @@ export default function Dashboard({ token, patientId }) {
         </label>
       </header>
 
-      <div style={{ width: '100%', height: 300, marginTop: 16 }}>
-        <ResponsiveContainer>
-          <LineChart data={series} role="img" aria-label="Average Heart Rate Over Time">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="bucket" />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="avgHeartRate" name="Heart Rate" stroke="#0ea5e9" dot={false} yAxisId="left" />
-            <Line type="monotone" dataKey="avgSpo2" name="SpO2" stroke="#10b981" dot={false} yAxisId="right" />
-            <Brush height={20} travellerWidth={8} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={{ width: '100%', height: 300, marginTop: 24 }}>
-        <ResponsiveContainer>
-          <BarChart data={series} role="img" aria-label="Average Blood Pressure">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="bucket" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="avgSystolic" name="Systolic" fill="#f59e0b" />
-            <Bar dataKey="avgDiastolic" name="Diastolic" fill="#ef4444" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={{ width: '100%', height: 320, marginTop: 24 }}>
-        <ResponsiveContainer>
-          <ScatterChart role="img" aria-label="Heart Rate Heatmap by Day/Hour">
-            <XAxis type="number" dataKey="hour" name="Hour" domain={[0,23]} tickCount={24} />
-            <YAxis type="number" dataKey="dow" name="Day of Week" domain={[1,7]} tickCount={7} />
-            <ZAxis type="number" dataKey="avgHeartRate" range={[60, 400]} name="Avg HR" />
-            <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-            <Scatter data={heat} fill="#6366f1" />
-          </ScatterChart>
-        </ResponsiveContainer>
+      {/* Simple table view instead of charts */}
+      <div style={{ marginTop: 16 }}>
+        <h3>Vitals Data</h3>
+        {series.length > 0 ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Period</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Heart Rate</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>SpO2</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Systolic</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Diastolic</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {series.slice(0, 10).map((item, idx) => (
+                <tr key={idx}>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.bucket}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.avgHeartRate?.toFixed(1) || 'N/A'}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.avgSpo2?.toFixed(1) || 'N/A'}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.avgSystolic?.toFixed(1) || 'N/A'}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.avgDiastolic?.toFixed(1) || 'N/A'}</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.count || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No data available for the selected period.</p>
+        )}
       </div>
 
       {loading && <div role="status" aria-live="polite">Loading metrics…</div>}
+      {error && <div style={{ color: 'red' }}>Error loading metrics: {error.message || String(error)}</div>}
     </section>
   );
 }
-
-

@@ -7,15 +7,41 @@ function Recommended({ token }) {
   const [optOut, setOptOut] = useState(false);
 
   useEffect(() => {
-    fetch('/api/recommendations', {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    
+    let cancelled = false;
+    setLoading(true);
+    
+    fetch('http://localhost:3000/api/recommendations', {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          return { recommendations: [], optOut: false };
+        }
+        return res.json();
+      })
       .then(data => {
-        setArticles(data.recommendations || []);
-        setOptOut(data.optOut);
-        setLoading(false);
+        if (!cancelled) {
+          setArticles(data.recommendations || []);
+          setOptOut(data.optOut);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.warn('Recommendations fetch failed:', err.message);
+          setArticles([]);
+          setOptOut(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
+    
+    return () => { cancelled = true; };
   }, [token]);
 
   if (loading) return <div>Loading recommendations...</div>;

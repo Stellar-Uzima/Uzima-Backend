@@ -6,10 +6,21 @@ import metricsRoutes from './metricsRoutes.js';
 import gdprRoutes from './gdprRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import adminGDPRRoutes from './adminGDPRRoutes.js';
-import webhookRoutes from './webhookRoutes.js';
 import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+import prescriptionRoutes from './prescriptionRoutes.js';
+
+// Optional webhook routes (may not exist)
+let webhookRoutes;
+try {
+  webhookRoutes = (await import('./webhookRoutes.js')).default;
+} catch (e) {
+  // Create a stub router if webhookRoutes doesn't exist
+  webhookRoutes = express.Router();
+  console.warn('Webhook routes not loaded:', e.message);
+}
+
 const router = express.Router();
 
 // Import route modules here
@@ -34,5 +45,6 @@ router.use('/payments', webhookRoutes); // Payment webhook routes
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
+router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 
 export default router;

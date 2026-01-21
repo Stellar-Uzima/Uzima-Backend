@@ -1,8 +1,16 @@
 import express from 'express';
 import InventoryItem from '../models/InventoryItem.js';
 import { logInventoryChange } from '../services/inventoryAudit.service.js';
-import { emitInventoryUpdate } from '../services/realtime.service.js';
 import { checkAndNotifyLowStock } from '../services/inventoryAlert.service.js';
+
+// Optional realtime service (may not exist)
+let emitInventoryUpdate;
+try {
+  const realtimeModule = await import('../services/realtime.service.js');
+  emitInventoryUpdate = realtimeModule.emitInventoryUpdate || (() => {});
+} catch (e) {
+  emitInventoryUpdate = () => {}; // No-op if service doesn't exist
+}
 
 const router = express.Router();
 
