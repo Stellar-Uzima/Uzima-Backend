@@ -19,66 +19,62 @@ const authController = {
     const { error, value } = registerSchema.validate(req.body, { abortEarly: false });
     if (error) {
       const errors = error.details.map(e => e.message).join('; ');
-      return ApiResponse.error(res, errors, 400);
+      ApiResponse.error(res, errors, 400); // Throws error - no return needed
     }
 
     const { username, email, password, role } = value;
 
-    try {
-      // Check if email already exists
-      const existingUser = await User.findOne({
-        $or: [{ email }, { username }],
-      });
+    // Check if email already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
 
-      if (existingUser) {
-        if (existingUser.email === email) {
-          return ApiResponse.error(res, 'errors.EMAIL_EXISTS', 400);
-        }
-        if (existingUser.username === username) {
-          return ApiResponse.error(res, 'errors.USERNAME_EXISTS', 400);
-        }
+    if (existingUser) {
+      if (existingUser.email === email) {
+        ApiResponse.error(res, 'errors.EMAIL_EXISTS', 400); // Throws error
       }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create new user
-      const user = new User({
-        username,
-        email,
-        password: hashedPassword,
-        role,
-      });
-
-      await user.save();
-
-      // Prepare user data to return (exclude password)
-      const { _id, username: userName, email: userEmail, role: userRole } = user;
-      const resUser = {
-        id: _id,
-        username: userName,
-        email: userEmail,
-        role: userRole,
-      };
-
-      // Generate tokens
-      const accessToken = generateAccessToken(user);
-      const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
-      const rawRefreshToken = crypto.randomBytes(48).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-
-      await RefreshToken.create({
-        userId: user._id,
-        tokenHash,
-        expiresAt,
-        createdByIp: req.ip,
-        userAgent: req.get('User-Agent') || null,
-      });
-
-      return ApiResponse.success(res, { user: resUser, accessToken, refreshToken: rawRefreshToken }, 'User registered successfully', 201);
-    } catch (error) {
-      return ApiResponse.error(res, error.message, 500);
+      if (existingUser.username === username) {
+        ApiResponse.error(res, 'errors.USERNAME_EXISTS', 400); // Throws error
+      }
     }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role,
+    });
+
+    await user.save();
+
+    // Prepare user data to return (exclude password)
+    const { _id, username: userName, email: userEmail, role: userRole } = user;
+    const resUser = {
+      id: _id,
+      username: userName,
+      email: userEmail,
+      role: userRole,
+    };
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
+    const rawRefreshToken = crypto.randomBytes(48).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+    await RefreshToken.create({
+      userId: user._id,
+      tokenHash,
+      expiresAt,
+      createdByIp: req.ip,
+      userAgent: req.get('User-Agent') || null,
+    });
+
+    return ApiResponse.success(res, { user: resUser, accessToken, refreshToken: rawRefreshToken }, 'User registered successfully', 201);
   },
 
   logout: async (req, res) => {
