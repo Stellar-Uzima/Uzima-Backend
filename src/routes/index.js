@@ -6,10 +6,19 @@ import metricsRoutes from './metricsRoutes.js';
 import gdprRoutes from './gdprRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import adminGDPRRoutes from './adminGDPRRoutes.js';
-import webhookRoutes from './webhookRoutes.js';
 import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
+
+// Optional route modules (may not exist)
+let webhookRoutes;
+try {
+  webhookRoutes = (await import('./webhookRoutes.js')).default;
+} catch (e) {
+  console.warn('webhookRoutes not available:', e.message);
+  webhookRoutes = express.Router(); // Provide a dummy router
+}
+
 const router = express.Router();
 
 // Import route modules here

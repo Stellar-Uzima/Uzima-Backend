@@ -14,6 +14,7 @@ import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import correlationIdMiddleware from './middleware/correlationId.js';
 import requestLogger from './middleware/requestLogger.js';
+import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
@@ -22,14 +23,13 @@ import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
 import './config/redis.js';
-import './cron/reminderJob.js';
-import './cron/outboxJob.js';
-import './cron/backupJob.js';
-import './workers/emailWorker.js';
+
+// Optional imports - will be loaded conditionally later
+let initRealtime = () => {};
+let initWebSocket = () => {};
+
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
-import { initRealtime } from './services/realtime.service.js';
 import http from 'http';
-import { initWebSocket } from './wsServer.js';
 
 
 // Load environment variables
@@ -124,7 +124,12 @@ app.get('/debug-sentry', (req, res) => {
   throw new Error('Sentry test error');
 });
 
-// Error handling
+// 404 handler for undefined routes (must be before error handler)
+app.use((req, res, next) => {
+  next(new NotFoundError(`Route ${req.method} ${req.path} not found`));
+});
+
+// Error handling middleware (must be last)
 app.use(errorHandler);
 
 // Server bootstrap
