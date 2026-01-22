@@ -22,6 +22,7 @@ import appointmentsRouter from './controllers/appointments.controller.js';
 import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
+import healthzRoutes from './routes/healthzRoutes.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -124,6 +125,9 @@ try {
 app.get('/debug-sentry', (req, res) => {
   throw new Error('Sentry test error');
 });
+
+// Health check endpoints (not rate-limited, used by orchestrators)
+app.use('/healthz', healthzRoutes);
 
 // 404 handler for undefined routes (must be before error handler)
 app.use((req, res, next) => {
