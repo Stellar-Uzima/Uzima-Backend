@@ -3,6 +3,38 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 
 const userSchema = new mongoose.Schema({
+  // User preferences for notifications, UI, language, etc.
+  preferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {
+      notifications: {
+        email: true,
+        push: true,
+        sms: false,
+        marketing: false,
+        appointments: true,
+        prescriptions: true,
+        labResults: true,
+      },
+      ui: {
+        theme: 'light',
+        language: 'en',
+        timezone: 'UTC',
+        dateFormat: 'MM/DD/YYYY',
+        timeFormat: '12h',
+      },
+      privacy: {
+        profileVisibility: 'public',
+        shareData: true,
+        analytics: true,
+      },
+      accessibility: {
+        fontSize: 'medium',
+        highContrast: false,
+        screenReader: false,
+      },
+    },
+  },
   // User preference for personalized recommendations
   recommendationsOptOut: {
     type: Boolean,
