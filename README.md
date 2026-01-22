@@ -116,6 +116,38 @@ For detailed information, see [RATE_LIMITING.md](./RATE_LIMITING.md).
 node test-rate-limit.js
 ```
 
+## Security
+
+### Automated Vulnerability Scanning
+
+We use `npm audit` and GitHub Actions to ensure our dependencies are secure.
+
+- **CI Integration**: Every Pull Request to `main` or `develop` triggers a security check that fails if High or Critical vulnerabilities are found.
+- **Manual Check**: You can run the security check locally:
+  ```bash
+  npm run security:check
+  ```
+- **Automated Fixes**: GitHub Dependabot is configured to automatically create Pull Requests for vulnerable dependencies.
+
+### Remediation Workflow
+
+1. **Detection**:
+   - CI pipeline fails on `npm run security:check`.
+   - Dependabot alerts or PRs are created.
+
+2. **Resolution**:
+   - **For Dependabot PRs**: Review the changelog and compatibility, then merge if tests pass.
+   - **Manual Fixes**:
+     Run `npm audit fix` to automatically fix compatible vulnerabilities.
+     ```bash
+     npm audit fix
+     ```
+     For breaking changes, run `npm audit fix --force` with caution or manually upgrade the package in `package.json`.
+
+3. **Verification**:
+   - Run `npm run security:check` to confirm no high/critical vulnerabilities remain.
+   - Push changes to trigger the CI pipeline.
+
 ## Monitoring and Alerts
 - Configure alerts and dashboards in Sentry for proactive notifications.
 - Monitor rate limit violations in Redis and application logs.
