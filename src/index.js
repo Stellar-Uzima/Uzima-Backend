@@ -30,6 +30,9 @@ import './cron/outboxJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
+import session from 'express-session';
+import passport from './config/passport.js';
+import { sessionConfig, validateOAuthConfig } from './config/oauth.js';
 
 // Load environment variables
 dotenv.config();
@@ -62,6 +65,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(correlationIdMiddleware);
+
+// Session middleware for OAuth
+app.use(session(sessionConfig));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Validate OAuth configuration
+validateOAuthConfig();
 
 // Apply general rate limiting to all routes
 app.use(generalRateLimit);

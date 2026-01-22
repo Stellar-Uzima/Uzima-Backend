@@ -32,6 +32,7 @@
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.7.7",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
@@ -56,6 +57,11 @@
     "multer": "^2.0.0",
     "node-cron": "^4.0.7",
     "nodemailer": "^7.0.3",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-jwt": "^4.0.1",
+    "passport-microsoft": "^2.1.0",
     "pdfkit": "^0.17.1",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.2.2",
@@ -65,8 +71,7 @@
     "socket.io": "^4.8.1",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1",
-    "axios": "^1.7.7"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",

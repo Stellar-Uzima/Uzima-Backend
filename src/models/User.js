@@ -55,7 +55,50 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      // Password is required unless user has OAuth accounts
+      return !this.oauthAccounts || Object.keys(this.oauthAccounts).length === 0;
+    },
+  },
+  // OAuth accounts for social login
+  oauthAccounts: {
+    google: {
+      id: String,
+      email: String,
+      name: String,
+      avatar: String,
+      accessToken: String,
+      refreshToken: String,
+      linkedAt: {
+        type: Date,
+        default: Date.now
+      }
+    },
+    github: {
+      id: String,
+      username: String,
+      email: String,
+      name: String,
+      avatar: String,
+      accessToken: String,
+      refreshToken: String,
+      linkedAt: {
+        type: Date,
+        default: Date.now
+      }
+    },
+    microsoft: {
+      id: String,
+      email: String,
+      name: String,
+      avatar: String,
+      accessToken: String,
+      refreshToken: String,
+      linkedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }
   },
   role: {
     type: String,
@@ -94,6 +137,73 @@ userSchema.methods.createResetPasswordToken = function () {
   this.security.passwordResetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
 
   return resetToken;
+};
+
+// OAuth helper methods
+userSchema.methods.linkOAuthAccount = function(provider, profileData) {
+  if (!this.oauthAccounts) {
+    this.oauthAccounts = {};
+  }
+  
+  this.oauthAccounts[provider] = {
+    ...profileData,
+    linkedAt: new Date()
+  };
+  
+  return this.save();
+};
+
+userSchema.methods.unlinkOAuthAccount = function(provider) {
+  if (this.oauthAccounts && this.oauthAccounts[provider]) {
+    delete this.oauthAccounts[provider];
+    
+    // If user has no password and no other OAuth accounts, they need to set a password
+    if (!this.password && Object.keys(this.oauthAccounts).length === 0) {
+      throw new Error('Cannot unlink last authentication method. Please set a password first.');
+    }
+    
+    return this.save();
+  }
+  throw new Error(`OAuth account for ${provider} not found`);
+};
+
+userSchema.methods.getOAuthProviders = function() {
+  const providers = [];
+  if (this.oauthAccounts) {
+    Object.keys(this.oauthAccounts).forEach(provider => {
+      if (this.oauthAccounts[provider]) {
+        providers.push({
+          provider,
+          email: this.oauthAccounts[provider].email,
+          name: this.oauthAccounts[provider].name,
+          linkedAt: this.oauthAccounts[provider].linkedAt
+        });
+      }
+    });
+  }
+  return providers;
+};
+
+userSchema.methods.hasOAuthProvider = function(provider) {
+  return this.oauthAccounts && this.oauthAccounts[provider] && this.oauthAccounts[provider].id;
+};
+
+userSchema.methods.isOAuthUser = function() {
+  return this.oauthAccounts && Object.keys(this.oauthAccounts).length > 0;
+};
+
+// Static method to find user by OAuth provider and ID
+userSchema.statics.findByOAuthProvider = function(provider, id) {
+  const query = {};
+  query[`oauthAccounts.${provider}.id`] = id;
+  return this.findOne(query);
+};
+
+// Static method to find user by OAuth email
+userSchema.statics.findByOAuthEmail = function(provider, email) {
+  const query = {};
+  query[`oauthAccounts.${provider}.email`] = email;
+  return this.findOne(query);
 };
 
 export default mongoose.model('User', userSchema);
