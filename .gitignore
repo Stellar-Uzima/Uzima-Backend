@@ -2,3 +2,4 @@ node_modules/
 .env
 .qodo
 .env.local
+logs/
