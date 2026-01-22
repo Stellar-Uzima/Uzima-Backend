@@ -32,6 +32,7 @@
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
     "@socket.io/redis-adapter": "^8.3.0",
+    "axios": "^1.7.7",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
@@ -62,11 +63,10 @@
     "recharts": "^2.12.7",
     "redis": "^5.8.2",
     "resend": "^6.1.2",
-    "socket.io": "^4.8.1",
+    "socket.io": "^4.8.3",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1",
-    "axios": "^1.7.7"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
