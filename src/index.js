@@ -146,9 +146,9 @@ const startServer = async () => {
 
     // Initialize WebSocket if available
     try {
-      const wsModule = await import('./wsServer.js');
-      if (wsModule.initWebSocket) {
-        wsModule.initWebSocket(httpServer);
+      const wsModule = await import('./services/realtime.service.js');
+      if (wsModule.initRealtime) {
+        wsModule.initRealtime(httpServer);
         // eslint-disable-next-line no-console
         console.log('WebSocket server initialized');
       }
@@ -206,8 +206,8 @@ const startServer = async () => {
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
 
-    // --- Option 2: Init custom realtime service ---
-    initRealtime(httpServer);
+    // WebSocket server is now initialized via wsServer.js
+    // The stub realtime service is no longer needed
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
