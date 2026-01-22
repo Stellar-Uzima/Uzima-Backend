@@ -55,6 +55,12 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+// Compound indexes for optimal query performance
+userSchema.index({ email: 1, deletedAt: 1 });
+userSchema.index({ username: 1, deletedAt: 1 });
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ createdAt: -1 });
+
 userSchema.methods.createResetPasswordToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
 
