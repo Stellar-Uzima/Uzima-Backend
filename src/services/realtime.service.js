@@ -1,17 +1,15 @@
-// Stub realtime service for prescription verification system
-// This can be implemented later with Socket.IO or other realtime solution
-
+// Stub realtime service - placeholder for missing functionality
 export function emitInventoryUpdate(data) {
-  // Stub implementation - can be replaced with actual Socket.IO emit
-  console.log('Inventory update:', data);
+  // Placeholder - does nothing
+  console.log('Inventory update emitted (stub):', data);
 }
 
 export function emitLowStockAlert(data) {
-  // Stub implementation - can be replaced with actual Socket.IO emit
-  console.log('Low stock alert:', data);
+  // Placeholder - does nothing
+  console.log('Low stock alert emitted (stub):', data);
 }
 
-export function initRealtime(httpServer) {
-  // Stub implementation - can be replaced with actual Socket.IO setup
+export function initRealtime(server) {
+  // Placeholder - does nothing
   console.log('Realtime service initialized (stub)');
 }
