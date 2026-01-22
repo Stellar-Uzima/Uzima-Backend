@@ -124,3 +124,40 @@ export const resetPasswordSchema = Joi.object({
       'string.empty': 'Password is required',
     }),
 });
+
+// Change Password Validation Schema (for authenticated users)
+export const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string()
+    .min(8)
+    .max(64)
+    .required()
+    .messages({
+      'string.min': 'Current password must be at least 8 characters long',
+      'string.max': 'Current password must be at most 64 characters long',
+      'string.empty': 'Current password is required',
+    }),
+
+  newPassword: Joi.string()
+    .min(8)
+    .max(64)
+    .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*])'))
+    .required()
+    .invalid(Joi.ref('currentPassword'))
+    .messages({
+      'string.pattern.base':
+        'New password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+      'string.min': 'New password must be at least 8 characters long',
+      'string.max': 'New password must be at most 64 characters long',
+      'string.empty': 'New password is required',
+      'any.invalid': 'New password must be different from current password',
+    }),
+
+  confirmPassword: Joi.string()
+    .required()
+    .valid(Joi.ref('newPassword'))
+    .messages({
+      'any.only': 'Passwords do not match',
+      'string.empty': 'Password confirmation is required',
+    }),
+}).strict();
+
