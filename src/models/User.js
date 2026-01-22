@@ -72,9 +72,16 @@ const userSchema = new mongoose.Schema({
     loginAttempts: { type: Number, default: 0 },
     lockUntil: Date,
     passwordChangedAt: Date,
+    passwordExpiresAt: Date,
+    requirePasswordChange: { type: Boolean, default: false },
     requireTwoFactorForSensitive: { type: Boolean, default: false },
     passwordResetToken: String,
     passwordResetTokenExpires: Date,
+    // Password history - stores last 5 password hashes
+    passwordHistory: [{
+      hash: String,
+      changedAt: { type: Date, default: Date.now },
+    }],
   },
   createdAt: {
     type: Date,

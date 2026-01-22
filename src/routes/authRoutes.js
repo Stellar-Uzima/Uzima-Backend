@@ -13,7 +13,12 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from '../validations/authValidation.js';
+import {
+  checkPasswordExpiry,
+  injectPasswordStatus,
+} from '../middleware/passwordPolicyMiddleware.js';
 // 2FA schemas - using simple validation for now
 const twoFactorSetupSchema = { body: registerSchema };
 const twoFactorVerifySchema = { body: loginSchema };
@@ -579,6 +584,211 @@ router.delete(
   '/2fa/devices/:deviceId',
   activityLogger({ action: 'revoke_trusted_device' }),
   authController.revokeTrustedDevice
+);
+
+// ============================================
+// Password Policy Routes
+// ============================================
+
+/**
+ * @swagger
+ * /api/auth/password/strength:
+ *   post:
+ *     summary: Check password strength
+ *     description: Analyze password strength and get feedback (public endpoint)
+ *     tags: [Auth, Password Policy]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 minLength: 1
+ *                 example: "MySecureP@ss123"
+ *     responses:
+ *       200:
+ *         description: Password strength analyzed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     score:
+ *                       type: integer
+ *                       minimum: 0
+ *                       maximum: 4
+ *                       description: "0=Very weak, 1=Weak, 2=Fair, 3=Strong, 4=Very strong"
+ *                     feedback:
+ *                       type: string
+ *                     suggestions:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     complexity:
+ *                       type: object
+ *                       properties:
+ *                         valid:
+ *                           type: boolean
+ *                         issues:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *       400:
+ *         description: Validation error
+ */
+router.post(
+  '/password/strength',
+  authRateLimit,
+  activityLogger({ action: 'check_password_strength' }),
+  authController.checkPasswordStrength
+);
+
+/**
+ * @swagger
+ * /api/auth/password/change:
+ *   post:
+ *     summary: Change password (authenticated)
+ *     description: Change password for authenticated user with current password verification
+ *     tags: [Auth, Password Policy]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: "OldP@ssw0rd"
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])'
+ *                 example: "NewSecureP@ss456"
+ *               confirmPassword:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: "NewSecureP@ss456"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *       400:
+ *         description: Validation error or password policy violation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     errors:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized or invalid current password
+ */
+router.post(
+  '/password/change',
+  protect,
+  checkPasswordExpiry,
+  injectPasswordStatus,
+  passwordResetRateLimit,
+  validate(changePasswordSchema),
+  activityLogger({ action: 'change_password' }),
+  authController.changePassword
+);
+
+/**
+ * @swagger
+ * /api/auth/password/status:
+ *   get:
+ *     summary: Get password status (authenticated)
+ *     description: Get password expiry and policy status for the authenticated user
+ *     tags: [Auth, Password Policy]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Password status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isExpired:
+ *                       type: boolean
+ *                     daysUntilExpiry:
+ *                       type: number
+ *                       nullable: true
+ *                     requiresChange:
+ *                       type: boolean
+ *                     expiryWarning:
+ *                       type: string
+ *                       nullable: true
+ *                       enum: [danger, warning, info, null]
+ *                     isLocked:
+ *                       type: boolean
+ *                     lockTimeRemaining:
+ *                       type: number
+ *                     lastChanged:
+ *                       type: string
+ *                       format: date-time
+ *                     expiresAt:
+ *                       type: string
+ *                       format: date-time
+ *                     historyCount:
+ *                       type: integer
+ *                     maxHistoryCount:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  '/password/status',
+  protect,
+  activityLogger({ action: 'view_password_status' }),
+  authController.getPasswordStatus
 );
 
 export default router;
