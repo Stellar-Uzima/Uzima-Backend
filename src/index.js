@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import cors from 'cors';
+import { corsMiddleware } from './config/cors.js';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import i18nextMiddleware from 'i18next-http-middleware';
@@ -58,7 +58,7 @@ app.use(i18nextMiddleware.handle(i18next));
 
 // Middleware
 
-app.use(cors());
+app.use(corsMiddleware);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
