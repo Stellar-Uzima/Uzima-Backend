@@ -45,6 +45,11 @@ validateEnv();
 const app = express();
 const port = process.env.PORT || 5000;
 
+// Configure trust proxy for correct IP detection behind reverse proxies
+// This enables proper X-Forwarded-For header handling
+// Set to true to trust first proxy, or specify number of proxies to trust
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 1);
+
 // Connect to MongoDB
 connectDB();
 
