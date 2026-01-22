@@ -20,6 +20,9 @@ import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
 import specs from './config/swagger.js';
+import { createV1Router, createV2Router } from './routes/versions.js';
+import versionRoutes from './routes/versionRoutes.js';
+import { versionDetection } from './middleware/apiVersion.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
 import './config/redis.js';
@@ -66,6 +69,9 @@ app.use(correlationIdMiddleware);
 // Apply general rate limiting to all routes
 app.use(generalRateLimit);
 
+// API version detection middleware
+app.use(versionDetection);
+
 // Sentry request & tracing handlers
 // app.use(Sentry.Handlers);
 // app.use(Sentry.Handlers);
@@ -93,7 +99,14 @@ app.get('/api-docs.json', (req, res) => {
   res.send(specs);
 });
 
-// Routes
+// Version info endpoint
+app.use(versionRoutes);
+
+// Versioned API Routes
+app.use('/api/v1', createV1Router());
+app.use('/api/v2', createV2Router());
+
+// Legacy routes (backward compatibility - defaults to v1)
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/appointments', appointmentsRouter);
