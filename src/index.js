@@ -1,7 +1,11 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 import morgan from 'morgan';
+import cspNonce from './middleware/cspNonce.js';
+import { getCspDirectives } from './config/csp.js';
+import cspReportRoutes from './routes/cspReportRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import i18nextMiddleware from 'i18next-http-middleware';
 import * as Sentry from '@sentry/node';
@@ -55,7 +59,15 @@ Sentry.init({
 app.use(i18nextMiddleware.handle(i18next));
 
 // Middleware
-
+app.use(cspNonce);
+app.use((req, res, next) => {
+  const isSwagger = req.path.startsWith('/api-docs');
+  helmet({
+    contentSecurityPolicy: isSwagger ? false : {
+      directives: getCspDirectives(res.locals.cspNonce),
+    },
+  })(req, res, next);
+});
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
@@ -94,6 +106,7 @@ app.get('/api-docs.json', (req, res) => {
 });
 
 // Routes
+app.use('/api', cspReportRoutes);
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/appointments', appointmentsRouter);
@@ -205,9 +218,6 @@ const startServer = async () => {
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
-
-    // --- Option 2: Init custom realtime service ---
-    initRealtime(httpServer);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
