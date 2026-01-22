@@ -19,9 +19,13 @@ import { generalRateLimit } from './middleware/rateLimiter.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
+import migrationRoutes from './routes/migrationRoutes.js';
 import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
+import sseRoutes from './routes/sseRoutes.js';
+import eventManager from './services/eventManager.js';
+import { autoRunMigrations } from './services/autoRunMigrations.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -40,6 +44,11 @@ validateEnv();
 // Initialize Express app
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Configure trust proxy for correct IP detection behind reverse proxies
+// This enables proper X-Forwarded-For header handling
+// Set to true to trust first proxy, or specify number of proxies to trust
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 1);
 
 // Connect to MongoDB
 connectDB();
@@ -96,8 +105,10 @@ app.get('/api-docs.json', (req, res) => {
 // Routes
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/migrations', migrationRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
+app.use('/events', sseRoutes);
 
 // Load reminder cron job if available (guard missing dependencies)
 try {
@@ -140,6 +151,17 @@ const startServer = async () => {
     console.log('Checking Stellar network connectivity...');
     // const stellarStatus = await getNetworkStatus();
     // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
+
+    // Auto-run pending migrations (if enabled)
+    try {
+      await autoRunMigrations();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Migration auto-run error (continuing):', error.message);
+      if (process.env.MIGRATE_ON_START_FAIL_HARD === 'true') {
+        throw error;
+      }
+    }
 
     // --- Start HTTP server ---
     const httpServer = http.createServer(app);
@@ -207,7 +229,7 @@ const startServer = async () => {
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
 
     // --- Option 2: Init custom realtime service ---
-    initRealtime(httpServer);
+    // initRealtime(httpServer); // Commented out - service doesn't exist
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
