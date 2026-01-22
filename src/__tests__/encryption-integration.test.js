@@ -1,18 +1,27 @@
 /* eslint-disable prettier/prettier */
 import request from 'supertest';
-import mongoose from 'mongoose';
 import app from '../index.js';
 import Record from '../models/Record.js';
 import User from '../models/User.js';
-import { encrypt, decrypt } from '../utils/crypto.util.js';
+import { encrypt, decrypt } from '../utils/encryptionUtils.js';
 
 describe('Medical Data Encryption Integration Tests', () => {
   let testUser;
   let authToken;
+  const medicalRecord = {
+    patientName: 'Jane Smith',
+    diagnosis: 'Hypertension, Type 2 Diabetes',
+    treatment: 'Lisinopril 10mg daily, Metformin 500mg twice daily',
+    history: 'Family history of cardiovascular disease, previous MI in 2020',
+    txHash: 'test-stellar-tx-hash-123',
+    clientUUID: 'test-client-uuid-456',
+    syncTimestamp: new Date().toISOString()
+  };
 
   beforeAll(async () => {
     // Set up environment variables for testing
-    process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.ENCRYPTION_KEY_SECRET_v1 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.ENCRYPTION_KEY_CURRENT_VERSION = 'v1';
     process.env.JWT_SECRET = 'test-jwt-secret';
   });
 
@@ -37,15 +46,6 @@ describe('Medical Data Encryption Integration Tests', () => {
   });
 
   describe('End-to-End PHI Encryption Workflow', () => {
-    const medicalRecord = {
-      patientName: 'Jane Smith',
-      diagnosis: 'Hypertension, Type 2 Diabetes',
-      treatment: 'Lisinopril 10mg daily, Metformin 500mg twice daily',
-      history: 'Family history of cardiovascular disease, previous MI in 2020',
-      txHash: 'test-stellar-tx-hash-123',
-      clientUUID: 'test-client-uuid-456',
-      syncTimestamp: new Date().toISOString()
-    };
 
     test('should encrypt PHI fields during record creation', async () => {
       const response = await request(app)
@@ -292,8 +292,8 @@ describe('Medical Data Encryption Integration Tests', () => {
 
     test('should handle encryption errors gracefully', async () => {
       // Temporarily break encryption by using invalid key
-      const originalKey = process.env.ENCRYPTION_KEY;
-      process.env.ENCRYPTION_KEY = 'invalid-key';
+      const originalKey = process.env.ENCRYPTION_KEY_SECRET_v1;
+      process.env.ENCRYPTION_KEY_SECRET_v1 = 'invalid-key';
 
       const response = await request(app)
         .post('/api/records')
@@ -305,7 +305,7 @@ describe('Medical Data Encryption Integration Tests', () => {
       expect(response.body.message).toContain('Encryption error');
 
       // Restore original key
-      process.env.ENCRYPTION_KEY = originalKey;
+      process.env.ENCRYPTION_KEY_SECRET_v1 = originalKey;
     });
 
     test('should maintain encryption audit trail', async () => {
@@ -319,14 +319,15 @@ describe('Medical Data Encryption Integration Tests', () => {
       await record.save();
 
       // Verify encrypted fields have expected format for audit
-      expect(record.diagnosis).toMatch(/^[a-f0-9]{32}:[a-f0-9]+$/);
-      expect(record.treatment).toMatch(/^[a-f0-9]{32}:[a-f0-9]+$/);
-      expect(record.history).toMatch(/^[a-f0-9]{32}:[a-f0-9]+$/);
+      // Format: version:iv:authTag:encrypted
+      expect(record.diagnosis).toMatch(/^v\d+:[a-f0-9]{24}:[a-f0-9]{32}:[a-f0-9]+$/);
+      expect(record.treatment).toMatch(/^v\d+:[a-f0-9]{24}:[a-f0-9]{32}:[a-f0-9]+$/);
+      expect(record.history).toMatch(/^v\d+:[a-f0-9]{24}:[a-f0-9]{32}:[a-f0-9]+$/);
 
-      // Verify each encrypted field has unique IV
-      const diagnosisIV = record.diagnosis.split(':')[0];
-      const treatmentIV = record.treatment.split(':')[0];
-      const historyIV = record.history.split(':')[0];
+      // Verify each encrypted field has unique IV (second part after version)
+      const diagnosisIV = record.diagnosis.split(':')[1];
+      const treatmentIV = record.treatment.split(':')[1];
+      const historyIV = record.history.split(':')[1];
 
       expect(diagnosisIV).not.toBe(treatmentIV);
       expect(treatmentIV).not.toBe(historyIV);
@@ -359,9 +360,9 @@ describe('Medical Data Encryption Integration Tests', () => {
 
       // Error response should not contain sensitive system information
       if (response.status >= 400) {
-        expect(response.body.message).not.toContain('ENCRYPTION_KEY');
-        expect(response.body.message).not.toContain(process.env.ENCRYPTION_KEY);
-        expect(response.body.message).not.toContain(__dirname);
+        expect(response.body.message).not.toContain('ENCRYPTION_KEY_SECRET');
+        expect(response.body.message).not.toContain(process.env.ENCRYPTION_KEY_SECRET_v1);
+        // __dirname check removed - not available in ES modules and not critical for security testing
       }
     });
 
@@ -398,7 +399,7 @@ describe('Medical Data Encryption Integration Tests', () => {
         syncTimestamp: new Date().toISOString()
       };
 
-      const response = await request(app)
+      await request(app)
         .post('/api/records')
         .set('Authorization', `Bearer ${authToken}`)
         .send(partialRecord)

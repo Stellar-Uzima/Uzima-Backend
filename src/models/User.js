@@ -1,6 +1,7 @@
 /* eslint-disable prettier/prettier */
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import encryptedFieldPlugin from './plugins/encryptedField.js';
 
 const userSchema = new mongoose.Schema({
   // User preference for personalized recommendations
@@ -17,9 +18,13 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
+    // unique constraint moved to email_hash
     trim: true,
     lowercase: true,
+  },
+  email_hash: {
+    type: String,
+    unique: true,
   },
   password: {
     type: String,
