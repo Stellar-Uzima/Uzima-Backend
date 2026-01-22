@@ -12,7 +12,10 @@ let replset;
 
 beforeAll(async () => {
   // Setup MongoDB as a replica set to support transactions
-  replset = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+  replset = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+    instance: { launchTimeout: 30000 },
+  });
   const mongoUri = replset.getUri();
   await mongoose.connect(mongoUri);
 
@@ -35,11 +38,13 @@ beforeAll(async () => {
         lookupHeader: 'accept-language',
       },
     });
-});
+}, 60000);
 
 afterAll(async () => {
   await mongoose.disconnect();
-  await replset.stop();
+  if (replset) {
+    await replset.stop();
+  }
 });
 
 afterEach(async () => {
