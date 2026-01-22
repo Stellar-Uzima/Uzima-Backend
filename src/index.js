@@ -19,11 +19,13 @@ import { generalRateLimit } from './middleware/rateLimiter.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
+import migrationRoutes from './routes/migrationRoutes.js';
 import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
 import sseRoutes from './routes/sseRoutes.js';
 import eventManager from './services/eventManager.js';
+import { autoRunMigrations } from './services/autoRunMigrations.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -98,6 +100,7 @@ app.get('/api-docs.json', (req, res) => {
 // Routes
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/migrations', migrationRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
 app.use('/events', sseRoutes);
@@ -143,6 +146,17 @@ const startServer = async () => {
     console.log('Checking Stellar network connectivity...');
     // const stellarStatus = await getNetworkStatus();
     // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
+
+    // Auto-run pending migrations (if enabled)
+    try {
+      await autoRunMigrations();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Migration auto-run error (continuing):', error.message);
+      if (process.env.MIGRATE_ON_START_FAIL_HARD === 'true') {
+        throw error;
+      }
+    }
 
     // --- Start HTTP server ---
     const httpServer = http.createServer(app);
