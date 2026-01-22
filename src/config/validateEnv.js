@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET'];
+const REQUIRED_ENV_VARS = ['MONGO_URI', 'JWT_SECRET'];
 
 function isValidUrl(value) {
   try {
@@ -25,8 +25,8 @@ export function validateEnv() {
     }
   });
 
-  if (process.env.DATABASE_URL && !isValidUrl(process.env.DATABASE_URL)) {
-    errors.push('DATABASE_URL is not a valid URL');
+  if (process.env.MONGO_URI && !isValidUrl(process.env.MONGO_URI)) {
+    errors.push('MONGO_URI is not a valid URL');
   }
 
   if (process.env.PORT && !isValidPort(process.env.PORT)) {
