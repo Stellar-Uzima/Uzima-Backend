@@ -207,7 +207,7 @@ const startServer = async () => {
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
 
     // --- Option 2: Init custom realtime service ---
-    initRealtime(httpServer);
+    // initRealtime(httpServer); // Removed: initRealtime is not defined in this scope
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');

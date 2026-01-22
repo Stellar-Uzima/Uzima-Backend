@@ -38,6 +38,23 @@ const userSchema = new mongoose.Schema({
     requireTwoFactorForSensitive: { type: Boolean, default: false },
     passwordResetToken: String,
     passwordResetTokenExpires: Date,
+    twoFactorCode: String,
+    twoFactorCodeExpires: Date,
+  },
+  phoneNumber: {
+    type: String,
+    sparse: true,
+    unique: true,
+    trim: true,
+  },
+  isPhoneVerified: {
+    type: Boolean,
+    default: false,
+  },
+  twoFactorMethod: {
+    type: String,
+    enum: ['sms', 'totp', null],
+    default: null,
   },
   createdAt: {
     type: Date,
