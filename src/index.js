@@ -30,6 +30,7 @@ import './cron/outboxJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
+import logger, { logInfo, logWarn, logError } from './utils/logger.js';
 
 // Load environment variables
 dotenv.config();
@@ -103,8 +104,7 @@ app.use('/stellar', stellarRoutes);
 try {
   await import('./cron/reminderJob.js');
 } catch (e) {
-  // eslint-disable-next-line no-console
-  console.warn('Reminder job not loaded:', e.message);
+  logWarn('Reminder job not loaded', { error: e.message });
 }
 
 // GraphQL Setup
@@ -113,11 +113,9 @@ await setupGraphQL(app);
 // Initialize GDPR background jobs
 try {
   schedulePermanentDeletionJob();
-  // eslint-disable-next-line no-console
-  console.log('GDPR background jobs initialized');
+  logInfo('GDPR background jobs initialized');
 } catch (e) {
-  // eslint-disable-next-line no-console
-  console.warn('GDPR jobs not loaded:', e.message);
+  logWarn('GDPR jobs not loaded', { error: e.message });
 }
 
 // Debug route for Sentry testing
@@ -136,10 +134,9 @@ app.use(errorHandler);
 // Server bootstrap
 const startServer = async () => {
   try {
-    // eslint-disable-next-line no-console
-    console.log('Checking Stellar network connectivity...');
+    logInfo('Checking Stellar network connectivity...');
     // const stellarStatus = await getNetworkStatus();
-    // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
+    // logger.info(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
 
     // --- Start HTTP server ---
     const httpServer = http.createServer(app);
@@ -149,13 +146,11 @@ const startServer = async () => {
       const wsModule = await import('./wsServer.js');
       if (wsModule.initWebSocket) {
         wsModule.initWebSocket(httpServer);
-        // eslint-disable-next-line no-console
-        console.log('WebSocket server initialized');
+        logInfo('WebSocket server initialized');
       }
     } catch (e) {
       // WebSocket server not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('WebSocket server not available, continuing without it');
+      logInfo('WebSocket server not available, continuing without it');
     }
 
     // Initialize realtime service if available
@@ -163,56 +158,41 @@ const startServer = async () => {
       const realtimeModule = await import('./services/realtime.service.js');
       if (realtimeModule.initRealtime) {
         realtimeModule.initRealtime(httpServer);
-        // eslint-disable-next-line no-console
-        console.log('Realtime service initialized');
+        logInfo('Realtime service initialized');
       }
     } catch (e) {
       // Realtime service not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('Realtime service not available, continuing without it');
+      logInfo('Realtime service not available, continuing without it');
     }
 
     // Initialize email worker if available
     try {
       await import('./workers/emailWorker.js');
-      // eslint-disable-next-line no-console
-      console.log('Email worker initialized');
+      logInfo('Email worker initialized');
     } catch (e) {
       // Email worker not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('Email worker not available, continuing without it');
+      logInfo('Email worker not available, continuing without it');
     }
 
     // Initialize webhook worker if available
     try {
       await import('./workers/webhookWorker.js');
-      // eslint-disable-next-line no-console
-      console.log('Webhook worker initialized');
+      logInfo('Webhook worker initialized');
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.log('Webhook worker not available, continuing without it');
+      logInfo('Webhook worker not available, continuing without it');
     }
 
     httpServer.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`Server is running on http://localhost:${port}`);
-      // eslint-disable-next-line no-console
-      console.log(`API Documentation available at http://localhost:${port}/api-docs`);
-      // eslint-disable-next-line no-console
-      console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
+      logInfo(`Server is running on http://localhost:${port}`);
+      logInfo(`API Documentation available at http://localhost:${port}/api-docs`);
+      logInfo(`GraphQL Playground available at http://localhost:${port}/graphql`);
     });
 
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
-
-    // --- Option 2: Init custom realtime service ---
-    initRealtime(httpServer);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
-    // eslint-disable-next-line no-console
-    console.error(error.message);
+    logError('FATAL: Unable to start server', error);
     process.exit(1);
   }
 };
