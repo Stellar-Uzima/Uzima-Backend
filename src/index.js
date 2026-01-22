@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import compression from './middleware/compression.js';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cspNonce from './middleware/cspNonce.js';
@@ -69,6 +70,7 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 app.use(cors());
+app.use(compression);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
