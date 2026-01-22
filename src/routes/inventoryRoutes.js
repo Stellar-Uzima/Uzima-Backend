@@ -1,11 +1,81 @@
 import express from 'express';
 import InventoryItem from '../models/InventoryItem.js';
-import { logInventoryChange } from '../service/inventoryAudit.service.js';
-import { emitInventoryUpdate } from '../service/realtime.service.js';
-import { checkAndNotifyLowStock } from '../service/inventoryAlert.service.js';
+import { logInventoryChange } from '../services/inventoryAudit.service.js';
+import { checkAndNotifyLowStock } from '../services/inventoryAlert.service.js';
+
+// Optional realtime service (may not exist)
+let emitInventoryUpdate;
+try {
+  const realtimeModule = await import('../services/realtime.service.js');
+  emitInventoryUpdate = realtimeModule.emitInventoryUpdate || (() => { });
+} catch (e) {
+  emitInventoryUpdate = () => { }; // No-op if service doesn't exist
+}
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/inventory:
+ *   post:
+ *     summary: Create inventory item
+ *     description: Create a new inventory item with initial stock details
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - sku
+ *               - name
+ *             properties:
+ *               sku:
+ *                 type: string
+ *                 example: "MED-001"
+ *               name:
+ *                 type: string
+ *                 example: "Paracetamol 500mg"
+ *               category:
+ *                 type: string
+ *                 example: "Pain Relief"
+ *               unit:
+ *                 type: string
+ *                 example: "tablets"
+ *               threshold:
+ *                 type: number
+ *                 example: 100
+ *                 description: Low stock alert threshold
+ *               lots:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     lotNumber:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *                     expiryDate:
+ *                       type: string
+ *                       format: date-time
+ *     responses:
+ *       201:
+ *         description: Item created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/InventoryItem'
+ *       400:
+ *         description: Validation error
+ */
 // Create item
 router.post('/', async (req, res) => {
   try {
@@ -27,12 +97,68 @@ router.post('/', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/inventory:
+ *   get:
+ *     summary: List all inventory items
+ *     description: Retrieve a list of all inventory items
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Items retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/InventoryItem'
+ */
 // List items
 router.get('/', async (req, res) => {
   const items = await InventoryItem.find();
   res.json({ success: true, data: items });
 });
 
+/**
+ * @swagger
+ * /api/inventory/{sku}:
+ *   get:
+ *     summary: Get inventory item by SKU
+ *     description: Retrieve a specific inventory item by its SKU
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sku
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Item SKU
+ *         example: "MED-001"
+ *     responses:
+ *       200:
+ *         description: Item retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/InventoryItem'
+ *       404:
+ *         description: Item not found
+ */
 // Get item by SKU
 router.get('/:sku', async (req, res) => {
   const item = await InventoryItem.findOne({ sku: req.params.sku });
@@ -40,6 +166,44 @@ router.get('/:sku', async (req, res) => {
   res.json({ success: true, data: item });
 });
 
+/**
+ * @swagger
+ * /api/inventory/{sku}:
+ *   patch:
+ *     summary: Update inventory item
+ *     description: Update metadata, threshold, or other details of an inventory item
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sku
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Item SKU
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *               unit:
+ *                 type: string
+ *               threshold:
+ *                 type: number
+ *               metadata:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Item updated successfully
+ *       404:
+ *         description: Item not found
+ */
 // Update item metadata/threshold
 router.patch('/:sku', async (req, res) => {
   const item = await InventoryItem.findOneAndUpdate(
@@ -53,6 +217,60 @@ router.patch('/:sku', async (req, res) => {
   await checkAndNotifyLowStock(item);
 });
 
+/**
+ * @swagger
+ * /api/inventory/{sku}/lots:
+ *   post:
+ *     summary: Add stock lot
+ *     description: Add a new lot of stock to an inventory item
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sku
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Item SKU
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - lotNumber
+ *               - quantity
+ *               - expiryDate
+ *             properties:
+ *               lotNumber:
+ *                 type: string
+ *                 example: "LOT-2024-001"
+ *               quantity:
+ *                 type: number
+ *                 example: 100
+ *               expiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-12-31T00:00:00Z"
+ *     responses:
+ *       201:
+ *         description: Lot added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/InventoryItem'
+ *       400:
+ *         description: Missing required fields
+ *       404:
+ *         description: Item not found
+ */
 // Add stock to a lot (upsert by lotNumber)
 router.post('/:sku/lots', async (req, res) => {
   const { lotNumber, quantity, expiryDate } = req.body;
@@ -87,6 +305,67 @@ router.post('/:sku/lots', async (req, res) => {
   await checkAndNotifyLowStock(item);
 });
 
+/**
+ * @swagger
+ * /api/inventory/{sku}/consume:
+ *   post:
+ *     summary: Consume stock (FIFO)
+ *     description: Consume stock from an inventory item using FIFO (First In, First Out) based on expiry dates
+ *     tags: [Inventory]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sku
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Item SKU
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - quantity
+ *             properties:
+ *               quantity:
+ *                 type: number
+ *                 minimum: 1
+ *                 example: 10
+ *                 description: Quantity to consume
+ *     responses:
+ *       200:
+ *         description: Stock consumed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     item:
+ *                       $ref: '#/components/schemas/InventoryItem'
+ *                     lotsConsumed:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           lotNumber:
+ *                             type: string
+ *                           quantityChanged:
+ *                             type: number
+ *       400:
+ *         description: Invalid quantity
+ *       404:
+ *         description: Item not found
+ *       409:
+ *         description: Insufficient stock
+ */
 // Consume stock FIFO respecting expiry dates
 router.post('/:sku/consume', async (req, res) => {
   try {

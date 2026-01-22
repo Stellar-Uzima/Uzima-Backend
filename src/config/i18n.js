@@ -12,7 +12,7 @@ i18next
   .use(i18nextHttpMiddleware.LanguageDetector)
   .init({
     backend: {
-      loadPath: path.join(__dirname, '../locales/{{lng}}/translation.json')
+      loadPath: path.join(__dirname, '../locales/{{lng}}.json')
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'fr', 'sw'],
@@ -28,4 +28,5 @@ i18next
     }
   });
 
+export const i18nMiddleware = i18nextHttpMiddleware.handle(i18next);
 export default i18next;

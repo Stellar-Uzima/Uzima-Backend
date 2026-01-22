@@ -2,6 +2,7 @@ import Record from '../models/Record.js';
 import ApiResponse from '../utils/apiResponse.js';
 import transactionLog from '../models/transactionLog.js';
 import { withTransaction } from '../utils/withTransaction.js';
+
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
 const recordController = {
@@ -10,15 +11,18 @@ const recordController = {
     try {
       const { includeDeleted, page = 1, limit = 20, patientName, diagnosis } = req.query;
       const query = includeDeleted === 'true' ? {} : { deletedAt: null };
+
       if (patientName) query.patientName = { $regex: patientName, $options: 'i' };
       if (diagnosis) query.diagnosis = { $regex: diagnosis, $options: 'i' };
+
       const records = await Record.find(query)
         .populate('createdBy', 'username email')
         .skip((page - 1) * limit)
         .limit(Number(limit));
+
       const transformedRecords = records.map(record => {
         const recordObj = record.toObject();
-        if (recordObj.files && recordObj.files.length > 0) {
+        if (recordObj.files?.length > 0) {
           recordObj.files = recordObj.files.map(file => ({
             ...file,
             url: `${IPFS_GATEWAY}${file.cid}`,
@@ -26,6 +30,7 @@ const recordController = {
         }
         return recordObj;
       });
+
       return ApiResponse.success(
         res,
         { records: transformedRecords },
@@ -45,13 +50,15 @@ const recordController = {
       if (!record) {
         return ApiResponse.error(res, 'Record not found', 404);
       }
+
       const recordObj = record.toObject();
-      if (recordObj.files && recordObj.files.length > 0) {
+      if (recordObj.files?.length > 0) {
         recordObj.files = recordObj.files.map(file => ({
           ...file,
           url: `${IPFS_GATEWAY}${file.cid}`,
         }));
       }
+
       return ApiResponse.success(res, { record: recordObj }, 'Record retrieved successfully');
     } catch (error) {
       console.error('Error retrieving record:', error);
@@ -71,6 +78,7 @@ const recordController = {
         createdBy: req.user._id,
       });
       await record.save();
+
       return ApiResponse.success(res, { record }, 'Record created successfully');
     } catch (error) {
       console.error('Error creating record:', error);
@@ -83,13 +91,16 @@ const recordController = {
     try {
       const { id } = req.params;
       const { patientName, diagnosis, treatment } = req.body;
+
       const record = await Record.findById(id);
       if (!record) {
         return ApiResponse.error(res, 'Record not found', 404);
       }
+
       if (patientName) record.patientName = patientName;
       if (diagnosis) record.diagnosis = diagnosis;
       if (treatment) record.treatment = treatment;
+
       await record.save();
       return ApiResponse.success(res, { record }, 'Record updated successfully');
     } catch (error) {
@@ -106,8 +117,10 @@ const recordController = {
       if (!record) {
         return ApiResponse.error(res, 'Record not found or already deleted', 404);
       }
+
       record.deletedAt = new Date();
-      record.deletedBy = req.user && req.user._id ? req.user._id : null;
+      record.deletedBy = req.user?._id || null;
+
       await record.save();
       return ApiResponse.success(res, null, 'Record soft-deleted successfully');
     } catch (error) {
@@ -116,7 +129,6 @@ const recordController = {
     }
   },
 
-  // Restore soft-deleted record
   restoreRecord: async (req, res) => {
     try {
       await withTransaction(async session => {
@@ -124,12 +136,15 @@ const recordController = {
           _id: req.params.id,
           deletedAt: { $ne: null },
         }).session(session);
+
         if (!record) {
           throw new Error('Record not found or not deleted');
         }
+
         record.deletedAt = null;
         record.deletedBy = null;
         await record.save({ session });
+
         await transactionLog.create(
           [
             {
@@ -144,6 +159,7 @@ const recordController = {
           { session }
         );
       });
+
       return ApiResponse.success(res, null, 'Record restored successfully');
     } catch (error) {
       const status = error.message.includes('not found') ? 404 : 500;
@@ -151,7 +167,6 @@ const recordController = {
     }
   },
 
-  // Permanently purge record
   purgeRecord: async (req, res) => {
     try {
       await withTransaction(async session => {
@@ -159,11 +174,14 @@ const recordController = {
           _id: req.params.id,
           deletedAt: { $ne: null },
         }).session(session);
+
         if (!record) {
           throw new Error('Record not found or not deleted');
         }
+
         const recordId = record._id;
         await record.deleteOne({ session });
+
         await transactionLog.create(
           [
             {
@@ -178,6 +196,7 @@ const recordController = {
           { session }
         );
       });
+
       return ApiResponse.success(res, null, 'Record permanently purged');
     } catch (error) {
       const status = error.message.includes('not found') ? 404 : 500;

@@ -1,203 +1,74 @@
-/* eslint-disable prettier/prettier */
 import express from 'express';
-import { 
-  handlePaymentWebhook, 
-  getWebhookStatus 
-} from '../controllers/webhookController.js';
-import { 
-  captureRawBody, 
-  validateWebhookSignature, 
-  webhookRateLimit 
-} from '../middleware/webhookValidation.js';
+import protect from '../middleware/authMiddleware.js';
+import hasPermission from '../middleware/rbac.js';
+import {
+  createSubscription,
+  listSubscriptions,
+  getSubscription,
+  updateSubscription,
+  deleteSubscription,
+  retryDelivery,
+} from '../services/webhookService.js';
 
 const router = express.Router();
 
-/**
- * @swagger
- * /payments/webhook:
- *   post:
- *     summary: Handle payment provider webhooks
- *     description: Securely process payment webhooks from various providers with HMAC validation and idempotency
- *     tags: [Payments]
- *     parameters:
- *       - in: path
- *         name: provider
- *         required: false
- *         schema:
- *           type: string
- *           enum: [stripe, paypal, razorpay, flutterwave, paystack]
- *         description: Payment provider name
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             description: Webhook payload from payment provider
- *     responses:
- *       200:
- *         description: Webhook processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Webhook processed successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     webhookId:
- *                       type: string
- *                       example: "123e4567-e89b-12d3-a456-426614174000"
- *                     processingTime:
- *                       type: number
- *                       example: 150
- *       401:
- *         description: Invalid webhook signature
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Invalid webhook signature"
- *       500:
- *         description: Webhook processing failed
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Webhook processing failed"
- */
-router.post('/webhook', 
-  captureRawBody,
-  webhookRateLimit,
-  validateWebhookSignature('stripe'), // Default to stripe, can be overridden
-  handlePaymentWebhook
-);
+router.post('/webhooks/subscriptions', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const sub = await createSubscription(req.body);
+    res.status(201).json({ success: true, data: sub });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
 
-/**
- * @swagger
- * /payments/webhook/{provider}:
- *   post:
- *     summary: Handle provider-specific payment webhooks
- *     description: Process webhooks for specific payment providers with provider-specific validation
- *     tags: [Payments]
- *     parameters:
- *       - in: path
- *         name: provider
- *         required: true
- *         schema:
- *           type: string
- *           enum: [stripe, paypal, razorpay, flutterwave, paystack]
- *         description: Payment provider name
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             description: Provider-specific webhook payload
- *     responses:
- *       200:
- *         description: Webhook processed successfully
- *       401:
- *         description: Invalid webhook signature
- *       500:
- *         description: Webhook processing failed
- */
-router.post('/webhook/:provider',
-  captureRawBody,
-  webhookRateLimit,
-  (req, res, next) => {
-    // Set provider from route parameter
-    req.params.provider = req.params.provider;
-    next();
-  },
-  validateWebhookSignature('stripe'), // Will be overridden by provider-specific validation
-  handlePaymentWebhook
-);
+router.get('/webhooks/subscriptions', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = parseInt(req.query.skip) || 0;
+    const data = await listSubscriptions({ limit, skip });
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-/**
- * @swagger
- * /payments/webhook/status/{webhookId}:
- *   get:
- *     summary: Get webhook processing status
- *     description: Retrieve the processing status and details of a specific webhook
- *     tags: [Payments]
- *     parameters:
- *       - in: path
- *         name: webhookId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Unique webhook identifier
- *     responses:
- *       200:
- *         description: Webhook status retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     webhookId:
- *                       type: string
- *                       example: "123e4567-e89b-12d3-a456-426614174000"
- *                     status:
- *                       type: string
- *                       enum: [received, processing, processed, failed, duplicate]
- *                       example: "processed"
- *                     provider:
- *                       type: string
- *                       example: "stripe"
- *                     eventType:
- *                       type: string
- *                       example: "payment_intent.succeeded"
- *                     receivedAt:
- *                       type: string
- *                       format: date-time
- *                     processingDuration:
- *                       type: number
- *                       example: 150
- *                     errorMessage:
- *                       type: string
- *                       example: null
- *       404:
- *         description: Webhook not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Webhook not found"
- */
-router.get('/webhook/status/:webhookId', getWebhookStatus);
+router.get('/webhooks/subscriptions/:id', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const sub = await getSubscription(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: sub });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/webhooks/subscriptions/:id', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const sub = await updateSubscription(req.params.id, req.body);
+    if (!sub) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, data: sub });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+router.delete('/webhooks/subscriptions/:id', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const sub = await deleteSubscription(req.params.id);
+    if (!sub) return res.status(404).json({ success: false, message: 'Not found' });
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/webhooks/deliveries/:id/retry', protect, hasPermission('admin'), async (req, res) => {
+  try {
+    const d = await retryDelivery(req.params.id);
+    res.json({ success: true, data: d });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
 
 export default router;

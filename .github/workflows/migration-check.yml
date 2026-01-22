@@ -1,0 +1,35 @@
+name: Migration Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  verify-migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'" 
+          --health-interval 10s 
+          --health-timeout 5s 
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DB migrations
+        run: npx migrate-mongo up
+        env:
+          MIGRATE_MONGO_CONFIG: migrate-mongo-config.mjs

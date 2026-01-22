@@ -185,19 +185,6 @@ async function assembleUserData(userId) {
       email: user.email,
       role: user.role,
       createdAt: user.createdAt,
-      twoFactorAuth: {
-        isEnabled: user.twoFactorAuth.isEnabled,
-        methods: {
-          sms: {
-            enabled: user.twoFactorAuth.methods.sms.enabled,
-            verified: user.twoFactorAuth.methods.sms.verified
-          },
-          totp: {
-            enabled: user.twoFactorAuth.methods.totp.enabled,
-            verified: user.twoFactorAuth.methods.totp.verified
-          }
-        }
-      },
       security: {
         loginAttempts: user.security.loginAttempts,
         passwordChangedAt: user.security.passwordChangedAt,
@@ -288,7 +275,6 @@ function convertToCSV(userData) {
   lines.push(`User,Email,${userData.user.email}`);
   lines.push(`User,Role,${userData.user.role}`);
   lines.push(`User,Created At,${userData.user.createdAt}`);
-  lines.push(`User,2FA Enabled,${userData.user.twoFactorAuth.isEnabled}`);
   
   // Records
   lines.push('');

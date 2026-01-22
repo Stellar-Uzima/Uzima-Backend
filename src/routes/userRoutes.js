@@ -2,6 +2,9 @@ import express from 'express';
 import userController from '../controllers/userController.js';
 import protect from '../middleware/authMiddleware.js';
 import hasPermission from '../middleware/rbac.js';
+import { validate } from '../middleware/validationMiddleware.js';
+import { activityLogger } from '../middleware/activityLogger.js';
+import { getUserListSchema, getUserByIdSchema } from '../validations/userValidators.js';
 
 const router = express.Router();
 
@@ -40,7 +43,13 @@ router.use(protect);
  *       403:
  *         description: Forbidden - User doesn't have required permissions
  */
-router.get('/', hasPermission('view_users'), userController.getAllUsers);
+router.get(
+  '/',
+  hasPermission('view_users'),
+  validate(getUserListSchema),
+  activityLogger({ action: 'view_all_users' }),
+  userController.getAllUsers
+);
 
 /**
  * @swagger
@@ -81,6 +90,12 @@ router.get('/', hasPermission('view_users'), userController.getAllUsers);
  *       404:
  *         description: User not found
  */
-router.get('/:id', hasPermission('view_own_record'), userController.getUserById);
+router.get(
+  '/:id',
+  hasPermission('view_own_record'),
+  validate(getUserByIdSchema),
+  activityLogger({ action: 'view_user_profile' }),
+  userController.getUserById
+);
 
 export default router;

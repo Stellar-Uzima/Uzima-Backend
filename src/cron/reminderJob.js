@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { schedulePurgeJob } from './purgeJob.js';
-import { getAppointmentsForTomorrow } from '../model/appointmentModel.js';
-import mailer from '../service/email.Service.js';
+import { getAppointmentsForTomorrow } from '../models/appointmentModel.js';
+import mailer from '../services/email.Service.js';
 import reminderEmail from '../templates/remainderEmail.js';
 
 cron.schedule('0 0 * * *', async () => {
