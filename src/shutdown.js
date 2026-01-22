@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { closeRedis } from './config/redis.js';
+import eventManager from './services/eventManager.js';
 
 let isShuttingDown = false;
 
@@ -23,7 +24,12 @@ export const gracefulShutdown = async (server, signal) => {
   }, 30000);
 
   try {
-    // Step 1: Stop accepting new requests
+    // Step 1: Shutdown event manager (SSE connections)
+    console.log('Shutting down SSE event manager...');
+    eventManager.shutdown();
+    console.log('SSE event manager shut down');
+
+    // Step 2: Stop accepting new requests
     console.log('Closing server to new connections...');
     await new Promise((resolve, reject) => {
       server.close(err => {
@@ -33,17 +39,17 @@ export const gracefulShutdown = async (server, signal) => {
     });
     console.log('Server closed to new connections');
 
-    // Step 2: Close database connections
+    // Step 3: Close database connections
     console.log('Closing MongoDB connection...');
     await mongoose.connection.close();
     console.log('MongoDB connection closed');
 
-    // Step 3: Close Redis connection
+    // Step 4: Close Redis connection
     console.log('Closing Redis connection...');
     await closeRedis();
     console.log('Redis connection closed');
 
-    // Step 4: Clean up timers and exit successfully
+    // Step 5: Clean up timers and exit successfully
     clearTimeout(forceExitTimer);
     console.log('Graceful shutdown completed');
     process.exit(0);
