@@ -22,6 +22,7 @@ import appointmentsRouter from './controllers/appointments.controller.js';
 import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
+import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -58,7 +59,11 @@ app.use(i18nextMiddleware.handle(i18next));
 
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(correlationIdMiddleware);
@@ -98,6 +103,9 @@ app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
+
+// Incoming Payment Webhooks
+app.use('/webhooks', paymentWebhookRoutes);
 
 // Load reminder cron job if available (guard missing dependencies)
 try {
@@ -217,6 +225,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

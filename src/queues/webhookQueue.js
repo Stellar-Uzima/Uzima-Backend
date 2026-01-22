@@ -1,4 +1,4 @@
-import { Queue, QueueScheduler } from 'bullmq';
+import { Queue } from 'bullmq';
 import { URL } from 'url';
 
 const queueName = 'webhook-queue';
@@ -15,7 +15,8 @@ function parseRedisUrl(urlString) {
 }
 
 const connection = parseRedisUrl(process.env.REDIS_URL);
-const scheduler = new QueueScheduler(queueName, { connection });
+// QueueScheduler removed in BullMQ v5
+// const scheduler = new QueueScheduler(queueName, { connection });
 const webhookQueue = new Queue(queueName, { connection });
 
 export async function enqueueWebhook(data) {
