@@ -22,6 +22,8 @@ import appointmentsRouter from './controllers/appointments.controller.js';
 import specs from './config/swagger.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
+import sseRoutes from './routes/sseRoutes.js';
+import eventManager from './services/eventManager.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -98,6 +100,7 @@ app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
+app.use('/events', sseRoutes);
 
 // Load reminder cron job if available (guard missing dependencies)
 try {
