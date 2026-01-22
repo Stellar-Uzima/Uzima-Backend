@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET'];
+const REQUIRED_ENV_VARS = ['MONGO_URI', 'JWT_SECRET'];
 
 function isValidUrl(value) {
   try {
@@ -19,7 +19,7 @@ function isValidPort(value) {
 export function validateEnv() {
   const errors = [];
 
-  REQUIRED_ENV_VARS.forEach((key) => {
+  REQUIRED_ENV_VARS.forEach(key => {
     if (!process.env[key] || process.env[key].trim() === '') {
       errors.push(`Missing required env variable: ${key}`);
     }
@@ -35,7 +35,7 @@ export function validateEnv() {
 
   if (errors.length) {
     console.error('\nEnvironment configuration error:\n');
-    errors.forEach((err) => console.error(`- ${err}`));
+    errors.forEach(err => console.error(`- ${err}`));
     console.error('\nFix the above and restart the server.\n');
     process.exit(1);
   }
