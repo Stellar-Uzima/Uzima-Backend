@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { encrypt, decrypt, isEncrypted, hashData } from '../../utils/encryptionUtils.js';
+import { isClientEncrypted } from '../../utils/clientEncryptionServer.js';
 
 const encryptedFieldPlugin = (schema, options) => {
   const fields = options.fields || [];
@@ -19,8 +20,10 @@ const encryptedFieldPlugin = (schema, options) => {
     fields.forEach(field => {
       // Only encrypt if modified and exists
       if (doc.isModified(field) && doc[field]) {
-        // If it's already encrypted, don't encrypt again (safety check)
-        if (!isEncrypted(doc[field])) {
+        // If it's already encrypted (client-side or server-side), don't encrypt again
+        const isAlreadyEncrypted = isClientEncrypted(doc[field]) || isEncrypted(doc[field]);
+        
+        if (!isAlreadyEncrypted) {
           // Check if field has lowercase option
           const fieldPath = schema.path(field);
           const shouldLowercase = fieldPath && fieldPath.options && fieldPath.options.lowercase;
@@ -33,24 +36,28 @@ const encryptedFieldPlugin = (schema, options) => {
           // Encrypt the field
           doc[field] = encrypt(doc[field]);
         }
+        // If already encrypted (client-side), store as-is without hashing
+        // Note: Client-encrypted data cannot be searched via hash
       }
     });
     next();
   });
 
-  // Post-init: Decrypt fields
+  // Post-init: Decrypt fields (only server-side encrypted fields)
+  // Client-encrypted fields remain encrypted and are decrypted by the client
   schema.post('init', function (doc) {
     fields.forEach(field => {
-      if (doc[field] && isEncrypted(doc[field])) {
+      if (doc[field] && isEncrypted(doc[field]) && !isClientEncrypted(doc[field])) {
         doc[field] = decrypt(doc[field]);
       }
     });
   });
 
-  // Post-save: Decrypt fields (so the object in memory remains usable)
+  // Post-save: Decrypt fields (only server-side encrypted fields)
+  // Client-encrypted fields remain encrypted and are decrypted by the client
   schema.post('save', function (doc) {
     fields.forEach(field => {
-      if (doc[field] && isEncrypted(doc[field])) {
+      if (doc[field] && isEncrypted(doc[field]) && !isClientEncrypted(doc[field])) {
         doc[field] = decrypt(doc[field]);
       }
     });
@@ -89,11 +96,11 @@ const encryptedFieldPlugin = (schema, options) => {
     next();
   };
 
-  // Helper to decrypt a single document
+  // Helper to decrypt a single document (only server-side encrypted fields)
   const decryptDocument = doc => {
     if (!doc) return;
     fields.forEach(field => {
-      if (doc[field] && isEncrypted(doc[field])) {
+      if (doc[field] && isEncrypted(doc[field]) && !isClientEncrypted(doc[field])) {
         doc[field] = decrypt(doc[field]);
       }
     });
