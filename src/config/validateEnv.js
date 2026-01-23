@@ -1,21 +1,22 @@
-/* eslint-disable no-console */
+/**
+ * Environment Validation
+ * 
+ * This module provides a wrapper around the new unified config loader.
+ * The actual validation is now performed by Joi in src/config/index.js.
+ * 
+ * @deprecated Use initConfig() or getConfig() from './index.js' directly.
+ * This file is kept for backward compatibility.
+ */
 
-const REQUIRED_ENV_VARS = ['DATABASE_URL', 'JWT_SECRET'];
+import { initConfig } from './index.js';
 
-function isValidUrl(value) {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isValidPort(value) {
-  const port = Number(value);
-  return Number.isInteger(port) && port > 0 && port < 65536;
-}
-
+/**
+ * Validate environment variables.
+ * Initializes the config system and validates all env vars using Joi.
+ * 
+ * @throws {Error} If required environment variables are missing or invalid
+ * @deprecated Use initConfig() from './index.js' directly
+ */
 export function validateEnv() {
   const errors = [];
   const warnings = [];
@@ -66,4 +67,8 @@ export function validateEnv() {
     console.error('\nFix the above and restart the server.\n');
     process.exit(1);
   }
+  initConfig();
 }
+
+export default validateEnv;
+

@@ -75,6 +75,8 @@ const recordController = {
         diagnosis,
         treatment,
         txHash,
+        clientUUID: req.body.clientUUID || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        syncTimestamp: req.body.syncTimestamp || new Date(),
         createdBy: req.user._id,
       });
       await record.save();

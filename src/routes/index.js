@@ -14,6 +14,17 @@ import healthRoutes from './healthRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
 
 // import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
+import anonymizationRoutes from './anonymizationRoutes.js';
+
+// Optional webhook routes (may not exist)
+let webhookRoutes;
+try {
+  webhookRoutes = (await import('./webhookRoutes.js')).default;
+} catch (e) {
+  // Create a stub router if webhookRoutes doesn't exist
+  webhookRoutes = express.Router();
+  console.warn('Webhook routes not loaded:', e.message);
+}
 
 const router = express.Router();
 
@@ -42,5 +53,6 @@ router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 router.use('/permissions', permissionRoutes); // Permission routes (RBAC)
 router.use('/health', healthRoutes); // Health check routes
+router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 
 export default router;
