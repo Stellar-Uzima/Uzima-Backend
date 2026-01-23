@@ -10,16 +10,9 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import healthRoutes from './healthRoutes.js';
 
-// Optional webhook routes (may not exist)
-let webhookRoutes;
-try {
-  webhookRoutes = (await import('./webhookRoutes.js')).default;
-} catch (e) {
-  // Create a stub router if webhookRoutes doesn't exist
-  webhookRoutes = express.Router();
-  console.warn('Webhook routes not loaded:', e.message);
-}
+// import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 
 const router = express.Router();
 
@@ -41,10 +34,11 @@ router.use('/users', gdprRoutes); // GDPR routes for users
 router.use('/admin', adminRoutes);
 router.use('/admin', adminGDPRRoutes); // GDPR admin routes
 router.use('/admin/backups', backupRoutes); // Backup admin routes
-router.use('/payments', webhookRoutes); // Payment webhook routes
+// router.use('/payments', webhookRoutes); // Payment webhook routes - commented out
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
+router.use('/health', healthRoutes); // Health check routes
 
 export default router;

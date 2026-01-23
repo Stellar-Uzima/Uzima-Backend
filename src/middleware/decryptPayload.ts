@@ -1,9 +1,9 @@
-import { decrypt } from '../utils/crypto.util.js';
+import { decrypt } from '../utils/encryptionUtils.js';
 
 const FIELDS_TO_DECRYPT = ['diagnosis', 'treatment', 'history'];
 
-function decryptPayload(req, res, next) {
-  res.decryptRecord = (record) => {
+function decryptPayload(req: any, res: any, next: any) {
+  res.decryptRecord = (record: any) => {
     try {
       if (!record) return record;
       const decryptedRecord = { ...record._doc || record }; // support Mongoose docs
@@ -13,22 +13,22 @@ function decryptPayload(req, res, next) {
         }
       });
       return decryptedRecord;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Decryption failed:', err.message);
       throw new Error('Decryption failed: ' + err.message);
     }
   };
-  
-  res.decryptRecords = (records) => {
+
+  res.decryptRecords = (records: any[]) => {
     try {
       if (!Array.isArray(records)) return records;
       return records.map(record => res.decryptRecord(record));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Bulk decryption failed:', err.message);
       throw new Error('Bulk decryption failed: ' + err.message);
     }
   };
-  
+
   next();
 }
 

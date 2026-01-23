@@ -9,6 +9,7 @@ This is the backend service for Uzima, built with Express and MongoDB.
 - **Sentry integration** for real-time error monitoring and performance tracing
 - **Rate limiting** with Redis to prevent abuse and brute force attacks
 - **Inventory**: real-time stock tracking with FIFO and low-stock alerts
+- **Comprehensive Password Policy**: Complexity validation, breach detection, expiry management, and account lockout
 
 ## Prerequisites
 - Node.js v16 or higher
@@ -32,16 +33,46 @@ This is the backend service for Uzima, built with Express and MongoDB.
 Create a `.env` file in the project root (you can copy from `.env.example`) and set:
 
 ```dotenv
+# Core Configuration
 MONGO_URI=<your MongoDB URI>
 PORT=5000
 JWT_SECRET=<your JWT secret>
+NODE_ENV=development
+
+# Email Configuration
 SMTP_HOST=<smtp host>
 SMTP_PORT=<smtp port>
 SMTP_USER=<smtp user>
 SMTP_PASS=<smtp password>
 MAIL_FROM="Telemed Support <support@yourdomain.com>"
+
+# Monitoring & Logging
 SENTRY_DSN=<your Sentry DSN>
 REDIS_URL=redis://localhost:6379
+
+# Password Policy Configuration
+PASSWORD_MIN_LENGTH=8
+PASSWORD_MAX_LENGTH=64
+PASSWORD_REQUIRE_UPPERCASE=true
+PASSWORD_REQUIRE_LOWERCASE=true
+PASSWORD_REQUIRE_NUMBER=true
+PASSWORD_REQUIRE_SPECIAL_CHAR=true
+PASSWORD_EXPIRY_DAYS=90
+PASSWORD_HISTORY_COUNT=5
+
+# Account Security
+MAX_LOGIN_ATTEMPTS=5
+LOGIN_LOCKOUT_DURATION_MINUTES=15
+
+# Breach Detection (haveibeenpwned API)
+HIBP_CHECK_ENABLED=true
+HIBP_API_TIMEOUT_MS=5000
+HIBP_API_RETRY_COUNT=1
+
+# Password Policy Logging
+LOG_PASSWORD_CHANGES=true
+LOG_FAILED_LOGIN_ATTEMPTS=true
+LOG_ACCOUNT_LOCKOUTS=true
 ```
 
 ## Running the App
@@ -76,6 +107,34 @@ Behavior:
 - FIFO consumption prioritizes earliest `expiryDate` lots
 - Low-stock alerts emit when `totalQuantity <= threshold`
 - All changes are audit-logged in `InventoryAuditLog`
+
+## Password Policy System
+
+Uzima Backend includes enterprise-grade password security with comprehensive policies:
+
+### Features
+- **Password Complexity**: Enforces minimum 8 characters with uppercase, lowercase, numbers, and special characters
+- **Password History**: Prevents reuse of last 5 passwords
+- **Password Expiry**: Passwords expire after 90 days with warnings at 30, 14, and 7 days
+- **Breach Detection**: Checks passwords against haveibeenpwned database using k-anonymity for privacy
+- **Strength Scoring**: Provides 0-4 password strength scores with actionable feedback
+- **Account Lockout**: Locks account after 5 failed login attempts for 15 minutes
+- **Force Password Change**: Enforces password update on expiry or admin reset
+- **Audit Logging**: All password changes logged for compliance
+
+### API Endpoints
+- `POST /api/auth/password/strength` - Check password strength (public)
+- `POST /api/auth/password/change` - Change password (authenticated)
+- `GET /api/auth/password/status` - Get password status (authenticated)
+
+### Configuration
+All password policy settings are configurable via environment variables (see [PASSWORD_POLICY_ENV_CONFIG.md](./PASSWORD_POLICY_ENV_CONFIG.md)):
+```
+PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, PASSWORD_EXPIRY_DAYS, PASSWORD_HISTORY_COUNT,
+MAX_LOGIN_ATTEMPTS, LOG_PASSWORD_CHANGES, HIBP_CHECK_ENABLED, etc.
+```
+
+For complete documentation, see [PASSWORD_POLICY_README.md](./PASSWORD_POLICY_README.md).
 
 ## Sentry Integration
 Uzima Backend is configured to report runtime errors and performance traces to Sentry.
