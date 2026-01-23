@@ -8,10 +8,17 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from '../validations/authValidation.js';
 import mailer from '../services/email.Service.js';
 import crypto from 'crypto';
 import { resetPasswordEmail } from '../templates/resetPasswordEmail.js';
+import {
+  validatePassword,
+  calculatePasswordStrength,
+  validatePasswordComplexity,
+} from '../utils/passwordValidator.js';
+import PasswordPolicyService from '../services/passwordPolicyService.js';
 
 const authController = {
   register: async (req, res) => {
@@ -19,62 +26,86 @@ const authController = {
     const { error, value } = registerSchema.validate(req.body, { abortEarly: false });
     if (error) {
       const errors = error.details.map(e => e.message).join('; ');
-      ApiResponse.error(res, errors, 400); // Throws error - no return needed
+      return ApiResponse.error(res, errors, 400);
     }
 
     const { username, email, password, role } = value;
 
-    // Check if email already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
+    try {
+      // Check if email already exists
+      const existingUser = await User.findOne({
+        $or: [{ email }, { username }],
+      });
 
-    if (existingUser) {
-      if (existingUser.email === email) {
-        ApiResponse.error(res, 'errors.EMAIL_EXISTS', 400); // Throws error
+      if (existingUser) {
+        if (existingUser.email === email) {
+          return ApiResponse.error(res, 'Email already exists', 400);
+        }
+        if (existingUser.username === username) {
+          return ApiResponse.error(res, 'Username already exists', 400);
+        }
       }
-      if (existingUser.username === username) {
-        ApiResponse.error(res, 'errors.USERNAME_EXISTS', 400); // Throws error
+
+      // Validate password with comprehensive policy checks
+      const passwordValidation = await validatePassword(password, [], username, email);
+      if (!passwordValidation.valid) {
+        return ApiResponse.error(res, {
+          message: 'Password does not meet policy requirements',
+          errors: passwordValidation.feedback,
+          strength: passwordValidation.scoreDetails,
+        }, 400);
       }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create new user
+      const user = new User({
+        username,
+        email,
+        password: hashedPassword,
+        role,
+      });
+
+      // Initialize password history and expiry
+      await PasswordPolicyService.addToPasswordHistory(user, hashedPassword);
+      PasswordPolicyService.setPasswordExpiry(user);
+      user.security.passwordChangedAt = new Date();
+
+      await user.save();
+
+      // Prepare user data to return (exclude password)
+      const { _id, username: userName, email: userEmail, role: userRole } = user;
+      const resUser = {
+        id: _id,
+        username: userName,
+        email: userEmail,
+        role: userRole,
+      };
+
+      // Generate tokens
+      const accessToken = generateAccessToken(user);
+      const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
+      const rawRefreshToken = crypto.randomBytes(48).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+      await RefreshToken.create({
+        userId: user._id,
+        tokenHash,
+        expiresAt,
+        createdByIp: req.ip,
+        userAgent: req.get('User-Agent') || null,
+      });
+
+      return ApiResponse.success(
+        res,
+        { user: resUser, accessToken, refreshToken: rawRefreshToken },
+        'User registered successfully',
+        201
+      );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
     }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create new user
-    const user = new User({
-      username,
-      email,
-      password: hashedPassword,
-      role,
-    });
-
-    await user.save();
-
-    // Prepare user data to return (exclude password)
-    const { _id, username: userName, email: userEmail, role: userRole } = user;
-    const resUser = {
-      id: _id,
-      username: userName,
-      email: userEmail,
-      role: userRole,
-    };
-
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
-    const rawRefreshToken = crypto.randomBytes(48).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-
-    await RefreshToken.create({
-      userId: user._id,
-      tokenHash,
-      expiresAt,
-      createdByIp: req.ip,
-      userAgent: req.get('User-Agent') || null,
-    });
-
-    return ApiResponse.success(res, { user: resUser, accessToken, refreshToken: rawRefreshToken }, 'User registered successfully', 201);
   },
 
   logout: async (req, res) => {
@@ -168,10 +199,44 @@ const authController = {
         return ApiResponse.error(res, 'Invalid credentials', 401);
       }
 
+      // Check if account is locked
+      if (PasswordPolicyService.isAccountLocked(user)) {
+        const lockTimeRemaining = PasswordPolicyService.getLockTimeRemaining(user);
+        await user.save();
+        return ApiResponse.error(
+          res,
+          `Account is locked. Try again in ${lockTimeRemaining} minutes.`,
+          429
+        );
+      }
+
       // Compare password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
+        // Record failed login attempt
+        const shouldLock = PasswordPolicyService.handleFailedLoginAttempt(user, 5, 15);
+        await user.save();
+
+        if (shouldLock) {
+          return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
+        }
         return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Reset failed login attempts on successful login
+      PasswordPolicyService.resetFailedLoginAttempts(user);
+
+      // Check if password change is required
+      const passwordStatus = PasswordPolicyService.getPasswordStatus(user);
+      if (passwordStatus.requiresChange || passwordStatus.isExpired) {
+        PasswordPolicyService.forcePasswordChange(user);
+        await user.save();
+        
+        return ApiResponse.error(
+          res,
+          'Password change required. Please update your password.',
+          403
+        );
       }
 
       // Prepare user data to return (exclude password)
@@ -181,6 +246,10 @@ const authController = {
         username,
         email: userEmail,
         role,
+        passwordStatus: {
+          daysUntilExpiry: passwordStatus.daysUntilExpiry,
+          expiryWarning: passwordStatus.expiryWarning,
+        },
       };
 
       // Generate tokens
@@ -197,7 +266,13 @@ const authController = {
         userAgent: req.get('User-Agent') || null,
       });
 
-      return ApiResponse.success(res, { user: resUser, accessToken, refreshToken: rawRefreshToken }, 'Login successful');
+      await user.save();
+
+      return ApiResponse.success(
+        res,
+        { user: resUser, accessToken, refreshToken: rawRefreshToken },
+        'Login successful'
+      );
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }
@@ -282,15 +357,34 @@ const authController = {
         return ApiResponse.error(res, 'New password must be different from current password', 400);
       }
 
+      // Validate password with comprehensive policy checks
+      const passwordValidation = await validatePassword(
+        password,
+        user.security.passwordHistory || [],
+        user.username,
+        user.email
+      );
+
+      if (!passwordValidation.valid) {
+        return ApiResponse.error(res, {
+          message: 'Password does not meet policy requirements',
+          errors: passwordValidation.feedback,
+          strength: passwordValidation.scoreDetails,
+        }, 400);
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
+
+      // Update password with policy service
+      await PasswordPolicyService.updatePassword(user, hashedPassword);
+
+      // Clear reset token
       user.security.passwordResetToken = undefined;
       user.security.passwordResetTokenExpires = undefined;
-      user.security.passwordChangedAt = new Date();
 
       await user.save();
 
-      return ApiResponse.success(res, 'Password reset successful', 200);
+      return ApiResponse.success(res, { message: 'Password reset successful' }, 'Password updated', 200);
     } catch (error) {
       return ApiResponse.error(res, 'An error occurred processing your request', 500);
     }
@@ -317,6 +411,125 @@ const authController = {
   },
   revokeTrustedDevice: async (req, res) => {
     return ApiResponse.error(res, 'Trusted devices not implemented yet', 501);
+  },
+
+  // Password Policy endpoints
+
+  /**
+   * Check password strength
+   * POST /api/auth/password/strength
+   */
+  checkPasswordStrength: async (req, res) => {
+    try {
+      const { password } = req.body;
+
+      if (!password) {
+        return ApiResponse.error(res, 'Password is required', 400);
+      }
+
+      const strength = calculatePasswordStrength(password);
+      const complexity = validatePasswordComplexity(password);
+
+      return ApiResponse.success(res, {
+        score: strength.score,
+        feedback: strength.feedback,
+        suggestions: strength.suggestions,
+        complexity: {
+          valid: complexity.valid,
+          issues: complexity.feedback,
+        },
+      }, 'Password strength analyzed');
+    } catch (error) {
+      return ApiResponse.error(res, 'Error analyzing password strength', 500);
+    }
+  },
+
+  /**
+   * Change password (authenticated users only)
+   * POST /api/auth/password/change
+   */
+  changePassword: async (req, res) => {
+    try {
+      // User must be authenticated
+      if (!req.user) {
+        return ApiResponse.error(res, 'Authentication required', 401);
+      }
+
+      const { error, value } = changePasswordSchema.validate(req.body, { abortEarly: false });
+      if (error) {
+        const errors = error.details.map(e => e.message).join('; ');
+        return ApiResponse.error(res, errors, 400);
+      }
+
+      const { currentPassword, newPassword } = value;
+
+      // Get fresh user document
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      // Verify current password
+      const isCurrentPasswordCorrect = await bcrypt.compare(currentPassword, user.password);
+      if (!isCurrentPasswordCorrect) {
+        return ApiResponse.error(res, 'Current password is incorrect', 401);
+      }
+
+      // Check if new password is same as current
+      const isSamePassword = await bcrypt.compare(newPassword, user.password);
+      if (isSamePassword) {
+        return ApiResponse.error(res, 'New password must be different from current password', 400);
+      }
+
+      // Validate new password with comprehensive policy checks
+      const passwordValidation = await validatePassword(
+        newPassword,
+        user.security.passwordHistory || [],
+        user.username,
+        user.email
+      );
+
+      if (!passwordValidation.valid) {
+        return ApiResponse.error(res, {
+          message: 'Password does not meet policy requirements',
+          errors: passwordValidation.feedback,
+          strength: passwordValidation.scoreDetails,
+        }, 400);
+      }
+
+      // Hash and update password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await PasswordPolicyService.updatePassword(user, hashedPassword);
+
+      await user.save();
+
+      return ApiResponse.success(res, { message: 'Password changed successfully' }, 'Password updated', 200);
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
+  },
+
+  /**
+   * Get password status (authenticated users only)
+   * GET /api/auth/password/status
+   */
+  getPasswordStatus: async (req, res) => {
+    try {
+      if (!req.user) {
+        return ApiResponse.error(res, 'Authentication required', 401);
+      }
+
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      const passwordStatus = PasswordPolicyService.getPasswordStatus(user);
+
+      return ApiResponse.success(res, passwordStatus, 'Password status retrieved');
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
 };
 
