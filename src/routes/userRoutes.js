@@ -5,6 +5,7 @@ import hasPermission from '../middleware/rbac.js';
 import { validate } from '../middleware/validationMiddleware.js';
 import { activityLogger } from '../middleware/activityLogger.js';
 import { getUserListSchema, getUserByIdSchema } from '../validations/userValidators.js';
+import preferenceRoutes from './preferenceRoutes.js';
 
 const router = express.Router();
 
@@ -97,5 +98,8 @@ router.get(
   activityLogger({ action: 'view_user_profile' }),
   userController.getUserById
 );
+
+// Preference routes for current user (/api/users/me/preferences/*)
+router.use('/me/preferences', preferenceRoutes);
 
 export default router;

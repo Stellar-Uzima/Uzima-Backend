@@ -1,16 +1,8 @@
 import express from 'express';
 import InventoryItem from '../models/InventoryItem.js';
 import { logInventoryChange } from '../services/inventoryAudit.service.js';
+// import { emitInventoryUpdate } from '../services/realtime.service.js'; // Commented out - file doesn't exist
 import { checkAndNotifyLowStock } from '../services/inventoryAlert.service.js';
-
-// Optional realtime service (may not exist)
-let emitInventoryUpdate;
-try {
-  const realtimeModule = await import('../services/realtime.service.js');
-  emitInventoryUpdate = realtimeModule.emitInventoryUpdate || (() => {});
-} catch (e) {
-  emitInventoryUpdate = () => {}; // No-op if service doesn't exist
-}
 
 const router = express.Router();
 
@@ -28,7 +20,7 @@ router.post('/', async (req, res) => {
       performedBy: req.user?.id,
     });
     res.status(201).json({ success: true, data: item });
-    emitInventoryUpdate({ type: 'created', item });
+    // emitInventoryUpdate({ type: 'created', item }); // Commented out - realtime service doesn't exist
     await checkAndNotifyLowStock(item);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -57,7 +49,7 @@ router.patch('/:sku', async (req, res) => {
   );
   if (!item) return res.status(404).json({ success: false, message: 'Not found' });
   res.json({ success: true, data: item });
-  emitInventoryUpdate({ type: 'updated', item });
+  // emitInventoryUpdate({ type: 'updated', item }); // Commented out - realtime service doesn't exist
   await checkAndNotifyLowStock(item);
 });
 
@@ -91,7 +83,7 @@ router.post('/:sku/lots', async (req, res) => {
   });
 
   res.status(201).json({ success: true, data: item });
-  emitInventoryUpdate({ type: 'lot_added', item });
+  // emitInventoryUpdate({ type: 'lot_added', item }); // Commented out - realtime service doesn't exist
   await checkAndNotifyLowStock(item);
 });
 
@@ -138,7 +130,7 @@ router.post('/:sku/consume', async (req, res) => {
     });
 
     res.json({ success: true, data: { item, lotsConsumed } });
-    emitInventoryUpdate({ type: 'consumed', item, lotsConsumed });
+    // emitInventoryUpdate({ type: 'consumed', item, lotsConsumed }); // Commented out - realtime service doesn't exist
     await checkAndNotifyLowStock(item);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

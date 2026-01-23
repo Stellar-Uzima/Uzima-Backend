@@ -1,22 +1,25 @@
-// Stub email queue for prescription verification system
-export function enqueueEmail(data) {
-  // Stub implementation
-  console.log('Email queued (stub):', data);
-  return Promise.resolve();
-}
+// Stub email queue - placeholder for missing functionality
+export const emailQueue = {
+  add: (data) => {
+    console.log('Email queued (stub):', data);
+    return Promise.resolve({ id: 'stub-job-id' });
+  }
+};
 
-export function getQueueStats() {
-  // Stub implementation
-  return {
+export const enqueueEmail = (data) => {
+  console.log('Email enqueued (stub):', data);
+  return Promise.resolve({ id: 'stub-job-id' });
+};
+
+export const getQueueStats = () => {
+  console.log('Getting queue stats (stub)');
+  return Promise.resolve({
     waiting: 0,
     active: 0,
     completed: 0,
     failed: 0,
-  };
-}
-
-export default {
-  add: () => Promise.resolve(),
-  process: () => {},
-  getStats: getQueueStats,
+    delayed: 0
+  });
 };
+
+export default emailQueue;
