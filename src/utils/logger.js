@@ -17,4 +17,4 @@ function requestLogger(req, res, next) {
   next();
 }
 
-module.exports = { logger, requestLogger };
+export { logger, requestLogger };
