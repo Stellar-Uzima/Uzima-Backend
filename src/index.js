@@ -193,6 +193,23 @@ const startServer = async () => {
       console.log('Webhook worker not available, continuing without it');
     }
 
+    // Initialize daily backup cron jobs
+    try {
+      const { dailyBackupJob, cleanupJob, statsJob, healthCheckJob } = await import('./cron/dailyBackupJob.js');
+      
+      // Start the cron jobs
+      dailyBackupJob.start();
+      cleanupJob.start();
+      statsJob.start();
+      healthCheckJob.start();
+      
+      // eslint-disable-next-line no-console
+      console.log('Daily backup cron jobs initialized and started');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log('Daily backup cron jobs not available, continuing without them:', e.message);
+    }
+
     httpServer.listen(port, () => {
       // eslint-disable-next-line no-console
       console.log(`Server is running on http://localhost:${port}`);
