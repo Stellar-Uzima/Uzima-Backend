@@ -17,7 +17,8 @@
     "migrate:status": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:status",
     "migrate:create": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:create",
     "migrate:lock-status": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:lock-status",
-    "migrate:force-unlock": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:force-unlock"
+    "migrate:force-unlock": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:force-unlock",
+    "seed:permissions": "node scripts/seedPermissions.js"
   },
   "repository": {
     "type": "git",
