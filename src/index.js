@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import { corsMiddleware } from './config/cors.js';
 import morgan from 'morgan';
@@ -37,16 +38,15 @@ import './cron/outboxJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
+import { getConfig, initConfig } from './config/index.js';
 
-// Load environment variables
-dotenv.config();
-
-// Validate environment variables
-validateEnv();
+// Initialize and validate configuration (must be first)
+initConfig();
+const config = getConfig();
 
 // Initialize Express app
 const app = express();
-const port = process.env.PORT || 5000;
+const port = config.server.port;
 
 // Configure trust proxy for correct IP detection behind reverse proxies
 // This enables proper X-Forwarded-For header handling
@@ -56,12 +56,14 @@ app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : 1);
 // Connect to MongoDB
 connectDB();
 
-// Initialize Sentry SDK
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  integrations: [new Tracing.Integrations.Express({ app })],
-  tracesSampleRate: 1.0,
-});
+// Initialize Sentry SDK (if DSN is configured)
+if (config.monitoring.sentryDsn) {
+  Sentry.init({
+    dsn: config.monitoring.sentryDsn,
+    integrations: [new Tracing.Integrations.Express({ app })],
+    tracesSampleRate: 1.0,
+  });
+}
 
 // Initialize i18n middleware
 app.use(i18nextMiddleware.handle(i18next));
