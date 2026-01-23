@@ -17,7 +17,6 @@ function parseRedisUrl(urlString) {
 }
 
 const connection = parseRedisUrl(process.env.REDIS_URL);
-const emailQueue = new Queue(queueName, { connection });
 // Stub email queue - placeholder for missing functionality
 export const emailQueue = {
   add: (data) => {
