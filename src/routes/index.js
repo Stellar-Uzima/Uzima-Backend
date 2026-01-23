@@ -10,6 +10,7 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import analyticsRoutes from './analyticsRoutes.js';
 
 // Optional webhook routes (may not exist)
 let webhookRoutes;
@@ -32,6 +33,7 @@ router.get('/', (req, res) => {
   res.json({ message: 'Welcome to Uzima Backend API' });
 });
 
+
 // Use route modules
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
@@ -39,6 +41,7 @@ router.use('/records', recordRoutes);
 router.use('/metrics', metricsRoutes);
 router.use('/users', gdprRoutes); // GDPR routes for users
 router.use('/admin', adminRoutes);
+router.use('/admin/analytics', analyticsRoutes);
 router.use('/admin', adminGDPRRoutes); // GDPR admin routes
 router.use('/admin/backups', backupRoutes); // Backup admin routes
 router.use('/payments', webhookRoutes); // Payment webhook routes

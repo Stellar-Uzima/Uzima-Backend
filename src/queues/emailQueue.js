@@ -1,5 +1,6 @@
 // Stub email queue for prescription verification system
-import { Queue, QueueScheduler } from 'bullmq';
+import pkg from 'bullmq';
+const { Queue, QueueScheduler } = pkg;
 import { URL } from 'url';
 
 const queueName = 'email-queue';
