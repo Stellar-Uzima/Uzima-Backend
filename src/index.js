@@ -27,8 +27,11 @@ import { versionDetection } from './middleware/apiVersion.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
 import sseRoutes from './routes/sseRoutes.js';
+import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
 import eventManager from './services/eventManager.js';
 import { autoRunMigrations } from './services/autoRunMigrations.js';
+import { initializeElasticsearch } from './config/elasticsearch.js';
+import { createIndex, indexExists } from './services/elasticsearchService.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -119,6 +122,7 @@ app.use('/api/v2', createV2Router());
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/migrations', migrationRoutes);
+app.use('/api/search', elasticSearchRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
 app.use('/events', sseRoutes);
@@ -186,6 +190,25 @@ const startServer = async () => {
       // eslint-disable-next-line no-console
       console.error('⚠️  Permission cache initialization failed:', error.message);
       // Continue without cache - middleware will handle missing permissions gracefully
+    }
+
+    // Initialize Elasticsearch
+    try {
+      await initializeElasticsearch();
+      const exists = await indexExists();
+      if (!exists) {
+        await createIndex();
+        // eslint-disable-next-line no-console
+        console.log('✅ Elasticsearch index created successfully');
+      } else {
+        // eslint-disable-next-line no-console
+        console.log('✅ Elasticsearch index already exists');
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('⚠️  Elasticsearch initialization failed:', error.message);
+      console.error('   Search features will be limited. Ensure Elasticsearch is running on', process.env.ELASTICSEARCH_NODE || 'http://localhost:9200');
+      // Continue without Elasticsearch - the app can still run
     }
 
     // --- Start HTTP server ---
