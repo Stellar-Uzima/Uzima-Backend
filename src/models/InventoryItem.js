@@ -33,6 +33,17 @@ InventoryItemSchema.pre('save', function computeTotals(next) {
   next();
 });
 
+// Additional indexes for performance optimization
+InventoryItemSchema.index({ name: 1 });
+InventoryItemSchema.index({ category: 1, totalQuantity: 1 });
+InventoryItemSchema.index({ totalQuantity: 1, threshold: 1 });
+// Text index for search functionality
+InventoryItemSchema.index({
+  name: 'text',
+  category: 'text',
+  sku: 'text'
+});
+
 export default mongoose.model('InventoryItem', InventoryItemSchema);
 
 
