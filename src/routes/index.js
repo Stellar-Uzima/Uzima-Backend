@@ -10,6 +10,9 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import healthRoutes from './healthRoutes.js';
+
+// import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 import anonymizationRoutes from './anonymizationRoutes.js';
 
 // Optional webhook routes (may not exist)
@@ -42,12 +45,12 @@ router.use('/users', gdprRoutes); // GDPR routes for users
 router.use('/admin', adminRoutes);
 router.use('/admin', adminGDPRRoutes); // GDPR admin routes
 router.use('/admin/backups', backupRoutes); // Backup admin routes
-router.use('/payments', webhookRoutes); // Payment webhook routes
-router.use('/', webhookRoutes); // Webhook subscription routes under /webhooks
+// router.use('/payments', webhookRoutes); // Payment webhook routes - commented out
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
+router.use('/health', healthRoutes); // Health check routes
 router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 
 export default router;
