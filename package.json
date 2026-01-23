@@ -36,6 +36,7 @@
     "@apollo/server": "^4.11.2",
     "@aws-sdk/client-s3": "^3.705.0",
     "@aws-sdk/s3-request-presigner": "^3.705.0",
+    "@elastic/elasticsearch": "^9.2.0",
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
     "@socket.io/redis-adapter": "^8.3.0",
