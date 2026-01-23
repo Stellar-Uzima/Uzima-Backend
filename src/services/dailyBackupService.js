@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import cron from 'node-cron';
-import { createNotification } from './email.Service.js';
+import { createNotification } from './notificationService.js';
 import Backup from '../models/Backup.js';
 
 class DailyBackupService {
