@@ -176,6 +176,18 @@ const startServer = async () => {
       }
     }
 
+    // Initialize Permission Cache
+    try {
+      const permissionCache = (await import('./services/permissionCache.js')).default;
+      await permissionCache.initialize();
+      // eslint-disable-next-line no-console
+      console.log('✅ Permission cache initialized successfully');
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('⚠️  Permission cache initialization failed:', error.message);
+      // Continue without cache - middleware will handle missing permissions gracefully
+    }
+
     // --- Start HTTP server ---
     const httpServer = http.createServer(app);
 

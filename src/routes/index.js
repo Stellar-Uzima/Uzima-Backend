@@ -11,6 +11,7 @@ import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
 import healthRoutes from './healthRoutes.js';
+import permissionRoutes from './permissionRoutes.js';
 
 // import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 
@@ -39,6 +40,7 @@ router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
+router.use('/permissions', permissionRoutes); // Permission routes (RBAC)
 router.use('/health', healthRoutes); // Health check routes
 
 export default router;
