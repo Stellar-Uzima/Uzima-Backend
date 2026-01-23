@@ -36,6 +36,7 @@ import { createIndex, indexExists } from './services/elasticsearchService.js';
 import './config/redis.js';
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
+import './cron/reconciliationJob.js';
 // Backup job disabled - requires S3 configuration
 // import './cron/backupJob.js';
 // Email worker will be loaded conditionally in startServer

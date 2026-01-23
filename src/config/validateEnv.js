@@ -8,6 +8,21 @@
  * This file is kept for backward compatibility.
  */
 
+const REQUIRED_ENV_VARS = ['MONGO_URI', 'JWT_SECRET'];
+
+function isValidUrl(value) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isValidPort(value) {
+  const port = Number(value);
+  return Number.isInteger(port) && port > 0 && port < 65536;
+}
 import { initConfig } from './index.js';
 
 /**
@@ -21,7 +36,7 @@ export function validateEnv() {
   const errors = [];
   const warnings = [];
 
-  REQUIRED_ENV_VARS.forEach((key) => {
+  REQUIRED_ENV_VARS.forEach(key => {
     if (!process.env[key] || process.env[key].trim() === '') {
       errors.push(`Missing required env variable: ${key}`);
     }
@@ -63,7 +78,7 @@ export function validateEnv() {
 
   if (errors.length) {
     console.error('\nEnvironment configuration error:\n');
-    errors.forEach((err) => console.error(`- ${err}`));
+    errors.forEach(err => console.error(`- ${err}`));
     console.error('\nFix the above and restart the server.\n');
     process.exit(1);
   }
