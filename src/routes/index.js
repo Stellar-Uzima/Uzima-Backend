@@ -11,6 +11,7 @@ import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
 import healthRoutes from './healthRoutes.js';
+import jobRoutes from './jobRoutes.js';
 
 // import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 

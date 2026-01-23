@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { closeRedis } from './config/redis.js';
 import eventManager from './services/eventManager.js';
+import { shutdownWorker as shutdownEmailWorker } from './workers/emailWorker.js';
+import { shutdownWorker as shutdownWebhookWorker } from './workers/webhookWorker.js';
 
 let isShuttingDown = false;
 
@@ -45,9 +47,11 @@ export const gracefulShutdown = async (server, signal) => {
     console.log('MongoDB connection closed');
 
     // Step 4: Close Redis connection
-    console.log('Closing Redis connection...');
+    console.log('Closing Redis connection and workers...');
+    await shutdownEmailWorker();
+    await shutdownWebhookWorker();
     await closeRedis();
-    console.log('Redis connection closed');
+    console.log('Redis connection and workers closed');
 
     // Step 5: Clean up timers and exit successfully
     clearTimeout(forceExitTimer);
