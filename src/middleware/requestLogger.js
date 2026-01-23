@@ -4,12 +4,12 @@
  * Integrates with correlation IDs and provides structured logging
  */
 const requestLogger = (req, res, next) => {
-  const correlationId = req.correlationId || req.headers['x-correlation-id'];
+  const requestId = req.requestId || req.correlationId || req.headers['x-request-id'] || req.headers['x-correlation-id'];
   
   req.log = {
     error: (info) => {
       const logData = {
-        correlationId,
+        requestId,
         timestamp: new Date().toISOString(),
         level: 'error',
       };
@@ -23,8 +23,10 @@ const requestLogger = (req, res, next) => {
             message: info.err.message,
             stack: process.env.NODE_ENV !== 'production' ? info.err.stack : undefined,
           };
-          if (info.correlationId) {
-            logData.correlationId = info.correlationId;
+          if (info.requestId) {
+            logData.requestId = info.requestId;
+          } else if (info.correlationId) {
+            logData.requestId = info.correlationId;
           }
         } else {
           // Plain object
@@ -36,27 +38,27 @@ const requestLogger = (req, res, next) => {
       }
 
       // eslint-disable-next-line no-console
-      console.error(`[${logData.correlationId || 'NO-ID'}]`, logData);
+      console.error(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
     info: (msg) => {
       const logData = {
-        correlationId,
+        requestId,
         timestamp: new Date().toISOString(),
         level: 'info',
         message: typeof msg === 'object' ? JSON.stringify(msg) : msg,
       };
       // eslint-disable-next-line no-console
-      console.log(`[${logData.correlationId || 'NO-ID'}]`, logData);
+      console.log(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
     warn: (msg) => {
       const logData = {
-        correlationId,
+        requestId,
         timestamp: new Date().toISOString(),
         level: 'warn',
         message: typeof msg === 'object' ? JSON.stringify(msg) : msg,
       };
       // eslint-disable-next-line no-console
-      console.warn(`[${logData.correlationId || 'NO-ID'}]`, logData);
+      console.warn(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
   };
   next();

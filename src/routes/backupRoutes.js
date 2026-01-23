@@ -7,10 +7,23 @@ import {
   deleteBackup,
   verifyBackup,
   downloadBackup,
+  createFilteredBackup,
+  getFilteredBackups,
+  downloadFilteredBackup,
+  getFilteredBackupMetadata,
+  deleteFilteredBackup,
 } from '../controllers/backupController.js';
 import { auth } from '../middleware/authMiddleware.js';
+import protect from '../middleware/authMiddleware.js';
 import requireRoles from '../middleware/requireRole.js';
 import { createCustomRateLimit } from '../middleware/rateLimiter.js';
+import { validate } from '../middleware/validationMiddleware.js';
+import {
+  createFilteredBackupSchema,
+  downloadFilteredBackupSchema,
+  backupIdSchema,
+  listFilteredBackupsSchema
+} from '../validations/backupValidators.js';
 
 const router = express.Router();
 
@@ -195,6 +208,101 @@ router.post('/trigger', createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5
 
 /**
  * @swagger
+ * /api/admin/backups/create:
+ *   post:
+ *     summary: Create filtered backup with advanced options
+ *     tags: [Backups]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - collections
+ *             properties:
+ *               collections:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Collection names to backup
+ *                 example: ["users", "records", "prescriptions"]
+ *               filters:
+ *                 type: object
+ *                 properties:
+ *                   startDate:
+ *                     type: string
+ *                     format: date-time
+ *                     description: Start date for filtering records
+ *                   endDate:
+ *                     type: string
+ *                     format: date-time
+ *                     description: End date for filtering records
+ *                   recordTypes:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     description: Filter by record types
+ *                   userId:
+ *                     type: string
+ *                     description: Filter by specific user
+ *                   status:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     description: Filter by status
+ *               format:
+ *                 type: string
+ *                 enum: [json, csv, both]
+ *                 default: both
+ *                 description: Export format
+ *     responses:
+ *       201:
+ *         description: Filtered backup created successfully
+ *       400:
+ *         description: Invalid request parameters
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ *       500:
+ *         description: Server error
+ */
+router.post('/create', protect, validate(createFilteredBackupSchema), createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), createFilteredBackup);
+
+/**
+ * @swagger
+ * /api/admin/backups/filtered:
+ *   get:
+ *     summary: Get list of filtered backups
+ *     tags: [Backups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Filtered backups retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ */
+router.get('/filtered', protect, validate(listFilteredBackupsSchema), getFilteredBackups);
+
+/**
+ * @swagger
  * /api/admin/backups/{backupId}:
  *   get:
  *     summary: Get specific backup details
@@ -322,5 +430,95 @@ router.post('/:backupId/verify', verifyBackup);
  *         description: Insufficient permissions
  */
 router.get('/:backupId/download', downloadBackup);
+
+/**
+ * @swagger
+ * /api/admin/backups/{backupId}/metadata:
+ *   get:
+ *     summary: Get filtered backup metadata
+ *     tags: [Backups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: backupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Backup ID
+ *     responses:
+ *       200:
+ *         description: Metadata retrieved successfully
+ *       404:
+ *         description: Backup not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ */
+router.get('/:backupId/metadata', protect, validate(backupIdSchema), getFilteredBackupMetadata);
+
+/**
+ * @swagger
+ * /api/admin/backups/{backupId}/file:
+ *   get:
+ *     summary: Download filtered backup file
+ *     tags: [Backups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: backupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Backup ID
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [json, csv]
+ *           default: json
+ *         description: File format to download
+ *     responses:
+ *       200:
+ *         description: File downloaded successfully
+ *       404:
+ *         description: Backup not found
+ *       400:
+ *         description: Invalid format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ */
+router.get('/:backupId/file', protect, validate(downloadFilteredBackupSchema), downloadFilteredBackup);
+
+/**
+ * @swagger
+ * /api/admin/backups/{backupId}/filtered:
+ *   delete:
+ *     summary: Delete filtered backup
+ *     tags: [Backups]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: backupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Backup ID
+ *     responses:
+ *       200:
+ *         description: Backup deleted successfully
+ *       404:
+ *         description: Backup not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ */
+router.delete('/:backupId/filtered', protect, validate(backupIdSchema), deleteFilteredBackup);
 
 export default router;
