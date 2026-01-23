@@ -41,5 +41,6 @@ router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 router.use('/health', healthRoutes); // Health check routes
+router.use('/jobs', jobRoutes);
 
 export default router;
