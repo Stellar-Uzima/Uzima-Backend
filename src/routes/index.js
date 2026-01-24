@@ -13,6 +13,7 @@ import prescriptionRoutes from './prescriptionRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import healthRoutes from './healthRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
+import securityRoutes from './securityRoutes.js';
 
 // import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 import anonymizationRoutes from './anonymizationRoutes.js';
@@ -55,6 +56,7 @@ router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 router.use('/permissions', permissionRoutes); // Permission routes (RBAC)
+router.use('/security', securityRoutes); // Security routes (devices, login history)
 router.use('/health', healthRoutes); // Health check routes
 router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 
