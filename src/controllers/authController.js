@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import ApiResponse from '../utils/apiResponse.js';
 import generateAccessToken, { generateRefreshTokenPayload } from '../utils/generateToken.js';
 import RefreshToken from '../models/RefreshToken.js';
+import LoginHistory from '../models/LoginHistory.js';
 import {
   registerSchema,
   loginSchema,
@@ -19,6 +20,10 @@ import {
   validatePasswordComplexity,
 } from '../utils/passwordValidator.js';
 import PasswordPolicyService from '../services/passwordPolicyService.js';
+import geolocationService from '../services/geolocationService.js';
+import fingerprintService from '../services/fingerprintService.js';
+import fraudDetectionService from '../services/fraudDetectionService.js';
+import notificationService from '../services/notificationService.js';
 
 const authController = {
   register: async (req, res) => {
@@ -190,7 +195,9 @@ const authController = {
       return ApiResponse.error(res, errors, 400);
     }
 
-    const { email, password } = value;
+    const { email, password, fingerprint } = value;
+    const userAgent = req.get('User-Agent') || '';
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
 
     try {
       // Find user by email
@@ -217,6 +224,32 @@ const authController = {
         const shouldLock = PasswordPolicyService.handleFailedLoginAttempt(user, 5, 15);
         await user.save();
 
+        // Log failed login attempt with geolocation if fingerprint provided
+        if (fingerprint) {
+          try {
+            const location = await geolocationService.getLocationFromIp(ipAddress);
+            await LoginHistory.logLogin({
+              userId: user._id,
+              fingerprint: fingerprint.visitorId,
+              ipAddress,
+              location,
+              userAgent,
+              loginAt: new Date(),
+              loginStatus: 'failed',
+              isNewDevice: false,
+              isNewLocation: false,
+              fraudFlags: {
+                impossibleTravel: false,
+                suspiciousIp: false,
+                unusualActivity: false,
+              },
+            });
+          } catch (err) {
+            // Don't fail login on logging error
+            console.error('Failed to log failed login:', err);
+          }
+        }
+
         if (shouldLock) {
           return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
         }
@@ -238,6 +271,115 @@ const authController = {
           403
         );
       }
+
+      // === START: Geolocation and Fingerprinting Integration ===
+      
+      let securityContext = null;
+      let deviceRecord = null;
+      let locationData = null;
+      let fraudCheck = null;
+
+      if (fingerprint && fingerprintService.validateFingerprintData(fingerprint)) {
+        try {
+          // 1. Get IP geolocation
+          locationData = await geolocationService.getLocationFromIp(ipAddress);
+
+          // 2. Process fingerprint and find/create device
+          const deviceResult = await fingerprintService.findOrCreateDevice(
+            user._id,
+            fingerprint,
+            locationData,
+            userAgent
+          );
+          deviceRecord = deviceResult.device;
+          const isNewDevice = deviceResult.isNew;
+          const isNewLocation = deviceResult.isNewLocation;
+
+          // 3. Check for impossible travel
+          const sessionId = crypto.randomBytes(16).toString('hex');
+          fraudCheck = await fraudDetectionService.checkImpossibleTravel(
+            user._id,
+            locationData,
+            sessionId
+          );
+
+          // 4. Create login history entry
+          await LoginHistory.logLogin({
+            userId: user._id,
+            deviceId: deviceRecord._id,
+            fingerprint: fingerprint.visitorId,
+            ipAddress,
+            location: locationData,
+            userAgent,
+            loginAt: new Date(),
+            loginStatus: 'success',
+            isNewDevice,
+            isNewLocation,
+            fraudFlags: fraudCheck.flags,
+            fraudDetails: fraudCheck.details,
+            notificationSent: false,
+            sessionId,
+          });
+
+          // 5. Send notification if new device or suspicious activity
+          if (isNewDevice || fraudCheck.impossibleTravel) {
+            try {
+              const notificationType = fraudCheck.impossibleTravel 
+                ? 'IMPOSSIBLE_TRAVEL_DETECTED'
+                : isNewDevice 
+                  ? 'NEW_DEVICE_LOGIN'
+                  : 'NEW_LOCATION_LOGIN';
+
+              await notificationService.createSecurityNotification({
+                userId: user._id,
+                type: notificationType,
+                title: fraudCheck.impossibleTravel 
+                  ? 'Suspicious login detected'
+                  : isNewDevice 
+                    ? 'New device login'
+                    : 'New location login',
+                message: fraudCheck.impossibleTravel
+                  ? `Impossible travel detected: ${locationData.city}, ${locationData.country}`
+                  : `Your account was accessed from ${deviceRecord.displayName || 'a new device'} in ${locationData.city}, ${locationData.country}`,
+                priority: fraudCheck.impossibleTravel ? 'high' : 'medium',
+                metadata: {
+                  device: deviceRecord.displayName,
+                  location: `${locationData.city}, ${locationData.country}`,
+                  ipAddress,
+                  timestamp: new Date().toISOString(),
+                  fraudDetails: fraudCheck.details,
+                },
+              });
+            } catch (notifError) {
+              // Don't fail login on notification error
+              console.error('Failed to send security notification:', notifError);
+            }
+          }
+
+          // 6. Build security context for response
+          securityContext = {
+            isNewDevice,
+            isNewLocation,
+            deviceId: deviceRecord._id,
+            location: geolocationService.getLocationSummary(locationData),
+            fraudFlags: fraudCheck.flags,
+          };
+
+          // Add fraud details if present
+          if (fraudCheck.details) {
+            securityContext.fraudDetails = {
+              distanceKm: fraudCheck.details.distanceKm,
+              timeDiffMinutes: fraudCheck.details.timeDiffMinutes,
+              calculatedSpeedKmh: fraudCheck.details.calculatedSpeedKmh,
+            };
+          }
+        } catch (securityError) {
+          // Log security feature error but don't fail the login
+          console.error('Error in security features:', securityError);
+        }
+      }
+
+      // === END: Geolocation and Fingerprinting Integration ===
 
       // Prepare user data to return (exclude password)
       const { _id, username, email: userEmail, role } = user;
@@ -262,15 +404,26 @@ const authController = {
         userId: user._id,
         tokenHash,
         expiresAt,
-        createdByIp: req.ip,
-        userAgent: req.get('User-Agent') || null,
+        createdByIp: ipAddress,
+        userAgent,
       });
 
       await user.save();
 
+      const responseData = { 
+        user: resUser, 
+        accessToken, 
+        refreshToken: rawRefreshToken 
+      };
+
+      // Add security context if available
+      if (securityContext) {
+        responseData.security = securityContext;
+      }
+
       return ApiResponse.success(
         res,
-        { user: resUser, accessToken, refreshToken: rawRefreshToken },
+        responseData,
         'Login successful'
       );
     } catch (error) {
