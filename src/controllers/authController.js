@@ -19,6 +19,7 @@ import {
   validatePasswordComplexity,
 } from '../utils/passwordValidator.js';
 import PasswordPolicyService from '../services/passwordPolicyService.js';
+import { buildSessionMetadata } from '../utils/sessionMetadata.js';
 
 const authController = {
   register: async (req, res) => {
@@ -182,101 +183,60 @@ const authController = {
     return ApiResponse.error(res, '2FA login not implemented yet', 501);
   },
 
-  login: async (req, res) => {
-    // Validate request body
-    const { error, value } = loginSchema.validate(req.body, { abortEarly: false });
-    if (error) {
-      const errors = error.details.map(e => e.message).join('; ');
-      return ApiResponse.error(res, errors, 400);
+ login: async (req, res) => {
+  // Validate request body
+  const { error, value } = loginSchema.validate(req.body, { abortEarly: false });
+  if (error) {
+    const errors = error.details.map(e => e.message).join('; ');
+    return ApiResponse.error(res, errors, 400);
+  }
+
+  const { email, password } = value;
+
+  try {
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return ApiResponse.error(res, 'Invalid credentials', 401);
     }
 
-    const { email, password } = value;
-
-    try {
-      // Find user by email
-      const user = await User.findOne({ email });
-      if (!user) {
-        return ApiResponse.error(res, 'Invalid credentials', 401);
-      }
-
-      // Check if account is locked
-      if (PasswordPolicyService.isAccountLocked(user)) {
-        const lockTimeRemaining = PasswordPolicyService.getLockTimeRemaining(user);
-        await user.save();
-        return ApiResponse.error(
-          res,
-          `Account is locked. Try again in ${lockTimeRemaining} minutes.`,
-          429
-        );
-      }
-
-      // Compare password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        // Record failed login attempt
-        const shouldLock = PasswordPolicyService.handleFailedLoginAttempt(user, 5, 15);
-        await user.save();
-
-        if (shouldLock) {
-          return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
-        }
-        return ApiResponse.error(res, 'Invalid credentials', 401);
-      }
-
-      // Reset failed login attempts on successful login
-      PasswordPolicyService.resetFailedLoginAttempts(user);
-
-      // Check if password change is required
-      const passwordStatus = PasswordPolicyService.getPasswordStatus(user);
-      if (passwordStatus.requiresChange || passwordStatus.isExpired) {
-        PasswordPolicyService.forcePasswordChange(user);
-        await user.save();
-        
-        return ApiResponse.error(
-          res,
-          'Password change required. Please update your password.',
-          403
-        );
-      }
-
-      // Prepare user data to return (exclude password)
-      const { _id, username, email: userEmail, role } = user;
-      const resUser = {
-        id: _id,
-        username,
-        email: userEmail,
-        role,
-        passwordStatus: {
-          daysUntilExpiry: passwordStatus.daysUntilExpiry,
-          expiryWarning: passwordStatus.expiryWarning,
-        },
-      };
-
-      // Generate tokens
-      const accessToken = generateAccessToken(user);
-      const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
-      const rawRefreshToken = crypto.randomBytes(48).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
-
-      await RefreshToken.create({
-        userId: user._id,
-        tokenHash,
-        expiresAt,
-        createdByIp: req.ip,
-        userAgent: req.get('User-Agent') || null,
-      });
-
+    // Check if account is locked
+    if (PasswordPolicyService.isAccountLocked(user)) {
+      const lockTimeRemaining = PasswordPolicyService.getLockTimeRemaining(user);
       await user.save();
-
-      return ApiResponse.success(
+      return ApiResponse.error(
         res,
-        { user: resUser, accessToken, refreshToken: rawRefreshToken },
-        'Login successful'
+        `Account is locked. Try again in ${lockTimeRemaining} minutes.`,
+        429
       );
-    } catch (error) {
-      return ApiResponse.error(res, error.message, 500);
     }
-  },
+
+    // Verify password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      await PasswordPolicyService.handleFailedAttempt(user);
+      return ApiResponse.error(res, 'Invalid credentials', 401);
+    }
+
+    // ✅ Reset failed attempts on success
+    PasswordPolicyService.resetAttempts(user);
+    await user.save();
+
+    // 🔐 REDIS SESSION SETUP (THIS IS THE KEY PART)
+    req.session.userId = user.id;
+    req.session.metadata = buildSessionMetadata(req);
+
+    return ApiResponse.success(res, {
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    return ApiResponse.error(res, 'Login failed', 500);
+  }
+},
 
   // Forgot password
   forgotPassword: async (req, res) => {
