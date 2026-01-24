@@ -20,10 +20,13 @@ import {
   validatePasswordComplexity,
 } from '../utils/passwordValidator.js';
 import PasswordPolicyService from '../services/passwordPolicyService.js';
+// Geolocation and fingerprinting imports (feat/ip-geolocation)
 import geolocationService from '../services/geolocationService.js';
 import fingerprintService from '../services/fingerprintService.js';
 import fraudDetectionService from '../services/fraudDetectionService.js';
 import notificationService from '../services/notificationService.js';
+// Session metadata import (main)
+import { buildSessionMetadata } from '../utils/sessionMetadata.js';
 
 const authController = {
   register: async (req, res) => {
@@ -409,6 +412,11 @@ const authController = {
       });
 
       await user.save();
+
+      // === START: Redis Session Setup (from main) ===
+      req.session.userId = user.id;
+      req.session.metadata = buildSessionMetadata(req);
+      // === END: Redis Session Setup ===
 
       const responseData = { 
         user: resUser, 
