@@ -21,6 +21,7 @@ This implementation provides comprehensive request ID generation and propagation
 - **Integration**: All log messages include request ID
 - **Format**: `[request-id]` prefix in all console output
 - **Priority**: Uses `requestId` first, falls back to `correlationId` and headers
+- **⚠️ IMPORTANT**: Middleware order matters - `correlationIdMiddleware` must run BEFORE `requestLogger` to ensure request ID is available for logging
 
 ### 4. External Service Propagation
 - **Location**: `src/utils/requestId.js`
@@ -31,6 +32,14 @@ This implementation provides comprehensive request ID generation and propagation
   - `getRequestIdFromRequest()` - Extracts request ID from various sources
 
 ## Usage Examples
+
+### ⚠️ Critical: Middleware Order
+**IMPORTANT**: The middleware order is crucial for proper functionality:
+```javascript
+// CORRECT ORDER in src/index.js:
+app.use(correlationIdMiddleware);  // MUST run first
+app.use(requestLogger);           // Runs second, has access to requestId
+```
 
 ### Basic Request ID Access
 ```javascript
@@ -106,3 +115,4 @@ All core functionality tested and verified:
 - New code should use `req.requestId` for consistency
 - External service integration requires explicit utility usage
 - No breaking changes to existing API contracts
+- **⚠️ CRITICAL**: Ensure middleware order: `correlationIdMiddleware` BEFORE `requestLogger` in your Express app setup
