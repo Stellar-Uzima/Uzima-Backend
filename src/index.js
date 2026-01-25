@@ -15,6 +15,7 @@ import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import correlationIdMiddleware from './middleware/correlationId.js';
 import requestLogger from './middleware/requestLogger.js';
+import { apiRequestResponseLogger } from './utils/logger.js';
 import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import responseTimeMonitor from './middleware/responseTimeMonitor.js';
@@ -83,9 +84,9 @@ app.use(corsMiddleware);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
 app.use(correlationIdMiddleware);
-app.use(responseTimeMonitor);
+app.use(requestLogger);
+app.use(apiRequestResponseLogger);
 
 // Apply general rate limiting to all routes
 app.use(generalRateLimit);
