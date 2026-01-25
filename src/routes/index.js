@@ -13,6 +13,8 @@ import prescriptionRoutes from './prescriptionRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import healthRoutes from './healthRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import paymentWebhookRoutes from './paymentWebhookRoutes.js';
 
 // import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
 import anonymizationRoutes from './anonymizationRoutes.js';
@@ -49,6 +51,8 @@ router.use('/admin', adminRoutes);
 router.use('/admin/analytics', analyticsRoutes);
 router.use('/admin', adminGDPRRoutes); // GDPR admin routes
 router.use('/admin/backups', backupRoutes); // Backup admin routes
+router.use('/payments', paymentRoutes); // Payment routes
+router.use('/payments', paymentWebhookRoutes); // Payment webhook routes
 // router.use('/payments', webhookRoutes); // Payment webhook routes - commented out
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes

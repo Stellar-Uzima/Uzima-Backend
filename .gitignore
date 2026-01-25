@@ -3,3 +3,11 @@ node_modules/
 .env.*
 !.env.example
 .qodo
+
+# Payment integration documentation files
+PAYMENT_SETUP_GUIDE.md
+QUICK_START.md
+PAYMENT_IMPLEMENTATION_SUMMARY.md
+PR_MESSAGE.md
+PR_DESCRIPTION.md
+PR_USAGE_INSTRUCTIONS.md
