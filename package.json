@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:payment-sim": "node test-payment-simulation.js",
     "migrate:up": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:up",
     "migrate:down": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:down",
     "migrate:status": "node --input-type=module --eval \"import('./src/cli/migrations.js')\" -- migrate:status",
