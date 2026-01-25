@@ -15,12 +15,15 @@ import connectDB from './config/database.js';
 import errorHandler from './middleware/errorHandler.js';
 import correlationIdMiddleware from './middleware/correlationId.js';
 import requestLogger from './middleware/requestLogger.js';
+import { apiRequestResponseLogger } from './utils/logger.js';
 import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
+import responseTimeMonitor from './middleware/responseTimeMonitor.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
 import migrationRoutes from './routes/migrationRoutes.js';
+import performanceRoutes from './routes/performanceRoutes.js';
 import specs from './config/swagger.js';
 import { createV1Router, createV2Router } from './routes/versions.js';
 import versionRoutes from './routes/versionRoutes.js';
@@ -34,6 +37,9 @@ import { autoRunMigrations } from './services/autoRunMigrations.js';
 import { initializeElasticsearch } from './config/elasticsearch.js';
 import { createIndex, indexExists } from './services/elasticsearchService.js';
 import './config/redis.js';
+
+// Make eventManager globally available for performance monitoring
+global.eventManager = eventManager;
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
 import './cron/reconciliationJob.js';
@@ -78,8 +84,9 @@ app.use(corsMiddleware);
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
 app.use(correlationIdMiddleware);
+app.use(requestLogger);
+app.use(apiRequestResponseLogger);
 
 // Apply general rate limiting to all routes
 app.use(generalRateLimit);
@@ -125,6 +132,7 @@ app.use('/api/v2', createV2Router());
 app.use('/api', routes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/migrations', migrationRoutes);
+app.use('/api/performance', performanceRoutes);
 app.use('/api/search', elasticSearchRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
