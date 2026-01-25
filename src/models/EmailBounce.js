@@ -89,4 +89,4 @@ emailBounceSchema.statics.getBounceStats = async function (hours = 24) {
 
 const EmailBounce = mongoose.model('EmailBounce', emailBounceSchema);
 
-module.exports = EmailBounce;
+export default EmailBounce;
