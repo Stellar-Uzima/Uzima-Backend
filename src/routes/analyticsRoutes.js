@@ -18,7 +18,26 @@ router.get('/activity', analyticsController.getActivityAnalytics);
 // Performance Analytics
 router.get('/performance', analyticsController.getPerformanceAnalytics);
 
-// Error Analytics
+// Error Analytics (Legacy)
 router.get('/errors', analyticsController.getErrorAnalytics);
+
+// ============================================
+// API METRICS ANALYTICS ENDPOINTS
+// ============================================
+
+// Get aggregated summary statistics
+router.get('/api/summary', analyticsController.getApiMetricsSummary);
+
+// Get per-endpoint breakdown
+router.get('/api/endpoints', analyticsController.getApiEndpointStats);
+
+// Get error analytics
+router.get('/api/errors', analyticsController.getApiErrorAnalytics);
+
+// Get time-series data
+router.get('/api/timeseries', analyticsController.getApiTimeSeriesData);
+
+// Get slow queries
+router.get('/api/slow-queries', analyticsController.getSlowQueries);
 
 export default router;
