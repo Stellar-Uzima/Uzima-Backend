@@ -19,7 +19,6 @@ function parseRedisUrl(urlString) {
     db: u.pathname ? Number(u.pathname.replace('/', '')) || 0 : 0,
   };
 }
-
 const connection = parseRedisUrl(process.env.REDIS_URL);
 const exportQueue = new Queue(queueName, { connection });
 
