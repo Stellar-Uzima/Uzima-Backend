@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import ApiResponse from '../utils/apiResponse.js';
 import generateAccessToken, { generateRefreshTokenPayload } from '../utils/generateToken.js';
 import RefreshToken from '../models/RefreshToken.js';
+import LoginHistory from '../models/LoginHistory.js';
 import {
   registerSchema,
   loginSchema,
@@ -19,6 +20,12 @@ import {
   validatePasswordComplexity,
 } from '../utils/passwordValidator.js';
 import PasswordPolicyService from '../services/passwordPolicyService.js';
+// Geolocation and fingerprinting imports (feat/ip-geolocation)
+import geolocationService from '../services/geolocationService.js';
+import fingerprintService from '../services/fingerprintService.js';
+import fraudDetectionService from '../services/fraudDetectionService.js';
+import notificationService from '../services/notificationService.js';
+// Session metadata import (main)
 import { buildSessionMetadata } from '../utils/sessionMetadata.js';
 
 const authController = {
@@ -183,60 +190,254 @@ const authController = {
     return ApiResponse.error(res, '2FA login not implemented yet', 501);
   },
 
- login: async (req, res) => {
-  // Validate request body
-  const { error, value } = loginSchema.validate(req.body, { abortEarly: false });
-  if (error) {
-    const errors = error.details.map(e => e.message).join('; ');
-    return ApiResponse.error(res, errors, 400);
-  }
-
-  const { email, password } = value;
-
-  try {
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return ApiResponse.error(res, 'Invalid credentials', 401);
+  login: async (req, res) => {
+    // Validate request body
+    const { error, value } = loginSchema.validate(req.body, { abortEarly: false });
+    if (error) {
+      const errors = error.details.map(e => e.message).join('; ');
+      return ApiResponse.error(res, errors, 400);
     }
 
-    // Check if account is locked
-    if (PasswordPolicyService.isAccountLocked(user)) {
-      const lockTimeRemaining = PasswordPolicyService.getLockTimeRemaining(user);
+    const { email, password, fingerprint } = value;
+    const userAgent = req.get('User-Agent') || '';
+    const ipAddress = req.ip || req.connection?.remoteAddress || 'unknown';
+
+    try {
+      // Find user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+        return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Check if account is locked
+      if (PasswordPolicyService.isAccountLocked(user)) {
+        const lockTimeRemaining = PasswordPolicyService.getLockTimeRemaining(user);
+        await user.save();
+        return ApiResponse.error(
+          res,
+          `Account is locked. Try again in ${lockTimeRemaining} minutes.`,
+          429
+        );
+      }
+
+      // Compare password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        // Record failed login attempt
+        const shouldLock = PasswordPolicyService.handleFailedLoginAttempt(user, 5, 15);
+        await user.save();
+
+        // Log failed login attempt with geolocation if fingerprint provided
+        if (fingerprint) {
+          try {
+            const location = await geolocationService.getLocationFromIp(ipAddress);
+            await LoginHistory.logLogin({
+              userId: user._id,
+              fingerprint: fingerprint.visitorId,
+              ipAddress,
+              location,
+              userAgent,
+              loginAt: new Date(),
+              loginStatus: 'failed',
+              isNewDevice: false,
+              isNewLocation: false,
+              fraudFlags: {
+                impossibleTravel: false,
+                suspiciousIp: false,
+                unusualActivity: false,
+              },
+            });
+          } catch (err) {
+            // Don't fail login on logging error
+            console.error('Failed to log failed login:', err);
+          }
+        }
+
+        if (shouldLock) {
+          return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
+        }
+        return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Reset failed login attempts on successful login
+      PasswordPolicyService.resetFailedLoginAttempts(user);
+
+      // Check if password change is required
+      const passwordStatus = PasswordPolicyService.getPasswordStatus(user);
+      if (passwordStatus.requiresChange || passwordStatus.isExpired) {
+        PasswordPolicyService.forcePasswordChange(user);
+        await user.save();
+        
+        return ApiResponse.error(
+          res,
+          'Password change required. Please update your password.',
+          403
+        );
+      }
+
+      // === START: Geolocation and Fingerprinting Integration ===
+      
+      let securityContext = null;
+      let deviceRecord = null;
+      let locationData = null;
+      let fraudCheck = null;
+
+      if (fingerprint && fingerprintService.validateFingerprintData(fingerprint)) {
+        try {
+          // 1. Get IP geolocation
+          locationData = await geolocationService.getLocationFromIp(ipAddress);
+
+          // 2. Process fingerprint and find/create device
+          const deviceResult = await fingerprintService.findOrCreateDevice(
+            user._id,
+            fingerprint,
+            locationData,
+            userAgent
+          );
+          deviceRecord = deviceResult.device;
+          const isNewDevice = deviceResult.isNew;
+          const isNewLocation = deviceResult.isNewLocation;
+
+          // 3. Check for impossible travel
+          const sessionId = crypto.randomBytes(16).toString('hex');
+          fraudCheck = await fraudDetectionService.checkImpossibleTravel(
+            user._id,
+            locationData,
+            sessionId
+          );
+
+          // 4. Create login history entry
+          await LoginHistory.logLogin({
+            userId: user._id,
+            deviceId: deviceRecord._id,
+            fingerprint: fingerprint.visitorId,
+            ipAddress,
+            location: locationData,
+            userAgent,
+            loginAt: new Date(),
+            loginStatus: 'success',
+            isNewDevice,
+            isNewLocation,
+            fraudFlags: fraudCheck.flags,
+            fraudDetails: fraudCheck.details,
+            notificationSent: false,
+            sessionId,
+          });
+
+          // 5. Send notification if new device or suspicious activity
+          if (isNewDevice || fraudCheck.impossibleTravel) {
+            try {
+              const notificationType = fraudCheck.impossibleTravel 
+                ? 'IMPOSSIBLE_TRAVEL_DETECTED'
+                : isNewDevice 
+                  ? 'NEW_DEVICE_LOGIN'
+                  : 'NEW_LOCATION_LOGIN';
+
+              await notificationService.createSecurityNotification({
+                userId: user._id,
+                type: notificationType,
+                title: fraudCheck.impossibleTravel 
+                  ? 'Suspicious login detected'
+                  : isNewDevice 
+                    ? 'New device login'
+                    : 'New location login',
+                message: fraudCheck.impossibleTravel
+                  ? `Impossible travel detected: ${locationData.city}, ${locationData.country}`
+                  : `Your account was accessed from ${deviceRecord.displayName || 'a new device'} in ${locationData.city}, ${locationData.country}`,
+                priority: fraudCheck.impossibleTravel ? 'high' : 'medium',
+                metadata: {
+                  device: deviceRecord.displayName,
+                  location: `${locationData.city}, ${locationData.country}`,
+                  ipAddress,
+                  timestamp: new Date().toISOString(),
+                  fraudDetails: fraudCheck.details,
+                },
+              });
+            } catch (notifError) {
+              // Don't fail login on notification error
+              console.error('Failed to send security notification:', notifError);
+            }
+          }
+
+          // 6. Build security context for response
+          securityContext = {
+            isNewDevice,
+            isNewLocation,
+            deviceId: deviceRecord._id,
+            location: geolocationService.getLocationSummary(locationData),
+            fraudFlags: fraudCheck.flags,
+          };
+
+          // Add fraud details if present
+          if (fraudCheck.details) {
+            securityContext.fraudDetails = {
+              distanceKm: fraudCheck.details.distanceKm,
+              timeDiffMinutes: fraudCheck.details.timeDiffMinutes,
+              calculatedSpeedKmh: fraudCheck.details.calculatedSpeedKmh,
+            };
+          }
+        } catch (securityError) {
+          // Log security feature error but don't fail the login
+          console.error('Error in security features:', securityError);
+        }
+      }
+
+      // === END: Geolocation and Fingerprinting Integration ===
+
+      // Prepare user data to return (exclude password)
+      const { _id, username, email: userEmail, role } = user;
+      const resUser = {
+        id: _id,
+        username,
+        email: userEmail,
+        role,
+        passwordStatus: {
+          daysUntilExpiry: passwordStatus.daysUntilExpiry,
+          expiryWarning: passwordStatus.expiryWarning,
+        },
+      };
+
+      // Generate tokens
+      const accessToken = generateAccessToken(user);
+      const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
+      const rawRefreshToken = crypto.randomBytes(48).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+      await RefreshToken.create({
+        userId: user._id,
+        tokenHash,
+        expiresAt,
+        createdByIp: ipAddress,
+        userAgent,
+      });
+
       await user.save();
-      return ApiResponse.error(
+
+      // === START: Redis Session Setup (from main) ===
+      req.session.userId = user.id;
+      req.session.metadata = buildSessionMetadata(req);
+      // === END: Redis Session Setup ===
+
+      const responseData = { 
+        user: resUser, 
+        accessToken, 
+        refreshToken: rawRefreshToken 
+      };
+
+      // Add security context if available
+      if (securityContext) {
+        responseData.security = securityContext;
+      }
+
+      return ApiResponse.success(
         res,
-        `Account is locked. Try again in ${lockTimeRemaining} minutes.`,
-        429
+        responseData,
+        'Login successful'
       );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
     }
-
-    // Verify password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      await PasswordPolicyService.handleFailedAttempt(user);
-      return ApiResponse.error(res, 'Invalid credentials', 401);
-    }
-
-    // ✅ Reset failed attempts on success
-    PasswordPolicyService.resetAttempts(user);
-    await user.save();
-
-    // 🔐 REDIS SESSION SETUP (THIS IS THE KEY PART)
-    req.session.userId = user.id;
-    req.session.metadata = buildSessionMetadata(req);
-
-    return ApiResponse.success(res, {
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        email: user.email,
-      },
-    });
-  } catch (err) {
-    return ApiResponse.error(res, 'Login failed', 500);
-  }
-},
+  },
 
   // Forgot password
   forgotPassword: async (req, res) => {
