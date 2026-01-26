@@ -19,6 +19,7 @@ import { apiRequestResponseLogger } from './utils/logger.js';
 import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import responseTimeMonitor from './middleware/responseTimeMonitor.js';
+import apiMetricsMiddleware, { metricsTaggingMiddleware } from './middleware/apiMetricsMiddleware.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
@@ -85,6 +86,11 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationIdMiddleware);
+
+// API Metrics middleware - track all requests (must be early)
+app.use(apiMetricsMiddleware);
+app.use(metricsTaggingMiddleware);
+
 app.use(requestLogger);
 app.use(apiRequestResponseLogger);
 
