@@ -83,6 +83,20 @@ const userSchema = new mongoose.Schema({
       changedAt: { type: Date, default: Date.now },
     }],
   },
+  twoFactor: {
+    enabled: { type: Boolean, default: false },
+    secret: { type: String }, // Encrypted TOTP secret
+    algorithm: { type: String, default: 'sha1' },
+    encoding: { type: String, default: 'base32' },
+    verifiedAt: { type: Date },
+    backupCodes: [
+      {
+        code: { type: String }, // Hashed with bcrypt
+        usedAt: { type: Date },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
   createdAt: {
     type: Date,
     default: Date.now,

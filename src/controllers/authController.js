@@ -9,11 +9,16 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyTOTP2FASchema,
+  disable2FASchema,
+  loginWith2FASchema,
   changePasswordSchema,
 } from '../validations/authValidation.js';
 import mailer from '../services/email.Service.js';
 import crypto from 'crypto';
 import { resetPasswordEmail } from '../templates/resetPasswordEmail.js';
+import * as twoFactorService from '../services/twoFactorService.js';
+import jwt from 'jsonwebtoken';
 import {
   validatePassword,
   calculatePasswordStrength,
@@ -186,8 +191,91 @@ const authController = {
   },
 
   loginWith2FA: async (req, res) => {
-    // Stub implementation for 2FA login
-    return ApiResponse.error(res, '2FA login not implemented yet', 501);
+    const { error, value } = loginWith2FASchema.validate(req.body, { abortEarly: false });
+    if (error) {
+      const errors = error.details.map(e => e.message).join('; ');
+      return ApiResponse.error(res, errors, 400);
+    }
+
+    const { email, password, twoFactorCode, method } = value;
+
+    try {
+      // Find user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+        return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Check if 2FA is enabled
+      if (!user.twoFactor?.enabled) {
+        return ApiResponse.error(res, '2FA is not enabled for this account', 400);
+      }
+
+      // Verify 2FA code based on method
+      let verified = false;
+
+      if (method === 'totp') {
+        // Decrypt secret and verify TOTP
+        const decryptedSecret = twoFactorService.decryptSecret(user.twoFactor.secret);
+        verified = twoFactorService.verifyToken(decryptedSecret, twoFactorCode);
+      } else if (method === 'backup') {
+        // Check backup codes
+        for (const backupCode of user.twoFactor.backupCodes) {
+          if (backupCode.usedAt) continue; // Skip used codes
+
+          const isValid = await twoFactorService.verifyBackupCode(twoFactorCode, backupCode.code);
+          if (isValid) {
+            // Mark backup code as used
+            backupCode.usedAt = new Date();
+            await user.save();
+            verified = true;
+            break;
+          }
+        }
+      }
+
+      if (!verified) {
+        return ApiResponse.error(res, 'Invalid 2FA code', 401);
+      }
+
+      // Generate tokens with 2FA verified claim
+      const accessToken = generateAccessToken(user, true); // true = twoFactorVerified
+      const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
+      const rawRefreshToken = crypto.randomBytes(48).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+      await RefreshToken.create({
+        userId: user._id,
+        tokenHash,
+        expiresAt,
+        createdByIp: req.ip,
+        userAgent: req.get('User-Agent') || null,
+      });
+
+      // Prepare user data
+      const { _id, username, email: userEmail, role } = user;
+      const resUser = {
+        id: _id,
+        username,
+        email: userEmail,
+        role,
+      };
+
+      return ApiResponse.success(
+        res,
+        { user: resUser, accessToken, refreshToken: rawRefreshToken },
+        'Login successful',
+        200
+      );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
 
   login: async (req, res) => {
@@ -257,6 +345,20 @@ const authController = {
           return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
         }
         return ApiResponse.error(res, 'Invalid credentials', 401);
+      }
+
+      // Check if 2FA is enabled
+      if (user.twoFactor?.enabled) {
+        // Return indication that 2FA is required
+        return ApiResponse.success(
+          res,
+          {
+            require2FA: true,
+            message: 'Please provide your 2FA code',
+          },
+          'Two-factor authentication required',
+          200
+        );
       }
 
       // Reset failed login attempts on successful login
@@ -397,8 +499,8 @@ const authController = {
         },
       };
 
-      // Generate tokens
-      const accessToken = generateAccessToken(user);
+      // Generate tokens (2FA not verified since not enabled)
+      const accessToken = generateAccessToken(user, false);
       const { payload: rtPayload, expiresAt } = generateRefreshTokenPayload(user);
       const rawRefreshToken = crypto.randomBytes(48).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
@@ -551,7 +653,7 @@ const authController = {
     }
   },
 
-  // 2FA stub methods
+  // 2FA methods
   enableSMS2FA: async (req, res) => {
     return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
   },
@@ -559,16 +661,202 @@ const authController = {
     return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
   },
   enableTOTP2FA: async (req, res) => {
-    return ApiResponse.error(res, 'TOTP 2FA not implemented yet', 501);
+    try {
+      const userId = req.user.id || req.user._id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      if (user.twoFactor?.enabled) {
+        return ApiResponse.error(res, '2FA is already enabled', 400);
+      }
+
+      // Generate TOTP secret
+      const { secret, otpauthUrl } = twoFactorService.generateSecret();
+
+      // Generate QR code
+      const qrCode = await twoFactorService.generateQRCode(secret, user.email);
+
+      // Encrypt and store secret (but don't enable yet)
+      const encryptedSecret = twoFactorService.encryptSecret(secret);
+      user.twoFactor = {
+        enabled: false, // Not enabled until verified
+        secret: encryptedSecret,
+        algorithm: 'sha1',
+        encoding: 'base32',
+        backupCodes: [],
+      };
+
+      await user.save();
+
+      return ApiResponse.success(
+        res,
+        {
+          secret, // Return plaintext secret for manual entry
+          qrCode, // Return QR code data URL
+          message: 'Scan the QR code with your authenticator app and verify to enable 2FA',
+        },
+        'TOTP secret generated',
+        200
+      );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
   verifyTOTP2FA: async (req, res) => {
-    return ApiResponse.error(res, 'TOTP 2FA not implemented yet', 501);
+    const { error, value } = verifyTOTP2FASchema.validate(req.body, { abortEarly: false });
+    if (error) {
+      const errors = error.details.map(e => e.message).join('; ');
+      return ApiResponse.error(res, errors, 400);
+    }
+
+    const { token } = value;
+
+    try {
+      const userId = req.user.id || req.user._id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      if (user.twoFactor?.enabled) {
+        return ApiResponse.error(res, '2FA is already enabled', 400);
+      }
+
+      if (!user.twoFactor?.secret) {
+        return ApiResponse.error(res, 'Please enable 2FA first', 400);
+      }
+
+      // Decrypt secret and verify token
+      const decryptedSecret = twoFactorService.decryptSecret(user.twoFactor.secret);
+      const verified = twoFactorService.verifyToken(decryptedSecret, token);
+
+      if (!verified) {
+        return ApiResponse.error(res, 'Invalid TOTP token', 401);
+      }
+
+      // Generate backup codes
+      const backupCodes = twoFactorService.generateBackupCodes();
+      const hashedBackupCodes = await Promise.all(
+        backupCodes.map(async code => ({
+          code: await twoFactorService.hashBackupCode(code),
+          usedAt: null,
+          createdAt: new Date(),
+        }))
+      );
+
+      // Enable 2FA
+      user.twoFactor.enabled = true;
+      user.twoFactor.verifiedAt = new Date();
+      user.twoFactor.backupCodes = hashedBackupCodes;
+
+      await user.save();
+
+      return ApiResponse.success(
+        res,
+        {
+          success: true,
+          backupCodes, // Return plaintext backup codes (only shown once)
+          message:
+            'Two-factor authentication enabled successfully. Save your backup codes in a secure location.',
+        },
+        '2FA enabled',
+        200
+      );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
   get2FAStatus: async (req, res) => {
-    return ApiResponse.success(res, { enabled: false, method: null }, '2FA status');
+    try {
+      const userId = req.user.id || req.user._id;
+      const user = await User.findById(userId).select('twoFactor');
+
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      return ApiResponse.success(
+        res,
+        {
+          enabled: user.twoFactor?.enabled || false,
+          verifiedAt: user.twoFactor?.verifiedAt || null,
+          backupCodesCount: user.twoFactor?.backupCodes?.filter(bc => !bc.usedAt).length || 0,
+        },
+        '2FA status'
+      );
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
   disable2FA: async (req, res) => {
-    return ApiResponse.error(res, '2FA not implemented yet', 501);
+    const { error, value } = disable2FASchema.validate(req.body, { abortEarly: false });
+    if (error) {
+      const errors = error.details.map(e => e.message).join('; ');
+      return ApiResponse.error(res, errors, 400);
+    }
+
+    const { password, twoFactorCode, method } = value;
+
+    try {
+      const userId = req.user.id || req.user._id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return ApiResponse.error(res, 'User not found', 404);
+      }
+
+      if (!user.twoFactor?.enabled) {
+        return ApiResponse.error(res, '2FA is not enabled', 400);
+      }
+
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return ApiResponse.error(res, 'Invalid password', 401);
+      }
+
+      // Verify 2FA code
+      let verified = false;
+
+      if (method === 'totp') {
+        const decryptedSecret = twoFactorService.decryptSecret(user.twoFactor.secret);
+        verified = twoFactorService.verifyToken(decryptedSecret, twoFactorCode);
+      } else if (method === 'backup') {
+        for (const backupCode of user.twoFactor.backupCodes) {
+          if (backupCode.usedAt) continue;
+
+          const isValid = await twoFactorService.verifyBackupCode(twoFactorCode, backupCode.code);
+          if (isValid) {
+            verified = true;
+            break;
+          }
+        }
+      }
+
+      if (!verified) {
+        return ApiResponse.error(res, 'Invalid 2FA code', 401);
+      }
+
+      // Disable 2FA and clear all data
+      user.twoFactor = {
+        enabled: false,
+        secret: null,
+        algorithm: 'sha1',
+        encoding: 'base32',
+        verifiedAt: null,
+        backupCodes: [],
+      };
+
+      await user.save();
+
+      return ApiResponse.success(res, { success: true }, 'Two-factor authentication disabled', 200);
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
   revokeTrustedDevice: async (req, res) => {
     return ApiResponse.error(res, 'Trusted devices not implemented yet', 501);

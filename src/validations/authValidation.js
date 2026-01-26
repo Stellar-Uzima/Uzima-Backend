@@ -112,6 +112,22 @@ export const disable2FASchema = Joi.object({
   }),
 });
 
+// TOTP-specific schemas
+export const enableTOTP2FASchema = Joi.object({
+  // No body required - uses authenticated user
+});
+
+export const verifyTOTP2FASchema = Joi.object({
+  token: Joi.string()
+    .pattern(/^\d{6}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'TOTP token must be 6 digits',
+      'string.empty': 'TOTP token is required',
+    }),
+});
+
+
 // Forgot Password Validation Schema
 export const forgotPasswordSchema = Joi.object({
   email: Joi.string().email().trim().required().messages({
