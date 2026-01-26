@@ -174,5 +174,12 @@ prescriptionSchema.index({ patientId: 1, issuedDate: -1 });
 prescriptionSchema.index({ doctorId: 1, issuedDate: -1 });
 prescriptionSchema.index({ status: 1, expiryDate: 1 });
 prescriptionSchema.index({ signature: 1 });
+// Text index for search functionality
+prescriptionSchema.index({
+  patientName: 'text',
+  doctorName: 'text',
+  'medications.name': 'text',
+  instructions: 'text'
+});
 
 export default mongoose.model('Prescription', prescriptionSchema);

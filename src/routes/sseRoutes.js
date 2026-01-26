@@ -6,7 +6,7 @@ import {
   triggerTestEvent,
 } from '../controllers/sseController.js';
 import { auth } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/requireRole.js';
+import requireRole from '../middleware/requireRole.js';
 
 const router = express.Router();
 

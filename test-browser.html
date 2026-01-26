@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Request ID Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Request ID Testing Dashboard</h1>
+    
+    <div class="test-section">
+        <h2>1. Basic Request ID Test</h2>
+        <button onclick="testBasicRequest()">Test Basic Request</button>
+        <div id="basic-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Existing Request ID Test</h2>
+        <input type="text" id="existing-id" placeholder="Enter existing request ID" value="browser-test-123">
+        <button onclick="testExistingId()">Test with Existing ID</button>
+        <div id="existing-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Multiple Requests Test</h2>
+        <button onclick="testMultipleRequests()">Test 3 Requests</button>
+        <div id="multiple-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Request ID Format Validation</h2>
+        <button onclick="testFormatValidation()">Test Format</button>
+        <div id="format-result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+
+        function showResult(elementId, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${content}</div>`;
+        }
+
+        function isValidUUID(uuid) {
+            const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return regex.test(uuid);
+        }
+
+        async function testBasicRequest() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const requestId = response.headers.get('X-Request-ID');
+                
+                if (requestId) {
+                    const isValid = isValidUUID(requestId);
+                    showResult('basic-result', 
+                        `✅ Request ID found: <strong>${requestId}</strong><br>` +
+                        `✅ Valid UUID format: ${isValid ? 'YES' : 'NO'}<br>` +
+                        `✅ Response status: ${response.status}`,
+                        isValid ? 'pass' : 'fail'
+                    );
+                } else {
+                    showResult('basic-result', '❌ No X-Request-ID header found', 'fail');
+                }
+            } catch (error) {
+                showResult('basic-result', `❌ Error: ${error.message}`, 'fail');
+            }
+        }
+
+        async function testExistingId() {
+            try {
+                const existingId = document.getElementById('existing-id').value;
+                const response = await fetch(`${API_BASE}/api/health`, {
+                    headers: { 'X-Request-ID': existingId }
+                });
+                const requestId = response.headers.get('X-Request-ID');
+                
+                if (requestId === existingId) {
+                    showResult('existing-result', 
+                        `✅ Existing ID preserved: <strong>${requestId}</strong><br>` +
+                        `✅ Request/Response match: YES`,
+                        'pass'
+                    );
+                } else {
+                    showResult('existing-result', 
+                        `❌ ID mismatch. Sent: ${existingId}, Received: ${requestId}`,
+                        'fail'
+                    );
+                }
+            } catch (error) {
+                showResult('existing-result', `❌ Error: ${error.message}`, 'fail');
+            }
+        }
+
+        async function testMultipleRequests() {
+            try {
+                const requests = [];
+                for (let i = 0; i < 3; i++) {
+                    const response = await fetch(`${API_BASE}/api/health`);
+                    requests.push(response.headers.get('X-Request-ID'));
+                }
+                
+                const uniqueIds = new Set(requests);
+                const allValid = requests.every(id => isValidUUID(id));
+                
+                let result = `✅ Generated 3 request IDs:<br>`;
+                requests.forEach((id, index) => {
+                    result += `&nbsp;&nbsp;Request ${index + 1}: <strong>${id}</strong><br>`;
+                });
+                result += `✅ All unique: ${uniqueIds.size === 3 ? 'YES' : 'NO'}<br>`;
+                result += `✅ All valid format: ${allValid ? 'YES' : 'NO'}`;
+                
+                showResult('multiple-result', result, 
+                    (uniqueIds.size === 3 && allValid) ? 'pass' : 'fail'
+                );
+            } catch (error) {
+                showResult('multiple-result', `❌ Error: ${error.message}`, 'fail');
+            }
+        }
+
+        async function testFormatValidation() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const requestId = response.headers.get('X-Request-ID');
+                
+                if (requestId) {
+                    const isValid = isValidUUID(requestId);
+                    const parts = requestId.split('-');
+                    const formatDetails = `
+                        <strong>Format Analysis:</strong><br>
+                        &nbsp;&nbsp;Full ID: ${requestId}<br>
+                        &nbsp;&nbsp;Length: ${requestId.length} characters<br>
+                        &nbsp;&nbsp;Parts: ${parts.length} (should be 5)<br>
+                        &nbsp;&nbsp;Part 1: ${parts[0]} (${parts[0].length} chars)<br>
+                        &nbsp;&nbsp;Part 2: ${parts[1]} (${parts[1].length} chars)<br>
+                        &nbsp;&nbsp;Part 3: ${parts[2]} (${parts[2].length} chars)<br>
+                        &nbsp;&nbsp;Part 4: ${parts[3]} (${parts[3].length} chars)<br>
+                        &nbsp;&nbsp;Part 5: ${parts[4]} (${parts[4].length} chars)<br>
+                        &nbsp;&nbsp;Valid UUID: ${isValid ? 'YES' : 'NO'}
+                    `;
+                    
+                    showResult('format-result', formatDetails, isValid ? 'pass' : 'fail');
+                } else {
+                    showResult('format-result', '❌ No X-Request-ID header found', 'fail');
+                }
+            } catch (error) {
+                showResult('format-result', `❌ Error: ${error.message}`, 'fail');
+            }
+        }
+
+        // Auto-run basic test on page load
+        window.onload = () => {
+            setTimeout(testBasicRequest, 500);
+        };
+    </script>
+</body>
+</html>
