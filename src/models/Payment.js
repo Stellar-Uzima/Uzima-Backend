@@ -2,13 +2,38 @@ import mongoose from 'mongoose';
 
 const paymentSchema = new mongoose.Schema(
   {
-    provider: { type: String, required: true, index: true },
-    transactionId: { type: String, required: true },
+    provider: { 
+      type: String, 
+      required: true, 
+      enum: ['stripe', 'flutterwave'],
+      index: true 
+    },
+    reference: { 
+      type: String, 
+      required: true, 
+      unique: true,
+      index: true 
+    },
+    transactionId: { 
+      type: String, 
+      required: true,
+      index: true 
+    },
+    user: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User', 
+      required: true,
+      index: true 
+    },
     amount: { type: Number, required: true },
-    currency: { type: String, required: true },
+    currency: { 
+      type: String, 
+      required: true,
+      default: 'USD'
+    },
     status: {
       type: String,
-      enum: ['pending', 'succeeded', 'failed', 'refunded', 'cancelled'],
+      enum: ['pending', 'successful', 'failed'],
       default: 'pending',
       index: true,
     },
@@ -18,6 +43,7 @@ const paymentSchema = new mongoose.Schema(
 );
 
 paymentSchema.index({ provider: 1, transactionId: 1 }, { unique: true });
+paymentSchema.index({ user: 1, createdAt: -1 }); // For querying payments by user
 
 const Payment = mongoose.model('Payment', paymentSchema);
 
