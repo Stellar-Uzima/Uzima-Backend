@@ -49,7 +49,7 @@ const deprecationWarning = (version) => (req, res, next) => {
 
 const getVersionInfo = () => API_VERSIONS;
 
-module.exports = {
+export {
   versionDetection,
   deprecationWarning,
   getVersionInfo,

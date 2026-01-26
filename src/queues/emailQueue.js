@@ -1,3 +1,22 @@
+// Stub email queue for prescription verification system
+import pkg from 'bullmq';
+const { Queue } = pkg;
+import { URL } from 'url';
+
+const queueName = 'email-queue';
+
+function parseRedisUrl(urlString) {
+  const u = new URL(urlString || 'redis://localhost:6379');
+  return {
+    host: u.hostname,
+    port: Number(u.port || 6379),
+    username: u.username || undefined,
+    password: u.password || undefined,
+    db: u.pathname ? Number(u.pathname.replace('/', '')) || 0 : 0,
+  };
+}
+
+const connection = parseRedisUrl(process.env.REDIS_URL);
 // Stub email queue - placeholder for missing functionality
 export const emailQueue = {
   add: (data) => {
