@@ -261,7 +261,8 @@ const startServer = async () => {
 
     // Initialize email worker if available
     try {
-      await import('./workers/emailWorker.js');
+      const emailWorker = await import('./workers/emailWorker.js');
+      if (emailWorker?.startWorker) await emailWorker.startWorker();
       // eslint-disable-next-line no-console
       console.log('Email worker initialized');
     } catch (e) {
@@ -272,7 +273,8 @@ const startServer = async () => {
 
     // Initialize webhook worker if available
     try {
-      await import('./workers/webhookWorker.js');
+      const webhookWorker = await import('./workers/webhookWorker.js');
+      if (webhookWorker?.startWorker) await webhookWorker.startWorker();
       // eslint-disable-next-line no-console
       console.log('Webhook worker initialized');
     } catch (e) {

@@ -12,6 +12,7 @@ import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import healthRoutes from './healthRoutes.js';
+import jobRoutes from './jobRoutes.js';
 import permissionRoutes from './permissionRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import paymentWebhookRoutes from './paymentWebhookRoutes.js';
@@ -41,7 +42,6 @@ router.get('/', (req, res) => {
   res.json({ message: 'Welcome to Uzima Backend API' });
 });
 
-
 // Use route modules
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
@@ -62,6 +62,7 @@ router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 router.use('/permissions', permissionRoutes); // Permission routes (RBAC)
 router.use('/security', securityRoutes); // Security routes (devices, login history)
 router.use('/health', healthRoutes); // Health check routes
+router.use('/jobs', jobRoutes);
 router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 
 export default router;
