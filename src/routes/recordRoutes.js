@@ -3,7 +3,7 @@ import pdfController from '../controllers/pdfController.js';
 import fileController from '../controllers/fileController.js';
 import recordController from '../controllers/recordController.js';
 import protect from '../middleware/authMiddleware.js';
-import hasRole from '../middleware/requireRole.js';
+import hasPermission from '../middleware/rbac.js';
 import handleUpload from '../middleware/uploadMiddleware.js';
 import { validate } from '../middleware/validationMiddleware.js';
 import { uploadRateLimit } from '../middleware/rateLimiter.js';
@@ -43,7 +43,7 @@ router.use(protect);
  */
 router.get(
   '/',
-  hasRole('doctor', 'admin'),
+  hasPermission('records', 'read'),
   validate(getRecordsListSchema),
   activityLogger({ action: 'view_all_records' }),
   recordController.getAllRecords
@@ -77,7 +77,7 @@ router.get(
  */
 router.get(
   '/:id',
-  hasRole('doctor', 'admin', 'patient'),
+  hasPermission('records', 'read'),
   validate(getRecordByIdSchema),
   activityLogger({ action: 'view_record' }),
   recordController.getRecordById
@@ -124,7 +124,7 @@ router.get(
  */
 router.post(
   '/',
-  hasRole('doctor'),
+  hasPermission('records', 'create'),
   validate(createRecordSchema),
   activityLogger({ action: 'create_record' }),
   recordController.createRecord
@@ -173,7 +173,7 @@ router.post(
  */
 router.put(
   '/:id',
-  hasRole('doctor'),
+  hasPermission('records', 'update'),
   validate(updateRecordSchema),
   activityLogger({ action: 'update_record' }),
   recordController.updateRecord
@@ -207,7 +207,7 @@ router.put(
  */
 router.delete(
   '/:id',
-  hasRole('admin'),
+  hasPermission('records', 'delete'),
   validate(deleteRecordSchema),
   activityLogger({ action: 'delete_record' }),
   recordController.deleteRecord
@@ -268,7 +268,7 @@ router.delete(
  */
 router.post(
   '/:id/files',
-  hasRole('doctor', 'admin'),
+  hasPermission('files', 'create'),
   uploadRateLimit,
   handleUpload,
   activityLogger({ action: 'upload_file' }),
@@ -329,7 +329,7 @@ router.post(
  */
 router.get(
   '/:id/files',
-  hasRole('doctor', 'admin', 'patient'),
+  hasPermission('files', 'read'),
   activityLogger({ action: 'view_files' }),
   fileController.getFiles
 );
@@ -337,7 +337,7 @@ router.get(
 // PDF generation route
 router.get(
   '/:id/pdf',
-  hasRole('doctor', 'admin'),
+  hasPermission('records', 'read'),
   activityLogger({ action: 'generate_pdf' }),
   pdfController.generatePDF
 );
