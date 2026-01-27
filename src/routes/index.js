@@ -1,6 +1,7 @@
 import express from 'express';
 import userRoutes from './userRoutes.js';
 import authRoutes from './authRoutes.js';
+import oauthRoutes from './oauthRoutes.js';
 import recordRoutes from './recordRoutes.js';
 import metricsRoutes from './metricsRoutes.js';
 import gdprRoutes from './gdprRoutes.js';
@@ -45,6 +46,7 @@ router.get('/', (req, res) => {
 // Use route modules
 router.use('/users', userRoutes);
 router.use('/auth', authRoutes);
+router.use('/auth', oauthRoutes); // OAuth routes under /auth
 router.use('/records', recordRoutes);
 router.use('/metrics', metricsRoutes);
 router.use('/users', gdprRoutes); // GDPR routes for users

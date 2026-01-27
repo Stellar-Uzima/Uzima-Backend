@@ -49,6 +49,9 @@ import './cron/reconciliationJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
+import session from 'express-session';
+import passport from './config/passport.js';
+import { sessionConfig, validateOAuthConfig } from './config/oauth.js';
 import { getConfig, initConfig } from './config/index.js';
 
 // Initialize and validate configuration (must be first)
@@ -87,6 +90,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationIdMiddleware);
 
+// Session middleware for OAuth
+app.use(session(sessionConfig));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Validate OAuth configuration
+validateOAuthConfig();
 // API Metrics middleware - track all requests (must be early)
 app.use(apiMetricsMiddleware);
 app.use(metricsTaggingMiddleware);
