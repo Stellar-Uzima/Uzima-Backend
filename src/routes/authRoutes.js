@@ -13,6 +13,8 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyTOTP2FASchema,
+  disable2FASchema,
   changePasswordSchema,
 } from '../validations/authValidation.js';
 import {
@@ -477,7 +479,7 @@ router.post(
 router.post(
   '/2fa/totp/verify',
   twoFactorRateLimit,
-  validate(twoFactorVerifySchema),
+  validate(verifyTOTP2FASchema),
   activityLogger({ action: 'verify_totp_2fa' }),
   authController.verifyTOTP2FA
 );
@@ -549,6 +551,7 @@ router.get(
 router.post(
   '/2fa/disable',
   twoFactorRateLimit,
+  validate(disable2FASchema),
   activityLogger({ action: 'disable_2fa' }),
   authController.disable2FA
 );

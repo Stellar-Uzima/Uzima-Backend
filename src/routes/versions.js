@@ -10,6 +10,8 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import paymentWebhookRoutes from './paymentWebhookRoutes.js';
 import { deprecationWarning } from '../middleware/apiVersion.js';
 
 let webhookRoutes;
@@ -36,6 +38,8 @@ const createV1Router = () => {
   router.use('/admin', adminRoutes);
   router.use('/admin', adminGDPRRoutes);
   router.use('/admin/backups', backupRoutes);
+  router.use('/payments', paymentRoutes);
+  router.use('/payments', paymentWebhookRoutes);
   router.use('/payments', webhookRoutes);
   router.use('/', webhookRoutes);
   router.use('/activity', activityLogRoutes);
@@ -62,6 +66,8 @@ const createV2Router = () => {
   router.use('/admin', adminRoutes);
   router.use('/admin', adminGDPRRoutes);
   router.use('/admin/backups', backupRoutes);
+  router.use('/payments', paymentRoutes);
+  router.use('/payments', paymentWebhookRoutes);
   router.use('/payments', webhookRoutes);
   router.use('/', webhookRoutes);
   router.use('/activity', activityLogRoutes);

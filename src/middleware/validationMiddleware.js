@@ -70,19 +70,30 @@ export const validate = (schema, options = {}) => {
             value: detail.context?.value,
           }));
         } else {
-          req.query = queryResult.value;
+          // Update individual query properties instead of reassigning
+          Object.keys(queryResult.value).forEach(key => {
+            req.query[key] = queryResult.value[key];
+          });
         }
       }
 
       // If there are validation errors, return 422
       if (Object.keys(errors).length > 0) {
-        return ApiResponse.validationError(res, 'Validation failed', errors);
+        return res.status(422).json({
+          success: false,
+          message: 'Validation failed',
+          errors
+        });
       }
 
       next();
     } catch (error) {
-      console.error('Validation middleware error:', error);
-      return ApiResponse.error(res, 'Internal validation error', 500);
+      console.error('Validation middleware error:', error.message, error.stack);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal validation error',
+        debug: error.message
+      });
     }
   };
 };

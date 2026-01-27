@@ -46,7 +46,7 @@ router.use(protect);
  */
 router.get(
   '/',
-  hasPermission('view_users'),
+  hasPermission('users', 'read'),
   validate(getUserListSchema),
   activityLogger({ action: 'view_all_users' }),
   userController.getAllUsers
@@ -93,7 +93,7 @@ router.get(
  */
 router.get(
   '/:id',
-  hasPermission('view_own_record'),
+  hasPermission('users', 'read'),
   validate(getUserByIdSchema),
   activityLogger({ action: 'view_user_profile' }),
   userController.getUserById
