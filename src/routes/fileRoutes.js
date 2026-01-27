@@ -1,8 +1,14 @@
-const express = require('express');
+import express from 'express';
+import { authenticate } from '../middleware/auth.js';
+import fileService from '../services/fileService.js';
+import { queueVirusScan } from '../services/scanServices.js';
+import { validateFileSignature } from '../utils/file-signature-validator.js';
+import { validateAndSanitizeFilename } from '../utils/filename-sanitizer.js';
+import fileUploadValidatorController from '../controllers/file-upload-validator.controller.js';
+import File from '../models/file.js';
+import ApiResponse from '../utils/apiResponse.js';
+
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
-const fileService = require('../services/fileService');
-const { queueVirusScan } = require('../services/scanService');
 
 // POST /files/signed-upload - Generate signed upload URL
 router.post('/signed-upload', authenticate, async (req, res) => {
@@ -11,34 +17,38 @@ router.post('/signed-upload', authenticate, async (req, res) => {
 
     // Validation
     if (!filename || !contentType || !size) {
-      return res.status(400).json({
-        error: 'Missing required fields: filename, contentType, size',
+      return ApiResponse.validationError(res, 'Missing required fields', {
+        body: [{ message: 'filename, contentType, and size are required' }],
       });
     }
 
-    // File size limit (100MB)
-    const maxSize = 100 * 1024 * 1024;
+    // File size limit (10MB)
+    const maxSize = 10 * 1024 * 1024;
     if (size > maxSize) {
-      return res.status(400).json({
-        error: `File size exceeds maximum allowed size of ${maxSize} bytes`,
+      return ApiResponse.validationError(res, 'File too large', {
+        size: [{ field: 'size', message: `File size exceeds maximum of ${maxSize / (1024 * 1024)}MB` }],
       });
     }
 
-    // Allowed content types
+    // Allowed content types (strict whitelist)
     const allowedTypes = [
       'application/pdf',
       'image/jpeg',
       'image/png',
-      'image/gif',
-      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
 
     if (!allowedTypes.includes(contentType)) {
-      return res.status(400).json({
-        error: 'File type not allowed',
+      return ApiResponse.validationError(res, 'File type not allowed', {
+        contentType: [{ field: 'contentType', message: 'Only PDF, JPG, PNG, DOCX files are allowed' }],
+      });
+    }
+
+    // Validate filename
+    const filenameValidation = validateAndSanitizeFilename(filename);
+    if (!filenameValidation.valid) {
+      return ApiResponse.validationError(res, 'Invalid filename', {
+        filename: [{ field: 'filename', message: filenameValidation.error }],
       });
     }
 
@@ -241,4 +251,10 @@ router.delete('/:fileId', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
+// POST /uploads/validate - Pre-upload validation
+router.post('/validate', authenticate, fileUploadValidatorController.validatePreUpload);
+
+// GET /uploads/guidelines - Get upload guidelines
+router.get('/guidelines', authenticate, fileUploadValidatorController.getUploadGuidelines);
+
+export default router;

@@ -1,3 +1,11 @@
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { generateUUIDFilename } from '../utils/filename-sanitizer.js';
 const crypto = require('crypto');
 const { StorageServiceManager } = require('./StorageServiceManager');
 
@@ -9,10 +17,9 @@ class FileService {
   }
 
   generateFileKey(userId, filename) {
-    const timestamp = Date.now();
-    const random = crypto.randomBytes(8).toString('hex');
-    const sanitized = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `users/${userId}/${timestamp}-${random}-${sanitized}`;
+    // Use UUID-based naming for security
+    const { fullPath } = generateUUIDFilename(filename, userId);
+    return fullPath;
   }
 
   async generateSignedUploadUrl(userId, filename, contentType, fileSize) {
@@ -64,4 +71,4 @@ class FileService {
   }
 }
 
-module.exports = new FileService();
+export default new FileService();

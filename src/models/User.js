@@ -156,6 +156,10 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+userSchema.index({ email: 1, deletedAt: 1 });
+userSchema.index({ username: 1, deletedAt: 1 });
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ createdAt: -1 });
 
 // Static method for registration trends
 userSchema.statics.getRegistrationTrends = async function (startDate, endDate) {
@@ -212,6 +216,7 @@ userSchema.index({ email: 1, deletedAt: 1 });
 userSchema.index({ username: 1, deletedAt: 1 });
 userSchema.index({ role: 1, createdAt: -1 });
 userSchema.index({ createdAt: -1 });
+
 
 userSchema.methods.createResetPasswordToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');

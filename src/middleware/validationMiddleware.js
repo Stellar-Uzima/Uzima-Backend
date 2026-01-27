@@ -157,8 +157,13 @@ const sanitizeString = str => {
  */
 export const validateFileUpload = (options = {}) => {
   const {
-    allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
-    maxSize = 5 * 1024 * 1024, // 5MB default
+    allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    maxSize = 10 * 1024 * 1024, // 10MB default (updated from 5MB)
     required = false,
   } = options;
 
@@ -183,7 +188,7 @@ export const validateFileUpload = (options = {}) => {
               file: [
                 {
                   field: 'file',
-                  message: `File type ${f.mimetype} is not allowed. Allowed types: ${allowedTypes.join(', ')}`,
+                  message: `File type ${f.mimetype} is not allowed. Allowed types: PDF, JPG, PNG, DOCX`,
                 },
               ],
             });
@@ -195,7 +200,7 @@ export const validateFileUpload = (options = {}) => {
               file: [
                 {
                   field: 'file',
-                  message: `File size ${f.size} exceeds maximum allowed size ${maxSize} bytes`,
+                  message: `File size ${(f.size / (1024 * 1024)).toFixed(2)}MB exceeds maximum allowed size of ${maxSize / (1024 * 1024)}MB`,
                 },
               ],
             });
