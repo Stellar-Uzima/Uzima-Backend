@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const InventoryLotSchema = new mongoose.Schema(
   {
@@ -44,6 +45,7 @@ InventoryItemSchema.index({
   sku: 'text'
 });
 
+// Apply soft delete plugin
+InventoryItemSchema.plugin(softDeletePlugin);
+
 export default mongoose.model('InventoryItem', InventoryItemSchema);
-
-
