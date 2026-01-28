@@ -2,135 +2,141 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import softDeletePlugin from './plugins/softDeletePlugin.js';
 
-const medicationSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  dosage: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  frequency: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  duration: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-}, { _id: false });
-
-const prescriptionSchema = new mongoose.Schema({
-  prescriptionNumber: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true,
-  },
-  patientName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  patientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true,
-  },
-  doctorName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  doctorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true,
-  },
-  medications: {
-    type: [medicationSchema],
-    required: true,
-    validate: {
-      validator: function (v) {
-        return v && v.length > 0;
-      },
-      message: 'At least one medication is required',
+const medicationSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    dosage: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    frequency: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    duration: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
     },
   },
-  instructions: {
-    type: String,
-    trim: true,
+  { _id: false }
+);
+
+const prescriptionSchema = new mongoose.Schema(
+  {
+    prescriptionNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    patientName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    doctorName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    doctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    medications: {
+      type: [medicationSchema],
+      required: true,
+      validate: {
+        validator: function (v) {
+          return v && v.length > 0;
+        },
+        message: 'At least one medication is required',
+      },
+    },
+    instructions: {
+      type: String,
+      trim: true,
+    },
+    issuedDate: {
+      type: Date,
+      required: true,
+      default: Date.now,
+      index: true,
+    },
+    expiryDate: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+    // Cryptographic signature
+    signature: {
+      type: String,
+      required: true,
+    },
+    // QR code data URL
+    qrCode: {
+      type: String,
+      required: true,
+    },
+    // Status tracking
+    status: {
+      type: String,
+      enum: ['active', 'verified', 'rejected', 'expired'],
+      default: 'active',
+      index: true,
+    },
+    // Verification tracking
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    verificationResult: {
+      type: String,
+      enum: ['valid', 'invalid', 'expired', 'tampered'],
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  issuedDate: {
-    type: Date,
-    required: true,
-    default: Date.now,
-    index: true,
-  },
-  expiryDate: {
-    type: Date,
-    required: true,
-    index: true,
-  },
-  // Cryptographic signature
-  signature: {
-    type: String,
-    required: true,
-  },
-  // QR code data URL
-  qrCode: {
-    type: String,
-    required: true,
-  },
-  // Status tracking
-  status: {
-    type: String,
-    enum: ['active', 'verified', 'rejected', 'expired'],
-    default: 'active',
-    index: true,
-  },
-  // Verification tracking
-  verifiedAt: {
-    type: Date,
-    default: null,
-  },
-  verifiedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null,
-  },
-  verificationResult: {
-    type: String,
-    enum: ['valid', 'invalid', 'expired', 'tampered'],
-    default: null,
-  },
-  rejectionReason: {
-    type: String,
-    trim: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-}, {
-  timestamps: true,
-});
+  {
+    timestamps: true,
+  }
+);
 
 // Generate prescription number
 prescriptionSchema.statics.generatePrescriptionNumber = function () {
@@ -180,7 +186,7 @@ prescriptionSchema.index({
   patientName: 'text',
   doctorName: 'text',
   'medications.name': 'text',
-  instructions: 'text'
+  instructions: 'text',
 });
 
 // Apply soft delete plugin

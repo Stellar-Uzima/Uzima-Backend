@@ -7,30 +7,30 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ['stripe', 'flutterwave'],
-      index: true
+      index: true,
     },
     reference: {
       type: String,
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
     transactionId: {
       type: String,
       required: true,
-      index: true
+      index: true,
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      index: true
+      index: true,
     },
     amount: { type: Number, required: true },
     currency: {
       type: String,
       required: true,
-      default: 'USD'
+      default: 'USD',
     },
     status: {
       type: String,

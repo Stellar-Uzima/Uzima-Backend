@@ -2,13 +2,13 @@ import mongoose from 'mongoose';
 
 /**
  * Mongoose plugin that adds soft delete functionality to any schema.
- * 
+ *
  * Features:
  * - Adds deletedAt and deletedBy fields
  * - Filters out soft-deleted documents from normal queries by default
  * - Provides instance methods: softDelete(), restore()
  * - Provides static methods: findDeleted(), findWithDeleted(), restoreById()
- * 
+ *
  * Usage:
  *   import softDeletePlugin from './plugins/softDeletePlugin.js';
  *   mySchema.plugin(softDeletePlugin);
@@ -40,10 +40,7 @@ const softDeletePlugin = (schema, options = {}) => {
     // 1. Query explicitly asks for deleted documents (deletedAt: { $ne: null })
     // 2. Query has includeDeleted option set
     // 3. Query already has a deletedAt condition
-    if (
-      this.getOptions().includeDeleted ||
-      query.deletedAt !== undefined
-    ) {
+    if (this.getOptions().includeDeleted || query.deletedAt !== undefined) {
       return next();
     }
 
@@ -165,8 +162,7 @@ const softDeletePlugin = (schema, options = {}) => {
    * @returns {Promise<Document|null>}
    */
   schema.statics.softDeleteById = async function (id, deletedById = null, options = {}) {
-    const doc = await this.findOne({ _id: id, deletedAt: null })
-      .session(options.session || null);
+    const doc = await this.findOne({ _id: id, deletedAt: null }).session(options.session || null);
 
     if (!doc) {
       return null;

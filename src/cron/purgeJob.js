@@ -22,7 +22,7 @@ const MODELS_TO_PURGE = [
     // Cascade: delete records owned by user before purging user
     beforePurge: async (doc, session) => {
       await Record.deleteMany({ createdBy: doc._id }, { session });
-    }
+    },
   },
   { model: Record, name: 'Record' },
   { model: Prescription, name: 'Prescription' },
@@ -52,7 +52,7 @@ async function purgeModel(modelConfig, cutoff) {
 
     for (const item of itemsToPurge) {
       try {
-        await withTransaction(async (session) => {
+        await withTransaction(async session => {
           // Execute cascade operations if defined
           if (beforePurge) {
             await beforePurge(item, session);
@@ -62,16 +62,19 @@ async function purgeModel(modelConfig, cutoff) {
           await item.deleteOne({ session });
 
           // Audit log
-          await transactionLog.create([
-            {
-              action: 'purge',
-              resource: name,
-              resourceId: itemId,
-              performedBy: 'system',
-              timestamp: new Date(),
-              details: `${name} permanently purged by scheduled job.`
-            }
-          ], { session });
+          await transactionLog.create(
+            [
+              {
+                action: 'purge',
+                resource: name,
+                resourceId: itemId,
+                performedBy: 'system',
+                timestamp: new Date(),
+                details: `${name} permanently purged by scheduled job.`,
+              },
+            ],
+            { session }
+          );
         });
         purged++;
       } catch (err) {
@@ -109,7 +112,9 @@ async function purgeSoftDeleted() {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-  console.log(`[PurgeJob] Completed in ${duration}s. Purged: ${totalPurged}, Errors: ${totalErrors}`);
+  console.log(
+    `[PurgeJob] Completed in ${duration}s. Purged: ${totalPurged}, Errors: ${totalErrors}`
+  );
   console.log('[PurgeJob] Results by model:', JSON.stringify(results, null, 2));
 
   return { results, totalPurged, totalErrors, duration };

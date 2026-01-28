@@ -224,7 +224,12 @@ router.get('/trash/stats', protect, hasPermission('manage_users'), trashControll
  *       200:
  *         description: Resource types retrieved successfully
  */
-router.get('/trash/types', protect, hasPermission('manage_users'), trashController.getResourceTypes);
+router.get(
+  '/trash/types',
+  protect,
+  hasPermission('manage_users'),
+  trashController.getResourceTypes
+);
 
 /**
  * @swagger
