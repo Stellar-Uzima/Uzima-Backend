@@ -1,5 +1,5 @@
 import InventoryItem from '../models/InventoryItem.js';
-import { emitLowStockAlert } from './realtime.service.js';
+// import { emitLowStockAlert } from './realtime.service.js'; // Commented out - file doesn't exist
 
 export function isLowStock(item) {
   const threshold = typeof item.threshold === 'number' ? item.threshold : 0;
@@ -16,7 +16,7 @@ export async function checkAndNotifyLowStock(item) {
       lots: item.lots,
       timestamp: new Date().toISOString(),
     };
-    emitLowStockAlert(payload);
+    // emitLowStockAlert(payload); // Commented out - realtime service doesn't exist
   }
 }
 

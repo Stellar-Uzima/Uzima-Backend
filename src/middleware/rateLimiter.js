@@ -1,210 +1,164 @@
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import redisClient from '../config/redis.js';
+import dotenv from 'dotenv';
 
-// Custom key generator for per-user rate limiting
-const generateKey = (req) => {
-  // If user is authenticated, use user ID for per-user limiting
-  if (req.user && req.user.id) {
-    return `user:${req.user.id}`;
+dotenv.config();
+
+const getClientIp = (req) => {
+  return req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+};
+
+const isWhitelistedIp = (ip) => {
+  const whitelist = process.env.RATE_LIMIT_WHITELIST_IPS;
+  if (!whitelist) {
+    return false;
   }
-  // Otherwise, use IP address for per-IP limiting with proper IPv6 handling
-  return `ip:${ipKeyGenerator(req)}`;
+  const whitelistIps = whitelist.split(',').map(ip => ip.trim()).filter(Boolean);
+  return whitelistIps.includes(ip);
 };
 
-// Custom skip function to exclude certain requests
-const skipSuccessfulRequests = (req, res) => {
-  // Skip rate limiting for successful requests (optional)
-  return res.statusCode < 400;
-};
-
-// Create store configuration
 const createStore = () => {
   try {
+    if (!redisClient) {
+      console.warn('Redis client not available, using memory store for rate limiting');
+      return undefined;
+    }
+
     return new RedisStore({
-      sendCommand: (...args) => redisClient.sendCommand(args),
+      sendCommand: async (...args) => {
+        try {
+          if (!redisClient) {
+            throw new Error('Redis client not available');
+          }
+          return await redisClient.sendCommand(args);
+        } catch (error) {
+          throw error;
+        }
+      },
+      prefix: 'rl:',
     });
   } catch (error) {
-    console.warn('Redis not available, using memory store for rate limiting');
-    return undefined; // Use default memory store
+    console.warn('Redis store creation failed, using memory store for rate limiting:', error.message);
+    return undefined;
   }
 };
 
-// General API rate limiter - 100 requests per 15 minutes
+const generateIpKey = (req, prefix = '') => {
+  const ip = getClientIp(req);
+  return prefix ? `${prefix}:${ip}` : `ip:${ip}`;
+};
+
+const createRateLimitHandler = (customMessage = 'Too many requests') => {
+  return (req, res) => {
+    const retryAfter = Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000);
+    res.setHeader('Retry-After', retryAfter);
+    res.status(429).json({
+      code: 'errors.RATE_LIMIT_EXCEEDED',
+      message: customMessage,
+      retryAfter,
+      limit: req.rateLimit.limit,
+      remaining: req.rateLimit.remaining,
+      resetTime: new Date(req.rateLimit.resetTime).toISOString(),
+    });
+  };
+};
+
 export const generalRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP/user to 100 requests per windowMs
-  keyGenerator: generateKey,
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many requests from this IP/user, please try again later.',
-    retryAfter: '15 minutes'
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  keyGenerator: (req) => generateIpKey(req, 'global'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many requests',
-      message: 'Rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: createRateLimitHandler('Too many requests from this IP, please try again later.'),
 });
 
-// Strict rate limiter for authentication endpoints - 5 requests per 15 minutes
 export const authRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login attempts per windowMs
-  keyGenerator: (req) => `auth:${ipKeyGenerator(req)}`, // Always use IP for auth endpoints
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many authentication attempts, please try again later.',
-    retryAfter: '15 minutes'
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => generateIpKey(req, 'auth'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many authentication attempts',
-      message: 'Authentication rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  handler: createRateLimitHandler('Too many authentication attempts from this IP, please try again later.'),
 });
 
-// Strict rate limiter for password reset - 3 requests per hour
 export const passwordResetRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 password reset attempts per hour
-  keyGenerator: (req) => `password-reset:${ipKeyGenerator(req)}`,
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many password reset attempts, please try again later.',
-    retryAfter: '1 hour'
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => generateIpKey(req, 'password-reset'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many password reset attempts',
-      message: 'Password reset rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  handler: createRateLimitHandler('Too many password reset attempts from this IP, please try again later.'),
 });
 
-// Strict rate limiter for 2FA endpoints - 10 requests per 15 minutes
 export const twoFactorRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 2FA attempts per windowMs
-  keyGenerator: (req) => `2fa:${ipKeyGenerator(req)}`,
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many 2FA attempts, please try again later.',
-    retryAfter: '15 minutes'
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => generateIpKey(req, '2fa'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many 2FA attempts',
-      message: '2FA rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  handler: createRateLimitHandler('Too many 2FA attempts from this IP, please try again later.'),
 });
 
-// Strict rate limiter for file uploads - 20 requests per hour
 export const uploadRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // Limit each user to 20 uploads per hour
-  keyGenerator: generateKey,
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many file uploads, please try again later.',
-    retryAfter: '1 hour'
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => generateIpKey(req, 'upload'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many file uploads',
-      message: 'File upload rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  handler: createRateLimitHandler('Too many file uploads from this IP, please try again later.'),
 });
 
-// Strict rate limiter for admin endpoints - 200 requests per 15 minutes
 export const adminRateLimit = rateLimit({
   store: createStore(),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Higher limit for admin users
-  keyGenerator: generateKey,
-  skip: skipSuccessfulRequests,
-  message: {
-    error: 'Too many admin requests, please try again later.',
-    retryAfter: '15 minutes'
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  keyGenerator: (req) => generateIpKey(req, 'admin'),
+  skip: (req) => {
+    const ip = getClientIp(req);
+    return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-    res.status(429).json({
-      error: 'Too many admin requests',
-      message: 'Admin rate limit exceeded. Please try again later.',
-      retryAfter: retryAfter,
-      limit: req.rateLimit.limit,
-      remaining: req.rateLimit.remaining,
-      resetTime: new Date(req.rateLimit.resetTime).toISOString()
-    });
-  }
+  handler: createRateLimitHandler('Too many admin requests from this IP, please try again later.'),
 });
 
-// Custom rate limiter for specific endpoints
 export const createCustomRateLimit = (options = {}) => {
   const defaults = {
     store: createStore(),
-    keyGenerator: generateKey,
-    skip: skipSuccessfulRequests,
+    keyGenerator: (req) => generateIpKey(req),
+    skip: (req) => {
+      const ip = getClientIp(req);
+      return isWhitelistedIp(ip);
+    },
     standardHeaders: true,
     legacyHeaders: false,
-    handler: (req, res) => {
-      const retryAfter = Math.round(req.rateLimit.resetTime / 1000);
-      res.status(429).json({
-        error: 'Rate limit exceeded',
-        message: 'Too many requests. Please try again later.',
-        retryAfter: retryAfter,
-        limit: req.rateLimit.limit,
-        remaining: req.rateLimit.remaining,
-        resetTime: new Date(req.rateLimit.resetTime).toISOString()
-      });
-    }
+    handler: createRateLimitHandler('Too many requests from this IP, please try again later.'),
   };
 
   return rateLimit({ ...defaults, ...options });
