@@ -21,6 +21,16 @@ export default {
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      // Pool configuration for development (small pool for local debugging)
+      maxPoolSize: 5,
+      minPoolSize: 2,
+      maxIdleTimeMS: 60000,
+      waitQueueTimeoutMS: 10000,
+      connectTimeoutMS: 20000,
+      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 30000,
+      retryWrites: true,
+      retryReads: true,
     },
   },
   

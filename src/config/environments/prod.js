@@ -21,6 +21,16 @@ export default {
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      // Pool configuration for production (larger pool, strict timeouts)
+      maxPoolSize: 40,
+      minPoolSize: 10,
+      maxIdleTimeMS: 30000,
+      waitQueueTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 30000,
+      retryWrites: true,
+      retryReads: true,
     },
   },
   
