@@ -7,68 +7,18 @@ import { customValidators } from '../middleware/validationMiddleware.js';
 
 export const createRecordSchema = {
   body: Joi.object({
-    patientId: customValidators.objectId.required(),
-    type: Joi.string()
-      .valid('consultation', 'lab_result', 'prescription', 'vaccination', 'procedure')
-      .required()
-      .messages({
-        'any.only':
-          'Record type must be one of: consultation, lab_result, prescription, vaccination, procedure',
-      }),
-    title: Joi.string().min(5).max(200).required().messages({
-      'string.min': 'Title must be at least 5 characters',
-      'string.max': 'Title must not exceed 200 characters',
-      'any.required': 'Title is required',
+    patientName: Joi.string().required().messages({
+      'any.required': 'Patient name is required',
     }),
-    description: Joi.string().max(2000).optional(),
-    date: customValidators.date.required(),
-    doctorId: customValidators.objectId.optional(),
-    hospital: Joi.string().max(100).optional(),
-    department: Joi.string().max(50).optional(),
-    diagnosis: Joi.array()
-      .items(
-        Joi.object({
-          code: Joi.string().max(20).optional(),
-          description: Joi.string().max(200).required(),
-          severity: Joi.string().valid('mild', 'moderate', 'severe').optional(),
-        })
-      )
-      .optional(),
-    medications: Joi.array()
-      .items(
-        Joi.object({
-          name: Joi.string().max(100).required(),
-          dosage: Joi.string().max(50).required(),
-          frequency: Joi.string().max(50).required(),
-          duration: Joi.string().max(50).optional(),
-          instructions: Joi.string().max(500).optional(),
-        })
-      )
-      .optional(),
-    labResults: Joi.array()
-      .items(
-        Joi.object({
-          testName: Joi.string().max(100).required(),
-          value: Joi.string().max(50).required(),
-          unit: Joi.string().max(20).optional(),
-          normalRange: Joi.string().max(50).optional(),
-          status: Joi.string().valid('normal', 'abnormal', 'critical').optional(),
-        })
-      )
-      .optional(),
-    attachments: Joi.array()
-      .items(
-        Joi.object({
-          filename: Joi.string().max(255).required(),
-          fileType: Joi.string().max(50).required(),
-          fileSize: Joi.number().positive().optional(),
-        })
-      )
-      .optional(),
-    tags: Joi.array().items(Joi.string().max(30)).max(10).optional().messages({
-      'array.max': 'Maximum 10 tags allowed',
+    diagnosis: Joi.string().required().messages({
+      'any.required': 'Diagnosis is required',
     }),
-    isConfidential: Joi.boolean().optional().default(false),
+    treatment: Joi.string().required().messages({
+      'any.required': 'Treatment is required',
+    }),
+    txHash: Joi.string().required().messages({
+      'any.required': 'Transaction hash is required',
+    }),
   }),
 };
 

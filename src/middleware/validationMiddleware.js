@@ -70,19 +70,30 @@ export const validate = (schema, options = {}) => {
             value: detail.context?.value,
           }));
         } else {
-          req.query = queryResult.value;
+          // Update individual query properties instead of reassigning
+          Object.keys(queryResult.value).forEach(key => {
+            req.query[key] = queryResult.value[key];
+          });
         }
       }
 
       // If there are validation errors, return 422
       if (Object.keys(errors).length > 0) {
-        return ApiResponse.validationError(res, 'Validation failed', errors);
+        return res.status(422).json({
+          success: false,
+          message: 'Validation failed',
+          errors
+        });
       }
 
       next();
     } catch (error) {
-      console.error('Validation middleware error:', error);
-      return ApiResponse.error(res, 'Internal validation error', 500);
+      console.error('Validation middleware error:', error.message, error.stack);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal validation error',
+        debug: error.message
+      });
     }
   };
 };
@@ -146,8 +157,13 @@ const sanitizeString = str => {
  */
 export const validateFileUpload = (options = {}) => {
   const {
-    allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
-    maxSize = 5 * 1024 * 1024, // 5MB default
+    allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    maxSize = 10 * 1024 * 1024, // 10MB default (updated from 5MB)
     required = false,
   } = options;
 
@@ -172,7 +188,7 @@ export const validateFileUpload = (options = {}) => {
               file: [
                 {
                   field: 'file',
-                  message: `File type ${f.mimetype} is not allowed. Allowed types: ${allowedTypes.join(', ')}`,
+                  message: `File type ${f.mimetype} is not allowed. Allowed types: PDF, JPG, PNG, DOCX`,
                 },
               ],
             });
@@ -184,7 +200,7 @@ export const validateFileUpload = (options = {}) => {
               file: [
                 {
                   field: 'file',
-                  message: `File size ${f.size} exceeds maximum allowed size ${maxSize} bytes`,
+                  message: `File size ${(f.size / (1024 * 1024)).toFixed(2)}MB exceeds maximum allowed size of ${maxSize / (1024 * 1024)}MB`,
                 },
               ],
             });
