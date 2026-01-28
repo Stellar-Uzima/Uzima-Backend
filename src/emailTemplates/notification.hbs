@@ -1,0 +1,232 @@
+{{!--
+  General Notification Email Template
+
+  Variables:
+    - username: User's display name or first name
+    - title: Notification title/header
+    - message: Main notification message (can include HTML)
+    - type: (optional) 'info' | 'success' | 'warning' | 'error' - affects styling
+    - actionButton: (optional) Object with { text, link } for CTA button
+    - secondaryButton: (optional) Object with { text, link } for secondary action
+    - details: (optional) Array of detail items [{ label, value }]
+    - timestamp: (optional) When the event occurred
+    - footer: (optional) Additional footer text
+    - supportEmail: (optional) Support email address
+
+  Example usage:
+    renderTemplate('notification', {
+      username: 'John',
+      title: 'Appointment Confirmed',
+      type: 'success',
+      message: 'Your appointment has been successfully scheduled.',
+      details: [
+        { label: 'Doctor', value: 'Dr. Smith' },
+        { label: 'Date', value: 'January 20, 2024' },
+        { label: 'Time', value: '10:00 AM' }
+      ],
+      actionButton: { text: 'View Appointment', link: 'https://...' }
+    })
+--}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{{title}} - Uzima Health</title>
+  <style type="text/css">
+    /* Reset */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+
+    body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background-color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333333;
+    }
+
+    .email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+
+    /* Type-based header colors */
+    .email-header {
+      color: #ffffff;
+      padding: 35px 20px;
+      text-align: center;
+    }
+
+    .email-header.type-info { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .email-header.type-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .email-header.type-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .email-header.type-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+    .email-header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .email-header .icon { font-size: 42px; margin-bottom: 12px; }
+
+    .email-content { padding: 30px; background-color: #f9fafb; }
+    .email-content h2 { margin: 0 0 20px 0; font-size: 20px; color: #1f2937; }
+    .email-content p { margin: 0 0 15px 0; color: #4b5563; font-size: 16px; }
+
+    .message-box { margin: 20px 0; font-size: 16px; color: #374151; }
+
+    /* Type-based accent colors for details */
+    .details-box {
+      border-radius: 8px;
+      padding: 20px;
+      margin: 25px 0;
+    }
+
+    .details-box.type-info { background-color: #e0e7ff; border-left: 4px solid #667eea; }
+    .details-box.type-success { background-color: #d1fae5; border-left: 4px solid #10b981; }
+    .details-box.type-warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
+    .details-box.type-error { background-color: #fee2e2; border-left: 4px solid #ef4444; }
+
+    .details-box h4 { margin: 0 0 15px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    .details-box table { width: 100%; }
+    .details-box td { padding: 10px 0; font-size: 15px; color: #4b5563; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .details-box tr:last-child td { border-bottom: none; }
+    .details-box td:first-child { font-weight: 600; width: 40%; color: #1f2937; }
+
+    .timestamp { font-size: 13px; color: #9ca3af; margin: 15px 0; }
+
+    .button-container { text-align: center; margin: 30px 0; }
+
+    .email-button {
+      display: inline-block;
+      padding: 14px 32px;
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 5px;
+    }
+
+    .email-button.primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .email-button.primary.type-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .email-button.primary.type-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+    .email-button.primary.type-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+
+    .email-button.secondary { background: #6b7280; }
+
+    .additional-info {
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .email-footer {
+      text-align: center;
+      padding: 25px;
+      background-color: #ffffff;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .email-footer p { margin: 5px 0; color: #6b7280; font-size: 13px; }
+    .email-footer a { color: #667eea; text-decoration: none; }
+
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; }
+      .email-content, .email-header { padding: 20px !important; }
+      .email-button { display: block !important; width: 100% !important; box-sizing: border-box; margin: 10px 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f5;">
+    <tr>
+      <td style="padding: 20px 10px;">
+        <table class="email-container" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+          <!-- Header -->
+          <tr>
+            <td class="email-header type-{{#if type}}{{type}}{{else}}info{{/if}}" style="background: {{#if (eq type 'success')}}linear-gradient(135deg, #10b981 0%, #059669 100%){{else if (eq type 'warning')}}linear-gradient(135deg, #f59e0b 0%, #d97706 100%){{else if (eq type 'error')}}linear-gradient(135deg, #ef4444 0%, #dc2626 100%){{else}}linear-gradient(135deg, #667eea 0%, #764ba2 100%){{/if}};">
+              <div class="icon">
+                {{#if (eq type 'success')}}&#9989;{{else if (eq type 'warning')}}&#9888;&#65039;{{else if (eq type 'error')}}&#10060;{{else}}&#128276;{{/if}}
+              </div>
+              <h1>{{title}}</h1>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td class="email-content">
+              <h2>Hello {{username}},</h2>
+
+              <div class="message-box">
+                {{{message}}}
+              </div>
+
+              {{#if timestamp}}
+              <p class="timestamp">&#128337; {{timestamp}}</p>
+              {{/if}}
+
+              {{#if details}}
+              <div class="details-box type-{{#if type}}{{type}}{{else}}info{{/if}}" style="background-color: {{#if (eq type 'success')}}#d1fae5{{else if (eq type 'warning')}}#fef3c7{{else if (eq type 'error')}}#fee2e2{{else}}#e0e7ff{{/if}}; border-left: 4px solid {{#if (eq type 'success')}}#10b981{{else if (eq type 'warning')}}#f59e0b{{else if (eq type 'error')}}#ef4444{{else}}#667eea{{/if}};">
+                <h4>Details</h4>
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  {{#each details}}
+                  <tr>
+                    <td>{{this.label}}</td>
+                    <td>{{this.value}}</td>
+                  </tr>
+                  {{/each}}
+                </table>
+              </div>
+              {{/if}}
+
+              {{#if (or actionButton secondaryButton)}}
+              <div class="button-container">
+                {{#if actionButton}}
+                <a href="{{actionButton.link}}" class="email-button primary type-{{#if type}}{{type}}{{else}}info{{/if}}" style="background: {{#if (eq type 'success')}}linear-gradient(135deg, #10b981 0%, #059669 100%){{else if (eq type 'warning')}}linear-gradient(135deg, #f59e0b 0%, #d97706 100%){{else if (eq type 'error')}}linear-gradient(135deg, #ef4444 0%, #dc2626 100%){{else}}linear-gradient(135deg, #667eea 0%, #764ba2 100%){{/if}};">
+                  {{actionButton.text}}
+                </a>
+                {{/if}}
+                {{#if secondaryButton}}
+                <a href="{{secondaryButton.link}}" class="email-button secondary">
+                  {{secondaryButton.text}}
+                </a>
+                {{/if}}
+              </div>
+              {{/if}}
+
+              {{#if footer}}
+              <div class="additional-info">
+                {{{footer}}}
+              </div>
+              {{/if}}
+
+              <p style="margin-top: 25px; color: #6b7280; font-size: 14px;">
+                If you have any questions, please don't hesitate to contact us{{#if supportEmail}} at <a href="mailto:{{supportEmail}}" style="color: #667eea;">{{supportEmail}}</a>{{/if}}.
+              </p>
+
+              <p style="margin-top: 20px;">
+                Best regards,<br>
+                <strong>The Uzima Health Team</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td class="email-footer">
+              <p>&copy; {{currentYear}} Uzima Health. All rights reserved.</p>
+              <p>This is an automated notification, please do not reply.</p>
+              {{#if unsubscribeLink}}
+              <p><a href="{{unsubscribeLink}}">Manage notification preferences</a></p>
+              {{/if}}
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

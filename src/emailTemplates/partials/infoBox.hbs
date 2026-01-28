@@ -1,0 +1,40 @@
+{{!--
+  Info Box Partial
+  Variables:
+    - boxType: (optional) 'default' | 'warning' | 'success' | 'info'
+    - boxTitle: (optional) Title for the info box
+    - boxContent: Content to display (can be HTML)
+    - boxItems: (optional) Array of items to display as list
+--}}
+<div class="info-box {{#if boxType}}{{boxType}}{{/if}}" style="
+  background-color: {{#if (eq boxType 'warning')}}#fef3c7{{else if (eq boxType 'success')}}#d1fae5{{else if (eq boxType 'info')}}#dbeafe{{else}}#e0e7ff{{/if}};
+  {{#if (eq boxType 'warning')}}border-left: 4px solid #f59e0b;{{/if}}
+  {{#if (eq boxType 'success')}}border-left: 4px solid #10b981;{{/if}}
+  {{#if (eq boxType 'info')}}border-left: 4px solid #3b82f6;{{/if}}
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+">
+  {{#if boxTitle}}
+  <p style="margin: 0 0 10px 0; font-weight: 600; color: #1f2937;">
+    {{#if (eq boxType 'warning')}}&#9888;&#65039; {{/if}}
+    {{#if (eq boxType 'success')}}&#9989; {{/if}}
+    {{#if (eq boxType 'info')}}&#8505;&#65039; {{/if}}
+    {{boxTitle}}
+  </p>
+  {{/if}}
+
+  {{#if boxContent}}
+  <p style="margin: 0; color: #4b5563;">{{{boxContent}}}</p>
+  {{/if}}
+
+  {{#if boxItems}}
+  <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+    {{#each boxItems}}
+    <li style="margin: 5px 0; color: #4b5563;">
+      {{#if this.label}}<strong>{{this.label}}:</strong> {{/if}}{{this.value}}
+    </li>
+    {{/each}}
+  </ul>
+  {{/if}}
+</div>
