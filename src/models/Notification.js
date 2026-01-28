@@ -3,7 +3,17 @@ import mongoose from 'mongoose';
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['account_activation', 'password_reset', 'health_record_update', 'appointment_reminder', 'general'],
+    enum: [
+      'account_activation',
+      'password_reset',
+      'health_record_update',
+      'appointment_reminder',
+      'general',
+      'new_device_login',
+      'new_location_login',
+      'impossible_travel_detected',
+      'security_alert',
+    ],
     required: true,
   },
   recipient: {
