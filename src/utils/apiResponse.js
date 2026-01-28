@@ -22,7 +22,7 @@ class ApiResponse {
   static success(res, data, messageKey = 'success.OPERATION_SUCCESS', statusCode = 200) {
     const message = res.req.t ? res.req.t(messageKey, { defaultValue: messageKey }) : messageKey;
     const correlationId = res.req.correlationId || res.getHeader('x-correlation-id');
-    
+
     // Ensure correlation ID is in header
     if (correlationId) {
       res.setHeader('x-correlation-id', correlationId);
@@ -81,7 +81,7 @@ class ApiResponse {
     if (code) {
       error.code = code;
     }
-    
+
     // Throw error to be caught by error handler middleware
     throw error;
   }

@@ -7,7 +7,7 @@ import { calculatePercentile } from '../utils/analyticsUtils.js';
  */
 
 // Helper to parse date params
-const parseDateParams = (query) => {
+const parseDateParams = query => {
   const endDate = query.endDate ? new Date(query.endDate) : new Date();
 
   // Default to 30 days ago if no start date
@@ -83,10 +83,7 @@ const getSummary = async (req, res) => {
           cacheHitRate: {
             $round: [
               {
-                $multiply: [
-                  { $divide: ['$cacheHitCount', '$totalRequests'] },
-                  100,
-                ],
+                $multiply: [{ $divide: ['$cacheHitCount', '$totalRequests'] }, 100],
               },
               2,
             ],
@@ -94,10 +91,7 @@ const getSummary = async (req, res) => {
           errorRate: {
             $round: [
               {
-                $multiply: [
-                  { $divide: ['$totalErrors', '$totalRequests'] },
-                  100,
-                ],
+                $multiply: [{ $divide: ['$totalErrors', '$totalRequests'] }, 100],
               },
               2,
             ],
@@ -149,15 +143,15 @@ export const analyticsController = {
         success: true,
         period: {
           start: startDate.toISOString(),
-          end: endDate.toISOString()
+          end: endDate.toISOString(),
         },
-        data
+        data,
       });
     } catch (error) {
       console.error('User analytics error:', error);
       res.status(error.message === 'Invalid date format' ? 400 : 500).json({
         success: false,
-        message: error.message || 'Failed to retrieve user analytics'
+        message: error.message || 'Failed to retrieve user analytics',
       });
     }
   },
@@ -177,16 +171,16 @@ export const analyticsController = {
         success: true,
         period: {
           start: startDate.toISOString(),
-          end: endDate.toISOString()
+          end: endDate.toISOString(),
         },
         filters: { action },
-        data
+        data,
       });
     } catch (error) {
       console.error('Activity analytics error:', error);
       res.status(error.message === 'Invalid date format' ? 400 : 500).json({
         success: false,
-        message: error.message || 'Failed to retrieve activity analytics'
+        message: error.message || 'Failed to retrieve activity analytics',
       });
     }
   },
@@ -205,15 +199,15 @@ export const analyticsController = {
         success: true,
         period: {
           start: startDate.toISOString(),
-          end: endDate.toISOString()
+          end: endDate.toISOString(),
         },
-        data
+        data,
       });
     } catch (error) {
       console.error('Performance analytics error:', error);
       res.status(error.message === 'Invalid date format' ? 400 : 500).json({
         success: false,
-        message: error.message || 'Failed to retrieve performance analytics'
+        message: error.message || 'Failed to retrieve performance analytics',
       });
     }
   },
@@ -232,15 +226,15 @@ export const analyticsController = {
         success: true,
         period: {
           start: startDate.toISOString(),
-          end: endDate.toISOString()
+          end: endDate.toISOString(),
         },
-        data
+        data,
       });
     } catch (error) {
       console.error('Error analytics error:', error);
       res.status(error.message === 'Invalid date format' ? 400 : 500).json({
         success: false,
-        message: error.message || 'Failed to retrieve error analytics'
+        message: error.message || 'Failed to retrieve error analytics',
       });
     }
   },
@@ -259,8 +253,7 @@ export const analyticsController = {
    */
   async getApiEndpointStats(req, res) {
     try {
-      const { startDate, endDate, limit = 50, offset = 0, sortBy = 'requests' } =
-        req.query;
+      const { startDate, endDate, limit = 50, offset = 0, sortBy = 'requests' } = req.query;
 
       let matchStage = {};
       if (startDate || endDate) {
@@ -322,10 +315,7 @@ export const analyticsController = {
             errorRate: {
               $round: [
                 {
-                  $multiply: [
-                    { $divide: ['$totalErrors', '$totalRequests'] },
-                    100,
-                  ],
+                  $multiply: [{ $divide: ['$totalErrors', '$totalRequests'] }, 100],
                 },
                 2,
               ],
@@ -333,10 +323,7 @@ export const analyticsController = {
             successRate: {
               $round: [
                 {
-                  $multiply: [
-                    { $divide: ['$successCount', '$totalRequests'] },
-                    100,
-                  ],
+                  $multiply: [{ $divide: ['$successCount', '$totalRequests'] }, 100],
                 },
                 2,
               ],
@@ -353,7 +340,7 @@ export const analyticsController = {
       const stats = await APIMetric.aggregate(pipeline).allowDiskUse(true);
 
       // Calculate percentiles for each endpoint
-      const enrichedStats = stats.map((stat) => ({
+      const enrichedStats = stats.map(stat => ({
         ...stat,
         p50Duration: calculatePercentile(stat.durations, 50),
         p95Duration: calculatePercentile(stat.durations, 95),
@@ -362,7 +349,7 @@ export const analyticsController = {
       }));
 
       // Remove raw data from response
-      enrichedStats.forEach((stat) => {
+      enrichedStats.forEach(stat => {
         delete stat.durations;
         delete stat.statusCodes;
       });
@@ -381,9 +368,7 @@ export const analyticsController = {
         { $count: 'total' },
       ];
 
-      const countResult = await APIMetric.aggregate(countPipeline).allowDiskUse(
-        true
-      );
+      const countResult = await APIMetric.aggregate(countPipeline).allowDiskUse(true);
       const total = countResult[0]?.total || 0;
 
       res.json({
@@ -445,11 +430,7 @@ export const analyticsController = {
             statusCode: '$_id.statusCode',
             count: 1,
             errorType: {
-              $cond: [
-                { $lt: ['$_id.statusCode', 500] },
-                '4xx Client Error',
-                '5xx Server Error',
-              ],
+              $cond: [{ $lt: ['$_id.statusCode', 500] }, '4xx Client Error', '5xx Server Error'],
             },
             firstOccurrence: 1,
             lastOccurrence: 1,
@@ -506,9 +487,7 @@ export const analyticsController = {
         },
       ];
 
-      const summary = await APIMetric.aggregate(summaryPipeline).allowDiskUse(
-        true
-      );
+      const summary = await APIMetric.aggregate(summaryPipeline).allowDiskUse(true);
 
       res.json({
         success: true,
@@ -588,10 +567,7 @@ export const analyticsController = {
             errorRate: {
               $round: [
                 {
-                  $multiply: [
-                    { $divide: ['$totalErrors', '$totalRequests'] },
-                    100,
-                  ],
+                  $multiply: [{ $divide: ['$totalErrors', '$totalRequests'] }, 100],
                 },
                 2,
               ],
@@ -605,7 +581,7 @@ export const analyticsController = {
       const timeSeries = await APIMetric.aggregate(pipeline).allowDiskUse(true);
 
       // Calculate p95 for each time bucket
-      const enrichedSeries = timeSeries.map((point) => ({
+      const enrichedSeries = timeSeries.map(point => ({
         ...point,
         p95Duration: calculatePercentile(point.p95Duration, 95),
       }));
@@ -644,9 +620,7 @@ export const analyticsController = {
       }
 
       const metrics = await APIMetric.find(matchStage)
-        .select(
-          'endpoint method duration statusCode userId createdAt errorMessage dbTime'
-        )
+        .select('endpoint method duration statusCode userId createdAt errorMessage dbTime')
         .sort({ duration: -1 })
         .limit(parseInt(limit));
 
@@ -696,7 +670,7 @@ function getStatusCodeDistribution(statusCodes) {
   if (!statusCodes || statusCodes.length === 0) return {};
 
   const distribution = {};
-  statusCodes.forEach((code) => {
+  statusCodes.forEach(code => {
     distribution[code] = (distribution[code] || 0) + 1;
   });
   return distribution;

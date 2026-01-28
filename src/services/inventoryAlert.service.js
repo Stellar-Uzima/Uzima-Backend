@@ -19,5 +19,3 @@ export async function checkAndNotifyLowStock(item) {
     // emitLowStockAlert(payload); // Commented out - realtime service doesn't exist
   }
 }
-
-

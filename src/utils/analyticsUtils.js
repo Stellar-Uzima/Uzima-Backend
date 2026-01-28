@@ -26,7 +26,7 @@ export function calculatePercentile(arr, p) {
  */
 export function calculatePercentiles(arr, percentiles = [50, 95, 99]) {
   const result = {};
-  percentiles.forEach((p) => {
+  percentiles.forEach(p => {
     result[`p${p}`] = calculatePercentile(arr, p);
   });
   return result;
@@ -41,7 +41,7 @@ export function calculateStdDeviation(arr) {
   if (arr.length < 2) return 0;
 
   const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-  const squareDiffs = arr.map((value) => Math.pow(value - mean, 2));
+  const squareDiffs = arr.map(value => Math.pow(value - mean, 2));
   const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / arr.length;
 
   return Math.sqrt(avgSquareDiff);

@@ -22,7 +22,7 @@ const encryptedFieldPlugin = (schema, options) => {
       if (doc.isModified(field) && doc[field]) {
         // If it's already encrypted (client-side or server-side), don't encrypt again
         const isAlreadyEncrypted = isClientEncrypted(doc[field]) || isEncrypted(doc[field]);
-        
+
         if (!isAlreadyEncrypted) {
           // Check if field has lowercase option
           const fieldPath = schema.path(field);

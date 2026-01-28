@@ -8,13 +8,22 @@ export function generateSecret() {
 }
 
 export async function createSubscription({ url, secret, eventTypes, isActive }) {
-  const sub = new WebhookSubscription({ url, secret: secret || generateSecret(), eventTypes: eventTypes?.length ? eventTypes : ['*'], isActive: isActive !== false });
+  const sub = new WebhookSubscription({
+    url,
+    secret: secret || generateSecret(),
+    eventTypes: eventTypes?.length ? eventTypes : ['*'],
+    isActive: isActive !== false,
+  });
   await sub.save();
   return sub;
 }
 
 export async function listSubscriptions({ limit = 50, skip = 0 } = {}) {
-  const subs = await WebhookSubscription.find().sort({ createdAt: -1 }).limit(limit).skip(skip).lean();
+  const subs = await WebhookSubscription.find()
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .skip(skip)
+    .lean();
   const total = await WebhookSubscription.countDocuments();
   return { subscriptions: subs, total, limit, skip };
 }
@@ -33,10 +42,19 @@ export async function deleteSubscription(id) {
 
 export async function triggerEvent(eventType, payload) {
   const subs = await WebhookSubscription.find({ isActive: true });
-  const targets = subs.filter(s => (s.eventTypes?.includes('*')) || (s.eventTypes?.includes(eventType)));
+  const targets = subs.filter(
+    s => s.eventTypes?.includes('*') || s.eventTypes?.includes(eventType)
+  );
   const deliveries = [];
   for (const s of targets) {
-    const d = new WebhookDelivery({ subscriptionId: s._id, eventType, payload, status: 'pending', attempts: 0, nextRunAt: new Date() });
+    const d = new WebhookDelivery({
+      subscriptionId: s._id,
+      eventType,
+      payload,
+      status: 'pending',
+      attempts: 0,
+      nextRunAt: new Date(),
+    });
     await d.save();
     await enqueueWebhook({ deliveryId: d._id.toString() });
     deliveries.push(d);

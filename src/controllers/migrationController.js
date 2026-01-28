@@ -85,10 +85,7 @@ export const getMigrationHistory = async (req, res) => {
     }
 
     const [migrations, total] = await Promise.all([
-      Migration.find(query)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .skip(parseInt(skip)),
+      Migration.find(query).sort({ createdAt: -1 }).limit(parseInt(limit)).skip(parseInt(skip)),
       Migration.countDocuments(query),
     ]);
 

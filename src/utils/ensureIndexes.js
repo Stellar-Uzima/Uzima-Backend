@@ -28,7 +28,7 @@ async function ensureIndexes() {
       models.Record.collection.createIndex({
         patientName: 'text',
         diagnosis: 'text',
-        treatment: 'text'
+        treatment: 'text',
       })
     );
   }
@@ -63,7 +63,7 @@ async function ensureIndexes() {
         patientName: 'text',
         doctorName: 'text',
         'medications.name': 'text',
-        instructions: 'text'
+        instructions: 'text',
       })
     );
   }
@@ -78,7 +78,7 @@ async function ensureIndexes() {
       models.InventoryItem.collection.createIndex({
         name: 'text',
         category: 'text',
-        sku: 'text'
+        sku: 'text',
       })
     );
   }
@@ -90,7 +90,7 @@ async function ensureIndexes() {
         firstName: 'text',
         lastName: 'text',
         email: 'text',
-        address: 'text'
+        address: 'text',
       })
     );
   }
@@ -102,7 +102,7 @@ async function ensureIndexes() {
       models.MedicalRecord.collection.createIndex({
         diagnosis: 'text',
         treatment: 'text',
-        notes: 'text'
+        notes: 'text',
       })
     );
   }
@@ -119,7 +119,7 @@ async function ensureIndexes() {
   }
 
   await Promise.allSettled(tasks);
-  console.log("✅ Database index optimization complete.");
+  console.log('✅ Database index optimization complete.');
   console.log(`📊 Total indexes created/verified: ${tasks.length}`);
 }
 

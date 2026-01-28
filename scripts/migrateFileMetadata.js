@@ -28,7 +28,7 @@ async function runMigration() {
       size: 12,
       uploadedBy: 'migration-test',
       storageType: 'local',
-      storagePath: 'test/migration-test.txt'
+      storagePath: 'test/migration-test.txt',
     });
 
     await sampleRecord.save();

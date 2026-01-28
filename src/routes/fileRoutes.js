@@ -26,7 +26,9 @@ router.post('/signed-upload', authenticate, async (req, res) => {
     const maxSize = 10 * 1024 * 1024;
     if (size > maxSize) {
       return ApiResponse.validationError(res, 'File too large', {
-        size: [{ field: 'size', message: `File size exceeds maximum of ${maxSize / (1024 * 1024)}MB` }],
+        size: [
+          { field: 'size', message: `File size exceeds maximum of ${maxSize / (1024 * 1024)}MB` },
+        ],
       });
     }
 
@@ -40,7 +42,9 @@ router.post('/signed-upload', authenticate, async (req, res) => {
 
     if (!allowedTypes.includes(contentType)) {
       return ApiResponse.validationError(res, 'File type not allowed', {
-        contentType: [{ field: 'contentType', message: 'Only PDF, JPG, PNG, DOCX files are allowed' }],
+        contentType: [
+          { field: 'contentType', message: 'Only PDF, JPG, PNG, DOCX files are allowed' },
+        ],
       });
     }
 

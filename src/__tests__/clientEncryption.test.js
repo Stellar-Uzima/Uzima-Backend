@@ -1,6 +1,6 @@
 /**
  * Comprehensive End-to-End Tests for Client-Side Encryption
- * 
+ *
  * Tests cover:
  * - Encryption/decryption accuracy (≥99.9999%)
  * - All encryption code paths (≥95% coverage)
@@ -27,7 +27,7 @@ let mockCrypto;
 
 beforeEach(() => {
   // Create fresh mock crypto for each test
-  const getRandomValues = (arr) => {
+  const getRandomValues = arr => {
     // Generate cryptographically random-like values for testing
     for (let i = 0; i < arr.length; i++) {
       arr[i] = Math.floor(Math.random() * 256);
@@ -74,8 +74,8 @@ beforeEach(() => {
   global.window = {
     crypto: mockCrypto,
   };
-  global.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
-  global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
+  global.btoa = str => Buffer.from(str, 'binary').toString('base64');
+  global.atob = str => Buffer.from(str, 'base64').toString('binary');
   global.TextEncoder = class {
     encode(str) {
       return new Uint8Array(Buffer.from(str, 'utf8'));
@@ -186,7 +186,8 @@ describe('Client-Side Encryption - Core Functionality', () => {
     });
 
     test('should handle special characters', async () => {
-      const specialPHI = 'Diagnosis: Type 2 Diabetes\nTreatment: Metformin 500mg BID\nNotes: Patient compliant';
+      const specialPHI =
+        'Diagnosis: Type 2 Diabetes\nTreatment: Metformin 500mg BID\nNotes: Patient compliant';
       const encrypted = await encryptPHI(specialPHI, testPassphrase);
       const decrypted = await decryptPHI(encrypted, testPassphrase);
 
@@ -251,7 +252,7 @@ describe('Record-Level Encryption', () => {
       };
 
       const encrypted = await encryptRecordPHI(customRecord, testPassphrase, ['notes', 'comments']);
-      
+
       expect(isClientEncrypted(encrypted.notes)).toBe(true);
       expect(isClientEncrypted(encrypted.comments)).toBe(true);
       expect(encrypted.diagnosis).toBe(testRecord.diagnosis); // Not in custom list
@@ -296,7 +297,7 @@ describe('Encryption Accuracy (≥99.9999%)', () => {
 
   test('should achieve ≥99.9999% decryption accuracy', async () => {
     const testCases = [];
-    
+
     // Generate 10,000 test cases
     for (let i = 0; i < 10000; i++) {
       testCases.push({
@@ -479,13 +480,15 @@ describe('Error Handling', () => {
 
   test('should handle decryption with wrong passphrase gracefully', async () => {
     const encrypted = await encryptPHI('test', 'correctPassphrase');
-    
+
     await expect(decryptPHI(encrypted, 'wrongPassphrase')).rejects.toThrow();
   });
 
   test('should validate record input', async () => {
     await expect(encryptRecordPHI(null, 'passphrase')).rejects.toThrow('Record must be an object');
-    await expect(encryptRecordPHI('string', 'passphrase')).rejects.toThrow('Record must be an object');
+    await expect(encryptRecordPHI('string', 'passphrase')).rejects.toThrow(
+      'Record must be an object'
+    );
     await expect(encryptRecordsPHI(null, 'passphrase')).rejects.toThrow('Records must be an array');
   });
 });

@@ -20,5 +20,5 @@ module.exports = {
   async down(db /*, client */) {
     // Optionally drop indexes; keep no-op to preserve performance indexes
     return null;
-  }
+  },
 };

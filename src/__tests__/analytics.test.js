@@ -5,7 +5,8 @@ import analyticsService from '../services/analyticsService.js';
 import cacheHelper from '../utils/cacheHelper.js';
 
 // Setup Mock Environment Variables for Encryption
-process.env.ENCRYPTION_KEY_SECRET_v1 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+process.env.ENCRYPTION_KEY_SECRET_v1 =
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 process.env.ENCRYPTION_KEY_CURRENT_VERSION = 'v1';
 
 // Mock cache helper to bypass Redis
@@ -14,14 +15,15 @@ vi.mock('../utils/cacheHelper.js', () => ({
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(true),
     generateKey: vi.fn((endpoint, params) => `${endpoint}:${JSON.stringify(params)}`),
-    clearPattern: vi.fn().mockResolvedValue(true)
+    clearPattern: vi.fn().mockResolvedValue(true),
   },
-  cacheHelper: { // Named export
+  cacheHelper: {
+    // Named export
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(true),
     generateKey: vi.fn((endpoint, params) => `${endpoint}:${JSON.stringify(params)}`),
-    clearPattern: vi.fn().mockResolvedValue(true)
-  }
+    clearPattern: vi.fn().mockResolvedValue(true),
+  },
 }));
 
 describe('Analytics Service', () => {
@@ -44,25 +46,45 @@ describe('Analytics Service', () => {
 
       // Create users in current period
       await User.create([
-        { username: 'user1', email: 'user1@example.com', password: 'password', role: 'patient', createdAt: new Date(end.getTime() - 1000000) },
-        { username: 'user2', email: 'user2@example.com', password: 'password', role: 'doctor', createdAt: new Date(end.getTime() - 2000000) }
+        {
+          username: 'user1',
+          email: 'user1@example.com',
+          password: 'password',
+          role: 'patient',
+          createdAt: new Date(end.getTime() - 1000000),
+        },
+        {
+          username: 'user2',
+          email: 'user2@example.com',
+          password: 'password',
+          role: 'doctor',
+          createdAt: new Date(end.getTime() - 2000000),
+        },
       ]);
 
       // Create users in previous period
       const prevDate = new Date(start);
       prevDate.setDate(prevDate.getDate() - 10);
       await User.create([
-        { username: 'olduser1', email: 'old@example.com', password: 'password', role: 'patient', createdAt: prevDate }
+        {
+          username: 'olduser1',
+          email: 'old@example.com',
+          password: 'password',
+          role: 'patient',
+          createdAt: prevDate,
+        },
       ]);
 
       const result = await analyticsService.getUserAnalytics(start, end);
 
       expect(result.summary.totalUsers).toBe(3);
       expect(result.summary.newRegistrations).toBe(2);
-      expect(result.roles).toEqual(expect.arrayContaining([
-        expect.objectContaining({ _id: 'patient', count: 2 }), // 1 new + 1 old
-        expect.objectContaining({ _id: 'doctor', count: 1 })
-      ]));
+      expect(result.roles).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ _id: 'patient', count: 2 }), // 1 new + 1 old
+          expect.objectContaining({ _id: 'doctor', count: 1 }),
+        ])
+      );
 
       expect(result.summary.growth.registrations).not.toBe('N/A');
     });
@@ -78,7 +100,7 @@ describe('Analytics Service', () => {
         username: 'active1',
         email: 'active1@example.com',
         password: 'pass',
-        role: 'patient'
+        role: 'patient',
       });
 
       // Create logs
@@ -88,22 +110,22 @@ describe('Analytics Service', () => {
           action: 'login',
           result: 'success',
           timestamp: midPoint,
-          duration: 100
+          duration: 100,
         },
         {
           userId: user._id,
           action: 'record_view',
           result: 'success',
           timestamp: midPoint,
-          duration: 50
+          duration: 50,
         },
         {
           userId: user._id,
           action: 'login', // failure
           result: 'failure',
           timestamp: midPoint,
-          duration: 20
-        }
+          duration: 20,
+        },
       ]);
 
       const result = await analyticsService.getActivityAnalytics(start, end);
@@ -124,12 +146,35 @@ describe('Analytics Service', () => {
       const { start, end } = createDates();
       const midPoint = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2);
 
-      const user = await User.create({ username: 'perf', email: 'p@e.com', password: 'p', role: 'admin' });
+      const user = await User.create({
+        username: 'perf',
+        email: 'p@e.com',
+        password: 'p',
+        role: 'admin',
+      });
 
       await ActivityLog.create([
-        { userId: user._id, action: 'api_access', timestamp: midPoint, duration: 20, result: 'success' },
-        { userId: user._id, action: 'data_access', timestamp: midPoint, duration: 1000, result: 'success' },
-        { userId: user._id, action: 'record_view', timestamp: midPoint, duration: 480, result: 'success' }
+        {
+          userId: user._id,
+          action: 'api_access',
+          timestamp: midPoint,
+          duration: 20,
+          result: 'success',
+        },
+        {
+          userId: user._id,
+          action: 'data_access',
+          timestamp: midPoint,
+          duration: 1000,
+          result: 'success',
+        },
+        {
+          userId: user._id,
+          action: 'record_view',
+          timestamp: midPoint,
+          duration: 480,
+          result: 'success',
+        },
       ]);
 
       const result = await analyticsService.getPerformanceAnalytics(start, end);
@@ -148,12 +193,31 @@ describe('Analytics Service', () => {
       const { start, end } = createDates();
       const midPoint = new Date(start.getTime() + (end.getTime() - start.getTime()) / 2);
 
-      const user = await User.create({ username: 'err', email: 'e@e.com', password: 'p', role: 'admin' });
+      const user = await User.create({
+        username: 'err',
+        email: 'e@e.com',
+        password: 'p',
+        role: 'admin',
+      });
 
       await ActivityLog.create([
-        { userId: user._id, action: 'payment_failed', timestamp: midPoint, duration: 20, result: 'failure', errorMessage: 'Bad Request' },
-        { userId: user._id, action: 'system_error', timestamp: midPoint, duration: 10, result: 'failure', errorMessage: 'Crash' },
-        { userId: user._id, action: 'login', timestamp: midPoint, duration: 10, result: 'success' }
+        {
+          userId: user._id,
+          action: 'payment_failed',
+          timestamp: midPoint,
+          duration: 20,
+          result: 'failure',
+          errorMessage: 'Bad Request',
+        },
+        {
+          userId: user._id,
+          action: 'system_error',
+          timestamp: midPoint,
+          duration: 10,
+          result: 'failure',
+          errorMessage: 'Crash',
+        },
+        { userId: user._id, action: 'login', timestamp: midPoint, duration: 10, result: 'success' },
       ]);
 
       const result = await analyticsService.getErrorAnalytics(start, end);
@@ -161,10 +225,12 @@ describe('Analytics Service', () => {
       expect(result.summary.totalErrors).toBe(2);
       expect(result.summary.errorRate).toBe('66.67%'); // 2 errors out of 3 total activities
 
-      expect(result.topErrors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ _id: 'Bad Request', count: 1 }),
-        expect.objectContaining({ _id: 'Crash', count: 1 })
-      ]));
+      expect(result.topErrors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ _id: 'Bad Request', count: 1 }),
+          expect.objectContaining({ _id: 'Crash', count: 1 }),
+        ])
+      );
     });
   });
 });

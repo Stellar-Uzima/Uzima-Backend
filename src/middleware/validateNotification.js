@@ -14,7 +14,7 @@ export function validateSendEmail(req, res, next) {
   });
 
   if (error) {
-    const errors = error.details.map((detail) => ({
+    const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
       message: detail.message,
     }));
@@ -40,7 +40,7 @@ export function validateListNotifications(req, res, next) {
   });
 
   if (error) {
-    const errors = error.details.map((detail) => ({
+    const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
       message: detail.message,
     }));
@@ -65,7 +65,7 @@ export function validateNotificationId(req, res, next) {
   });
 
   if (error) {
-    const errors = error.details.map((detail) => ({
+    const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
       message: detail.message,
     }));

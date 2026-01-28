@@ -4,22 +4,25 @@ import mongoose from 'mongoose';
 // Fields used across the codebase:
 // - Audit controllers/cron: action, resource, resourceId, performedBy, timestamp, details
 // - Stellar logging middleware/route: userId, recordId, txHash, timestamp
-const transactionLogSchema = new mongoose.Schema({
-  // Audit style
-  action: { type: String, index: true },
-  resource: { type: String, index: true },
-  resourceId: { type: mongoose.Schema.Types.Mixed },
-  performedBy: { type: String },
-  details: { type: String },
+const transactionLogSchema = new mongoose.Schema(
+  {
+    // Audit style
+    action: { type: String, index: true },
+    resource: { type: String, index: true },
+    resourceId: { type: mongoose.Schema.Types.Mixed },
+    performedBy: { type: String },
+    details: { type: String },
 
-  // Stellar tx log style
-  userId: { type: String, index: true },
-  recordId: { type: String },
-  txHash: { type: String },
+    // Stellar tx log style
+    userId: { type: String, index: true },
+    recordId: { type: String },
+    txHash: { type: String },
 
-  // Common
-  timestamp: { type: Date, default: Date.now, index: true },
-}, { minimize: true, timestamps: false });
+    // Common
+    timestamp: { type: Date, default: Date.now, index: true },
+  },
+  { minimize: true, timestamps: false }
+);
 
 transactionLogSchema.index({ action: 1, resource: 1, timestamp: -1 });
 

@@ -44,7 +44,15 @@ router.get('/:sku', async (req, res) => {
 router.patch('/:sku', async (req, res) => {
   const item = await InventoryItem.findOneAndUpdate(
     { sku: req.params.sku },
-    { $set: { name: req.body.name, category: req.body.category, unit: req.body.unit, threshold: req.body.threshold, metadata: req.body.metadata } },
+    {
+      $set: {
+        name: req.body.name,
+        category: req.body.category,
+        unit: req.body.unit,
+        threshold: req.body.threshold,
+        metadata: req.body.metadata,
+      },
+    },
     { new: true }
   );
   if (!item) return res.status(404).json({ success: false, message: 'Not found' });
@@ -57,7 +65,9 @@ router.patch('/:sku', async (req, res) => {
 router.post('/:sku/lots', async (req, res) => {
   const { lotNumber, quantity, expiryDate } = req.body;
   if (!lotNumber || typeof quantity !== 'number' || !expiryDate) {
-    return res.status(400).json({ success: false, message: 'lotNumber, quantity, expiryDate required' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'lotNumber, quantity, expiryDate required' });
   }
   const item = await InventoryItem.findOne({ sku: req.params.sku });
   if (!item) return res.status(404).json({ success: false, message: 'Not found' });
@@ -107,7 +117,11 @@ router.post('/:sku/consume', async (req, res) => {
       if (usable > 0) {
         lot.quantity -= usable;
         remaining -= usable;
-        lotsConsumed.push({ lotNumber: lot.lotNumber, expiryDate: lot.expiryDate, quantityChanged: -usable });
+        lotsConsumed.push({
+          lotNumber: lot.lotNumber,
+          expiryDate: lot.expiryDate,
+          quantityChanged: -usable,
+        });
       }
     }
     // Remove empty lots
@@ -115,7 +129,11 @@ router.post('/:sku/consume', async (req, res) => {
     await item.save();
 
     if (remaining > 0) {
-      return res.status(409).json({ success: false, message: 'Insufficient stock', data: { requested: quantity, fulfilled: quantity - remaining } });
+      return res.status(409).json({
+        success: false,
+        message: 'Insufficient stock',
+        data: { requested: quantity, fulfilled: quantity - remaining },
+      });
     }
 
     await logInventoryChange({
@@ -138,5 +156,3 @@ router.post('/:sku/consume', async (req, res) => {
 });
 
 export default router;
-
-

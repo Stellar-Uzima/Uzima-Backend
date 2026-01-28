@@ -18,7 +18,7 @@ import { createNotification } from '../services/notificationService.js';
  */
 export async function sendAccountActivationEmail(data) {
   const { to, username, activationLink, userId, expiresIn } = data;
-  
+
   const template = accountActivationTemplate({
     username,
     activationLink,
@@ -46,7 +46,7 @@ export async function sendAccountActivationEmail(data) {
  */
 export async function sendPasswordResetEmail(data) {
   const { to, username, resetLink, userId, expiresIn } = data;
-  
+
   const template = passwordResetTemplate({
     username,
     resetLink,
@@ -76,7 +76,7 @@ export async function sendPasswordResetEmail(data) {
  */
 export async function sendHealthRecordUpdateEmail(data) {
   const { to, username, doctorName, recordType, updateDate, viewLink, userId } = data;
-  
+
   const template = healthRecordUpdateTemplate({
     username,
     doctorName,
@@ -108,8 +108,17 @@ export async function sendHealthRecordUpdateEmail(data) {
  * @param {string} data.userId - User ID
  */
 export async function sendAppointmentReminderEmail(data) {
-  const { to, username, doctorName, appointmentDate, appointmentTime, location, rescheduleLink, userId } = data;
-  
+  const {
+    to,
+    username,
+    doctorName,
+    appointmentDate,
+    appointmentTime,
+    location,
+    rescheduleLink,
+    userId,
+  } = data;
+
   const template = appointmentReminderTemplate({
     username,
     doctorName,
@@ -141,7 +150,7 @@ export async function sendAppointmentReminderEmail(data) {
  */
 export async function sendGenericEmail(data) {
   const { to, title, message, actionText, actionLink, userId } = data;
-  
+
   const template = genericTemplate({
     title,
     message,

@@ -6,8 +6,7 @@
 import mongoose from 'mongoose';
 
 export const name = 'Add Sample Index for Performance';
-export const description =
-  'Create indexes on frequently queried fields for faster lookups';
+export const description = 'Create indexes on frequently queried fields for faster lookups';
 
 /**
  * Up migration - Apply changes

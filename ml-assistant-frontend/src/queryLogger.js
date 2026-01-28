@@ -4,7 +4,7 @@ export async function logQueryToBackend({ symptoms, suggestions, timestamp }) {
     await fetch('/api/query-logs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symptoms, suggestions, timestamp })
+      body: JSON.stringify({ symptoms, suggestions, timestamp }),
     });
   } catch (e) {
     // Silently fail, do not block UI

@@ -36,7 +36,7 @@ const securityController = {
       ]);
 
       // Format device data for response
-      const formattedDevices = devices.map((device) => ({
+      const formattedDevices = devices.map(device => ({
         id: device._id,
         deviceInfo: device.deviceInfo,
         lastSeenAt: device.lastSeenAt,
@@ -101,7 +101,7 @@ const securityController = {
       const result = await LoginHistory.getUserLoginHistory(userId, options);
 
       // Format activity data for response
-      const formattedActivity = result.activity.map((log) => {
+      const formattedActivity = result.activity.map(log => {
         const activity = {
           id: log._id,
           loginAt: log.loginAt,
@@ -172,11 +172,11 @@ const securityController = {
       );
     } catch (error) {
       logger.error('Error trusting device:', error);
-      
+
       if (error.message === 'Device not found or unauthorized') {
         return ApiResponse.error(res, 'Device not found or unauthorized', 404);
       }
-      
+
       return ApiResponse.error(res, 'Failed to update device trust status', 500);
     }
   },
@@ -202,11 +202,11 @@ const securityController = {
       );
     } catch (error) {
       logger.error('Error removing device:', error);
-      
+
       if (error.message === 'Device not found or unauthorized') {
         return ApiResponse.error(res, 'Device not found or unauthorized', 404);
       }
-      
+
       return ApiResponse.error(res, 'Failed to remove device', 500);
     }
   },
@@ -221,12 +221,7 @@ const securityController = {
       const { days = 30 } = req.query;
 
       // Get security metrics
-      const [
-        activeDevices,
-        recentLogins,
-        suspiciousLoginCount,
-        loginPatterns,
-      ] = await Promise.all([
+      const [activeDevices, recentLogins, suspiciousLoginCount, loginPatterns] = await Promise.all([
         UserDevice.countDocuments({ userId, isActive: true }),
         LoginHistory.countDocuments({
           userId,

@@ -25,7 +25,9 @@ const requireRole = (...allowedRoles) => {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Forbidden: Insufficient permissions' });
+      return res
+        .status(403)
+        .json({ success: false, message: 'Forbidden: Insufficient permissions' });
     }
 
     next();
@@ -194,11 +196,7 @@ router.post(
  *         description: Prescription not found
  */
 // Get prescription by number
-router.get(
-  '/:prescriptionNumber',
-  protect,
-  getPrescription
-);
+router.get('/:prescriptionNumber', protect, getPrescription);
 
 /**
  * @swagger
@@ -303,10 +301,6 @@ router.post(
  *         description: Unauthorized
  */
 // Get all prescriptions (with filters)
-router.get(
-  '/',
-  protect,
-  getPrescriptions
-);
+router.get('/', protect, getPrescriptions);
 
 export default router;

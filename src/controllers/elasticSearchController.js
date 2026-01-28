@@ -101,7 +101,9 @@ export async function reindexAllRecords(req, res) {
     }
 
     // Fetch all medical records from MongoDB
-    const records = await MedicalRecord.find({}).populate('patientId', 'firstName lastName email').lean();
+    const records = await MedicalRecord.find({})
+      .populate('patientId', 'firstName lastName email')
+      .lean();
 
     console.log(`Found ${records.length} medical records to index`);
 
@@ -119,7 +121,7 @@ export async function reindexAllRecords(req, res) {
     }
 
     // Prepare bulk index data
-    const bulkData = records.map((record) => ({
+    const bulkData = records.map(record => ({
       _id: record._id,
       data: {
         diagnosis: record.diagnosis || '',

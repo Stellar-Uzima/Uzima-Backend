@@ -61,7 +61,7 @@ export const analyticsService = {
       registrationTrend,
       // Previous period data for comparison
       prevNewRegistrations,
-      prevActiveUsers
+      prevActiveUsers,
     ] = await Promise.all([
       User.getTotalUserCount(endDate),
       User.getTotalUserCount(endDate), // Using total count as proxy for active if log not available, improved below
@@ -70,7 +70,7 @@ export const analyticsService = {
       User.getRegistrationTrends(startDate, endDate),
       // Comparison queries
       User.countDocuments({ createdAt: { $gte: prevPeriod.startDate, $lte: prevPeriod.endDate } }),
-      User.getTotalUserCount(prevPeriod.endDate) // Simplified comparison
+      User.getTotalUserCount(prevPeriod.endDate), // Simplified comparison
     ]);
 
     // Get true active users from ActivityLog if possible
@@ -85,7 +85,7 @@ export const analyticsService = {
 
       const prevActiveStats = await ActivityLog.getActivityStats({
         startDate: prevPeriod.startDate,
-        endDate: prevPeriod.endDate
+        endDate: prevPeriod.endDate,
       });
       if (prevActiveStats && prevActiveStats.length > 0) {
         prevTrueActiveUsers = prevActiveStats[0].uniqueUserCount;
@@ -101,11 +101,11 @@ export const analyticsService = {
         newRegistrations,
         growth: {
           registrations: this.calculateGrowth(newRegistrations, prevNewRegistrations),
-          activeUsers: this.calculateGrowth(trueActiveUsers, prevTrueActiveUsers)
-        }
+          activeUsers: this.calculateGrowth(trueActiveUsers, prevTrueActiveUsers),
+        },
       },
       roles: roleDistribution,
-      trends: registrationTrend
+      trends: registrationTrend,
     };
 
     // Cache result
@@ -130,18 +130,14 @@ export const analyticsService = {
 
     const prevPeriod = this.getPreviousPeriod(startDate, endDate);
 
-    const [
-      trends,
-      stats,
-      prevStats
-    ] = await Promise.all([
+    const [trends, stats, prevStats] = await Promise.all([
       ActivityLog.getActionTrendsOverTime(startDate, endDate),
       ActivityLog.getActivityStats({ startDate, endDate, action: actionFilter }),
       ActivityLog.getActivityStats({
         startDate: prevPeriod.startDate,
         endDate: prevPeriod.endDate,
-        action: actionFilter
-      })
+        action: actionFilter,
+      }),
     ]);
 
     const currentStats = stats[0] || { totalActivities: 0, successCount: 0, failureCount: 0 };
@@ -154,12 +150,15 @@ export const analyticsService = {
         totalActions: currentStats.totalActivities,
         successRate: parseFloat(currentStats.successRate || 0).toFixed(2) + '%',
         growth: {
-          actions: this.calculateGrowth(currentStats.totalActivities, previousStats.totalActivities)
-        }
+          actions: this.calculateGrowth(
+            currentStats.totalActivities,
+            previousStats.totalActivities
+          ),
+        },
       },
       breakdown: trendData.actionBreakdown,
       topUsers: trendData.topUsers,
-      timeline: trendData.dailyTrend
+      timeline: trendData.dailyTrend,
     };
 
     await cacheHelper.set(cacheKey, result);
@@ -182,18 +181,22 @@ export const analyticsService = {
 
     const prevPeriod = this.getPreviousPeriod(startDate, endDate);
 
-    const [
-      metrics,
-      prevMetricsArray
-    ] = await Promise.all([
+    const [metrics, prevMetricsArray] = await Promise.all([
       ActivityLog.getPerformanceMetrics(startDate, endDate),
-      ActivityLog.getPerformanceMetrics(prevPeriod.startDate, prevPeriod.endDate)
+      ActivityLog.getPerformanceMetrics(prevPeriod.startDate, prevPeriod.endDate),
     ]);
 
     const currentMetrics = metrics[0] || { overall: [], distribution: [], slowestActions: [] };
-    const prevMetrics = (prevMetricsArray[0] && prevMetricsArray[0].overall[0]) || { avgDuration: 0 };
+    const prevMetrics = (prevMetricsArray[0] && prevMetricsArray[0].overall[0]) || {
+      avgDuration: 0,
+    };
 
-    const overall = currentMetrics.overall[0] || { avgDuration: 0, minDuration: 0, maxDuration: 0, totalRequests: 0 };
+    const overall = currentMetrics.overall[0] || {
+      avgDuration: 0,
+      minDuration: 0,
+      maxDuration: 0,
+      totalRequests: 0,
+    };
 
     // Inverse growth for latency (lower is better)
     const latencyChange = this.calculateGrowth(overall.avgDuration, prevMetrics.avgDuration);
@@ -204,10 +207,10 @@ export const analyticsService = {
         minResponseTime: overall.minDuration + 'ms',
         maxResponseTime: overall.maxDuration + 'ms',
         totalRequests: overall.totalRequests,
-        comparison: latencyChange
+        comparison: latencyChange,
       },
       distribution: currentMetrics.distribution,
-      slowestEndpoints: currentMetrics.slowestActions
+      slowestEndpoints: currentMetrics.slowestActions,
     };
 
     await cacheHelper.set(cacheKey, result);
@@ -233,11 +236,11 @@ export const analyticsService = {
     const [
       errorStats,
       prevErrorActivity,
-      totalActivity // Need total to calculate rate
+      totalActivity, // Need total to calculate rate
     ] = await Promise.all([
       ActivityLog.getErrorAnalytics(startDate, endDate),
       ActivityLog.getErrorAnalytics(prevPeriod.startDate, prevPeriod.endDate),
-      ActivityLog.countDocuments({ timestamp: { $gte: startDate, $lte: endDate } })
+      ActivityLog.countDocuments({ timestamp: { $gte: startDate, $lte: endDate } }),
     ]);
 
     const currentErrors = errorStats[0] || { trend: [], byAction: [], topMessages: [] };
@@ -246,7 +249,10 @@ export const analyticsService = {
     const totalErrors = currentErrors.byAction.reduce((sum, item) => sum + item.count, 0);
 
     // Calculate previous errors (approximate from trend if needed or do proper count)
-    const prevErrors = (prevErrorActivity[0]?.byAction || []).reduce((sum, item) => sum + item.count, 0);
+    const prevErrors = (prevErrorActivity[0]?.byAction || []).reduce(
+      (sum, item) => sum + item.count,
+      0
+    );
 
     const errorRate = totalActivity > 0 ? ((totalErrors / totalActivity) * 100).toFixed(2) : 0;
 
@@ -254,17 +260,17 @@ export const analyticsService = {
       summary: {
         totalErrors,
         errorRate: errorRate + '%',
-        growth: this.calculateGrowth(totalErrors, prevErrors)
+        growth: this.calculateGrowth(totalErrors, prevErrors),
       },
       byType: currentErrors.byAction,
       topErrors: currentErrors.topMessages,
-      timeline: currentErrors.trend
+      timeline: currentErrors.trend,
     };
 
     await cacheHelper.set(cacheKey, result);
 
     return result;
-  }
+  },
 };
 
 export default analyticsService;

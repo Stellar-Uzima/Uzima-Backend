@@ -1,5 +1,5 @@
-import Patient from "../models/patient.model.js";
-import MedicalRecord from "../models/medicalRecord.model.js";
+import Patient from '../models/patient.model.js';
+import MedicalRecord from '../models/medicalRecord.model.js';
 
 export const search = async (req, res) => {
   try {
@@ -8,8 +8,8 @@ export const search = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    if (!query || query.trim() === "") {
-      return res.status(400).json({ message: "Search query (q) is required" });
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ message: 'Search query (q) is required' });
     }
 
     // Run both searches in parallel
@@ -19,7 +19,7 @@ export const search = async (req, res) => {
         .limit(limit)
         .exec(),
       MedicalRecord.find({ $text: { $search: query } })
-        .populate("patientId", "firstName lastName email")
+        .populate('patientId', 'firstName lastName email')
         .skip(skip)
         .limit(limit)
         .exec(),
@@ -35,6 +35,6 @@ export const search = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error performing search", error: err.message });
+    res.status(500).json({ message: 'Error performing search', error: err.message });
   }
 };

@@ -64,7 +64,7 @@ export class InternalServerError extends AppError {
  * Async error wrapper to catch async errors in route handlers
  * Usage: wrapAsync(async (req, res, next) => { ... })
  */
-export const wrapAsync = (fn) => {
+export const wrapAsync = fn => {
   return (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };

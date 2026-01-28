@@ -1,7 +1,6 @@
 // Articles model for health articles with topic tags
 const mongoose = require('mongoose');
 
-
 const ArticleSchema = new mongoose.Schema({
   title: { type: String, required: true },
   summary: { type: String }, // Short summary for previews

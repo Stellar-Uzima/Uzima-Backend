@@ -1,5 +1,5 @@
-import { deterministicHash, randomSalt, redact } from "../utils/hashUtils.js";
-import ActivityLog from "../models/ActivityLog.js";
+import { deterministicHash, randomSalt, redact } from '../utils/hashUtils.js';
+import ActivityLog from '../models/ActivityLog.js';
 
 export class AnonymizationService {
   /**
@@ -19,13 +19,13 @@ export class AnonymizationService {
       fieldsToRedact = [],
       reversible = false,
       salt = randomSalt(),
-      userId
+      userId,
     } = options;
 
     const anonymized = {};
     const mapping = {};
 
-    Object.keys(record).forEach((key) => {
+    Object.keys(record).forEach(key => {
       if (fieldsToAnonymize.includes(key)) {
         const hashedValue = deterministicHash(record[key], salt);
         anonymized[key] = hashedValue;
@@ -46,8 +46,8 @@ export class AnonymizationService {
         metadata: {
           reversible,
           fieldsAnonymized: fieldsToAnonymize,
-          fieldsRedacted: fieldsToRedact
-        }
+          fieldsRedacted: fieldsToRedact,
+        },
       });
     }
 

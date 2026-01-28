@@ -9,7 +9,7 @@ const vitalSchema = new mongoose.Schema(
     diastolic: { type: Number },
     temperatureC: { type: Number },
     spo2: { type: Number },
-    respiratoryRate: { type: Number }
+    respiratoryRate: { type: Number },
   },
   { timestamps: true }
 );
@@ -18,5 +18,3 @@ const vitalSchema = new mongoose.Schema(
 vitalSchema.index({ patientId: 1, recordedAt: 1 });
 
 export default mongoose.model('Vital', vitalSchema);
-
-

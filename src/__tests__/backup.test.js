@@ -22,19 +22,19 @@ describe('Backup Service Tests', () => {
       password: 'hashedpassword',
       role: 'admin',
       firstName: 'Admin',
-      lastName: 'User'
+      lastName: 'User',
     });
     await adminUser.save();
-    
+
     adminToken = generateToken(adminUser._id);
-    
+
     // Mock environment variables
     process.env.AWS_ACCESS_KEY_ID = 'test-key';
     process.env.AWS_SECRET_ACCESS_KEY = 'test-secret';
     process.env.S3_BACKUP_BUCKET = 'test-bucket';
     process.env.BACKUP_ENCRYPTION_KEY = '12345678901234567890123456789012';
     process.env.BACKUP_RETENTION_DAYS = '30';
-    
+
     backupService = new BackupService();
   });
 
@@ -51,16 +51,16 @@ describe('Backup Service Tests', () => {
     test('should create backup record with required fields', async () => {
       const retentionDate = new Date();
       retentionDate.setDate(retentionDate.getDate() + 30);
-      
+
       const backup = new Backup({
         backupId: 'test-backup-1',
         status: 'pending',
         database: 'test-db',
-        retentionDate
+        retentionDate,
       });
-      
+
       await backup.save();
-      
+
       expect(backup.backupId).toBe('test-backup-1');
       expect(backup.status).toBe('pending');
       expect(backup.database).toBe('test-db');
@@ -71,13 +71,13 @@ describe('Backup Service Tests', () => {
         backupId: 'test-backup-2',
         status: 'in_progress',
         database: 'test-db',
-        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
-      
+
       await backup.save();
-      
+
       await backup.markCompleted('s3://bucket/key', 'hash123', 1024);
-      
+
       expect(backup.status).toBe('completed');
       expect(backup.s3Key).toBe('s3://bucket/key');
       expect(backup.hash).toBe('hash123');
@@ -90,13 +90,13 @@ describe('Backup Service Tests', () => {
         backupId: 'test-backup-3',
         status: 'in_progress',
         database: 'test-db',
-        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
-      
+
       await backup.save();
-      
+
       await backup.markFailed('Test error message');
-      
+
       expect(backup.status).toBe('failed');
       expect(backup.errorMessage).toBe('Test error message');
       expect(backup.completedAt).toBeDefined();
@@ -111,14 +111,14 @@ describe('Backup Service Tests', () => {
           backupId: 'backup-1',
           status: 'completed',
           database: 'test-db',
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         {
           backupId: 'backup-2',
           status: 'failed',
           database: 'test-db',
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
       ]);
 
       const response = await request(app)
@@ -139,14 +139,14 @@ describe('Backup Service Tests', () => {
           status: 'completed',
           database: 'test-db',
           size: 1024,
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         {
           backupId: 'backup-2',
           status: 'failed',
           database: 'test-db',
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
       ]);
 
       const response = await request(app)
@@ -177,7 +177,7 @@ describe('Backup Service Tests', () => {
         s3Key: 's3://bucket/backup-detail-test.tar.gz.enc',
         hash: 'hash123',
         size: 2048,
-        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
 
       const response = await request(app)
@@ -195,7 +195,7 @@ describe('Backup Service Tests', () => {
         backupId: 'backup-delete-test',
         status: 'completed',
         database: 'test-db',
-        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
 
       const response = await request(app)
@@ -204,16 +204,14 @@ describe('Backup Service Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      
+
       // Verify backup is deleted from database
       const deletedBackup = await Backup.findOne({ backupId: 'backup-delete-test' });
       expect(deletedBackup).toBeNull();
     });
 
     test('should reject unauthorized access', async () => {
-      await request(app)
-        .get('/api/admin/backups')
-        .expect(401);
+      await request(app).get('/api/admin/backups').expect(401);
     });
   });
 
@@ -234,15 +232,15 @@ describe('Backup Service Tests', () => {
       expect(() => {
         new BackupService();
       }).not.toThrow();
-      
+
       // Test with invalid key length
       const originalKey = process.env.BACKUP_ENCRYPTION_KEY;
       process.env.BACKUP_ENCRYPTION_KEY = 'short';
-      
+
       expect(() => {
         new BackupService();
       }).toThrow('BACKUP_ENCRYPTION_KEY must be exactly 32 characters');
-      
+
       // Restore original key
       process.env.BACKUP_ENCRYPTION_KEY = originalKey;
     });
@@ -256,25 +254,25 @@ describe('Backup Service Tests', () => {
           status: 'completed',
           database: 'test-db',
           size: 1000,
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         {
           backupId: 'stat-backup-2',
           status: 'completed',
           database: 'test-db',
           size: 2000,
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         {
           backupId: 'stat-backup-3',
           status: 'failed',
           database: 'test-db',
-          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
+          retentionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
       ]);
 
       const stats = await Backup.getBackupStats();
-      
+
       expect(stats.totalBackups).toBe(3);
       expect(stats.statusCounts).toHaveLength(2); // completed and failed
       expect(stats.recentBackups).toHaveLength(3);

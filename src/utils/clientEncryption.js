@@ -1,11 +1,11 @@
 /**
  * Client-Side Encryption Utilities for PHI Protection
- * 
+ *
  * This module provides client-side encryption using Web Crypto API (AES-GCM)
  * with PBKDF2 key derivation from user passphrase. All PHI data is encrypted
  * in the browser before being sent to the server, ensuring no unencrypted PHI
  * leaves the client environment.
- * 
+ *
  * @module clientEncryption
  */
 
@@ -118,11 +118,11 @@ async function deriveKey(passphrase, salt, usage) {
 
 /**
  * Encrypts PHI data using AES-GCM
- * 
+ *
  * @param {string} plaintext - Plaintext PHI data to encrypt
  * @param {string} passphrase - User's passphrase for key derivation
  * @returns {Promise<string>} Encrypted data in format: version:salt:iv:encryptedData:authTag (all base64)
- * 
+ *
  * @example
  * const encrypted = await encryptPHI('Patient diagnosis: Diabetes', 'userPassphrase123!');
  * // Returns: "v1:base64Salt:base64IV:base64EncryptedData:base64AuthTag"
@@ -133,7 +133,9 @@ export async function encryptPHI(plaintext, passphrase) {
   }
 
   if (!isWebCryptoAvailable()) {
-    throw new Error('Web Crypto API is not available. Client-side encryption requires a modern browser.');
+    throw new Error(
+      'Web Crypto API is not available. Client-side encryption requires a modern browser.'
+    );
   }
 
   if (!passphrase || typeof passphrase !== 'string' || passphrase.length < 8) {
@@ -143,7 +145,7 @@ export async function encryptPHI(plaintext, passphrase) {
   try {
     // Generate random salt (16 bytes) - must be stored with encrypted data
     const salt = window.crypto.getRandomValues(new Uint8Array(16));
-    
+
     // Generate random IV (12 bytes for GCM)
     const iv = window.crypto.getRandomValues(new Uint8Array(AES_GCM_CONFIG.ivLength));
 
@@ -187,11 +189,11 @@ export async function encryptPHI(plaintext, passphrase) {
 
 /**
  * Decrypts PHI data using AES-GCM
- * 
+ *
  * @param {string} encryptedData - Encrypted data in format: version:salt:iv:encryptedData:authTag
  * @param {string} passphrase - User's passphrase for key derivation
  * @returns {Promise<string>} Decrypted plaintext
- * 
+ *
  * @example
  * const decrypted = await decryptPHI(encryptedString, 'userPassphrase123!');
  * // Returns: "Patient diagnosis: Diabetes"
@@ -202,7 +204,9 @@ export async function decryptPHI(encryptedData, passphrase) {
   }
 
   if (!isWebCryptoAvailable()) {
-    throw new Error('Web Crypto API is not available. Client-side decryption requires a modern browser.');
+    throw new Error(
+      'Web Crypto API is not available. Client-side decryption requires a modern browser.'
+    );
   }
 
   if (!passphrase || typeof passphrase !== 'string') {
@@ -212,7 +216,7 @@ export async function decryptPHI(encryptedData, passphrase) {
   try {
     // Parse encrypted data format: version:salt:iv:encryptedData:authTag
     const parts = encryptedData.split(':');
-    
+
     if (parts.length !== 5) {
       throw new Error('Invalid encrypted data format');
     }
@@ -255,8 +259,10 @@ export async function decryptPHI(encryptedData, passphrase) {
     return plaintext;
   } catch (error) {
     // Don't expose sensitive error details
-    if (error.message.includes('Invalid encrypted data format') || 
-        error.message.includes('Unsupported encryption format')) {
+    if (
+      error.message.includes('Invalid encrypted data format') ||
+      error.message.includes('Unsupported encryption format')
+    ) {
       throw error;
     }
     throw new Error('Decryption failed. Invalid passphrase or corrupted data.');
@@ -279,13 +285,17 @@ export function isClientEncrypted(data) {
 
 /**
  * Encrypts multiple PHI fields in a record object
- * 
+ *
  * @param {Object} record - Record object with PHI fields
  * @param {string} passphrase - User's passphrase
  * @param {string[]} phiFields - Array of field names to encrypt (default: ['diagnosis', 'treatment', 'history'])
  * @returns {Promise<Object>} Record with encrypted PHI fields
  */
-export async function encryptRecordPHI(record, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function encryptRecordPHI(
+  record,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!record || typeof record !== 'object') {
     throw new Error('Record must be an object');
   }
@@ -307,13 +317,17 @@ export async function encryptRecordPHI(record, passphrase, phiFields = ['diagnos
 
 /**
  * Decrypts multiple PHI fields in a record object
- * 
+ *
  * @param {Object} record - Record object with encrypted PHI fields
  * @param {string} passphrase - User's passphrase
  * @param {string[]} phiFields - Array of field names to decrypt (default: ['diagnosis', 'treatment', 'history'])
  * @returns {Promise<Object>} Record with decrypted PHI fields
  */
-export async function decryptRecordPHI(record, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function decryptRecordPHI(
+  record,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!record || typeof record !== 'object') {
     throw new Error('Record must be an object');
   }
@@ -335,13 +349,17 @@ export async function decryptRecordPHI(record, passphrase, phiFields = ['diagnos
 
 /**
  * Encrypts an array of records
- * 
+ *
  * @param {Array} records - Array of record objects
  * @param {string} passphrase - User's passphrase
  * @param {string[]} phiFields - Array of field names to encrypt
  * @returns {Promise<Array>} Array of records with encrypted PHI fields
  */
-export async function encryptRecordsPHI(records, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function encryptRecordsPHI(
+  records,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!Array.isArray(records)) {
     throw new Error('Records must be an array');
   }
@@ -355,13 +373,17 @@ export async function encryptRecordsPHI(records, passphrase, phiFields = ['diagn
 
 /**
  * Decrypts an array of records
- * 
+ *
  * @param {Array} records - Array of record objects with encrypted PHI fields
  * @param {string} passphrase - User's passphrase
  * @param {string[]} phiFields - Array of field names to decrypt
  * @returns {Promise<Array>} Array of records with decrypted PHI fields
  */
-export async function decryptRecordsPHI(records, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function decryptRecordsPHI(
+  records,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!Array.isArray(records)) {
     throw new Error('Records must be an array');
   }

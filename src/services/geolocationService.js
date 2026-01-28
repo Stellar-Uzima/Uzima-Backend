@@ -9,13 +9,13 @@ try {
     host: process.env.REDIS_HOST || 'localhost',
     port: process.env.REDIS_PORT || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
-    retryStrategy: (times) => {
+    retryStrategy: times => {
       if (times > 3) return null; // Stop retrying after 3 attempts
       return Math.min(times * 100, 2000);
     },
   });
 
-  redisClient.on('error', (err) => {
+  redisClient.on('error', err => {
     logger.error('Redis client error:', err);
     redisClient = null; // Disable caching if Redis fails
   });
@@ -43,7 +43,13 @@ class GeolocationService {
   async getLocationFromIp(ip) {
     try {
       // Validate IP address
-      if (!ip || ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+      if (
+        !ip ||
+        ip === '::1' ||
+        ip === '127.0.0.1' ||
+        ip.startsWith('192.168.') ||
+        ip.startsWith('10.')
+      ) {
         return this._getDefaultLocation('localhost');
       }
 
@@ -305,7 +311,7 @@ class GeolocationService {
   async batchGeocode(ips) {
     const uniqueIps = [...new Set(ips)];
     const results = await Promise.all(
-      uniqueIps.map((ip) => this.getLocationFromIp(ip).catch(() => this._getDefaultLocation('error')))
+      uniqueIps.map(ip => this.getLocationFromIp(ip).catch(() => this._getDefaultLocation('error')))
     );
 
     return results;

@@ -1,6 +1,6 @@
 /**
  * Migration: Add geolocation tracking and browser fingerprinting
- * 
+ *
  * This migration creates:
  * - userdevices collection with indexes
  * - loginhistories collection with indexes and TTL
@@ -83,18 +83,18 @@ module.exports = {
 
     // Create indexes for userdevices
     console.log('Creating userdevices indexes...');
-    await db.collection('userdevices').createIndex(
-      { userId: 1, fingerprintHash: 1 },
-      { unique: true, name: 'userId_fingerprintHash_unique' }
-    );
-    await db.collection('userdevices').createIndex(
-      { userId: 1, isActive: 1, lastSeenAt: -1 },
-      { name: 'userId_active_lastSeen' }
-    );
-    await db.collection('userdevices').createIndex(
-      { fingerprintHash: 1 },
-      { name: 'fingerprintHash_index' }
-    );
+    await db
+      .collection('userdevices')
+      .createIndex(
+        { userId: 1, fingerprintHash: 1 },
+        { unique: true, name: 'userId_fingerprintHash_unique' }
+      );
+    await db
+      .collection('userdevices')
+      .createIndex({ userId: 1, isActive: 1, lastSeenAt: -1 }, { name: 'userId_active_lastSeen' });
+    await db
+      .collection('userdevices')
+      .createIndex({ fingerprintHash: 1 }, { name: 'fingerprintHash_index' });
 
     // 2. Create loginhistories collection
     console.log('Creating loginhistories collection...');
@@ -181,43 +181,39 @@ module.exports = {
 
     // Create indexes for loginhistories
     console.log('Creating loginhistories indexes...');
-    await db.collection('loginhistories').createIndex(
-      { userId: 1, loginAt: -1 },
-      { name: 'userId_loginAt' }
-    );
-    await db.collection('loginhistories').createIndex(
-      { userId: 1, isNewDevice: 1 },
-      { name: 'userId_isNewDevice' }
-    );
-    await db.collection('loginhistories').createIndex(
-      { userId: 1, 'fraudFlags.impossibleTravel': 1 },
-      { name: 'userId_impossibleTravel' }
-    );
-    await db.collection('loginhistories').createIndex(
-      { loginStatus: 1, loginAt: -1 },
-      { name: 'loginStatus_loginAt' }
-    );
-    await db.collection('loginhistories').createIndex(
-      { ipAddress: 1 },
-      { name: 'ipAddress_index' }
-    );
-    await db.collection('loginhistories').createIndex(
-      { sessionId: 1 },
-      { name: 'sessionId_index' }
-    );
+    await db
+      .collection('loginhistories')
+      .createIndex({ userId: 1, loginAt: -1 }, { name: 'userId_loginAt' });
+    await db
+      .collection('loginhistories')
+      .createIndex({ userId: 1, isNewDevice: 1 }, { name: 'userId_isNewDevice' });
+    await db
+      .collection('loginhistories')
+      .createIndex(
+        { userId: 1, 'fraudFlags.impossibleTravel': 1 },
+        { name: 'userId_impossibleTravel' }
+      );
+    await db
+      .collection('loginhistories')
+      .createIndex({ loginStatus: 1, loginAt: -1 }, { name: 'loginStatus_loginAt' });
+    await db
+      .collection('loginhistories')
+      .createIndex({ ipAddress: 1 }, { name: 'ipAddress_index' });
+    await db
+      .collection('loginhistories')
+      .createIndex({ sessionId: 1 }, { name: 'sessionId_index' });
 
     // Create TTL index for automatic cleanup (180 days)
     console.log('Creating TTL index for loginhistories...');
-    await db.collection('loginhistories').createIndex(
-      { expiresAt: 1 },
-      { expireAfterSeconds: 0, name: 'expiresAt_ttl' }
-    );
+    await db
+      .collection('loginhistories')
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'expiresAt_ttl' });
 
     // 3. Add lastKnownLocation field to users collection (optional)
     console.log('Updating users collection schema...');
     // Note: MongoDB doesn't require explicit schema updates for new fields
     // The field will be added when first used by the application
-    
+
     console.log('Migration completed successfully!');
   },
 
@@ -226,14 +222,20 @@ module.exports = {
 
     // Drop collections
     console.log('Dropping loginhistories collection...');
-    await db.collection('loginhistories').drop().catch(() => {
-      console.log('loginhistories collection does not exist, skipping...');
-    });
+    await db
+      .collection('loginhistories')
+      .drop()
+      .catch(() => {
+        console.log('loginhistories collection does not exist, skipping...');
+      });
 
     console.log('Dropping userdevices collection...');
-    await db.collection('userdevices').drop().catch(() => {
-      console.log('userdevices collection does not exist, skipping...');
-    });
+    await db
+      .collection('userdevices')
+      .drop()
+      .catch(() => {
+        console.log('userdevices collection does not exist, skipping...');
+      });
 
     // Note: We don't remove fields from users collection in rollback
     // as existing data should be preserved

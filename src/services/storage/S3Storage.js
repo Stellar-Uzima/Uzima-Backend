@@ -5,7 +5,7 @@ const {
   DeleteObjectCommand,
   ListObjectsV2Command,
   HeadObjectCommand,
-  NoSuchKey
+  NoSuchKey,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { StorageService } = require('./StorageService');
@@ -16,7 +16,7 @@ class S3Storage extends StorageService {
     this.bucket = options.bucket || process.env.S3_BUCKET_NAME;
     this.region = options.region || process.env.AWS_REGION || 'us-east-1';
     this.prefix = options.prefix || '';
-    
+
     // Initialize S3 client
     this.s3Client = new S3Client({
       region: this.region,
@@ -45,8 +45,8 @@ class S3Storage extends StorageService {
         uploadedBy: options.userId || 'system',
         uploadedAt: new Date().toISOString(),
         originalFilename: options.originalFilename || key,
-        ...options.metadata
-      }
+        ...options.metadata,
+      },
     };
 
     try {
@@ -70,7 +70,7 @@ class S3Storage extends StorageService {
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucket,
-        Key: fullKey
+        Key: fullKey,
       });
 
       const response = await this.s3Client.send(command);
@@ -98,7 +98,7 @@ class S3Storage extends StorageService {
     try {
       const command = new DeleteObjectCommand({
         Bucket: this.bucket,
-        Key: fullKey
+        Key: fullKey,
       });
 
       await this.s3Client.send(command);
@@ -121,7 +121,7 @@ class S3Storage extends StorageService {
       const command = new ListObjectsV2Command({
         Bucket: this.bucket,
         Prefix: searchPrefix,
-        MaxKeys: options.maxKeys || 1000
+        MaxKeys: options.maxKeys || 1000,
       });
 
       const response = await this.s3Client.send(command);
@@ -164,7 +164,7 @@ class S3Storage extends StorageService {
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: fullKey
+        Key: fullKey,
       });
 
       await this.s3Client.send(command);
@@ -191,21 +191,21 @@ class S3Storage extends StorageService {
         // Generate presigned URL for upload
         const command = new PutObjectCommand({
           Bucket: this.bucket,
-          Key: fullKey
+          Key: fullKey,
         });
 
         return await getSignedUrl(this.s3Client, command, {
-          expiresIn
+          expiresIn,
         });
       } else {
         // Generate presigned URL for download (default)
         const command = new GetObjectCommand({
           Bucket: this.bucket,
-          Key: fullKey
+          Key: fullKey,
         });
 
         return await getSignedUrl(this.s3Client, command, {
-          expiresIn
+          expiresIn,
         });
       }
     } catch (error) {
@@ -223,7 +223,7 @@ class S3Storage extends StorageService {
     try {
       const command = new HeadObjectCommand({
         Bucket: this.bucket,
-        Key: fullKey
+        Key: fullKey,
       });
 
       const response = await this.s3Client.send(command);
@@ -236,13 +236,15 @@ class S3Storage extends StorageService {
         mimeType: response.ContentType,
         size: response.ContentLength,
         uploadedBy: response.Metadata?.uploadedby || 'system',
-        uploadedAt: response.Metadata?.uploadedat ? new Date(response.Metadata.uploadedat) : new Date(),
+        uploadedAt: response.Metadata?.uploadedat
+          ? new Date(response.Metadata.uploadedat)
+          : new Date(),
         additionalMetadata: {
           etag: response.ETag,
           lastModified: response.LastModified,
           storageClass: response.StorageClass,
-          metadata: response.Metadata
-        }
+          metadata: response.Metadata,
+        },
       };
     } catch (error) {
       if (error.name === 'NoSuchKey') {

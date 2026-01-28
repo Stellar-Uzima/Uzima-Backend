@@ -317,10 +317,7 @@ describe('Payment Integration Tests', () => {
         },
       };
 
-      const result = await flutterwaveService.handleWebhook(
-        webhookPayload,
-        'test_signature'
-      );
+      const result = await flutterwaveService.handleWebhook(webhookPayload, 'test_signature');
 
       expect(result.processed).toBe(true);
       expect(result.status).toBe('successful');

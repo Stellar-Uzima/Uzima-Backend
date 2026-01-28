@@ -1,5 +1,8 @@
 import cron from 'node-cron';
-import { startReconciliationRun, sendReconciliationAlert } from '../services/reconciliation.service.js';
+import {
+  startReconciliationRun,
+  sendReconciliationAlert,
+} from '../services/reconciliation.service.js';
 
 export async function runDailyReconciliation() {
   try {
@@ -29,9 +32,13 @@ export async function runDailyReconciliation() {
 }
 
 // Schedule at 01:00 UTC every day
-cron.schedule('0 1 * * *', () => {
-  runDailyReconciliation().catch((err) => {
-    // eslint-disable-next-line no-console
-    console.error('Scheduled reconciliation error:', err.message);
-  });
-}, { scheduled: true, timezone: 'UTC' });
+cron.schedule(
+  '0 1 * * *',
+  () => {
+    runDailyReconciliation().catch(err => {
+      // eslint-disable-next-line no-console
+      console.error('Scheduled reconciliation error:', err.message);
+    });
+  },
+  { scheduled: true, timezone: 'UTC' }
+);

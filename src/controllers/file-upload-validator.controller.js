@@ -39,13 +39,18 @@ const preUploadSchema = Joi.object({
       'any.only': 'File type not allowed. Allowed types: PDF, JPG, PNG, DOCX',
       'any.required': 'Content type is required',
     }),
-  size: Joi.number().integer().min(1).max(MAX_FILE_SIZE).required().messages({
-    'number.base': 'File size must be a number',
-    'number.integer': 'File size must be an integer',
-    'number.min': 'File cannot be empty',
-    'number.max': `File size exceeds maximum of ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
-    'any.required': 'File size is required',
-  }),
+  size: Joi.number()
+    .integer()
+    .min(1)
+    .max(MAX_FILE_SIZE)
+    .required()
+    .messages({
+      'number.base': 'File size must be a number',
+      'number.integer': 'File size must be an integer',
+      'number.min': 'File cannot be empty',
+      'number.max': `File size exceeds maximum of ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
+      'any.required': 'File size is required',
+    }),
 });
 
 /**
@@ -69,11 +74,7 @@ const fileUploadValidatorController = {
           message: detail.message,
         }));
 
-        return ApiResponse.validationError(
-          res,
-          'Validation failed',
-          { body: validationErrors }
-        );
+        return ApiResponse.validationError(res, 'Validation failed', { body: validationErrors });
       }
 
       const { filename, contentType, size } = value;
@@ -81,19 +82,15 @@ const fileUploadValidatorController = {
       // Validate filename
       const filenameValidation = validateAndSanitizeFilename(filename);
       if (!filenameValidation.valid) {
-        return ApiResponse.validationError(
-          res,
-          'Invalid filename',
-          {
-            filename: [
-              {
-                field: 'filename',
-                message: filenameValidation.error,
-                issues: filenameValidation.issues || [],
-              },
-            ],
-          }
-        );
+        return ApiResponse.validationError(res, 'Invalid filename', {
+          filename: [
+            {
+              field: 'filename',
+              message: filenameValidation.error,
+              issues: filenameValidation.issues || [],
+            },
+          ],
+        });
       }
 
       // Check if extension matches content type
@@ -101,19 +98,15 @@ const fileUploadValidatorController = {
       const allowedExtensions = MIME_TYPE_EXTENSIONS[contentType];
 
       if (!allowedExtensions || !allowedExtensions.includes(extension)) {
-        return ApiResponse.validationError(
-          res,
-          'File extension does not match content type',
-          {
-            filename: [
-              {
-                field: 'filename',
-                message: `Extension ${extension} does not match content type ${contentType}`,
-                expectedExtensions: allowedExtensions,
-              },
-            ],
-          }
-        );
+        return ApiResponse.validationError(res, 'File extension does not match content type', {
+          filename: [
+            {
+              field: 'filename',
+              message: `Extension ${extension} does not match content type ${contentType}`,
+              expectedExtensions: allowedExtensions,
+            },
+          ],
+        });
       }
 
       // All validations passed
@@ -136,11 +129,7 @@ const fileUploadValidatorController = {
       );
     } catch (error) {
       console.error('Pre-upload validation error:', error);
-      return ApiResponse.error(
-        res,
-        'An error occurred during validation',
-        500
-      );
+      return ApiResponse.error(res, 'An error occurred during validation', 500);
     }
   },
 

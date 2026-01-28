@@ -7,11 +7,11 @@ import { getConfig } from './index.js';
  */
 const createRedisClient = () => {
   const { redis } = getConfig();
-  
+
   return createClient({
     url: redis.url,
     socket: {
-      reconnectStrategy: (retries) => {
+      reconnectStrategy: retries => {
         if (retries > 10) {
           // End reconnecting with built in error
           return new Error('Redis reconnection attempts exhausted');
@@ -26,7 +26,7 @@ const createRedisClient = () => {
 const redisClient = createRedisClient();
 
 // Handle Redis connection events
-redisClient.on('error', (err) => {
+redisClient.on('error', err => {
   // eslint-disable-next-line no-console
   console.error('Redis Client Error:', err);
 });

@@ -15,9 +15,9 @@ async function makeRequest(endpoint, options = {}) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...options.headers,
       },
-      ...options
+      ...options,
     });
 
     const data = await response.text();
@@ -31,29 +31,29 @@ async function makeRequest(endpoint, options = {}) {
     return {
       status: response.status,
       headers: Object.fromEntries(response.headers.entries()),
-      data: jsonData
+      data: jsonData,
     };
   } catch (error) {
     return {
       status: 'ERROR',
-      error: error.message
+      error: error.message,
     };
   }
 }
 
 async function testGeneralRateLimit() {
   console.log('\n🧪 Testing General Rate Limiting (100 requests / 15 minutes)');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   for (let i = 1; i <= 10; i++) {
     const result = await makeRequest('/api');
-    
+
     console.log(`Request ${i}:`);
     console.log(`  Status: ${result.status}`);
     console.log(`  Rate Limit: ${result.headers['ratelimit-limit'] || 'N/A'}`);
     console.log(`  Remaining: ${result.headers['ratelimit-remaining'] || 'N/A'}`);
     console.log(`  Reset: ${result.headers['ratelimit-reset'] || 'N/A'}`);
-    
+
     if (result.status === 429) {
       console.log(`  ❌ Rate limited: ${result.data.error || 'Unknown error'}`);
       console.log(`  Retry after: ${result.data.retryAfter || 'N/A'} seconds`);
@@ -61,7 +61,7 @@ async function testGeneralRateLimit() {
     } else {
       console.log(`  ✅ Success`);
     }
-    
+
     // Small delay between requests
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -69,22 +69,22 @@ async function testGeneralRateLimit() {
 
 async function testAuthRateLimit() {
   console.log('\n🔐 Testing Authentication Rate Limiting (5 requests / 15 minutes)');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   for (let i = 1; i <= 8; i++) {
     const result = await makeRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({
         email: 'test@example.com',
-        password: 'wrongpassword'
-      })
+        password: 'wrongpassword',
+      }),
     });
-    
+
     console.log(`Login attempt ${i}:`);
     console.log(`  Status: ${result.status}`);
     console.log(`  Rate Limit: ${result.headers['ratelimit-limit'] || 'N/A'}`);
     console.log(`  Remaining: ${result.headers['ratelimit-remaining'] || 'N/A'}`);
-    
+
     if (result.status === 429) {
       console.log(`  ❌ Rate limited: ${result.data.error || 'Unknown error'}`);
       console.log(`  Retry after: ${result.data.retryAfter || 'N/A'} seconds`);
@@ -92,7 +92,7 @@ async function testAuthRateLimit() {
     } else {
       console.log(`  ✅ Request processed (likely 401/400)`);
     }
-    
+
     // Small delay between requests
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -100,10 +100,10 @@ async function testAuthRateLimit() {
 
 async function testRateLimitHeaders() {
   console.log('\n📊 Testing Rate Limit Headers');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   const result = await makeRequest('/api');
-  
+
   console.log('Response Headers:');
   Object.entries(result.headers).forEach(([key, value]) => {
     if (key.toLowerCase().includes('rate') || key.toLowerCase().includes('limit')) {
@@ -131,9 +131,10 @@ async function main() {
     await testAuthRateLimit();
 
     console.log('\n✅ Rate limiting tests completed!');
-    console.log('\nNote: If you see rate limiting in action, the implementation is working correctly.');
+    console.log(
+      '\nNote: If you see rate limiting in action, the implementation is working correctly.'
+    );
     console.log('Rate limits will reset after the specified time window.');
-
   } catch (error) {
     console.error('❌ Test failed:', error.message);
   }

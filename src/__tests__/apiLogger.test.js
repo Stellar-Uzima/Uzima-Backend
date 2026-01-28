@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  sanitizeData,
-  sanitizeHeaders,
-  apiRequestResponseLogger,
-} from '../utils/logger.js';
+import { sanitizeData, sanitizeHeaders, apiRequestResponseLogger } from '../utils/logger.js';
 
 describe('API Logger Middleware', () => {
   describe('sanitizeData', () => {

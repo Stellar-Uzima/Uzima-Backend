@@ -6,7 +6,6 @@ import speakeasy from 'speakeasy';
 import User from '../models/User.js';
 import * as twoFactorService from '../services/twoFactorService.js';
 
-
 let mongoServer;
 let testUser;
 
@@ -24,7 +23,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clear database and create a test user
   await User.deleteMany({});
-  
+
   const hashedPassword = await bcrypt.hash('Test1234!', 10);
   testUser = await User.create({
     username: 'testuser',
@@ -125,7 +124,7 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     it('should verify valid TOTP token', () => {
       const token = speakeasy.totp({ secret, encoding: 'base32' });
       const decrypted = twoFactorService.decryptSecret(encryptedSecret);
-      
+
       const verified = twoFactorService.verifyToken(decrypted, token);
       expect(verified).toBe(true);
     });
@@ -143,7 +142,7 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     beforeEach(async () => {
       // Generate plaintext backup codes
       backupCodes = twoFactorService.generateBackupCodes();
-      
+
       // Hash and store them
       const hashedBackupCodes = await Promise.all(
         backupCodes.map(async code => ({
@@ -165,7 +164,7 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     it('should verify valid backup code', async () => {
       const user = await User.findById(testUser._id);
       const testCode = backupCodes[0];
-      
+
       // Find matching backup code
       let verified = false;
       for (const bc of user.twoFactor.backupCodes) {
@@ -183,7 +182,7 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     it('should mark backup code as used', async () => {
       const user = await User.findById(testUser._id);
       const testCode = backupCodes[0];
-      
+
       // Mark first code as used
       for (const bc of user.twoFactor.backupCodes) {
         if (bc.usedAt) continue;
@@ -203,7 +202,7 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     it('should not verify used backup code twice', async () => {
       const user = await User.findById(testUser._id);
       const testCode = backupCodes[0];
-      
+
       // Use the code first time
       for (const bc of user.twoFactor.backupCodes) {
         if (bc.usedAt) continue;
@@ -280,4 +279,3 @@ describe('Two-Factor Authentication Database Integration Tests', () => {
     });
   });
 });
-

@@ -4,7 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const ELASTICSEARCH_NODE = process.env.ELASTICSEARCH_NODE || 'http://localhost:9200';
-const ELASTICSEARCH_REQUEST_TIMEOUT = parseInt(process.env.ELASTICSEARCH_REQUEST_TIMEOUT || '5000', 10);
+const ELASTICSEARCH_REQUEST_TIMEOUT = parseInt(
+  process.env.ELASTICSEARCH_REQUEST_TIMEOUT || '5000',
+  10
+);
 const ELASTICSEARCH_MAX_RETRIES = parseInt(process.env.ELASTICSEARCH_MAX_RETRIES || '3', 10);
 
 // Create Elasticsearch client singleton

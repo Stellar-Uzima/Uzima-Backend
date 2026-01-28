@@ -141,11 +141,7 @@ export class StripePaymentService extends PaymentService {
       }
 
       // Verify webhook signature
-      const event = this.stripe.webhooks.constructEvent(
-        payload,
-        signature,
-        this.webhookSecret
-      );
+      const event = this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
 
       // Store webhook event
       await PaymentWebhook.create({

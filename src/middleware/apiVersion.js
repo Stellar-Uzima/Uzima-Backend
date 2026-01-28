@@ -19,7 +19,7 @@ const versionDetection = (req, res, next) => {
   next();
 };
 
-const deprecationWarning = (version) => (req, res, next) => {
+const deprecationWarning = version => (req, res, next) => {
   const versionInfo = API_VERSIONS[version];
 
   if (!versionInfo || !versionInfo.supported) {
@@ -36,7 +36,7 @@ const deprecationWarning = (version) => (req, res, next) => {
       'X-API-Deprecation-Date': versionInfo.deprecationDate,
       'X-API-Sunset-Date': versionInfo.sunsetDate,
       'X-API-Current-Version': 'v2',
-      'Link': '</api/v2>; rel="successor-version"',
+      Link: '</api/v2>; rel="successor-version"',
     });
   }
 
@@ -49,9 +49,4 @@ const deprecationWarning = (version) => (req, res, next) => {
 
 const getVersionInfo = () => API_VERSIONS;
 
-export {
-  versionDetection,
-  deprecationWarning,
-  getVersionInfo,
-  API_VERSIONS,
-};
+export { versionDetection, deprecationWarning, getVersionInfo, API_VERSIONS };

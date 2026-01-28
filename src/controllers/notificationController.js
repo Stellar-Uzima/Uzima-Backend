@@ -258,7 +258,7 @@ export async function retryFailedNotification(req, res) {
     });
   } catch (error) {
     console.error('Error retrying notification:', error);
-    
+
     if (error.message === 'Notification not found') {
       return res.status(404).json({
         success: false,

@@ -107,7 +107,7 @@ recordSchema.index({ txHash: 1 }, { unique: true });
 recordSchema.index({
   patientName: 'text',
   diagnosis: 'text',
-  treatment: 'text'
+  treatment: 'text',
 });
 
 export default mongoose.model('Record', recordSchema);

@@ -44,7 +44,7 @@ export const cacheHelper = {
       }
 
       await redisClient.set(key, JSON.stringify(data), {
-        EX: ttl
+        EX: ttl,
       });
 
       return true;
@@ -98,7 +98,7 @@ export const cacheHelper = {
     } catch (error) {
       console.error('Cache clear error:', error);
     }
-  }
+  },
 };
 
 export default cacheHelper;

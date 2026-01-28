@@ -12,7 +12,12 @@ describe('Soft Delete, Restore, Purge Flows', () => {
     await user.save();
     userId = user._id;
     // Create a test record
-    const record = new Record({ patientName: 'John Doe', diagnosis: 'Flu', treatment: 'Rest', createdBy: userId });
+    const record = new Record({
+      patientName: 'John Doe',
+      diagnosis: 'Flu',
+      treatment: 'Rest',
+      createdBy: userId,
+    });
     await record.save();
     recordId = record._id;
   });

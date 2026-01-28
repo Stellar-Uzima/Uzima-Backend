@@ -16,7 +16,9 @@ class StorageFactory {
       case 'azureblob':
         return new AzureStorage(options);
       default:
-        throw new Error(`Unsupported storage type: ${storageType}. Supported types: local, s3, azure`);
+        throw new Error(
+          `Unsupported storage type: ${storageType}. Supported types: local, s3, azure`
+        );
     }
   }
 

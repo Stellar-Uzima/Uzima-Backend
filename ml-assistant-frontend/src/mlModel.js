@@ -10,12 +10,12 @@ export const allConditions = Array.from(new Set(dataset.map(d => d.condition)));
 
 // Encode symptoms as binary vectors
 export function encodeSymptoms(symptoms) {
-  return allSymptoms.map(symptom => symptoms.includes(symptom) ? 1 : 0);
+  return allSymptoms.map(symptom => (symptoms.includes(symptom) ? 1 : 0));
 }
 
 // Encode condition as one-hot
 function encodeCondition(condition) {
-  return allConditions.map(c => c === condition ? 1 : 0);
+  return allConditions.map(c => (c === condition ? 1 : 0));
 }
 
 // Stub function - will be overridden if TensorFlow loads

@@ -12,41 +12,47 @@ async function purgeSoftDeleted() {
   // Purge Users
   const usersToPurge = await User.find({ deletedAt: { $lte: cutoff } });
   for (const user of usersToPurge) {
-    await withTransaction(async (session) => {
+    await withTransaction(async session => {
       // Cascade: delete records owned by user
       await Record.deleteMany({ createdBy: user._id }, { session });
       await user.deleteOne({ session });
       // Audit log
-      await transactionLog.create([
-        {
-          action: 'purge',
-          resource: 'User',
-          resourceId: user._id,
-          performedBy: 'system',
-          timestamp: new Date(),
-          details: 'User permanently purged by scheduled job.'
-        }
-      ], { session });
+      await transactionLog.create(
+        [
+          {
+            action: 'purge',
+            resource: 'User',
+            resourceId: user._id,
+            performedBy: 'system',
+            timestamp: new Date(),
+            details: 'User permanently purged by scheduled job.',
+          },
+        ],
+        { session }
+      );
     });
   }
 
   // Purge Records
   const recordsToPurge = await Record.find({ deletedAt: { $lte: cutoff } });
   for (const record of recordsToPurge) {
-    await withTransaction(async (session) => {
+    await withTransaction(async session => {
       const recordId = record._id;
       await record.deleteOne({ session });
       // Audit log
-      await transactionLog.create([
-        {
-          action: 'purge',
-          resource: 'Record',
-          resourceId: recordId,
-          performedBy: 'system',
-          timestamp: new Date(),
-          details: 'Record permanently purged by scheduled job.'
-        }
-      ], { session });
+      await transactionLog.create(
+        [
+          {
+            action: 'purge',
+            resource: 'Record',
+            resourceId: recordId,
+            performedBy: 'system',
+            timestamp: new Date(),
+            details: 'Record permanently purged by scheduled job.',
+          },
+        ],
+        { session }
+      );
     });
   }
 }

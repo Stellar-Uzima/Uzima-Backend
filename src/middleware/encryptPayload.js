@@ -25,11 +25,11 @@ function isAlreadyEncrypted(data) {
 
 /**
  * Middleware to encrypt PHI fields if not already encrypted
- * 
+ *
  * This middleware supports both:
  * 1. Client-side encryption: If data is already client-encrypted, it's stored as-is
  * 2. Server-side encryption: If data is plaintext, it's encrypted server-side (backward compatibility)
- * 
+ *
  * Client-encrypted data format: v1:salt:iv:encryptedData:authTag (all base64)
  * Server-encrypted data format: version:iv:authTag:encryptedContent
  */

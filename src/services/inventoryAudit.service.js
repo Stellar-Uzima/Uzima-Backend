@@ -23,5 +23,3 @@ export async function logInventoryChange({
   await entry.save();
   return entry;
 }
-
-

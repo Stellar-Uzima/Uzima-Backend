@@ -1,4 +1,6 @@
 // models/EmailRetry.js
+import mongoose from 'mongoose';
+
 const emailRetrySchema = new mongoose.Schema(
   {
     email: {
@@ -39,4 +41,5 @@ emailRetrySchema.index({ nextRetryAt: 1, status: 1 });
 
 const EmailRetry = mongoose.model('EmailRetry', emailRetrySchema);
 
-module.exports = { EmailBounce, EmailRetry };
+export default EmailRetry;
+export { EmailRetry };

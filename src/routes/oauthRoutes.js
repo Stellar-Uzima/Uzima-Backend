@@ -16,8 +16,8 @@ router.get('/providers', (req, res) => {
       oauthUrls: enabledProviders.reduce((urls, provider) => {
         urls[provider] = `/api/auth/${provider}`;
         return urls;
-      }, {})
-    }
+      }, {}),
+    },
   });
 });
 

@@ -1,10 +1,10 @@
-import mongoose from "mongoose";
-import * as elasticsearchService from "../services/elasticsearchService.js";
+import mongoose from 'mongoose';
+import * as elasticsearchService from '../services/elasticsearchService.js';
 
 const medicalRecordSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Patient",
+    ref: 'Patient',
     required: true,
   },
   diagnosis: String,
@@ -18,24 +18,24 @@ const medicalRecordSchema = new mongoose.Schema({
 
 // Full-text index for record search
 medicalRecordSchema.index({
-  diagnosis: "text",
-  treatment: "text",
-  notes: "text",
+  diagnosis: 'text',
+  treatment: 'text',
+  notes: 'text',
 });
 
 // Elasticsearch auto-sync hooks
 // Post-save hook: Index new or updated records
-medicalRecordSchema.post('save', async function(doc) {
+medicalRecordSchema.post('save', async function (doc) {
   try {
     // Populate patient data before indexing
     const populated = await doc.populate('patientId', 'firstName lastName email');
-    
+
     const indexData = {
       diagnosis: doc.diagnosis || '',
       treatment: doc.treatment || '',
       notes: doc.notes || '',
       patientId: populated.patientId?._id?.toString() || '',
-      patientName: populated.patientId 
+      patientName: populated.patientId
         ? `${populated.patientId.firstName || ''} ${populated.patientId.lastName || ''}`.trim()
         : '',
       patientEmail: populated.patientId?.email || '',
@@ -50,7 +50,7 @@ medicalRecordSchema.post('save', async function(doc) {
 });
 
 // Post-remove hook: Delete from Elasticsearch index
-medicalRecordSchema.post('remove', async function(doc) {
+medicalRecordSchema.post('remove', async function (doc) {
   try {
     await elasticsearchService.deleteDocument(doc._id.toString());
   } catch (error) {
@@ -59,14 +59,17 @@ medicalRecordSchema.post('remove', async function(doc) {
 });
 
 // Post-findOneAndDelete hook: Handle deletion via findOneAndDelete
-medicalRecordSchema.post('findOneAndDelete', async function(doc) {
+medicalRecordSchema.post('findOneAndDelete', async function (doc) {
   if (doc) {
     try {
       await elasticsearchService.deleteDocument(doc._id.toString());
     } catch (error) {
-      console.error(`Failed to delete medical record ${doc._id} from Elasticsearch:`, error.message);
+      console.error(
+        `Failed to delete medical record ${doc._id} from Elasticsearch:`,
+        error.message
+      );
     }
   }
 });
 
-export default mongoose.model("MedicalRecord", medicalRecordSchema);
+export default mongoose.model('MedicalRecord', medicalRecordSchema);

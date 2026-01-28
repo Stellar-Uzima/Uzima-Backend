@@ -16,9 +16,11 @@ describe('Activity Logging System', () => {
   beforeAll(async () => {
     // Connect to test database
     if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(process.env.MONGODB_TEST_URI || 'mongodb://localhost:27017/uzima_test');
+      await mongoose.connect(
+        process.env.MONGODB_TEST_URI || 'mongodb://localhost:27017/uzima_test'
+      );
     }
-    
+
     server = app.listen(0); // Use random available port
   });
 
@@ -39,21 +41,21 @@ describe('Activity Logging System', () => {
       username: 'testuser',
       email: 'test@example.com',
       password: hashedPassword,
-      role: 'patient'
+      role: 'patient',
     });
 
     adminUser = await User.create({
       username: 'admin',
       email: 'admin@example.com',
       password: hashedPassword,
-      role: 'admin'
+      role: 'admin',
     });
 
     doctorUser = await User.create({
       username: 'doctor',
       email: 'doctor@example.com',
       password: hashedPassword,
-      role: 'doctor'
+      role: 'doctor',
     });
 
     // Generate tokens
@@ -83,7 +85,7 @@ describe('Activity Logging System', () => {
         action: 'login',
         metadata: { loginMethod: 'email' },
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       };
 
       const activityLog = await ActivityLog.create(logData);
@@ -100,7 +102,7 @@ describe('Activity Logging System', () => {
       const logData = {
         userId: testUser._id,
         action: 'test_action',
-        expiresAt: new Date(Date.now() + 1000) // 1 second from now
+        expiresAt: new Date(Date.now() + 1000), // 1 second from now
       };
 
       const activityLog = await ActivityLog.create(logData);
@@ -114,8 +116,8 @@ describe('Activity Logging System', () => {
         metadata: {
           password: 'secret123',
           token: 'jwt-token',
-          normalField: 'value'
-        }
+          normalField: 'value',
+        },
       };
 
       const activityLog = await ActivityLog.create(logData);
@@ -128,7 +130,7 @@ describe('Activity Logging System', () => {
       const activityLog = await ActivityLog.create({
         userId: testUser._id,
         action: 'test_action',
-        timestamp: new Date(Date.now() - 60000) // 1 minute ago
+        timestamp: new Date(Date.now() - 60000), // 1 minute ago
       });
 
       expect(activityLog.age).toBeGreaterThan(50000); // Should be around 60000ms
@@ -137,7 +139,7 @@ describe('Activity Logging System', () => {
     test('should format timestamp virtual field', async () => {
       const activityLog = await ActivityLog.create({
         userId: testUser._id,
-        action: 'test_action'
+        action: 'test_action',
       });
 
       expect(activityLog.formattedTimestamp).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
@@ -147,7 +149,7 @@ describe('Activity Logging System', () => {
       const activityLog = await ActivityLog.create({
         userId: testUser._id,
         action: 'test_action',
-        metadata: { existing: 'value' }
+        metadata: { existing: 'value' },
       });
 
       activityLog.addMetadata({ newField: 'newValue' });
@@ -166,12 +168,12 @@ describe('Activity Logging System', () => {
         get: jest.fn().mockReturnValue('test-agent'),
         method: 'POST',
         originalUrl: '/api/test',
-        body: { testField: 'value' }
+        body: { testField: 'value' },
       };
 
       const mockRes = {
         statusCode: 200,
-        locals: {}
+        locals: {},
       };
 
       const mockNext = jest.fn();
@@ -195,7 +197,7 @@ describe('Activity Logging System', () => {
         ip: '127.0.0.1',
         get: jest.fn().mockReturnValue('test-agent'),
         method: 'GET',
-        originalUrl: '/health'
+        originalUrl: '/health',
       };
 
       const mockRes = { statusCode: 200, locals: {} };
@@ -203,7 +205,7 @@ describe('Activity Logging System', () => {
 
       const middleware = activityLogger({
         action: 'test_action',
-        excludePaths: ['/health']
+        excludePaths: ['/health'],
       });
 
       await middleware(mockReq, mockRes, mockNext);
@@ -217,7 +219,7 @@ describe('Activity Logging System', () => {
         ip: '127.0.0.1',
         get: jest.fn().mockReturnValue('test-agent'),
         method: 'GET',
-        originalUrl: '/api/test'
+        originalUrl: '/api/test',
       };
 
       const mockRes = { statusCode: 200, locals: {} };
@@ -227,7 +229,7 @@ describe('Activity Logging System', () => {
       await middleware(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
-      
+
       const logs = await ActivityLog.find({});
       expect(logs).toHaveLength(0);
     });
@@ -241,20 +243,20 @@ describe('Activity Logging System', () => {
           userId: testUser._id,
           action: 'login',
           metadata: { method: 'email' },
-          timestamp: new Date(Date.now() - 86400000) // 1 day ago
+          timestamp: new Date(Date.now() - 86400000), // 1 day ago
         },
         {
           userId: testUser._id,
           action: 'view_record',
           metadata: { recordId: 'record123' },
-          timestamp: new Date(Date.now() - 3600000) // 1 hour ago
+          timestamp: new Date(Date.now() - 3600000), // 1 hour ago
         },
         {
           userId: adminUser._id,
           action: 'delete_user',
           metadata: { deletedUserId: 'user123' },
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       ]);
     });
 
@@ -263,12 +265,12 @@ describe('Activity Logging System', () => {
         userId: testUser._id,
         action: 'test_service_action',
         metadata: { test: 'data' },
-        ipAddress: '192.168.1.1'
+        ipAddress: '192.168.1.1',
       });
 
-      const logs = await ActivityLog.find({ 
-        userId: testUser._id, 
-        action: 'test_service_action' 
+      const logs = await ActivityLog.find({
+        userId: testUser._id,
+        action: 'test_service_action',
       });
 
       expect(logs).toHaveLength(1);
@@ -279,7 +281,7 @@ describe('Activity Logging System', () => {
     test('should retrieve user activity logs with pagination', async () => {
       const result = await activityLogService.getUserActivityLogs(testUser._id, {
         page: 1,
-        limit: 1
+        limit: 1,
       });
 
       expect(result.logs).toHaveLength(1);
@@ -290,7 +292,7 @@ describe('Activity Logging System', () => {
 
     test('should filter activity logs by action', async () => {
       const result = await activityLogService.getUserActivityLogs(testUser._id, {
-        action: 'login'
+        action: 'login',
       });
 
       expect(result.logs).toHaveLength(1);
@@ -303,7 +305,7 @@ describe('Activity Logging System', () => {
 
       const result = await activityLogService.getUserActivityLogs(testUser._id, {
         startDate,
-        endDate
+        endDate,
       });
 
       expect(result.logs).toHaveLength(1);
@@ -334,24 +336,24 @@ describe('Activity Logging System', () => {
           userId: testUser._id,
           action: 'login',
           result: 'failure',
-          timestamp: new Date(Date.now() - 300000) // 5 minutes ago
+          timestamp: new Date(Date.now() - 300000), // 5 minutes ago
         },
         {
           userId: testUser._id,
           action: 'login',
           result: 'failure',
-          timestamp: new Date(Date.now() - 240000) // 4 minutes ago
+          timestamp: new Date(Date.now() - 240000), // 4 minutes ago
         },
         {
           userId: testUser._id,
           action: 'login',
           result: 'failure',
-          timestamp: new Date(Date.now() - 180000) // 3 minutes ago
-        }
+          timestamp: new Date(Date.now() - 180000), // 3 minutes ago
+        },
       ]);
 
       const suspicious = await activityLogService.getSuspiciousActivity();
-      
+
       expect(suspicious.failedLogins).toHaveLength(1);
       expect(suspicious.failedLogins[0]._id.toString()).toBe(testUser._id.toString());
       expect(suspicious.failedLogins[0].count).toBe(3);
@@ -366,14 +368,14 @@ describe('Activity Logging System', () => {
           userId: testUser._id,
           action: 'login',
           metadata: { method: 'email' },
-          timestamp: new Date()
+          timestamp: new Date(),
         },
         {
           userId: doctorUser._id,
           action: 'view_record',
           metadata: { recordId: 'record123' },
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       ]);
     });
 
@@ -479,8 +481,7 @@ describe('Activity Logging System', () => {
     });
 
     test('should require authentication', async () => {
-      const response = await request(server)
-        .get(`/api/activity/${testUser._id}`);
+      const response = await request(server).get(`/api/activity/${testUser._id}`);
 
       expect(response.status).toBe(401);
     });
@@ -488,19 +489,17 @@ describe('Activity Logging System', () => {
 
   describe('Integration with Auth Routes', () => {
     test('should log login activity', async () => {
-      const response = await request(server)
-        .post('/api/auth/login')
-        .send({
-          email: 'test@example.com',
-          password: 'password123'
-        });
+      const response = await request(server).post('/api/auth/login').send({
+        email: 'test@example.com',
+        password: 'password123',
+      });
 
       expect(response.status).toBe(200);
 
       // Check if login activity was logged
-      const logs = await ActivityLog.find({ 
-        userId: testUser._id, 
-        action: 'login' 
+      const logs = await ActivityLog.find({
+        userId: testUser._id,
+        action: 'login',
       });
 
       expect(logs.length).toBeGreaterThan(0);
@@ -511,13 +510,13 @@ describe('Activity Logging System', () => {
         .post('/api/auth/logout')
         .set('Authorization', `Bearer ${userToken}`)
         .send({
-          refreshToken: 'dummy-refresh-token'
+          refreshToken: 'dummy-refresh-token',
         });
 
       // Check if logout activity was logged (regardless of response status)
-      const logs = await ActivityLog.find({ 
-        userId: testUser._id, 
-        action: 'logout' 
+      const logs = await ActivityLog.find({
+        userId: testUser._id,
+        action: 'logout',
       });
 
       expect(logs.length).toBeGreaterThan(0);

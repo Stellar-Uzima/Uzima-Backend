@@ -247,7 +247,7 @@ module.exports = ActivityLogger;
 // ============================================
 // 3. ACTIVITY LOGGING MIDDLEWARE (middleware/activityLogger.js)
 // ============================================
-const ActivityLogger = require('../services/activityLogger');
+// ActivityLogger is already defined above in this file
 const jwt = require('jsonwebtoken');
 
 const activityLoggerMiddleware = (options = {}) => {
@@ -388,7 +388,7 @@ module.exports = activityLoggerMiddleware;
 // ============================================
 const express = require('express');
 const router = express.Router();
-const ActivityLogger = require('../services/activityLogger');
+// ActivityLogger is already defined above in this file
 const ActivityLog = require('../models/ActivityLog');
 const Joi = require('joi');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');

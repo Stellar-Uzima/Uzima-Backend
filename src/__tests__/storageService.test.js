@@ -29,11 +29,10 @@ describe('StorageService Abstraction Layer', () => {
     });
 
     test('should upload a file', async () => {
-      const metadata = await storageService.upload(
-        Buffer.from(testFileContent),
-        testFileKey,
-        { userId, contentType: 'text/plain' }
-      );
+      const metadata = await storageService.upload(Buffer.from(testFileContent), testFileKey, {
+        userId,
+        contentType: 'text/plain',
+      });
 
       expect(metadata).toHaveProperty('key');
       expect(metadata.key).toBe(testFileKey);
@@ -45,11 +44,10 @@ describe('StorageService Abstraction Layer', () => {
 
     test('should download a file', async () => {
       // First upload the file
-      await storageService.upload(
-        Buffer.from(testFileContent),
-        testFileKey,
-        { userId, contentType: 'text/plain' }
-      );
+      await storageService.upload(Buffer.from(testFileContent), testFileKey, {
+        userId,
+        contentType: 'text/plain',
+      });
 
       // Then download it
       const downloadedData = await storageService.download(testFileKey);
@@ -58,11 +56,10 @@ describe('StorageService Abstraction Layer', () => {
 
     test('should check if file exists', async () => {
       // Upload file first
-      await storageService.upload(
-        Buffer.from(testFileContent),
-        testFileKey,
-        { userId, contentType: 'text/plain' }
-      );
+      await storageService.upload(Buffer.from(testFileContent), testFileKey, {
+        userId,
+        contentType: 'text/plain',
+      });
 
       // Check if it exists
       const exists = await storageService.exists(testFileKey);
@@ -75,11 +72,10 @@ describe('StorageService Abstraction Layer', () => {
 
     test('should delete a file', async () => {
       // Upload file first
-      await storageService.upload(
-        Buffer.from(testFileContent),
-        testFileKey,
-        { userId, contentType: 'text/plain' }
-      );
+      await storageService.upload(Buffer.from(testFileContent), testFileKey, {
+        userId,
+        contentType: 'text/plain',
+      });
 
       // Verify it exists
       let exists = await storageService.exists(testFileKey);
@@ -94,11 +90,10 @@ describe('StorageService Abstraction Layer', () => {
     });
 
     test('should get file metadata', async () => {
-      await storageService.upload(
-        Buffer.from(testFileContent),
-        testFileKey,
-        { userId, contentType: 'text/plain' }
-      );
+      await storageService.upload(Buffer.from(testFileContent), testFileKey, {
+        userId,
+        contentType: 'text/plain',
+      });
 
       const metadata = await storageService.getFileMetadata(testFileKey);
       expect(metadata.key).toBe(testFileKey);
@@ -188,14 +183,18 @@ describe('StorageService Abstraction Layer', () => {
 
     test('should throw error for unimplemented methods in base class', () => {
       const baseService = new StorageService();
-      
+
       expect(() => baseService.upload()).rejects.toThrow('Method upload must be implemented');
       expect(() => baseService.download()).rejects.toThrow('Method download must be implemented');
       expect(() => baseService.delete()).rejects.toThrow('Method delete must be implemented');
       expect(() => baseService.list()).rejects.toThrow('Method list must be implemented');
       expect(() => baseService.exists()).rejects.toThrow('Method exists must be implemented');
-      expect(() => baseService.generatePresignedUrl()).rejects.toThrow('Method generatePresignedUrl must be implemented');
-      expect(() => baseService.getFileMetadata()).rejects.toThrow('Method getFileMetadata must be implemented');
+      expect(() => baseService.generatePresignedUrl()).rejects.toThrow(
+        'Method generatePresignedUrl must be implemented'
+      );
+      expect(() => baseService.getFileMetadata()).rejects.toThrow(
+        'Method getFileMetadata must be implemented'
+      );
     });
   });
 });

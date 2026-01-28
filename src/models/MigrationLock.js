@@ -32,10 +32,7 @@ const migrationLockSchema = new mongoose.Schema(
 );
 
 // TTL index to auto-delete expired locks after 1 hour
-migrationLockSchema.index(
-  { expiresAt: 1 },
-  { expireAfterSeconds: 0, sparse: true }
-);
+migrationLockSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, sparse: true });
 
 const MigrationLock = mongoose.model('MigrationLock', migrationLockSchema);
 

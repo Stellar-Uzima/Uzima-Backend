@@ -329,11 +329,15 @@ export function genericTemplate(data) {
             </div>
             <div style="${contentStyle}">
               ${message}
-              ${actionLink ? `
+              ${
+                actionLink
+                  ? `
                 <div style="text-align: center;">
                   <a href="${actionLink}" style="${buttonStyle}">${actionText || 'Take Action'}</a>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
             <div style="${footerStyle}">
               <p>© ${new Date().getFullYear()} Uzima Health. All rights reserved.</p>

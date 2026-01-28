@@ -11,9 +11,9 @@ const AUTH_TOKEN = process.env.AUTH_TOKEN || 'your-jwt-token-here';
 const client = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Authorization': `Bearer ${AUTH_TOKEN}`,
-    'Content-Type': 'application/json'
-  }
+    Authorization: `Bearer ${AUTH_TOKEN}`,
+    'Content-Type': 'application/json',
+  },
 });
 
 /**
@@ -21,7 +21,7 @@ const client = axios.create({
  */
 export async function testCreateFilteredBackup() {
   console.log('\n=== Test 1: Create Filtered Backup ===');
-  
+
   try {
     const response = await client.post('/create', {
       collections: ['users', 'records', 'prescriptions'],
@@ -29,16 +29,16 @@ export async function testCreateFilteredBackup() {
         startDate: '2024-01-01T00:00:00Z',
         endDate: '2024-12-31T23:59:59Z',
         recordTypes: ['prescription', 'vital'],
-        status: ['active']
+        status: ['active'],
       },
-      format: 'both'
+      format: 'both',
     });
 
     console.log('✓ Backup created successfully');
     console.log('Backup ID:', response.data.data.backupId);
     console.log('Total Records:', response.data.data.metadata.totalRecords);
     console.log('Duration:', response.data.data.duration);
-    
+
     return response.data.data.backupId;
   } catch (error) {
     console.error('✗ Failed to create backup:', error.response?.data || error.message);
@@ -51,23 +51,26 @@ export async function testCreateFilteredBackup() {
  */
 export async function testCreateUserSpecificBackup(userId) {
   console.log('\n=== Test 2: Create User-Specific Backup ===');
-  
+
   try {
     const response = await client.post('/create', {
       collections: ['records', 'prescriptions'],
       filters: {
-        userId: userId
+        userId: userId,
       },
-      format: 'json'
+      format: 'json',
     });
 
     console.log('✓ User-specific backup created');
     console.log('Backup ID:', response.data.data.backupId);
     console.log('Total Records:', response.data.data.metadata.totalRecords);
-    
+
     return response.data.data.backupId;
   } catch (error) {
-    console.error('✗ Failed to create user-specific backup:', error.response?.data || error.message);
+    console.error(
+      '✗ Failed to create user-specific backup:',
+      error.response?.data || error.message
+    );
     return null;
   }
 }
@@ -77,24 +80,24 @@ export async function testCreateUserSpecificBackup(userId) {
  */
 export async function testCreateDateRangeBackup() {
   console.log('\n=== Test 3: Create Date-Range Backup ===');
-  
+
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30); // 30 days ago
-    
+
     const response = await client.post('/create', {
       collections: ['records'],
       filters: {
         startDate: startDate.toISOString(),
-        endDate: new Date().toISOString()
+        endDate: new Date().toISOString(),
       },
-      format: 'csv'
+      format: 'csv',
     });
 
     console.log('✓ Date-range backup created');
     console.log('Backup ID:', response.data.data.backupId);
     console.log('Date Range:', `${startDate.toISOString()} to ${new Date().toISOString()}`);
-    
+
     return response.data.data.backupId;
   } catch (error) {
     console.error('✗ Failed to create date-range backup:', error.response?.data || error.message);
@@ -107,7 +110,7 @@ export async function testCreateDateRangeBackup() {
  */
 export async function testListFilteredBackups() {
   console.log('\n=== Test 4: List Filtered Backups ===');
-  
+
   try {
     const response = await client.get('/filtered?page=1&limit=10');
 
@@ -115,13 +118,13 @@ export async function testListFilteredBackups() {
     console.log('Total Backups:', response.data.data.pagination.total);
     console.log('Current Page:', response.data.data.pagination.currentPage);
     console.log('Backups:');
-    
+
     response.data.data.backups.forEach((backup, index) => {
       console.log(`  ${index + 1}. ${backup.backupId}`);
       console.log(`     Created: ${backup.createdAt}`);
       console.log(`     Total Records: ${backup.filteredBackupMetadata.totalRecords}`);
     });
-    
+
     return response.data.data.backups.length > 0 ? response.data.data.backups[0].backupId : null;
   } catch (error) {
     console.error('✗ Failed to list backups:', error.response?.data || error.message);
@@ -134,12 +137,12 @@ export async function testListFilteredBackups() {
  */
 export async function testGetBackupMetadata(backupId) {
   console.log('\n=== Test 5: Get Backup Metadata ===');
-  
+
   if (!backupId) {
     console.warn('⚠ No backup ID provided, skipping test');
     return;
   }
-  
+
   try {
     const response = await client.get(`/${backupId}/metadata`);
 
@@ -149,11 +152,11 @@ export async function testGetBackupMetadata(backupId) {
     console.log('Total Records:', response.data.data.totalRecords);
     console.log('File Size:', response.data.data.size, 'bytes');
     console.log('Collections:');
-    
+
     Object.entries(response.data.data.recordCounts).forEach(([collection, count]) => {
       console.log(`  - ${collection}: ${count} records`);
     });
-    
+
     console.log('Filters Applied:');
     response.data.data.filtersApplied.forEach(filter => {
       console.log(`  - ${filter}`);
@@ -168,15 +171,15 @@ export async function testGetBackupMetadata(backupId) {
  */
 export async function testDownloadJSONFile(backupId) {
   console.log('\n=== Test 6: Download JSON File ===');
-  
+
   if (!backupId) {
     console.warn('⚠ No backup ID provided, skipping test');
     return;
   }
-  
+
   try {
     const response = await client.get(`/${backupId}/file?format=json`, {
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
     });
 
     console.log('✓ JSON file downloaded successfully');
@@ -184,7 +187,7 @@ export async function testDownloadJSONFile(backupId) {
     console.log('Content-Type:', response.headers['content-type']);
     console.log('Headers:', {
       'Content-Disposition': response.headers['content-disposition'],
-      'Content-Length': response.headers['content-length']
+      'Content-Length': response.headers['content-length'],
     });
   } catch (error) {
     console.error('✗ Failed to download JSON file:', error.response?.data || error.message);
@@ -196,15 +199,15 @@ export async function testDownloadJSONFile(backupId) {
  */
 export async function testDownloadCSVFile(backupId) {
   console.log('\n=== Test 7: Download CSV File ===');
-  
+
   if (!backupId) {
     console.warn('⚠ No backup ID provided, skipping test');
     return;
   }
-  
+
   try {
     const response = await client.get(`/${backupId}/file?format=csv`, {
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
     });
 
     console.log('✓ CSV file downloaded successfully');
@@ -212,7 +215,7 @@ export async function testDownloadCSVFile(backupId) {
     console.log('Content-Type:', response.headers['content-type']);
     console.log('Headers:', {
       'Content-Disposition': response.headers['content-disposition'],
-      'Content-Length': response.headers['content-length']
+      'Content-Length': response.headers['content-length'],
     });
   } catch (error) {
     console.error('✗ Failed to download CSV file:', error.response?.data || error.message);
@@ -224,12 +227,12 @@ export async function testDownloadCSVFile(backupId) {
  */
 export async function testDeleteFilteredBackup(backupId) {
   console.log('\n=== Test 8: Delete Filtered Backup ===');
-  
+
   if (!backupId) {
     console.warn('⚠ No backup ID provided, skipping test');
     return;
   }
-  
+
   try {
     const response = await client.delete(`/${backupId}/filtered`);
 
@@ -245,13 +248,13 @@ export async function testDeleteFilteredBackup(backupId) {
  */
 export async function testErrorHandling() {
   console.log('\n=== Test 9: Error Handling - Invalid Format ===');
-  
+
   try {
     await client.post('/create', {
       collections: ['records'],
-      format: 'invalid-format'
+      format: 'invalid-format',
     });
-    
+
     console.error('✗ Should have thrown an error for invalid format');
   } catch (error) {
     console.log('✓ Properly rejected invalid format');
@@ -264,13 +267,13 @@ export async function testErrorHandling() {
  */
 export async function testErrorHandlingMissingCollections() {
   console.log('\n=== Test 10: Error Handling - Missing Collections ===');
-  
+
   try {
     await client.post('/create', {
       filters: {},
-      format: 'json'
+      format: 'json',
     });
-    
+
     console.error('✗ Should have thrown an error for missing collections');
   } catch (error) {
     console.log('✓ Properly rejected missing collections');
@@ -337,5 +340,5 @@ export default {
   testDeleteFilteredBackup,
   testErrorHandling,
   testErrorHandlingMissingCollections,
-  runAllTests
+  runAllTests,
 };

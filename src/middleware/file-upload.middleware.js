@@ -26,18 +26,13 @@ const fileFilter = (req, file, cb) => {
   const filenameValidation = validateAndSanitizeFilename(file.originalname);
 
   if (!filenameValidation.valid) {
-    return cb(
-      new Error(filenameValidation.error || 'Invalid filename'),
-      false
-    );
+    return cb(new Error(filenameValidation.error || 'Invalid filename'), false);
   }
 
   // Check MIME type (will be verified later with file signature)
   if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     return cb(
-      new Error(
-        `File type ${file.mimetype} is not allowed. Allowed types: PDF, JPG, PNG, DOCX`
-      ),
+      new Error(`File type ${file.mimetype} is not allowed. Allowed types: PDF, JPG, PNG, DOCX`),
       false
     );
   }
@@ -65,78 +60,58 @@ export const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     // Multer-specific errors
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return ApiResponse.validationError(
-        res,
-        'File too large',
-        {
-          file: [
-            {
-              field: 'file',
-              message: `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
-            },
-          ],
-        }
-      );
-    }
-
-    if (err.code === 'LIMIT_FILE_COUNT') {
-      return ApiResponse.validationError(
-        res,
-        'Too many files',
-        {
-          file: [
-            {
-              field: 'file',
-              message: 'Maximum 5 files allowed per upload',
-            },
-          ],
-        }
-      );
-    }
-
-    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-      return ApiResponse.validationError(
-        res,
-        'Unexpected file field',
-        {
-          file: [
-            {
-              field: 'file',
-              message: 'Unexpected file field in request',
-            },
-          ],
-        }
-      );
-    }
-
-    return ApiResponse.validationError(
-      res,
-      'File upload error',
-      {
+      return ApiResponse.validationError(res, 'File too large', {
         file: [
           {
             field: 'file',
-            message: err.message,
+            message: `File size exceeds maximum allowed size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`,
           },
         ],
-      }
-    );
+      });
+    }
+
+    if (err.code === 'LIMIT_FILE_COUNT') {
+      return ApiResponse.validationError(res, 'Too many files', {
+        file: [
+          {
+            field: 'file',
+            message: 'Maximum 5 files allowed per upload',
+          },
+        ],
+      });
+    }
+
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return ApiResponse.validationError(res, 'Unexpected file field', {
+        file: [
+          {
+            field: 'file',
+            message: 'Unexpected file field in request',
+          },
+        ],
+      });
+    }
+
+    return ApiResponse.validationError(res, 'File upload error', {
+      file: [
+        {
+          field: 'file',
+          message: err.message,
+        },
+      ],
+    });
   }
 
   if (err) {
     // Other errors (from fileFilter)
-    return ApiResponse.validationError(
-      res,
-      'File validation error',
-      {
-        file: [
-          {
-            field: 'file',
-            message: err.message,
-          },
-        ],
-      }
-    );
+    return ApiResponse.validationError(res, 'File validation error', {
+      file: [
+        {
+          field: 'file',
+          message: err.message,
+        },
+      ],
+    });
   }
 
   next();
@@ -159,7 +134,7 @@ export const uploadMultiple = (fieldName = 'files', maxCount = 5) => {
 /**
  * Multiple fields upload middleware
  */
-export const uploadFields = (fields) => {
+export const uploadFields = fields => {
   return upload.fields(fields);
 };
 

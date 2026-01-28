@@ -271,12 +271,7 @@ export const getPrescription = async (req, res) => {
       return ApiResponse.error(res, 'Prescription not found', 404);
     }
 
-    return ApiResponse.success(
-      res,
-      { prescription },
-      'Prescription retrieved successfully',
-      200
-    );
+    return ApiResponse.success(res, { prescription }, 'Prescription retrieved successfully', 200);
   } catch (error) {
     console.error('Get prescription error:', error);
     return ApiResponse.error(res, error.message, 500);
@@ -319,12 +314,7 @@ export const rejectPrescription = async (req, res) => {
       result: 'success',
     });
 
-    return ApiResponse.success(
-      res,
-      { prescription },
-      'Prescription rejected successfully',
-      200
-    );
+    return ApiResponse.success(res, { prescription }, 'Prescription rejected successfully', 200);
   } catch (error) {
     console.error('Reject prescription error:', error);
     return ApiResponse.error(res, error.message, 500);

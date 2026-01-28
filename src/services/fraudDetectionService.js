@@ -9,8 +9,10 @@ import { logger } from '../utils/logger.js';
 class FraudDetectionService {
   constructor() {
     // Speed threshold in km/h (commercial airplanes cruise at ~900 km/h)
-    this.impossibleTravelThreshold = parseInt(process.env.IMPOSSIBLE_TRAVEL_THRESHOLD_KMH || '1000');
-    
+    this.impossibleTravelThreshold = parseInt(
+      process.env.IMPOSSIBLE_TRAVEL_THRESHOLD_KMH || '1000'
+    );
+
     // Time window for suspicious activity detection (in minutes)
     this.suspiciousLoginWindow = parseInt(process.env.SUSPICIOUS_LOGIN_WINDOW_MINUTES || '15');
   }
@@ -106,7 +108,7 @@ class FraudDetectionService {
       };
     } catch (error) {
       logger.error('Error checking impossible travel:', error);
-      
+
       // Return safe defaults on error
       return {
         impossibleTravel: false,
@@ -137,7 +139,7 @@ class FraudDetectionService {
     );
 
     const timeDiffHours = timeDiffMinutes / 60;
-    
+
     if (timeDiffHours <= 0) {
       return 0;
     }
@@ -161,13 +163,7 @@ class FraudDetectionService {
    */
   async getFraudScore(loginData) {
     try {
-      const {
-        userId,
-        location,
-        isNewDevice,
-        impossibleTravel,
-        deviceTrusted = false,
-      } = loginData;
+      const { userId, location, isNewDevice, impossibleTravel, deviceTrusted = false } = loginData;
 
       let riskScore = 0;
       const riskFactors = [];
@@ -274,7 +270,7 @@ class FraudDetectionService {
       const uniqueDevices = new Set();
       let suspiciousCount = 0;
 
-      logins.forEach((login) => {
+      logins.forEach(login => {
         if (login.location) {
           uniqueLocations.add(`${login.location.city}, ${login.location.country}`);
           uniqueCountries.add(login.location.countryCode);
@@ -346,7 +342,7 @@ class FraudDetectionService {
    */
   async _getRecentLoginCount(userId, days) {
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    
+
     return await LoginHistory.countDocuments({
       userId,
       loginAt: { $gte: startDate },
@@ -363,7 +359,7 @@ class FraudDetectionService {
    */
   async _getRecentFailedLogins(userId, minutes) {
     const startTime = new Date(Date.now() - minutes * 60 * 1000);
-    
+
     return await LoginHistory.countDocuments({
       userId,
       loginAt: { $gte: startTime },
@@ -454,7 +450,8 @@ class FraudDetectionService {
         period: `Last ${days} days`,
         summary: {
           totalSuspiciousLogins: flaggedCount,
-          impossibleTravelCount: suspiciousLogins.filter((l) => l.fraudFlags?.impossibleTravel).length,
+          impossibleTravelCount: suspiciousLogins.filter(l => l.fraudFlags?.impossibleTravel)
+            .length,
           uniqueLocations: loginPatterns.uniqueLocations,
           uniqueDevices: loginPatterns.uniqueDevices,
         },

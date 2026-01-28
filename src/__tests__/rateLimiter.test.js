@@ -1,12 +1,16 @@
 // Mock Redis client to avoid connection issues during testing
-jest.mock('../config/redis.js', () => ({
-  default: {
-    sendCommand: jest.fn(),
-    on: jest.fn(),
-    connect: jest.fn(),
-    quit: jest.fn(),
-  }
-}), { virtual: true });
+jest.mock(
+  '../config/redis.js',
+  () => ({
+    default: {
+      sendCommand: jest.fn(),
+      on: jest.fn(),
+      connect: jest.fn(),
+      quit: jest.fn(),
+    },
+  }),
+  { virtual: true }
+);
 
 import { generalRateLimit, authRateLimit, twoFactorRateLimit } from '../middleware/rateLimiter.js';
 
@@ -61,7 +65,7 @@ describe('Rate Limiting Middleware Tests', () => {
     it('should generate correct keys for different scenarios', () => {
       const mockReq = {
         ip: '192.168.1.1',
-        user: { id: 'user123' }
+        user: { id: 'user123' },
       };
 
       // Test authenticated user key generation
@@ -85,14 +89,14 @@ describe('Rate Limiting Middleware Tests', () => {
     it('should skip successful requests', () => {
       const mockReq = {};
       const mockRes = { statusCode: 200 };
-      
+
       expect(generalRateLimit.skip(mockReq, mockRes)).toBe(true);
     });
 
     it('should not skip failed requests', () => {
       const mockReq = {};
       const mockRes = { statusCode: 400 };
-      
+
       expect(generalRateLimit.skip(mockReq, mockRes)).toBe(false);
     });
   });
@@ -103,13 +107,13 @@ describe('Rate Limiting Middleware Tests', () => {
         rateLimit: {
           limit: 100,
           remaining: 0,
-          resetTime: Date.now() + 900000 // 15 minutes from now
-        }
+          resetTime: Date.now() + 900000, // 15 minutes from now
+        },
       };
-      
+
       const mockRes = {
         status: jest.fn().mockReturnThis(),
-        json: jest.fn()
+        json: jest.fn(),
       };
 
       generalRateLimit.handler(mockReq, mockRes);
@@ -122,7 +126,7 @@ describe('Rate Limiting Middleware Tests', () => {
           retryAfter: expect.any(Number),
           limit: 100,
           remaining: 0,
-          resetTime: expect.any(String)
+          resetTime: expect.any(String),
         })
       );
     });

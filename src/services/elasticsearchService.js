@@ -220,7 +220,7 @@ export async function bulkIndex(records) {
       return { indexed: 0, errors: [] };
     }
 
-    const operations = records.flatMap((record) => [
+    const operations = records.flatMap(record => [
       { index: { _index: INDEX_NAME, _id: record._id.toString() } },
       record.data,
     ]);
@@ -231,8 +231,8 @@ export async function bulkIndex(records) {
     });
 
     const errors = response.items
-      .filter((item) => item.index?.error)
-      .map((item) => ({
+      .filter(item => item.index?.error)
+      .map(item => ({
         id: item.index._id,
         error: item.index.error,
       }));
@@ -265,13 +265,7 @@ export async function bulkIndex(records) {
  */
 export async function searchRecords(query, options = {}) {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = '_score',
-      sortOrder = 'desc',
-      filters = {},
-    } = options;
+    const { page = 1, limit = 10, sortBy = '_score', sortOrder = 'desc', filters = {} } = options;
 
     const from = (page - 1) * limit;
     const size = Math.min(limit, 100); // Cap at 100
@@ -368,7 +362,7 @@ export async function searchRecords(query, options = {}) {
     });
 
     // Transform results
-    const results = response.hits.hits.map((hit) => ({
+    const results = response.hits.hits.map(hit => ({
       _id: hit._id,
       _score: hit._score,
       ...hit._source,
@@ -377,14 +371,16 @@ export async function searchRecords(query, options = {}) {
 
     // Transform aggregations into facets
     const facets = {
-      diagnoses: response.aggregations?.diagnoses?.buckets.map((bucket) => ({
-        key: bucket.key,
-        count: bucket.doc_count,
-      })) || [],
-      dates: response.aggregations?.dates?.buckets.map((bucket) => ({
-        key: bucket.key_as_string,
-        count: bucket.doc_count,
-      })) || [],
+      diagnoses:
+        response.aggregations?.diagnoses?.buckets.map(bucket => ({
+          key: bucket.key,
+          count: bucket.doc_count,
+        })) || [],
+      dates:
+        response.aggregations?.dates?.buckets.map(bucket => ({
+          key: bucket.key_as_string,
+          count: bucket.doc_count,
+        })) || [],
     };
 
     return {
@@ -439,7 +435,7 @@ function formatBytes(bytes) {
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
 export default {

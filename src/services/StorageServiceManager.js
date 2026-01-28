@@ -12,15 +12,11 @@ class StorageServiceManager {
     const storageType = process.env.STORAGE_TYPE || 'local';
 
     // Upload to storage backend
-    const fileMetadata = await this.storage.upload(
-      fileData,
-      key,
-      {
-        ...options,
-        userId: userId.toString(),
-        originalFilename
-      }
-    );
+    const fileMetadata = await this.storage.upload(fileData, key, {
+      ...options,
+      userId: userId.toString(),
+      originalFilename,
+    });
 
     // Store metadata in database
     const metadataRecord = new FileMetadata({
@@ -33,7 +29,7 @@ class StorageServiceManager {
       storagePath: key,
       originalFilename: originalFilename,
       metadata: fileMetadata.additionalMetadata || {},
-      tags: options.tags || []
+      tags: options.tags || [],
     });
 
     await metadataRecord.save();
@@ -41,7 +37,7 @@ class StorageServiceManager {
     return {
       ...fileMetadata,
       id: metadataRecord._id,
-      databaseId: metadataRecord._id
+      databaseId: metadataRecord._id,
     };
   }
 
@@ -79,7 +75,7 @@ class StorageServiceManager {
           databaseId: metadataRecord._id,
           tags: metadataRecord.tags,
           isPublic: metadataRecord.isPublic,
-          accessCount: metadataRecord.accessCount
+          accessCount: metadataRecord.accessCount,
         });
       } else {
         enhancedFiles.push(file);
@@ -120,7 +116,7 @@ class StorageServiceManager {
         tags: dbMetadata.tags,
         isPublic: dbMetadata.isPublic,
         accessCount: dbMetadata.accessCount,
-        originalFilename: dbMetadata.originalFilename
+        originalFilename: dbMetadata.originalFilename,
       };
     }
 
@@ -137,10 +133,7 @@ class StorageServiceManager {
     }
 
     // Update tags in database
-    const result = await FileMetadata.updateOne(
-      { key },
-      { $set: { tags, updatedAt: new Date() } }
-    );
+    const result = await FileMetadata.updateOne({ key }, { $set: { tags, updatedAt: new Date() } });
 
     return result;
   }
@@ -150,7 +143,7 @@ class StorageServiceManager {
       { key },
       {
         $inc: { accessCount: 1 },
-        $set: { lastAccessedAt: new Date() }
+        $set: { lastAccessedAt: new Date() },
       }
     );
 
@@ -161,7 +154,7 @@ class StorageServiceManager {
     const timestamp = Date.now();
     const random = require('crypto').randomBytes(8).toString('hex');
     const sanitized = originalFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
-    
+
     // Create a path structure like: user/{userId}/{timestamp}-{random}-{filename}
     return `users/${userId}/${timestamp}-${random}-${sanitized}`;
   }

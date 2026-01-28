@@ -82,7 +82,7 @@ export const validate = (schema, options = {}) => {
         return res.status(422).json({
           success: false,
           message: 'Validation failed',
-          errors
+          errors,
         });
       }
 
@@ -92,7 +92,7 @@ export const validate = (schema, options = {}) => {
       return res.status(500).json({
         success: false,
         message: 'Internal validation error',
-        debug: error.message
+        debug: error.message,
       });
     }
   };

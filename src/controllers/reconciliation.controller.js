@@ -1,4 +1,9 @@
-import { startReconciliationRun, buildJsonReport, buildCsvReport, sendReconciliationAlert } from '../services/reconciliation.service.js';
+import {
+  startReconciliationRun,
+  buildJsonReport,
+  buildCsvReport,
+  sendReconciliationAlert,
+} from '../services/reconciliation.service.js';
 import ApiResponse from '../utils/apiResponse.js';
 
 export async function runReconciliationNow(req, res) {
@@ -27,9 +32,15 @@ export async function runReconciliationNow(req, res) {
     const json = buildJsonReport(report);
     return ApiResponse.success(res, json, 'reconciliation.RUN_COMPLETED');
   } catch (error) {
-    return ApiResponse.error(res, error.message || 'Reconciliation failed', 500, 'RECONCILIATION_FAILED', {
-      stack: error.stack,
-    });
+    return ApiResponse.error(
+      res,
+      error.message || 'Reconciliation failed',
+      500,
+      'RECONCILIATION_FAILED',
+      {
+        stack: error.stack,
+      }
+    );
   }
 }
 

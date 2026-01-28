@@ -14,7 +14,7 @@ class BackupAlertService {
    */
   async sendBackupFailureAlert(backupId, errorMessage, backupType = 'full') {
     const alertKey = `backup_failure_${backupType}`;
-    
+
     // Check cooldown
     if (this.isInCooldown(alertKey)) {
       console.log(`Backup failure alert for ${backupType} backups is in cooldown`);
@@ -27,7 +27,7 @@ class BackupAlertService {
 
       // Send to configured admin emails
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'backup_failure',
@@ -35,15 +35,15 @@ class BackupAlertService {
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
       // Set cooldown
       this.setCooldown(alertKey);
-      
+
       console.log(`Backup failure alert sent for ${backupId}`);
     } catch (error) {
       console.error('Failed to send backup failure alert:', error);
@@ -55,7 +55,7 @@ class BackupAlertService {
    */
   async sendStorageQuotaAlert(usagePercentage) {
     const alertKey = 'storage_quota_warning';
-    
+
     // Check cooldown
     if (this.isInCooldown(alertKey)) {
       return;
@@ -66,7 +66,7 @@ class BackupAlertService {
       const content = this.generateStorageQuotaContent(usagePercentage);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'backup_quota_warning',
@@ -74,9 +74,9 @@ class BackupAlertService {
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
@@ -92,7 +92,7 @@ class BackupAlertService {
    */
   async sendIntegrityFailureAlert(backupId, verificationError) {
     const alertKey = `integrity_failure_${backupId}`;
-    
+
     if (this.isInCooldown(alertKey)) {
       return;
     }
@@ -102,7 +102,7 @@ class BackupAlertService {
       const content = this.generateIntegrityFailureContent(backupId, verificationError);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'backup_integrity_failure',
@@ -110,9 +110,9 @@ class BackupAlertService {
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
@@ -137,7 +137,7 @@ class BackupAlertService {
       const content = this.generateBackupSuccessContent(backupId, backupType, size, duration);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'backup_success',
@@ -145,9 +145,9 @@ class BackupAlertService {
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
@@ -166,13 +166,15 @@ class BackupAlertService {
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const failedBackups = await Backup.find({
         status: 'failed',
-        createdAt: { $gte: oneDayAgo }
+        createdAt: { $gte: oneDayAgo },
       });
 
       if (failedBackups.length > 0) {
         const fullFailures = failedBackups.filter(b => b.backupType === 'full').length;
-        const incrementalFailures = failedBackups.filter(b => b.backupType === 'incremental').length;
-        
+        const incrementalFailures = failedBackups.filter(
+          b => b.backupType === 'incremental'
+        ).length;
+
         if (fullFailures > 0) {
           await this.sendBackupFailureAlert(
             `Multiple full backups (${fullFailures})`,
@@ -180,8 +182,9 @@ class BackupAlertService {
             'full'
           );
         }
-        
-        if (incrementalFailures > 5) { // Only alert if many incremental failures
+
+        if (incrementalFailures > 5) {
+          // Only alert if many incremental failures
           await this.sendBackupFailureAlert(
             `Multiple incremental backups (${incrementalFailures})`,
             `${incrementalFailures} incremental backup(s) failed in the last 24 hours`,
@@ -192,7 +195,6 @@ class BackupAlertService {
 
       // Check storage usage (if S3 client supports this)
       await this.checkStorageUsage();
-
     } catch (error) {
       console.error('Failed to check backup health:', error);
     }
@@ -206,7 +208,7 @@ class BackupAlertService {
       // This is a simplified check - in production you'd want to use S3 metrics
       const backups = await Backup.find({ status: 'completed' });
       const totalSize = backups.reduce((sum, backup) => sum + (backup.size || 0), 0);
-      
+
       // Assume a 100GB storage limit (configurable)
       const storageLimit = parseInt(process.env.BACKUP_STORAGE_LIMIT_GB) || 100;
       const storageLimitBytes = storageLimit * 1024 * 1024 * 1024;
@@ -366,7 +368,7 @@ This is an automated alert from the Uzima Backup System.
    */
   generateBackupSuccessContent(backupId, backupType, size, duration) {
     const sizeMB = Math.round(size / (1024 * 1024));
-    
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #28a745;">✅ Backup Completed Successfully</h2>
@@ -420,7 +422,7 @@ This is an automated notification from the Uzima Backup System.
     if (adminEmails) {
       return adminEmails.split(',').map(email => email.trim());
     }
-    
+
     // Fallback to default admin email
     const defaultEmail = process.env.ADMIN_EMAIL || 'admin@uzima.com';
     return [defaultEmail];
@@ -432,9 +434,9 @@ This is an automated notification from the Uzima Backup System.
   isInCooldown(alertKey) {
     const lastAlert = this.alertCooldown.get(alertKey);
     if (!lastAlert) return false;
-    
+
     const cooldownMs = this.cooldownMinutes * 60 * 1000;
-    return (Date.now() - lastAlert) < cooldownMs;
+    return Date.now() - lastAlert < cooldownMs;
   }
 
   /**
@@ -449,7 +451,7 @@ This is an automated notification from the Uzima Backup System.
    */
   async sendRestoreTestFailureAlert(backupId, errorMessage) {
     const alertKey = `restore_test_failure_${backupId}`;
-    
+
     if (this.isInCooldown(alertKey)) {
       return;
     }
@@ -459,7 +461,7 @@ This is an automated notification from the Uzima Backup System.
       const content = this.generateRestoreTestFailureContent(backupId, errorMessage);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'restore_test_failure',
@@ -467,9 +469,9 @@ This is an automated notification from the Uzima Backup System.
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
@@ -489,7 +491,7 @@ This is an automated notification from the Uzima Backup System.
       const content = this.generateQuarterlyTestContent(report);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'quarterly_test_report',
@@ -497,9 +499,9 @@ This is an automated notification from the Uzima Backup System.
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 
@@ -518,7 +520,7 @@ This is an automated notification from the Uzima Backup System.
       const content = this.generateQuarterlyTestFailureContent(errorMessage);
 
       const adminEmails = this.getAdminEmails();
-      
+
       for (const email of adminEmails) {
         await createNotification({
           type: 'quarterly_test_failure',
@@ -526,9 +528,9 @@ This is an automated notification from the Uzima Backup System.
           subject,
           content: {
             html: content.html,
-            text: content.text
+            text: content.text,
           },
-          provider: 'resend'
+          provider: 'resend',
         });
       }
 

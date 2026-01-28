@@ -4,10 +4,14 @@
  * Integrates with correlation IDs and provides structured logging
  */
 const requestLogger = (req, res, next) => {
-  const requestId = req.requestId || req.correlationId || req.headers['x-request-id'] || req.headers['x-correlation-id'];
-  
+  const requestId =
+    req.requestId ||
+    req.correlationId ||
+    req.headers['x-request-id'] ||
+    req.headers['x-correlation-id'];
+
   req.log = {
-    error: (info) => {
+    error: info => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),
@@ -40,7 +44,7 @@ const requestLogger = (req, res, next) => {
       // eslint-disable-next-line no-console
       console.error(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
-    info: (msg) => {
+    info: msg => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),
@@ -50,7 +54,7 @@ const requestLogger = (req, res, next) => {
       // eslint-disable-next-line no-console
       console.log(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
-    warn: (msg) => {
+    warn: msg => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),

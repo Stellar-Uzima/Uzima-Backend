@@ -22,7 +22,7 @@ describe('Prescription Verification System', () => {
   beforeAll(async () => {
     // Create test users
     const hashedPassword = await bcrypt.hash('testpassword123', 10);
-    
+
     testDoctor = new User({
       username: 'testdoctor',
       email: 'testdoctor@example.com',
@@ -76,11 +76,7 @@ describe('Prescription Verification System', () => {
     await ActivityLog.deleteMany({});
     await User.deleteMany({
       email: {
-        $in: [
-          'testdoctor@example.com',
-          'testpatient@example.com',
-          'testpharmacist@example.com',
-        ],
+        $in: ['testdoctor@example.com', 'testpatient@example.com', 'testpharmacist@example.com'],
       },
     });
     await mongoose.connection.close();
@@ -126,9 +122,7 @@ describe('Prescription Verification System', () => {
     });
 
     it('should reject prescription creation without authentication', async () => {
-      const response = await request(app)
-        .post('/api/prescriptions')
-        .send({});
+      const response = await request(app).post('/api/prescriptions').send({});
 
       expect(response.status).toBe(401);
     });
@@ -238,7 +232,9 @@ describe('Prescription Verification System', () => {
         patientId: testPatientId,
         doctorName: 'Dr. Smith',
         doctorId: testDoctorId,
-        medications: [{ name: 'Test', dosage: '100mg', frequency: 'Once', duration: '1 day', quantity: 1 }],
+        medications: [
+          { name: 'Test', dosage: '100mg', frequency: 'Once', duration: '1 day', quantity: 1 },
+        ],
         issuedDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
         expiryDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Expired 30 days ago
         status: 'active',

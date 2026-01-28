@@ -139,7 +139,7 @@ export const trackDbTime = async (operation, operationFn) => {
 export const metricsTaggingMiddleware = (req, res, next) => {
   req.metricsTags = [];
 
-  req.addMetricsTag = (tag) => {
+  req.addMetricsTag = tag => {
     if (!req.metricsTags.includes(tag)) {
       req.metricsTags.push(tag);
     }
