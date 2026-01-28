@@ -28,9 +28,6 @@ const softDeletePlugin = (schema, options = {}) => {
     },
   });
 
-  // Compound index for efficient queries
-  schema.index({ deletedAt: 1 });
-
   // ========================================
   // Query Middleware - Filter deleted by default
   // ========================================
@@ -38,7 +35,7 @@ const softDeletePlugin = (schema, options = {}) => {
   const filterDeleted = function (next) {
     // Check if we should include deleted documents
     const query = this.getQuery();
-    
+
     // Skip filtering if:
     // 1. Query explicitly asks for deleted documents (deletedAt: { $ne: null })
     // 2. Query has includeDeleted option set
@@ -152,11 +149,11 @@ const softDeletePlugin = (schema, options = {}) => {
     const doc = await this.findOne({ _id: id, deletedAt: { $ne: null } })
       .setOptions({ includeDeleted: true })
       .session(options.session || null);
-    
+
     if (!doc) {
       return null;
     }
-    
+
     return doc.restore(options);
   };
 
@@ -170,11 +167,11 @@ const softDeletePlugin = (schema, options = {}) => {
   schema.statics.softDeleteById = async function (id, deletedById = null, options = {}) {
     const doc = await this.findOne({ _id: id, deletedAt: null })
       .session(options.session || null);
-    
+
     if (!doc) {
       return null;
     }
-    
+
     return doc.softDelete(deletedById, options);
   };
 
