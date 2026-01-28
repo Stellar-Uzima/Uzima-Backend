@@ -17,6 +17,18 @@ function parseRedisUrl(urlString) {
 }
 
 const connection = parseRedisUrl(process.env.REDIS_URL);
+// QueueScheduler removed in BullMQ v5
+// const scheduler = new QueueScheduler(queueName, { connection });
+const emailQueue = new Queue(queueName, { connection });
+
+export async function enqueueEmail(data) {
+  return emailQueue.add('send-email', data, {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: true,
+    removeOnFail: false,
+  });
+}
 // Stub email queue - placeholder for missing functionality
 export const emailQueue = {
   add: (data) => {
