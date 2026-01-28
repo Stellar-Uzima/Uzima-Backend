@@ -20,6 +20,16 @@ export default {
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      // Pool configuration for staging (medium pool, production-like settings)
+      maxPoolSize: 15,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000,
+      waitQueueTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 30000,
+      retryWrites: true,
+      retryReads: true,
     },
   },
   
