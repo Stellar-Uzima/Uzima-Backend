@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const medicationSchema = new mongoose.Schema({
   name: {
@@ -62,7 +63,7 @@ const prescriptionSchema = new mongoose.Schema({
     type: [medicationSchema],
     required: true,
     validate: {
-      validator: function(v) {
+      validator: function (v) {
         return v && v.length > 0;
       },
       message: 'At least one medication is required',
@@ -132,14 +133,14 @@ const prescriptionSchema = new mongoose.Schema({
 });
 
 // Generate prescription number
-prescriptionSchema.statics.generatePrescriptionNumber = function() {
+prescriptionSchema.statics.generatePrescriptionNumber = function () {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `RX-${timestamp}-${random}`;
 };
 
 // Generate cryptographic signature
-prescriptionSchema.methods.generateSignature = function() {
+prescriptionSchema.methods.generateSignature = function () {
   const dataToSign = {
     prescriptionNumber: this.prescriptionNumber,
     patientName: this.patientName,
@@ -150,22 +151,22 @@ prescriptionSchema.methods.generateSignature = function() {
     issuedDate: this.issuedDate.toISOString(),
     expiryDate: this.expiryDate.toISOString(),
   };
-  
+
   const dataString = JSON.stringify(dataToSign);
   const secret = process.env.PRESCRIPTION_SECRET || process.env.JWT_SECRET || 'default-secret';
   const signature = crypto.createHmac('sha256', secret).update(dataString).digest('hex');
-  
+
   return signature;
 };
 
 // Verify signature
-prescriptionSchema.methods.verifySignature = function() {
+prescriptionSchema.methods.verifySignature = function () {
   const expectedSignature = this.generateSignature();
   return this.signature === expectedSignature;
 };
 
 // Check if prescription is expired
-prescriptionSchema.methods.isExpired = function() {
+prescriptionSchema.methods.isExpired = function () {
   return new Date() > this.expiryDate;
 };
 
@@ -181,5 +182,8 @@ prescriptionSchema.index({
   'medications.name': 'text',
   instructions: 'text'
 });
+
+// Apply soft delete plugin
+prescriptionSchema.plugin(softDeletePlugin);
 
 export default mongoose.model('Prescription', prescriptionSchema);
