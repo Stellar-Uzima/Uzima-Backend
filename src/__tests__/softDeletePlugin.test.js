@@ -40,7 +40,7 @@ describe('softDeletePlugin', () => {
 
         it('should have deletedBy as ObjectId with ref to User', () => {
             const deletedByPath = TestModel.schema.paths.deletedBy;
-            expect(deletedByPath.instance).toBe('ObjectID');
+            expect(deletedByPath.instance).toBe('ObjectId');
             expect(deletedByPath.options.ref).toBe('User');
         });
     });
