@@ -39,7 +39,7 @@ program
   .description('Run pending migrations')
   .option('--dry-run', 'Simulate migration without applying changes')
   .option('--continue-on-error', 'Continue running remaining migrations even if one fails')
-  .action(async (options) => {
+  .action(async options => {
     try {
       await connectDB();
       console.log('\n🚀 Running migrations...\n');
@@ -55,11 +55,9 @@ program
         console.log(`\n✓ Migration run completed`);
         console.log(`  Total: ${result.migrations.length}`);
         console.log(
-          `  Successful: ${result.migrations.filter((m) => m.status === 'completed').length}`
+          `  Successful: ${result.migrations.filter(m => m.status === 'completed').length}`
         );
-        console.log(
-          `  Failed: ${result.migrations.filter((m) => m.status === 'failed').length}`
-        );
+        console.log(`  Failed: ${result.migrations.filter(m => m.status === 'failed').length}`);
       }
 
       process.exit(0);
@@ -80,7 +78,7 @@ program
   .option('-s, --steps <number>', 'Number of migrations to rollback', '1')
   .option('--dry-run', 'Simulate rollback without applying changes')
   .option('--continue-on-error', 'Continue rolling back remaining migrations even if one fails')
-  .action(async (options) => {
+  .action(async options => {
     try {
       await connectDB();
       console.log('\n↻ Rolling back migrations...\n');
@@ -97,11 +95,9 @@ program
         console.log(`\n✓ Rollback completed`);
         console.log(`  Total: ${result.migrations.length}`);
         console.log(
-          `  Successful: ${result.migrations.filter((m) => m.status === 'rolled-back').length}`
+          `  Successful: ${result.migrations.filter(m => m.status === 'rolled-back').length}`
         );
-        console.log(
-          `  Failed: ${result.migrations.filter((m) => m.status === 'failed').length}`
-        );
+        console.log(`  Failed: ${result.migrations.filter(m => m.status === 'failed').length}`);
       }
 
       process.exit(0);
@@ -131,7 +127,7 @@ program
       if (status.applied.length === 0) {
         console.log('  (none)');
       } else {
-        status.applied.forEach((m) => {
+        status.applied.forEach(m => {
           console.log(`  - ${m.version}: ${m.name}`);
           if (m.appliedAt) {
             console.log(`    Applied: ${m.appliedAt.toISOString()}`);
@@ -147,7 +143,7 @@ program
       if (status.pending.length === 0) {
         console.log('  (none)');
       } else {
-        status.pending.forEach((m) => {
+        status.pending.forEach(m => {
           console.log(`  - ${m.version}: ${m.name}`);
           console.log(`    Reversible: ${m.reversible ? 'Yes' : 'No'}`);
         });
@@ -156,7 +152,7 @@ program
       // Failed migrations
       if (status.failed.length > 0) {
         console.log('\n✗ Failed Migrations:');
-        status.failed.forEach((m) => {
+        status.failed.forEach(m => {
           console.log(`  - ${m.version}: ${m.name}`);
           console.log(`    Error: ${m.error}`);
         });
@@ -191,7 +187,7 @@ program
 program
   .command('migrate:create <name>')
   .description('Create a new migration file')
-  .action(async (name) => {
+  .action(async name => {
     try {
       await connectDB();
       console.log('\n📝 Creating new migration...\n');
@@ -248,7 +244,7 @@ program
   .command('migrate:force-unlock')
   .description('Force release migration lock (use with caution!)')
   .option('--confirm', 'Confirm the force unlock')
-  .action(async (options) => {
+  .action(async options => {
     try {
       if (!options.confirm) {
         console.log('\n⚠️  Warning: This will force release the migration lock!');

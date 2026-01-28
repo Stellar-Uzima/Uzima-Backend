@@ -46,17 +46,21 @@ class FilteredBackupService {
       }
       pipeline.push({
         $match: {
-          createdAt: dateFilter
-        }
+          createdAt: dateFilter,
+        },
       });
     }
 
     // Record types filter
-    if (filters.recordTypes && Array.isArray(filters.recordTypes) && filters.recordTypes.length > 0) {
+    if (
+      filters.recordTypes &&
+      Array.isArray(filters.recordTypes) &&
+      filters.recordTypes.length > 0
+    ) {
       pipeline.push({
         $match: {
-          recordType: { $in: filters.recordTypes }
-        }
+          recordType: { $in: filters.recordTypes },
+        },
       });
     }
 
@@ -64,8 +68,8 @@ class FilteredBackupService {
     if (filters.userId) {
       pipeline.push({
         $match: {
-          userId: new mongoose.Types.ObjectId(filters.userId)
-        }
+          userId: new mongoose.Types.ObjectId(filters.userId),
+        },
       });
     }
 
@@ -73,8 +77,8 @@ class FilteredBackupService {
     if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
       pipeline.push({
         $match: {
-          status: { $in: filters.status }
-        }
+          status: { $in: filters.status },
+        },
       });
     }
 
@@ -188,7 +192,7 @@ class FilteredBackupService {
             resolve({
               path: outputPath,
               recordCount,
-              size: stats.size
+              size: stats.size,
             });
           } catch (err) {
             reject(err);
@@ -247,8 +251,11 @@ class FilteredBackupService {
                 if (value === null || value === undefined) {
                   return '';
                 }
-                const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-                return stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')
+                const stringValue =
+                  typeof value === 'object' ? JSON.stringify(value) : String(value);
+                return stringValue.includes(',') ||
+                  stringValue.includes('"') ||
+                  stringValue.includes('\n')
                   ? `"${stringValue.replace(/"/g, '""')}"`
                   : stringValue;
               });
@@ -272,7 +279,7 @@ class FilteredBackupService {
             resolve({
               path: outputPath,
               recordCount,
-              size: stats.size
+              size: stats.size,
             });
           } catch (err) {
             reject(err);
@@ -293,7 +300,7 @@ class FilteredBackupService {
     const cleaned = { ...doc };
     delete cleaned.__v;
     delete cleaned._id;
-    
+
     // Convert ObjectId to string
     if (cleaned.userId && cleaned.userId instanceof mongoose.Types.ObjectId) {
       cleaned.userId = cleaned.userId.toString();
@@ -315,13 +322,13 @@ class FilteredBackupService {
         endDate: filters.endDate || null,
         recordTypes: filters.recordTypes || [],
         userId: filters.userId || null,
-        status: filters.status || []
+        status: filters.status || [],
       },
       collections,
       recordCounts,
       totalRecords: Object.values(recordCounts).reduce((a, b) => a + b, 0),
       filtersApplied: this.summarizeFilters(filters),
-      version: '1.0'
+      version: '1.0',
     };
   }
 
@@ -390,7 +397,7 @@ class FilteredBackupService {
         backupId,
         metadata,
         files: {},
-        startTime: new Date()
+        startTime: new Date(),
       };
 
       // Create JSON export if requested
@@ -402,7 +409,7 @@ class FilteredBackupService {
         result.files.json = {
           path: jsonPath,
           size: jsonStats.size,
-          recordCount: totalRecords
+          recordCount: totalRecords,
         };
       }
 
@@ -415,7 +422,7 @@ class FilteredBackupService {
         result.files.csv = {
           path: csvPath,
           size: csvStats.size,
-          recordCount: totalRecords
+          recordCount: totalRecords,
         };
       }
 
@@ -448,7 +455,7 @@ class FilteredBackupService {
       return {
         path: filePath,
         fileName,
-        size: (await fs.stat(filePath)).size
+        size: (await fs.stat(filePath)).size,
       };
     } catch (error) {
       console.error(`Error getting backup file ${backupId}:`, error);
@@ -490,11 +497,11 @@ class FilteredBackupService {
         const content = await fs.readFile(filePath, 'utf8');
         const metadata = JSON.parse(content);
         const fileStats = await fs.stat(filePath);
-        
+
         backups.push({
           ...metadata,
           fileSize: fileStats.size,
-          createdAt: fileStats.birthtime
+          createdAt: fileStats.birthtime,
         });
       }
 
@@ -502,7 +509,7 @@ class FilteredBackupService {
         backups,
         total: metadataFiles.length,
         limit,
-        offset
+        offset,
       };
     } catch (error) {
       console.error('Error listing filtered backups:', error);
@@ -518,7 +525,7 @@ class FilteredBackupService {
       const files = [
         path.join(this.exportDir, `${backupId}.json`),
         path.join(this.exportDir, `${backupId}.csv`),
-        path.join(this.exportDir, `${backupId}-metadata.json`)
+        path.join(this.exportDir, `${backupId}-metadata.json`),
       ];
 
       for (const filePath of files) {

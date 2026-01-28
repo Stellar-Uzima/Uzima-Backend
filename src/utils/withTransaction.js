@@ -12,14 +12,17 @@ export async function withTransaction(fn, options = {}) {
   const session = await mongoose.startSession();
   try {
     let result;
-    await session.withTransaction(async () => {
-      result = await fn(session);
-    }, {
-      // sensible defaults; callers can override by passing options
-      readConcern: { level: 'snapshot' },
-      writeConcern: { w: 'majority' },
-      ...options,
-    });
+    await session.withTransaction(
+      async () => {
+        result = await fn(session);
+      },
+      {
+        // sensible defaults; callers can override by passing options
+        readConcern: { level: 'snapshot' },
+        writeConcern: { w: 'majority' },
+        ...options,
+      }
+    );
     return result;
   } finally {
     await session.endSession();

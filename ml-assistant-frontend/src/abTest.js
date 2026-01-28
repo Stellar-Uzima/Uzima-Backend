@@ -1,6 +1,6 @@
 // Simple A/B test assignment and CTR logging for frontend
 export function getAbGroup(userId) {
-  return (userId.charCodeAt(0) % 2 === 0) ? 'A' : 'B';
+  return userId.charCodeAt(0) % 2 === 0 ? 'A' : 'B';
 }
 
 export function logClick(articleId, group, token) {
@@ -8,8 +8,8 @@ export function logClick(articleId, group, token) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ articleId, group })
+    body: JSON.stringify({ articleId, group }),
   });
 }

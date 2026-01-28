@@ -13,13 +13,13 @@ vi.mock('passport', () => ({
         req.user = {
           _id: '507f1f77bcf86cd799439011',
           email: 'test@example.com',
-          role: 'patient'
+          role: 'patient',
         };
         next();
       };
     }
     return next();
-  }
+  },
 }));
 
 describe('OAuth Authentication', () => {
@@ -35,9 +35,7 @@ describe('OAuth Authentication', () => {
 
   describe('GET /api/auth/providers', () => {
     it('should return list of enabled OAuth providers', async () => {
-      const response = await request(app)
-        .get('/api/auth/providers')
-        .expect(200);
+      const response = await request(app).get('/api/auth/providers').expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.providers).toBeInstanceOf(Array);
@@ -47,27 +45,21 @@ describe('OAuth Authentication', () => {
 
   describe('OAuth Authentication Routes', () => {
     it('should redirect to Google OAuth', async () => {
-      const response = await request(app)
-        .get('/api/auth/google')
-        .expect(302);
+      const response = await request(app).get('/api/auth/google').expect(302);
 
       // Should redirect to Google OAuth
       expect(response.headers.location).toBeDefined();
     });
 
     it('should redirect to GitHub OAuth', async () => {
-      const response = await request(app)
-        .get('/api/auth/github')
-        .expect(302);
+      const response = await request(app).get('/api/auth/github').expect(302);
 
       // Should redirect to GitHub OAuth
       expect(response.headers.location).toBeDefined();
     });
 
     it('should redirect to Microsoft OAuth', async () => {
-      const response = await request(app)
-        .get('/api/auth/microsoft')
-        .expect(302);
+      const response = await request(app).get('/api/auth/microsoft').expect(302);
 
       // Should redirect to Microsoft OAuth
       expect(response.headers.location).toBeDefined();
@@ -83,7 +75,9 @@ describe('OAuth Authentication', () => {
 
       // Should redirect to frontend with tokens
       expect(response.headers.location).toBeDefined();
-      expect(response.headers.location).toContain(process.env.FRONTEND_URL || 'http://localhost:3000');
+      expect(response.headers.location).toContain(
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+      );
     });
 
     it('should handle GitHub OAuth callback', async () => {
@@ -93,7 +87,9 @@ describe('OAuth Authentication', () => {
 
       // Should redirect to frontend with tokens
       expect(response.headers.location).toBeDefined();
-      expect(response.headers.location).toContain(process.env.FRONTEND_URL || 'http://localhost:3000');
+      expect(response.headers.location).toContain(
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+      );
     });
 
     it('should handle Microsoft OAuth callback', async () => {
@@ -103,7 +99,9 @@ describe('OAuth Authentication', () => {
 
       // Should redirect to frontend with tokens
       expect(response.headers.location).toBeDefined();
-      expect(response.headers.location).toContain(process.env.FRONTEND_URL || 'http://localhost:3000');
+      expect(response.headers.location).toContain(
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+      );
     });
   });
 
@@ -123,9 +121,9 @@ describe('OAuth Authentication', () => {
             id: '123456789',
             email: 'test@example.com',
             name: 'Test User',
-            linkedAt: new Date()
-          }
-        }
+            linkedAt: new Date(),
+          },
+        },
       });
       await testUser.save();
 
@@ -205,7 +203,7 @@ describe('OAuth Authentication', () => {
         username: 'testuser',
         email: 'test@example.com',
         password: 'hashedpassword',
-        role: 'patient'
+        role: 'patient',
       });
       await testUser.save();
     });
@@ -215,7 +213,7 @@ describe('OAuth Authentication', () => {
         id: '123456789',
         email: 'oauth@example.com',
         name: 'OAuth User',
-        avatar: 'https://example.com/avatar.jpg'
+        avatar: 'https://example.com/avatar.jpg',
       };
 
       await testUser.linkOAuthAccount('google', profileData);
@@ -231,7 +229,7 @@ describe('OAuth Authentication', () => {
       await testUser.linkOAuthAccount('google', {
         id: '123456789',
         email: 'oauth@example.com',
-        name: 'OAuth User'
+        name: 'OAuth User',
       });
 
       // Then unlink it
@@ -245,14 +243,14 @@ describe('OAuth Authentication', () => {
       await testUser.linkOAuthAccount('google', {
         id: '123456789',
         email: 'oauth@example.com',
-        name: 'OAuth User'
+        name: 'OAuth User',
       });
 
       await testUser.linkOAuthAccount('github', {
         id: '987654321',
         username: 'testuser',
         email: 'github@example.com',
-        name: 'GitHub User'
+        name: 'GitHub User',
       });
 
       const providers = testUser.getOAuthProviders();
@@ -265,7 +263,7 @@ describe('OAuth Authentication', () => {
       await testUser.linkOAuthAccount('google', {
         id: '123456789',
         email: 'oauth@example.com',
-        name: 'OAuth User'
+        name: 'OAuth User',
       });
 
       expect(testUser.hasOAuthProvider('google')).toBe(true);
@@ -278,7 +276,7 @@ describe('OAuth Authentication', () => {
       await testUser.linkOAuthAccount('google', {
         id: '123456789',
         email: 'oauth@example.com',
-        name: 'OAuth User'
+        name: 'OAuth User',
       });
 
       expect(testUser.isOAuthUser()).toBe(true);
@@ -296,9 +294,9 @@ describe('OAuth Authentication', () => {
           google: {
             id: 'google123',
             email: 'user1@example.com',
-            name: 'User One'
-          }
-        }
+            name: 'User One',
+          },
+        },
       });
 
       const user2 = new User({
@@ -310,9 +308,9 @@ describe('OAuth Authentication', () => {
             id: 'github456',
             username: 'user2',
             email: 'user2@example.com',
-            name: 'User Two'
-          }
-        }
+            name: 'User Two',
+          },
+        },
       });
 
       await user1.save();

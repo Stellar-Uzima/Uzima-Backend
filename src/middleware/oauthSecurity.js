@@ -14,16 +14,16 @@ class TokenEncryption {
       const iv = crypto.randomBytes(this.ivLength);
       const cipher = crypto.createCipher(this.algorithm, this.secretKey);
       cipher.setAAD(Buffer.from('oauth-token', 'utf8'));
-      
+
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
+
       const tag = cipher.getAuthTag();
-      
+
       return {
         encrypted,
         iv: iv.toString('hex'),
-        tag: tag.toString('hex')
+        tag: tag.toString('hex'),
       };
     } catch (error) {
       throw new Error(`Encryption failed: ${error.message}`);
@@ -37,10 +37,10 @@ class TokenEncryption {
       const decipher = crypto.createDecipher(this.algorithm, this.secretKey);
       decipher.setAAD(Buffer.from('oauth-token', 'utf8'));
       decipher.setAuthTag(Buffer.from(tag, 'hex'));
-      
+
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
-      
+
       return decrypted;
     } catch (error) {
       throw new Error(`Decryption failed: ${error.message}`);
@@ -88,10 +88,7 @@ class TokenEncryption {
   // Verify token against hash
   verifyTokenHash(token, hash) {
     const tokenHash = this.hashToken(token);
-    return crypto.timingSafeEqual(
-      Buffer.from(tokenHash, 'hex'),
-      Buffer.from(hash, 'hex')
-    );
+    return crypto.timingSafeEqual(Buffer.from(tokenHash, 'hex'), Buffer.from(hash, 'hex'));
   }
 }
 
@@ -105,7 +102,7 @@ class OAuthSecurity {
   sanitizeProfile(profile, provider) {
     const sanitized = {
       id: profile.id,
-      provider: provider
+      provider: provider,
     };
 
     // Handle different provider profile structures
@@ -116,7 +113,7 @@ class OAuthSecurity {
         sanitized.avatar = profile.photos?.[0]?.value;
         sanitized.verified = profile.emails?.[0]?.verified || false;
         break;
-        
+
       case 'github':
         sanitized.email = profile.emails?.find(e => e.primary)?.value || profile.emails?.[0]?.value;
         sanitized.username = profile.username;
@@ -124,14 +121,14 @@ class OAuthSecurity {
         sanitized.avatar = profile.photos?.[0]?.value;
         sanitized.verified = !!profile.emails?.find(e => e.primary && e.verified);
         break;
-        
+
       case 'microsoft':
         sanitized.email = profile.emails?.[0]?.value;
         sanitized.name = profile.displayName;
         sanitized.avatar = profile.photos?.[0]?.value;
         sanitized.verified = true; // Microsoft emails are verified
         break;
-        
+
       default:
         throw new Error(`Unsupported OAuth provider: ${provider}`);
     }
@@ -152,7 +149,7 @@ class OAuthSecurity {
     if (!state || !storedState) {
       return res.status(400).json({
         success: false,
-        message: 'OAuth state parameter is missing'
+        message: 'OAuth state parameter is missing',
       });
     }
 
@@ -160,7 +157,7 @@ class OAuthSecurity {
       if (!this.encryption.verifyState(state, storedState)) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid OAuth state parameter'
+          message: 'Invalid OAuth state parameter',
         });
       }
 
@@ -170,7 +167,7 @@ class OAuthSecurity {
     } catch (error) {
       return res.status(400).json({
         success: false,
-        message: 'OAuth state validation failed'
+        message: 'OAuth state validation failed',
       });
     }
   }
@@ -193,12 +190,12 @@ class OAuthSecurity {
     if (attempts >= maxAttempts) {
       return res.status(429).json({
         success: false,
-        message: 'Too many OAuth attempts. Please try again later.'
+        message: 'Too many OAuth attempts. Please try again later.',
       });
     }
 
     req.session[key] = attempts + 1;
-    
+
     // Reset counter after window expires
     setTimeout(() => {
       req.session[key] = 0;
@@ -210,7 +207,7 @@ class OAuthSecurity {
   // Validate OAuth provider configuration
   validateProviderConfig(provider, config) {
     const requiredFields = ['clientID', 'clientSecret', 'callbackURL'];
-    
+
     for (const field of requiredFields) {
       if (!config[field]) {
         throw new Error(`Missing required OAuth configuration: ${provider}.${field}`);

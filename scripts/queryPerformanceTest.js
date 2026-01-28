@@ -45,20 +45,21 @@ class QueryPerformanceTester {
    */
   async measureQuery(description, queryFn, targetTime = this.targetTime) {
     const startTime = Date.now();
-    
+
     try {
       const result = await queryFn();
       const executionTime = Date.now() - startTime;
-      
+
       // Get explain data if available
       let indexUsed = 'N/A';
       let docsExamined = 'N/A';
-      
+
       if (result && typeof result.explain === 'function') {
         const explanation = await result.explain('executionStats');
-        indexUsed = explanation.executionStats?.executionStages?.indexName || 
-                   explanation.executionStats?.indexName ||
-                   'No index used';
+        indexUsed =
+          explanation.executionStats?.executionStages?.indexName ||
+          explanation.executionStats?.indexName ||
+          'No index used';
         docsExamined = explanation.executionStats?.totalDocsExamined || 'N/A';
       }
 
@@ -69,14 +70,14 @@ class QueryPerformanceTester {
         passed: executionTime <= targetTime,
         indexUsed,
         docsExamined,
-        resultCount: Array.isArray(result) ? result.length : (result ? 1 : 0)
+        resultCount: Array.isArray(result) ? result.length : result ? 1 : 0,
       };
 
       this.results.push(testResult);
 
       const status = testResult.passed ? '✅' : '❌';
       console.log(`${status} ${description}: ${executionTime}ms (target: ≤${targetTime}ms)`);
-      
+
       if (!testResult.passed) {
         console.log(`   ⚠️  Index used: ${indexUsed}, Docs examined: ${docsExamined}`);
       }
@@ -89,7 +90,7 @@ class QueryPerformanceTester {
         executionTime: -1,
         targetTime,
         passed: false,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -109,55 +110,50 @@ class QueryPerformanceTester {
     );
 
     await this.measureQuery(
-      'User.findOne({ username })', 
+      'User.findOne({ username })',
       () => User.findOne({ username: 'testuser' }),
       10
     );
 
-    await this.measureQuery(
-      'User.find({ role, deletedAt: null }).sort({ createdAt: -1 })',
-      () => User.find({ role: 'doctor', deletedAt: null }).sort({ createdAt: -1 }).limit(10)
+    await this.measureQuery('User.find({ role, deletedAt: null }).sort({ createdAt: -1 })', () =>
+      User.find({ role: 'doctor', deletedAt: null }).sort({ createdAt: -1 }).limit(10)
     );
 
     // 2. Medical Record Queries
     console.log('\n📋 Testing Medical Record Queries:');
     const sampleUserId = new mongoose.Types.ObjectId();
-    
-    await this.measureQuery(
-      'Record.find({ createdBy }).sort({ createdAt: -1 })',
-      () => Record.find({ createdBy: sampleUserId, deletedAt: null }).sort({ createdAt: -1 }).limit(20)
+
+    await this.measureQuery('Record.find({ createdBy }).sort({ createdAt: -1 })', () =>
+      Record.find({ createdBy: sampleUserId, deletedAt: null }).sort({ createdAt: -1 }).limit(20)
     );
 
-    await this.measureQuery(
-      'Record.find({ patientName }).sort({ createdAt: -1 })',
-      () => Record.find({ patientName: /John/i }).sort({ createdAt: -1 }).limit(10)
+    await this.measureQuery('Record.find({ patientName }).sort({ createdAt: -1 })', () =>
+      Record.find({ patientName: /John/i }).sort({ createdAt: -1 }).limit(10)
     );
 
     // 3. Text Search Queries
     console.log('\n🔍 Testing Text Search Queries:');
-    await this.measureQuery(
-      'Record.find({ $text: { $search: "diagnosis" } })',
-      () => Record.find({ $text: { $search: 'diagnosis treatment' } }).limit(10)
+    await this.measureQuery('Record.find({ $text: { $search: "diagnosis" } })', () =>
+      Record.find({ $text: { $search: 'diagnosis treatment' } }).limit(10)
     );
 
-    await this.measureQuery(
-      'Patient.find({ $text: { $search: "patient" } })',
-      () => Patient.find({ $text: { $search: 'patient name' } }).limit(10)
+    await this.measureQuery('Patient.find({ $text: { $search: "patient" } })', () =>
+      Patient.find({ $text: { $search: 'patient name' } }).limit(10)
     );
 
     // 4. Activity Log Queries
     console.log('\n📊 Testing Activity Log Queries:');
-    await this.measureQuery(
-      'ActivityLog.find({ userId }).sort({ timestamp: -1 })',
-      () => ActivityLog.find({ userId: sampleUserId }).sort({ timestamp: -1 }).limit(50)
+    await this.measureQuery('ActivityLog.find({ userId }).sort({ timestamp: -1 })', () =>
+      ActivityLog.find({ userId: sampleUserId }).sort({ timestamp: -1 }).limit(50)
     );
 
-    await this.measureQuery(
-      'ActivityLog.find({ userId, action }).sort({ timestamp: -1 })',
-      () => ActivityLog.find({ 
-        userId: sampleUserId, 
-        action: 'login' 
-      }).sort({ timestamp: -1 }).limit(20)
+    await this.measureQuery('ActivityLog.find({ userId, action }).sort({ timestamp: -1 })', () =>
+      ActivityLog.find({
+        userId: sampleUserId,
+        action: 'login',
+      })
+        .sort({ timestamp: -1 })
+        .limit(20)
     );
 
     // 5. Prescription Queries
@@ -168,36 +164,31 @@ class QueryPerformanceTester {
       10
     );
 
-    await this.measureQuery(
-      'Prescription.find({ patientId }).sort({ issuedDate: -1 })',
-      () => Prescription.find({ patientId: sampleUserId }).sort({ issuedDate: -1 }).limit(10)
+    await this.measureQuery('Prescription.find({ patientId }).sort({ issuedDate: -1 })', () =>
+      Prescription.find({ patientId: sampleUserId }).sort({ issuedDate: -1 }).limit(10)
     );
 
-    await this.measureQuery(
-      'Prescription.find({ status, expiryDate })',
-      () => Prescription.find({ 
-        status: 'active', 
-        expiryDate: { $gte: new Date() } 
+    await this.measureQuery('Prescription.find({ status, expiryDate })', () =>
+      Prescription.find({
+        status: 'active',
+        expiryDate: { $gte: new Date() },
       }).limit(10)
     );
 
     // 6. Inventory Queries
     console.log('\n📦 Testing Inventory Queries:');
-    await this.measureQuery(
-      'InventoryItem.find({ totalQuantity <= threshold })',
-      () => InventoryItem.find({ 
-        $expr: { $lte: ['$totalQuantity', '$threshold'] } 
+    await this.measureQuery('InventoryItem.find({ totalQuantity <= threshold })', () =>
+      InventoryItem.find({
+        $expr: { $lte: ['$totalQuantity', '$threshold'] },
       }).limit(20)
     );
 
-    await this.measureQuery(
-      'InventoryItem.find({ category }).sort({ totalQuantity: 1 })',
-      () => InventoryItem.find({ category: 'medication' }).sort({ totalQuantity: 1 }).limit(10)
+    await this.measureQuery('InventoryItem.find({ category }).sort({ totalQuantity: 1 })', () =>
+      InventoryItem.find({ category: 'medication' }).sort({ totalQuantity: 1 }).limit(10)
     );
 
-    await this.measureQuery(
-      'InventoryItem.find({ $text: { $search: "medicine" } })',
-      () => InventoryItem.find({ $text: { $search: 'medicine drug' } }).limit(10)
+    await this.measureQuery('InventoryItem.find({ $text: { $search: "medicine" } })', () =>
+      InventoryItem.find({ $text: { $search: 'medicine drug' } }).limit(10)
     );
 
     // 7. Complex Aggregate Queries
@@ -210,10 +201,11 @@ class QueryPerformanceTester {
 
     await this.measureQuery(
       'ActivityLog.getActivityStats()',
-      () => ActivityLog.getActivityStats({
-        startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        endDate: new Date()
-      }),
+      () =>
+        ActivityLog.getActivityStats({
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          endDate: new Date(),
+        }),
       200
     );
   }
@@ -230,8 +222,10 @@ class QueryPerformanceTester {
     const failed = this.results.filter(r => !r.passed || r.error).length;
     const total = this.results.length;
 
-    console.log(`\n📈 Summary: ${passed}/${total} tests passed (${Math.round(passed/total*100)}%)`);
-    
+    console.log(
+      `\n📈 Summary: ${passed}/${total} tests passed (${Math.round((passed / total) * 100)}%)`
+    );
+
     if (failed > 0) {
       console.log(`\n❌ Failed Tests (${failed}):`);
       this.results
@@ -273,14 +267,14 @@ class QueryPerformanceTester {
     if (Object.keys(indexUsage).length > 0) {
       console.log(`\n🗂️  Index Usage:`);
       Object.entries(indexUsage)
-        .sort(([,a], [,b]) => b - a)
+        .sort(([, a], [, b]) => b - a)
         .forEach(([index, count]) => {
           console.log(`   • ${index}: ${count} queries`);
         });
     }
 
     console.log('\n' + '='.repeat(80));
-    
+
     // Exit with error code if any tests failed
     if (failed > 0) {
       console.log('❌ Some performance tests failed. Consider optimizing slow queries.');

@@ -7,7 +7,7 @@ import { getConfig } from './index.js';
  */
 const connectDB = async () => {
   const { db } = getConfig();
-  
+
   try {
     await mongoose.connect(db.uri, db.options);
     // eslint-disable-next-line no-console

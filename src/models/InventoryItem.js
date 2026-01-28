@@ -41,9 +41,7 @@ InventoryItemSchema.index({ totalQuantity: 1, threshold: 1 });
 InventoryItemSchema.index({
   name: 'text',
   category: 'text',
-  sku: 'text'
+  sku: 'text',
 });
 
 export default mongoose.model('InventoryItem', InventoryItemSchema);
-
-

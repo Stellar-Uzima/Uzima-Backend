@@ -20,11 +20,11 @@ class SMSService {
     try {
       const https = await import('https');
       const querystring = await import('querystring');
-      
+
       const postData = querystring.stringify({
         From: this.fromNumber,
         To: to,
-        Body: message
+        Body: message,
       });
 
       const auth = Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64');
@@ -35,20 +35,20 @@ class SMSService {
         path: `/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${auth}`,
+          Authorization: `Basic ${auth}`,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Content-Length': Buffer.byteLength(postData)
-        }
+          'Content-Length': Buffer.byteLength(postData),
+        },
       };
 
       return new Promise((resolve, reject) => {
-        const req = https.request(options, (res) => {
+        const req = https.request(options, res => {
           let data = '';
-          
-          res.on('data', (chunk) => {
+
+          res.on('data', chunk => {
             data += chunk;
           });
-          
+
           res.on('end', () => {
             try {
               const response = JSON.parse(data);
@@ -63,7 +63,7 @@ class SMSService {
           });
         });
 
-        req.on('error', (error) => {
+        req.on('error', error => {
           reject(new Error(`Request failed: ${error.message}`));
         });
 
@@ -97,7 +97,7 @@ export const sendSMS = async (to, message) => {
   return await smsService.sendSMS(to, message);
 };
 
-export const validatePhoneNumber = (phoneNumber) => {
+export const validatePhoneNumber = phoneNumber => {
   return smsService.validatePhoneNumber(phoneNumber);
 };
 

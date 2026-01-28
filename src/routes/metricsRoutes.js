@@ -37,5 +37,3 @@ router.delete('/cache', verifyAdmin, async (req, res) => {
 });
 
 export default router;
-
-

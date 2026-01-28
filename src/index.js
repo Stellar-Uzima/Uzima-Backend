@@ -23,7 +23,9 @@ import { apiRequestResponseLogger } from './utils/logger.js';
 import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import responseTimeMonitor from './middleware/responseTimeMonitor.js';
-import apiMetricsMiddleware, { metricsTaggingMiddleware } from './middleware/apiMetricsMiddleware.js';
+import apiMetricsMiddleware, {
+  metricsTaggingMiddleware,
+} from './middleware/apiMetricsMiddleware.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
@@ -91,9 +93,11 @@ app.use(cspNonce);
 app.use((req, res, next) => {
   const isSwagger = req.path.startsWith('/api-docs');
   helmet({
-    contentSecurityPolicy: isSwagger ? false : {
-      directives: getCspDirectives(res.locals.cspNonce),
-    },
+    contentSecurityPolicy: isSwagger
+      ? false
+      : {
+          directives: getCspDirectives(res.locals.cspNonce),
+        },
   })(req, res, next);
 });
 app.use(corsMiddleware);
@@ -251,7 +255,10 @@ const startServer = async () => {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('⚠️  Elasticsearch initialization failed:', error.message);
-      console.error('   Search features will be limited. Ensure Elasticsearch is running on', process.env.ELASTICSEARCH_NODE || 'http://localhost:9200');
+      console.error(
+        '   Search features will be limited. Ensure Elasticsearch is running on',
+        process.env.ELASTICSEARCH_NODE || 'http://localhost:9200'
+      );
       // Continue without Elasticsearch - the app can still run
     }
 

@@ -2,7 +2,6 @@
 const UserReadHistory = require('../models/UserReadHistory');
 const Article = require('../models/Article');
 
-
 async function getRecommendedArticles(userId, limit = 10, skip = 0) {
   // Get articles user has read
   const readHistory = await UserReadHistory.find({ userId }).select('articleId');
@@ -19,12 +18,9 @@ async function getRecommendedArticles(userId, limit = 10, skip = 0) {
     $and: [
       { _id: { $nin: readArticleIds } },
       {
-        $or: [
-          { topics: { $in: topics } },
-          { tags: { $in: tags } }
-        ]
-      }
-    ]
+        $or: [{ topics: { $in: topics } }, { tags: { $in: tags } }],
+      },
+    ],
   })
     .sort({ likes: -1, views: -1, shares: -1, publishedAt: -1 })
     .skip(skip)

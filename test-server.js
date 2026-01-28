@@ -21,10 +21,14 @@ const correlationIdMiddleware = (req, res, next) => {
 
 // Request Logger Middleware
 const requestLogger = (req, res, next) => {
-  const requestId = req.requestId || req.correlationId || req.headers['x-request-id'] || req.headers['x-correlation-id'];
-  
+  const requestId =
+    req.requestId ||
+    req.correlationId ||
+    req.headers['x-request-id'] ||
+    req.headers['x-correlation-id'];
+
   req.log = {
-    info: (msg) => {
+    info: msg => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),
@@ -33,7 +37,7 @@ const requestLogger = (req, res, next) => {
       };
       console.log(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
-    error: (msg) => {
+    error: msg => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),
@@ -42,7 +46,7 @@ const requestLogger = (req, res, next) => {
       };
       console.error(`[${logData.requestId || 'NO-ID'}]`, logData);
     },
-    warn: (msg) => {
+    warn: msg => {
       const logData = {
         requestId,
         timestamp: new Date().toISOString(),
@@ -68,41 +72,41 @@ app.use(requestLogger);
 // Test endpoints
 app.get('/test-request-id', (req, res) => {
   req.log.info('Processing test request');
-  res.json({ 
+  res.json({
     message: 'Request ID test successful',
     requestId: req.requestId,
     correlationId: req.correlationId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.get('/api/health', (req, res) => {
   req.log.info('Health check requested');
-  res.json({ 
+  res.json({
     status: 'healthy',
     requestId: req.requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.post('/api/test', (req, res) => {
   req.log.info('POST request received');
   req.log.warn('This is a warning message');
-  res.json({ 
+  res.json({
     message: 'POST test successful',
     receivedData: req.body,
     requestId: req.requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 // Error handler for testing
 app.get('/api/error', (req, res) => {
   req.log.error('Simulated error occurred');
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Test error',
     requestId: req.requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 

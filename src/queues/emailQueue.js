@@ -28,7 +28,13 @@ export async function enqueueEmail(data) {
 }
 
 export async function getQueueStats() {
-  const counts = await emailQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+  const counts = await emailQueue.getJobCounts(
+    'waiting',
+    'active',
+    'completed',
+    'failed',
+    'delayed'
+  );
   return {
     waiting: counts.waiting || 0,
     active: counts.active || 0,

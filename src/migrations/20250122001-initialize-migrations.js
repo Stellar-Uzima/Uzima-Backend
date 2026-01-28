@@ -2,10 +2,10 @@
  * Migration: Initialize Migrations Table
  * Description: Create indexes and setup migration tracking
  */
+import mongoose from 'mongoose';
 
 export const name = 'Initialize Migrations Table';
-export const description =
-  'Create initial migrations collection with proper indexes';
+export const description = 'Create initial migrations collection with proper indexes';
 
 /**
  * Up migration - Apply changes

@@ -1,20 +1,20 @@
 /**
  * Client-Side Encryption Utilities for PHI Protection (Browser Version)
- * 
+ *
  * This is the browser-compatible version of the client-side encryption library.
  * It uses Web Crypto API to encrypt PHI data before sending to the server.
- * 
+ *
  * Usage:
  * ```javascript
  * import { encryptPHI, decryptPHI, encryptRecordPHI, decryptRecordPHI } from './clientEncryption';
- * 
+ *
  * // Encrypt a single field
  * const encrypted = await encryptPHI('Patient diagnosis', 'userPassphrase');
- * 
+ *
  * // Encrypt a record
  * const record = { diagnosis: 'Diabetes', treatment: 'Metformin' };
  * const encryptedRecord = await encryptRecordPHI(record, 'userPassphrase');
- * 
+ *
  * // Decrypt a record
  * const decryptedRecord = await decryptRecordPHI(encryptedRecord, 'userPassphrase');
  * ```
@@ -125,7 +125,9 @@ export async function encryptPHI(plaintext, passphrase) {
   }
 
   if (!isWebCryptoAvailable()) {
-    throw new Error('Web Crypto API is not available. Client-side encryption requires a modern browser.');
+    throw new Error(
+      'Web Crypto API is not available. Client-side encryption requires a modern browser.'
+    );
   }
 
   if (!passphrase || typeof passphrase !== 'string' || passphrase.length < 8) {
@@ -178,7 +180,9 @@ export async function decryptPHI(encryptedData, passphrase) {
   }
 
   if (!isWebCryptoAvailable()) {
-    throw new Error('Web Crypto API is not available. Client-side decryption requires a modern browser.');
+    throw new Error(
+      'Web Crypto API is not available. Client-side decryption requires a modern browser.'
+    );
   }
 
   if (!passphrase || typeof passphrase !== 'string') {
@@ -187,7 +191,7 @@ export async function decryptPHI(encryptedData, passphrase) {
 
   try {
     const parts = encryptedData.split(':');
-    
+
     if (parts.length !== 5) {
       throw new Error('Invalid encrypted data format');
     }
@@ -224,8 +228,10 @@ export async function decryptPHI(encryptedData, passphrase) {
 
     return plaintext;
   } catch (error) {
-    if (error.message.includes('Invalid encrypted data format') || 
-        error.message.includes('Unsupported encryption format')) {
+    if (
+      error.message.includes('Invalid encrypted data format') ||
+      error.message.includes('Unsupported encryption format')
+    ) {
       throw error;
     }
     throw new Error('Decryption failed. Invalid passphrase or corrupted data.');
@@ -246,7 +252,11 @@ export function isClientEncrypted(data) {
 /**
  * Encrypts multiple PHI fields in a record object
  */
-export async function encryptRecordPHI(record, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function encryptRecordPHI(
+  record,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!record || typeof record !== 'object') {
     throw new Error('Record must be an object');
   }
@@ -267,7 +277,11 @@ export async function encryptRecordPHI(record, passphrase, phiFields = ['diagnos
 /**
  * Decrypts multiple PHI fields in a record object
  */
-export async function decryptRecordPHI(record, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function decryptRecordPHI(
+  record,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!record || typeof record !== 'object') {
     throw new Error('Record must be an object');
   }
@@ -288,7 +302,11 @@ export async function decryptRecordPHI(record, passphrase, phiFields = ['diagnos
 /**
  * Encrypts an array of records
  */
-export async function encryptRecordsPHI(records, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function encryptRecordsPHI(
+  records,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!Array.isArray(records)) {
     throw new Error('Records must be an array');
   }
@@ -303,7 +321,11 @@ export async function encryptRecordsPHI(records, passphrase, phiFields = ['diagn
 /**
  * Decrypts an array of records
  */
-export async function decryptRecordsPHI(records, passphrase, phiFields = ['diagnosis', 'treatment', 'history']) {
+export async function decryptRecordsPHI(
+  records,
+  passphrase,
+  phiFields = ['diagnosis', 'treatment', 'history']
+) {
   if (!Array.isArray(records)) {
     throw new Error('Records must be an array');
   }

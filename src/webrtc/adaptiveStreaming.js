@@ -1,9 +1,9 @@
 const DEFAULTS = {
-  TARGET_UPLINK_KBPS: 512,           // acceptance: maintain at <= 512 kbps uplink
+  TARGET_UPLINK_KBPS: 512, // acceptance: maintain at <= 512 kbps uplink
   CHECK_INTERVAL_MS: 1000,
-  SHORT_WINDOW_MS: 3000,             // short-term detection window for fallback
-  RECOVERY_WINDOW_MS: 5000,          // attempt recovery within 5s for track interruptions
-  PACKET_LOSS_THRESHOLD: 0.05,       // 5% packet loss -> degrade
+  SHORT_WINDOW_MS: 3000, // short-term detection window for fallback
+  RECOVERY_WINDOW_MS: 5000, // attempt recovery within 5s for track interruptions
+  PACKET_LOSS_THRESHOLD: 0.05, // 5% packet loss -> degrade
   JITTER_THRESHOLD_MS: 30,
   RTT_THRESHOLD_MS: 200,
   MIN_FPS: 7,
@@ -69,7 +69,7 @@ export class AdaptivePublisher {
         params.encodings = [
           { rid: 'q', maxBitrate: 120_000, scaleResolutionDownBy: 4 }, // low
           { rid: 'h', maxBitrate: 400_000, scaleResolutionDownBy: 2 }, // med
-          { rid: 'f', maxBitrate: 1200_000 },                         // high
+          { rid: 'f', maxBitrate: 1200_000 }, // high
         ];
         await this.videoSender.setParameters(params);
         this.encoderParams = params;
@@ -115,7 +115,9 @@ export class AdaptivePublisher {
     this.statsTimer = setInterval(async () => {
       const stats = await this.pc.getStats(null);
       let outgoing = null;
-      let rtt = 0, jitter = 0, packetLoss = 0;
+      let rtt = 0,
+        jitter = 0,
+        packetLoss = 0;
       stats.forEach(report => {
         if (report.type === 'outbound-rtp' && report.kind === 'video') {
           if (report.bytesSent != null && report.timestamp != null) {
@@ -126,7 +128,8 @@ export class AdaptivePublisher {
               outgoing = kbps;
               // EMA
               if (this.emaBandwidth == null) this.emaBandwidth = kbps;
-              else this.emaBandwidth = this.emaAlpha * kbps + (1 - this.emaAlpha) * this.emaBandwidth;
+              else
+                this.emaBandwidth = this.emaAlpha * kbps + (1 - this.emaAlpha) * this.emaBandwidth;
             }
             lastBytesSent = report.bytesSent;
             lastTimestamp = report.timestamp;
@@ -167,10 +170,11 @@ export class AdaptivePublisher {
   async _adapt(kbps, rtt, jitter, packetLoss) {
     const now = Date.now();
     // ------------- Detect serious degradation (audio-only fallback) ----------------
-    const videoBad = (kbps < this.opts.TARGET_UPLINK_KBPS * 0.6)
-                   || (packetLoss > this.opts.PACKET_LOSS_THRESHOLD)
-                   || (jitter > this.opts.JITTER_THRESHOLD_MS)
-                   || (rtt > this.opts.RTT_THRESHOLD_MS);
+    const videoBad =
+      kbps < this.opts.TARGET_UPLINK_KBPS * 0.6 ||
+      packetLoss > this.opts.PACKET_LOSS_THRESHOLD ||
+      jitter > this.opts.JITTER_THRESHOLD_MS ||
+      rtt > this.opts.RTT_THRESHOLD_MS;
 
     if (videoBad) {
       if (!this.shortTermBadStart) this.shortTermBadStart = now;
@@ -240,7 +244,11 @@ export class AdaptivePublisher {
       // No simulcast: change capture resolution or framerate
       // coarse logic:
       if (this.emaBandwidth < this.opts.TARGET_UPLINK_KBPS * 0.6) {
-        await this._setCaptureConstraints(this.opts.LOW_RES.width, this.opts.LOW_RES.height, Math.max(this.opts.MIN_FPS, 10));
+        await this._setCaptureConstraints(
+          this.opts.LOW_RES.width,
+          this.opts.LOW_RES.height,
+          Math.max(this.opts.MIN_FPS, 10)
+        );
       } else if (this.emaBandwidth < this.opts.TARGET_UPLINK_KBPS) {
         await this._setCaptureConstraints(this.opts.MED_RES.width, this.opts.MED_RES.height, 15);
       } else {
@@ -251,7 +259,12 @@ export class AdaptivePublisher {
 
   async _setCaptureConstraints(w, h, fps) {
     // Only re-acquire if different
-    if (this.currentConstraints.width === w && this.currentConstraints.height === h && this.currentConstraints.frameRate === fps) return;
+    if (
+      this.currentConstraints.width === w &&
+      this.currentConstraints.height === h &&
+      this.currentConstraints.frameRate === fps
+    )
+      return;
     this.currentConstraints = { width: w, height: h, frameRate: fps };
     // stop video track, getUserMedia with new constraints, replaceTrack on sender
     const oldTrack = this.videoSender.track;

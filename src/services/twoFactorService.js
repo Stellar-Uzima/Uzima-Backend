@@ -100,7 +100,7 @@ export const generateBackupCodes = () => {
  * @param {string} code - Plain backup code
  * @returns {Promise<string>} Hashed code
  */
-export const hashBackupCode = async (code) => {
+export const hashBackupCode = async code => {
   // Remove hyphens before hashing
   const normalized = code.replace(/-/g, '');
   return await bcrypt.hash(normalized, 10);
@@ -123,7 +123,7 @@ export const verifyBackupCode = async (code, hashedCode) => {
  * @param {string} secret - Plain secret
  * @returns {string} Encrypted secret (format: iv:authTag:encrypted)
  */
-export const encryptSecret = (secret) => {
+export const encryptSecret = secret => {
   const key = getEncryptionKey();
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
@@ -142,7 +142,7 @@ export const encryptSecret = (secret) => {
  * @param {string} encryptedData - Encrypted secret (format: iv:authTag:encrypted)
  * @returns {string} Plain secret
  */
-export const decryptSecret = (encryptedData) => {
+export const decryptSecret = encryptedData => {
   const key = getEncryptionKey();
   const parts = encryptedData.split(':');
 
@@ -168,7 +168,7 @@ export const decryptSecret = (encryptedData) => {
  * @param {Object} user - User object
  * @returns {string} JWT token with 5-minute expiry
  */
-export const generateTempToken = async (user) => {
+export const generateTempToken = async user => {
   const jwt = await import('jsonwebtoken');
   return jwt.default.sign(
     {

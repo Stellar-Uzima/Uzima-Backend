@@ -33,7 +33,7 @@ const errorCodeMap = {
 const errorHandler = (err, req, res, next) => {
   // Ensure correlation ID exists
   const correlationId = req.correlationId || req.headers['x-correlation-id'] || uuidv4();
-  
+
   // Set correlation ID in response header
   res.setHeader('x-correlation-id', correlationId);
 
@@ -99,9 +99,10 @@ const errorHandler = (err, req, res, next) => {
   else {
     statusCode = 500;
     code = 'errors.INTERNAL_SERVER_ERROR';
-    message = process.env.NODE_ENV === 'production' 
-      ? 'Internal Server Error' 
-      : err.message || 'Internal Server Error';
+    message =
+      process.env.NODE_ENV === 'production'
+        ? 'Internal Server Error'
+        : err.message || 'Internal Server Error';
     // Only include stack trace in development
     if (process.env.NODE_ENV !== 'production' && err.stack) {
       details = { stack: err.stack };

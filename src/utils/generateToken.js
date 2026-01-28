@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
 
 const ACCESS_TOKEN_TTL = process.env.ACCESS_TOKEN_TTL || '15m';
-const REFRESH_TOKEN_TTL = parseInt(process.env.REFRESH_TOKEN_TTL_MS || `${7 * 24 * 60 * 60 * 1000}`, 10); // 7 days ms
+const REFRESH_TOKEN_TTL = parseInt(
+  process.env.REFRESH_TOKEN_TTL_MS || `${7 * 24 * 60 * 60 * 1000}`,
+  10
+); // 7 days ms
 
 export const generateAccessToken = (user, twoFactorVerified = false) => {
   return jwt.sign(

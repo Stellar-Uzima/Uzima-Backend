@@ -1,12 +1,12 @@
 /**
  * End-to-End Integration Tests for Client-Side Encryption
- * 
+ *
  * Tests the complete flow:
  * 1. Client encrypts PHI data
  * 2. Server receives and stores encrypted data
  * 3. Server returns encrypted data
  * 4. Client decrypts PHI data
- * 
+ *
  * This ensures no unencrypted PHI leaves the client environment.
  */
 
@@ -24,26 +24,26 @@ async function mockClientEncrypt(plaintext, passphrase) {
   // This is a simplified mock - in real tests, you'd use the actual Web Crypto API
   // For integration tests, we'll simulate the encrypted format
   if (!plaintext) return plaintext;
-  
+
   // Simulate encryption format: v1:salt:iv:data:tag
   const mockSalt = Buffer.from('mockSalt12345678').toString('base64');
   const mockIV = Buffer.from('mockIV123456').toString('base64');
   const mockData = Buffer.from(`encrypted_${plaintext}`).toString('base64');
   const mockTag = Buffer.from('mockTag12345678').toString('base64');
-  
+
   return `v1:${mockSalt}:${mockIV}:${mockData}:${mockTag}`;
 }
 
 async function mockClientDecrypt(encrypted, passphrase) {
   if (!encrypted) return encrypted;
   if (!isClientEncrypted(encrypted)) return encrypted;
-  
+
   const parts = encrypted.split(':');
   if (parts.length !== 5) return encrypted;
-  
+
   const [, , , dataBase64] = parts;
   const decoded = Buffer.from(dataBase64, 'base64').toString('utf8');
-  
+
   // Extract original plaintext from mock format
   if (decoded.startsWith('encrypted_')) {
     return decoded.substring('encrypted_'.length);
@@ -241,7 +241,7 @@ describe('Client-Side Encryption Integration Tests', () => {
   describe('Decryption Accuracy (≥99.9999%)', () => {
     test('should achieve ≥99.9999% accuracy in round-trip encryption/decryption', async () => {
       const testCases = [];
-      
+
       // Generate 10,000 test cases
       for (let i = 0; i < 10000; i++) {
         testCases.push({

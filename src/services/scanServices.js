@@ -1,6 +1,7 @@
 const Queue = require('bull');
 const axios = require('axios');
 const fileService = require('./fileService');
+const File = require('../models/file');
 
 // Create Redis-backed queue for virus scanning
 const scanQueue = new Queue('virus-scan', {

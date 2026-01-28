@@ -7,12 +7,12 @@ import { getConfig } from './index.js';
  */
 const createTransporter = () => {
   const { email } = getConfig();
-  
+
   // Return null if SMTP is not configured
   if (!email.smtp.host) {
     return null;
   }
-  
+
   return nodemailer.createTransport({
     host: email.smtp.host,
     port: email.smtp.port,

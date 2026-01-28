@@ -5,16 +5,19 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const getClientIp = (req) => {
+const getClientIp = req => {
   return req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
 };
 
-const isWhitelistedIp = (ip) => {
+const isWhitelistedIp = ip => {
   const whitelist = process.env.RATE_LIMIT_WHITELIST_IPS;
   if (!whitelist) {
     return false;
   }
-  const whitelistIps = whitelist.split(',').map(ip => ip.trim()).filter(Boolean);
+  const whitelistIps = whitelist
+    .split(',')
+    .map(ip => ip.trim())
+    .filter(Boolean);
   return whitelistIps.includes(ip);
 };
 
@@ -39,7 +42,10 @@ const createStore = () => {
       prefix: 'rl:',
     });
   } catch (error) {
-    console.warn('Redis store creation failed, using memory store for rate limiting:', error.message);
+    console.warn(
+      'Redis store creation failed, using memory store for rate limiting:',
+      error.message
+    );
     return undefined;
   }
 };
@@ -68,8 +74,8 @@ export const generalRateLimit = rateLimit({
   store: createStore(),
   windowMs: 15 * 60 * 1000,
   max: 100,
-  keyGenerator: (req) => generateIpKey(req, 'global'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, 'global'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
@@ -82,36 +88,40 @@ export const authRateLimit = rateLimit({
   store: createStore(),
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => generateIpKey(req, 'auth'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, 'auth'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: createRateLimitHandler('Too many authentication attempts from this IP, please try again later.'),
+  handler: createRateLimitHandler(
+    'Too many authentication attempts from this IP, please try again later.'
+  ),
 });
 
 export const passwordResetRateLimit = rateLimit({
   store: createStore(),
   windowMs: 60 * 60 * 1000,
   max: 3,
-  keyGenerator: (req) => generateIpKey(req, 'password-reset'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, 'password-reset'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
   standardHeaders: true,
   legacyHeaders: false,
-  handler: createRateLimitHandler('Too many password reset attempts from this IP, please try again later.'),
+  handler: createRateLimitHandler(
+    'Too many password reset attempts from this IP, please try again later.'
+  ),
 });
 
 export const twoFactorRateLimit = rateLimit({
   store: createStore(),
   windowMs: 60 * 60 * 1000,
   max: 10,
-  keyGenerator: (req) => generateIpKey(req, '2fa'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, '2fa'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
@@ -124,8 +134,8 @@ export const uploadRateLimit = rateLimit({
   store: createStore(),
   windowMs: 60 * 60 * 1000,
   max: 20,
-  keyGenerator: (req) => generateIpKey(req, 'upload'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, 'upload'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
@@ -138,8 +148,8 @@ export const adminRateLimit = rateLimit({
   store: createStore(),
   windowMs: 15 * 60 * 1000,
   max: 200,
-  keyGenerator: (req) => generateIpKey(req, 'admin'),
-  skip: (req) => {
+  keyGenerator: req => generateIpKey(req, 'admin'),
+  skip: req => {
     const ip = getClientIp(req);
     return isWhitelistedIp(ip);
   },
@@ -151,8 +161,8 @@ export const adminRateLimit = rateLimit({
 export const createCustomRateLimit = (options = {}) => {
   const defaults = {
     store: createStore(),
-    keyGenerator: (req) => generateIpKey(req),
-    skip: (req) => {
+    keyGenerator: req => generateIpKey(req),
+    skip: req => {
       const ip = getClientIp(req);
       return isWhitelistedIp(ip);
     },

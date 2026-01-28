@@ -6,10 +6,7 @@ export function randomSalt(length = 16) {
 
 export function deterministicHash(data, salt) {
   if (!salt) throw new Error('Salt is required for deterministic hashing');
-  return crypto
-    .createHmac('sha256', salt)
-    .update(JSON.stringify(data))
-    .digest('hex');
+  return crypto.createHmac('sha256', salt).update(JSON.stringify(data)).digest('hex');
 }
 
 export function sha256Hash(data) {
@@ -21,4 +18,3 @@ export function redact(data, maskChar = '*') {
   if (data.length <= 4) return maskChar.repeat(data.length);
   return maskChar.repeat(data.length - 4) + data.slice(-4);
 }
-

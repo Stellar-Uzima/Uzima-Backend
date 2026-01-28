@@ -19,4 +19,3 @@ const ReconciliationItemSchema = new mongoose.Schema(
 const ReconciliationItem = mongoose.model('ReconciliationItem', ReconciliationItemSchema);
 
 export default ReconciliationItem;
-

@@ -56,7 +56,7 @@ describe('TwoFactorService', () => {
 
     it('should accept tokens within time window (±1 step)', () => {
       const secret = 'JBSWY3DPEHPK3PXP';
-      
+
       // Generate a token from 30 seconds ago
       const pastToken = speakeasy.totp({
         secret,
@@ -127,7 +127,7 @@ describe('TwoFactorService', () => {
   describe('encryptSecret and decryptSecret', () => {
     it('should encrypt and decrypt a secret', () => {
       const originalSecret = 'JBSWY3DPEHPK3PXP';
-      
+
       const encrypted = twoFactorService.encryptSecret(originalSecret);
       expect(encrypted).toBeDefined();
       expect(encrypted).not.toBe(originalSecret);
@@ -139,7 +139,7 @@ describe('TwoFactorService', () => {
 
     it('should produce different encrypted values for the same secret', () => {
       const secret = 'JBSWY3DPEHPK3PXP';
-      
+
       const encrypted1 = twoFactorService.encryptSecret(secret);
       const encrypted2 = twoFactorService.encryptSecret(secret);
 
@@ -153,7 +153,7 @@ describe('TwoFactorService', () => {
 
     it('should handle long secrets', () => {
       const longSecret = 'A'.repeat(100);
-      
+
       const encrypted = twoFactorService.encryptSecret(longSecret);
       const decrypted = twoFactorService.decryptSecret(encrypted);
 
@@ -178,11 +178,11 @@ describe('TwoFactorService', () => {
 
       expect(token).toBeDefined();
       expect(typeof token).toBe('string');
-      
+
       // Decode token to verify claims
       const jwt = await import('jsonwebtoken');
       const decoded = jwt.default.decode(token);
-      
+
       expect(decoded.id).toBe(user._id);
       expect(decoded.email).toBe(user.email);
       expect(decoded.twoFactorPending).toBe(true);

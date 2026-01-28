@@ -62,11 +62,15 @@ const authController = {
       // Validate password with comprehensive policy checks
       const passwordValidation = await validatePassword(password, [], username, email);
       if (!passwordValidation.valid) {
-        return ApiResponse.error(res, {
-          message: 'Password does not meet policy requirements',
-          errors: passwordValidation.feedback,
-          strength: passwordValidation.scoreDetails,
-        }, 400);
+        return ApiResponse.error(
+          res,
+          {
+            message: 'Password does not meet policy requirements',
+            errors: passwordValidation.feedback,
+            strength: passwordValidation.scoreDetails,
+          },
+          400
+        );
       }
 
       // Hash password
@@ -184,7 +188,11 @@ const authController = {
       });
 
       const accessToken = generateAccessToken(user);
-      return ApiResponse.success(res, { accessToken, refreshToken: newRawRefresh }, 'Token refreshed');
+      return ApiResponse.success(
+        res,
+        { accessToken, refreshToken: newRawRefresh },
+        'Token refreshed'
+      );
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }
@@ -342,7 +350,11 @@ const authController = {
         }
 
         if (shouldLock) {
-          return ApiResponse.error(res, 'Too many failed attempts. Account locked for 15 minutes.', 429);
+          return ApiResponse.error(
+            res,
+            'Too many failed attempts. Account locked for 15 minutes.',
+            429
+          );
         }
         return ApiResponse.error(res, 'Invalid credentials', 401);
       }
@@ -369,7 +381,7 @@ const authController = {
       if (passwordStatus.requiresChange || passwordStatus.isExpired) {
         PasswordPolicyService.forcePasswordChange(user);
         await user.save();
-        
+
         return ApiResponse.error(
           res,
           'Password change required. Please update your password.',
@@ -378,7 +390,7 @@ const authController = {
       }
 
       // === START: Geolocation and Fingerprinting Integration ===
-      
+
       let securityContext = null;
       let deviceRecord = null;
       let locationData = null;
@@ -429,18 +441,18 @@ const authController = {
           // 5. Send notification if new device or suspicious activity
           if (isNewDevice || fraudCheck.impossibleTravel) {
             try {
-              const notificationType = fraudCheck.impossibleTravel 
+              const notificationType = fraudCheck.impossibleTravel
                 ? 'IMPOSSIBLE_TRAVEL_DETECTED'
-                : isNewDevice 
+                : isNewDevice
                   ? 'NEW_DEVICE_LOGIN'
                   : 'NEW_LOCATION_LOGIN';
 
               await notificationService.createSecurityNotification({
                 userId: user._id,
                 type: notificationType,
-                title: fraudCheck.impossibleTravel 
+                title: fraudCheck.impossibleTravel
                   ? 'Suspicious login detected'
-                  : isNewDevice 
+                  : isNewDevice
                     ? 'New device login'
                     : 'New location login',
                 message: fraudCheck.impossibleTravel
@@ -520,10 +532,10 @@ const authController = {
       req.session.metadata = buildSessionMetadata(req);
       // === END: Redis Session Setup ===
 
-      const responseData = { 
-        user: resUser, 
-        accessToken, 
-        refreshToken: rawRefreshToken 
+      const responseData = {
+        user: resUser,
+        accessToken,
+        refreshToken: rawRefreshToken,
       };
 
       // Add security context if available
@@ -531,11 +543,7 @@ const authController = {
         responseData.security = securityContext;
       }
 
-      return ApiResponse.success(
-        res,
-        responseData,
-        'Login successful'
-      );
+      return ApiResponse.success(res, responseData, 'Login successful');
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }
@@ -629,11 +637,15 @@ const authController = {
       );
 
       if (!passwordValidation.valid) {
-        return ApiResponse.error(res, {
-          message: 'Password does not meet policy requirements',
-          errors: passwordValidation.feedback,
-          strength: passwordValidation.scoreDetails,
-        }, 400);
+        return ApiResponse.error(
+          res,
+          {
+            message: 'Password does not meet policy requirements',
+            errors: passwordValidation.feedback,
+            strength: passwordValidation.scoreDetails,
+          },
+          400
+        );
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -647,7 +659,12 @@ const authController = {
 
       await user.save();
 
-      return ApiResponse.success(res, { message: 'Password reset successful' }, 'Password updated', 200);
+      return ApiResponse.success(
+        res,
+        { message: 'Password reset successful' },
+        'Password updated',
+        200
+      );
     } catch (error) {
       return ApiResponse.error(res, 'An error occurred processing your request', 500);
     }
@@ -879,15 +896,19 @@ const authController = {
       const strength = calculatePasswordStrength(password);
       const complexity = validatePasswordComplexity(password);
 
-      return ApiResponse.success(res, {
-        score: strength.score,
-        feedback: strength.feedback,
-        suggestions: strength.suggestions,
-        complexity: {
-          valid: complexity.valid,
-          issues: complexity.feedback,
+      return ApiResponse.success(
+        res,
+        {
+          score: strength.score,
+          feedback: strength.feedback,
+          suggestions: strength.suggestions,
+          complexity: {
+            valid: complexity.valid,
+            issues: complexity.feedback,
+          },
         },
-      }, 'Password strength analyzed');
+        'Password strength analyzed'
+      );
     } catch (error) {
       return ApiResponse.error(res, 'Error analyzing password strength', 500);
     }
@@ -939,11 +960,15 @@ const authController = {
       );
 
       if (!passwordValidation.valid) {
-        return ApiResponse.error(res, {
-          message: 'Password does not meet policy requirements',
-          errors: passwordValidation.feedback,
-          strength: passwordValidation.scoreDetails,
-        }, 400);
+        return ApiResponse.error(
+          res,
+          {
+            message: 'Password does not meet policy requirements',
+            errors: passwordValidation.feedback,
+            strength: passwordValidation.scoreDetails,
+          },
+          400
+        );
       }
 
       // Hash and update password
@@ -952,7 +977,12 @@ const authController = {
 
       await user.save();
 
-      return ApiResponse.success(res, { message: 'Password changed successfully' }, 'Password updated', 200);
+      return ApiResponse.success(
+        res,
+        { message: 'Password changed successfully' },
+        'Password updated',
+        200
+      );
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }

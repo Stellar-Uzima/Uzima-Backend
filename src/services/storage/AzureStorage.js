@@ -1,7 +1,7 @@
 const {
   BlobServiceClient,
   StorageSharedKeyCredential,
-  AnonymousCredential
+  AnonymousCredential,
 } = require('@azure/storage-blob');
 const { StorageService } = require('./StorageService');
 
@@ -47,14 +47,14 @@ class AzureStorage extends StorageService {
 
     const uploadOptions = {
       blobHTTPHeaders: {
-        blobContentType: options.contentType || 'application/octet-stream'
+        blobContentType: options.contentType || 'application/octet-stream',
       },
       metadata: {
         uploadedBy: options.userId || 'system',
         uploadedAt: new Date().toISOString(),
         originalFilename: options.originalFilename || key,
-        ...options.metadata
-      }
+        ...options.metadata,
+      },
     };
 
     try {
@@ -117,7 +117,7 @@ class AzureStorage extends StorageService {
 
     try {
       const blobs = containerClient.listBlobsFlat({
-        prefix: searchPrefix
+        prefix: searchPrefix,
       });
 
       const files = [];
@@ -134,13 +134,15 @@ class AzureStorage extends StorageService {
           mimeType: blob.properties.contentType,
           size: blob.properties.contentLength,
           uploadedBy: blob.metadata?.uploadedby || 'system',
-          uploadedAt: blob.metadata?.uploadedat ? new Date(blob.metadata.uploadedat) : new Date(blob.properties.lastModified),
+          uploadedAt: blob.metadata?.uploadedat
+            ? new Date(blob.metadata.uploadedat)
+            : new Date(blob.properties.lastModified),
           additionalMetadata: {
             lastModified: blob.properties.lastModified,
             etag: blob.properties.etag,
             blobType: blob.properties.blobType,
-            metadata: blob.metadata
-          }
+            metadata: blob.metadata,
+          },
         });
       }
 
@@ -193,12 +195,7 @@ class AzureStorage extends StorageService {
       const expiry = new Date(start.getTime() + expiresIn * 1000);
 
       // Create the SAS token
-      const sasToken = this.generateBlobSasToken(
-        fullKey,
-        operation,
-        start,
-        expiry
-      );
+      const sasToken = this.generateBlobSasToken(fullKey, operation, start, expiry);
 
       return `https://${this.accountName}.blob.core.windows.net/${this.containerName}/${fullKey}?${sasToken}`;
     } catch (error) {
@@ -226,15 +223,17 @@ class AzureStorage extends StorageService {
         mimeType: properties.contentType,
         size: properties.contentLength,
         uploadedBy: properties.metadata?.uploadedby || 'system',
-        uploadedAt: properties.metadata?.uploadedat ? new Date(properties.metadata.uploadedat) : new Date(properties.lastModified),
+        uploadedAt: properties.metadata?.uploadedat
+          ? new Date(properties.metadata.uploadedat)
+          : new Date(properties.lastModified),
         additionalMetadata: {
           lastModified: properties.lastModified,
           etag: properties.etag,
           blobType: properties.blobType,
           metadata: properties.metadata,
           contentEncoding: properties.contentEncoding,
-          contentDisposition: properties.contentDisposition
-        }
+          contentDisposition: properties.contentDisposition,
+        },
       };
     } catch (error) {
       if (error.statusCode === 404) {
@@ -275,11 +274,13 @@ class AzureStorage extends StorageService {
       blobName,
       permissions: sasPermissions,
       startsOn: start,
-      expiresOn: expiry
+      expiresOn: expiry,
     };
 
-    const accountSasUrl = generateBlobSASQueryParameters(sasOptions, 
-      new StorageSharedKeyCredential(this.accountName, this.accountKey));
+    const accountSasUrl = generateBlobSASQueryParameters(
+      sasOptions,
+      new StorageSharedKeyCredential(this.accountName, this.accountKey)
+    );
 
     return accountSasUrl.toString();
   }
