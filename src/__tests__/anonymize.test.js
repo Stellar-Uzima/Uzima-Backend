@@ -1,9 +1,9 @@
 import anonymizationService from "../services/anonymize.service.js";
 
 describe("Anonymization Service", () => {
-  test("should anonymize specified fields", () => {
+  test("should anonymize specified fields", async () => {
     const record = { name: "Alice", age: 30, email: "alice@example.com" };
-    const result = anonymizationService.anonymizeRecord(record, {
+    const result = await anonymizationService.anonymizeRecord(record, {
       fieldsToAnonymize: ["email"],
     });
 
@@ -11,9 +11,9 @@ describe("Anonymization Service", () => {
     expect(result.anonymized.name).toBe("Alice");
   });
 
-  test("should create reversible mapping if enabled", () => {
+  test("should create reversible mapping if enabled", async () => {
     const record = { name: "Bob", phone: "123456789" };
-    const result = anonymizationService.anonymizeRecord(record, {
+    const result = await anonymizationService.anonymizeRecord(record, {
       fieldsToAnonymize: ["phone"],
       reversible: true,
     });
@@ -21,5 +21,15 @@ describe("Anonymization Service", () => {
     expect(result.mapping).toBeDefined();
     const hashedPhone = result.anonymized.phone;
     expect(result.mapping[hashedPhone]).toBe("123456789");
+  });
+
+  test("should redact specified fields", async () => {
+    const record = { name: "Charlie", secret: "supersecret" };
+    const result = await anonymizationService.anonymizeRecord(record, {
+      fieldsToRedact: ["secret"],
+    });
+
+    expect(result.anonymized.secret).toBe("*******cret");
+    expect(result.anonymized.name).toBe("Charlie");
   });
 });

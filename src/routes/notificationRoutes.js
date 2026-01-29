@@ -11,6 +11,7 @@ import {
   validateListNotifications,
   validateNotificationId,
 } from '../middleware/validateNotification.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -219,7 +220,7 @@ router.post('/email/:id/retry', validateNotificationId, retryFailedNotification)
  *                     queueHealth:
  *                       type: string
  */
-// Get queue statistics
-router.get('/stats', getStats);
+// Get queue statistics (cached for 30 seconds)
+router.get('/stats', cacheMiddleware({ prefix: 'notify:stats', ttl: 30 }), getStats);
 
 export default router;
