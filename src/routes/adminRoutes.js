@@ -7,6 +7,7 @@ import { runReconciliationNow } from '../controllers/reconciliation.controller.j
 import redisClient from '../config/redis.js';
 import userController from '../controllers/userController.js';
 import recordController from '../controllers/recordController.js';
+import trashController from '../controllers/trashController.js';
 import { verifyAdmin } from '../middleware/auth.js';
 import EmailBounce from '../models/EmailBounce.js';
 
@@ -133,6 +134,202 @@ router.delete(
   hasPermission('manage_users'),
   recordController.purgeRecord
 );
+
+// ============================================
+// TRASH (SOFT-DELETED ITEMS) MANAGEMENT ROUTES
+// ============================================
+
+/**
+ * @swagger
+ * /api/admin/trash:
+ *   get:
+ *     summary: Get all soft-deleted items (trash)
+ *     description: Retrieve a paginated list of all soft-deleted items across all resource types.
+ *       Filter by resource type, date range, or who deleted the item.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: resourceType
+ *         schema:
+ *           type: string
+ *           enum: [user, record, prescription, inventory, payment, permission, article, file]
+ *         description: Filter by specific resource type
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Items per page
+ *       - in: query
+ *         name: deletedAfter
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Only include items deleted after this date
+ *       - in: query
+ *         name: deletedBefore
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Only include items deleted before this date
+ *       - in: query
+ *         name: deletedBy
+ *         schema:
+ *           type: string
+ *         description: Filter by the user ID who deleted the items
+ *     responses:
+ *       200:
+ *         description: Trash items retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Insufficient permissions
+ */
+router.get('/trash', protect, hasPermission('manage_users'), trashController.getTrashItems);
+
+/**
+ * @swagger
+ * /api/admin/trash/stats:
+ *   get:
+ *     summary: Get trash statistics
+ *     description: Retrieve statistics about soft-deleted items including counts by type,
+ *       oldest/newest items, and items due for automatic purge.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Trash statistics retrieved successfully
+ */
+router.get('/trash/stats', protect, hasPermission('manage_users'), trashController.getTrashStats);
+
+/**
+ * @swagger
+ * /api/admin/trash/types:
+ *   get:
+ *     summary: Get available resource types
+ *     description: List all resource types that support soft delete.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Resource types retrieved successfully
+ */
+router.get(
+  '/trash/types',
+  protect,
+  hasPermission('manage_users'),
+  trashController.getResourceTypes
+);
+
+/**
+ * @swagger
+ * /api/admin/trash/restore/{resourceType}/{id}:
+ *   post:
+ *     summary: Restore a soft-deleted item
+ *     description: Restore a specific soft-deleted item from the trash.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: resourceType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [user, record, prescription, inventory, payment, permission, article, file]
+ *         description: The type of resource to restore
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the item to restore
+ *     responses:
+ *       200:
+ *         description: Item restored successfully
+ *       404:
+ *         description: Item not found or not in trash
+ */
+router.post(
+  '/trash/restore/:resourceType/:id',
+  protect,
+  hasPermission('manage_users'),
+  trashController.restoreItem
+);
+
+/**
+ * @swagger
+ * /api/admin/trash/{resourceType}/{id}:
+ *   delete:
+ *     summary: Permanently delete an item
+ *     description: Permanently delete a specific soft-deleted item from the trash.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: resourceType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [user, record, prescription, inventory, payment, permission, article, file]
+ *         description: The type of resource to delete
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the item to permanently delete
+ *     responses:
+ *       200:
+ *         description: Item permanently deleted
+ *       404:
+ *         description: Item not found or not in trash
+ */
+router.delete(
+  '/trash/:resourceType/:id',
+  protect,
+  hasPermission('manage_users'),
+  trashController.purgeItem
+);
+
+/**
+ * @swagger
+ * /api/admin/trash/empty:
+ *   delete:
+ *     summary: Empty the trash
+ *     description: Permanently delete all items from the trash. Can be filtered by resource type
+ *       or items older than a specific number of days.
+ *     tags: [Trash]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: resourceType
+ *         schema:
+ *           type: string
+ *           enum: [user, record, prescription, inventory, payment, permission, article, file]
+ *         description: Only empty specific resource type
+ *       - in: query
+ *         name: olderThan
+ *         schema:
+ *           type: integer
+ *         description: Only purge items deleted more than N days ago
+ *     responses:
+ *       200:
+ *         description: Trash emptied successfully
+ */
+router.delete('/trash/empty', protect, hasPermission('manage_users'), trashController.emptyTrash);
 
 // ============================================
 // EMAIL BOUNCE MANAGEMENT ROUTES
