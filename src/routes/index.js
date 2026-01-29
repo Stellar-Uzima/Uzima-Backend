@@ -11,6 +11,8 @@ import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
+import wsTestRoutes from './wsTestRoutes.js';
+import dailyBackupRoutes from './dailyBackupRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
 import healthRoutes from './healthRoutes.js';
 import jobRoutes from './jobRoutes.js';
@@ -68,5 +70,11 @@ router.use('/health', healthRoutes); // Health check routes
 router.use('/jobs', jobRoutes);
 router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 router.use('/exports', exportRoutes); // Export routes
+
+// WebSocket test routes
+router.use('/ws-test', wsTestRoutes);
+
+// Daily backup routes
+router.use('/backups', dailyBackupRoutes);
 
 export default router;
