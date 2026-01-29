@@ -19,3 +19,8 @@ PR_DESCRIPTION.md
 PR_USAGE_INSTRUCTIONS.md
 logs/
 
+# API Testing artifacts (Newman/Postman)
+test-results/
+postman/environments/Development.postman_environment.json
+postman/environments/Staging.postman_environment.json
+.postman_history.json
