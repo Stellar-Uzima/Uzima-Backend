@@ -31,6 +31,7 @@ import versionRoutes from './routes/versionRoutes.js';
 import { versionDetection } from './middleware/apiVersion.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
+import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
 import sseRoutes from './routes/sseRoutes.js';
 import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
 import eventManager from './services/eventManager.js';
@@ -90,7 +91,11 @@ app.use(i18nextMiddleware.handle(i18next));
 
 app.use(corsMiddleware);
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationIdMiddleware);
 
@@ -159,6 +164,9 @@ app.use('/api/search', elasticSearchRoutes);
 app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
 app.use('/events', sseRoutes);
+
+// Incoming Payment Webhooks
+app.use('/webhooks', paymentWebhookRoutes);
 
 // Load reminder cron job if available (guard missing dependencies)
 try {
@@ -312,6 +320,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

@@ -1,4 +1,11 @@
 import express from 'express';
+import { handleStripeWebhook, handleFlutterwaveWebhook } from '../controllers/webhookController.js';
+import { validateStripeSignature, validateFlutterwaveSignature } from '../middleware/webhookValidation.js';
+
+const router = express.Router();
+
+router.post('/stripe', validateStripeSignature, handleStripeWebhook);
+router.post('/flutterwave', validateFlutterwaveSignature, handleFlutterwaveWebhook);
 import { PaymentServiceFactory } from '../services/payment/PaymentServiceFactory.js';
 import { BadRequestError } from '../utils/errors.js';
 
