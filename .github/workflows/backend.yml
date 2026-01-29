@@ -43,17 +43,8 @@ jobs:
       - name: Run linting
         run: npm run lint
 
+      - name: Run security check
+        run: npm run security:check
+
       - name: Run tests
         run: npm test
-
-groups:
-- name: dlq.rules
-  rules:
-  - alert: DLQGrowing
-    expr: increase(dlq_add_total[10m]) > 10
-    for: 10m
-    labels:
-      severity: critical
-    annotations:
-      summary: "DLQ additions high ({{ $value }})"
-      description: "DLQ items added increased significantly in the last 10m"

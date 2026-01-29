@@ -74,6 +74,34 @@ const backupSchema = new mongoose.Schema({
     },
     verifiedAt: Date,
     verificationHash: String
+  },
+  backupCategory: {
+    type: String,
+    enum: ['standard', 'filtered'],
+    default: 'standard',
+    index: true
+  },
+  filteredBackupMetadata: {
+    filters: {
+      startDate: Date,
+      endDate: Date,
+      recordTypes: [String],
+      userId: String,
+      status: [String]
+    },
+    collections: [String],
+    recordCounts: mongoose.Schema.Types.Mixed,
+    totalRecords: Number,
+    filtersApplied: [String],
+    exportFormat: {
+      type: String,
+      enum: ['json', 'csv', 'both'],
+      default: 'json'
+    }
+  },
+  filePaths: {
+    jsonPath: String,
+    csvPath: String
   }
 }, {
   timestamps: true
@@ -82,6 +110,8 @@ const backupSchema = new mongoose.Schema({
 // Index for efficient querying
 backupSchema.index({ status: 1, createdAt: -1 });
 backupSchema.index({ retentionDate: 1 });
+backupSchema.index({ backupCategory: 1, createdAt: -1 });
+backupSchema.index({ 'filteredBackupMetadata.filters.userId': 1 });
 
 // Virtual for backup age
 backupSchema.virtual('age').get(function() {
@@ -96,6 +126,16 @@ backupSchema.methods.markCompleted = function(s3Key, hash, size, metadata = {}) 
   this.size = size;
   this.completedAt = new Date();
   this.metadata = metadata;
+  return this.save();
+};
+
+// Method to mark filtered backup as completed
+backupSchema.methods.markFilteredBackupCompleted = function(filteredMetadata, filePaths) {
+  this.status = 'completed';
+  this.completedAt = new Date();
+  this.backupCategory = 'filtered';
+  this.filteredBackupMetadata = filteredMetadata;
+  this.filePaths = filePaths;
   return this.save();
 };
 

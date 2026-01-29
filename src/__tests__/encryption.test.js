@@ -1,38 +1,15 @@
 /* eslint-disable prettier/prettier */
-import { encrypt, decrypt } from '../utils/crypto.util.js';
+import { encrypt, decrypt } from '../utils/encryptionUtils.js';
 import encryptPayload from '../middleware/encryptPayload.js';
 import decryptPayload from '../middleware/decryptPayload.js';
+import { performance } from 'perf_hooks';
+import { vi } from 'vitest';
 
-// Mock Web Crypto API for Node.js environment
-const mockCrypto = {
-  getRandomValues: (arr) => {
-    for (let i = 0; i < arr.length; i++) {
-      arr[i] = Math.floor(Math.random() * 256);
-    }
-    return arr;
-  },
-  subtle: {
-    importKey: jest.fn().mockResolvedValue('mockKeyMaterial'),
-    deriveKey: jest.fn().mockResolvedValue('mockDerivedKey'),
-    encrypt: jest.fn().mockResolvedValue(new ArrayBuffer(32)),
-    decrypt: jest.fn().mockResolvedValue(new ArrayBuffer(16))
-  }
-};
-
-// Mock window and btoa/atob for browser environment simulation
-global.window = {
-  crypto: mockCrypto,
-  btoa: (str) => Buffer.from(str, 'binary').toString('base64'),
-  atob: (str) => Buffer.from(str, 'base64').toString('binary')
-};
-
-global.TextEncoder = function() {
-  this.encode = (str) => Buffer.from(str, 'utf8');
-};
-
-global.TextDecoder = function() {
-  this.decode = (buffer) => Buffer.from(buffer).toString('utf8');
-};
+// Set up environment variables for encryption tests
+beforeAll(() => {
+  process.env.ENCRYPTION_KEY_SECRET_v1 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  process.env.ENCRYPTION_KEY_CURRENT_VERSION = 'v1';
+});
 
 describe('Medical Data Encryption Tests', () => {
   
@@ -47,7 +24,9 @@ describe('Medical Data Encryption Tests', () => {
       const encrypted = encrypt(testData.plaintext);
       expect(encrypted).toBeDefined();
       expect(encrypted).not.toBe(testData.plaintext);
-      expect(encrypted).toContain(':'); // Should contain IV separator
+      expect(encrypted).toContain(':'); // Should contain separators (version:iv:authTag:encrypted)
+      // Format should be version:iv:authTag:encrypted (4 parts)
+      expect(encrypted.split(':')).toHaveLength(4);
       
       const decrypted = decrypt(encrypted);
       expect(decrypted).toBe(testData.plaintext);
@@ -84,9 +63,12 @@ describe('Medical Data Encryption Tests', () => {
     });
 
     test('should fail gracefully with invalid encrypted data', () => {
-      expect(() => decrypt('invalid:data')).toThrow();
-      expect(() => decrypt('notbase64:data')).toThrow();
-      expect(() => decrypt('noivdata')).toThrow();
+      // decrypt returns original text if not in encrypted format (less than 4 parts)
+      expect(decrypt('invalid:data')).toBe('invalid:data');
+      expect(decrypt('invalid:data:more')).toBe('invalid:data:more');
+      expect(decrypt('noivdata')).toBe('noivdata');
+      // Valid format requires version:iv:authTag:encrypted (4 parts), but with invalid data should throw
+      expect(() => decrypt('v1:invalidiv:invalidauth:invaliddata')).toThrow();
     });
   });
 
@@ -107,7 +89,7 @@ describe('Medical Data Encryption Tests', () => {
       res = {
         decryptRecord: null
       };
-      next = jest.fn();
+      next = vi.fn();
     });
 
     test('encryptPayload should encrypt sensitive fields only', () => {
@@ -139,7 +121,7 @@ describe('Medical Data Encryption Tests', () => {
       const encryptedRecord = { ...req.body };
 
       // Then setup decryption
-      decryptPayload(req, res, jest.fn());
+      decryptPayload(req, res, vi.fn());
       const decryptedRecord = res.decryptRecord(encryptedRecord);
 
       expect(decryptedRecord.diagnosis).toBe('Hypertension stage 2');
@@ -154,13 +136,13 @@ describe('Medical Data Encryption Tests', () => {
       encryptPayload(req, res, next);
       expect(next).toHaveBeenCalled();
       
-      decryptPayload(req, res, jest.fn());
+      decryptPayload(req, res, vi.fn());
       const result = res.decryptRecord(req.body);
       expect(result.patientName).toBe('Jane Doe');
     });
 
     test('should handle null/undefined records in decryption', () => {
-      decryptPayload(req, res, jest.fn());
+      decryptPayload(req, res, vi.fn());
       
       expect(res.decryptRecord(null)).toBeNull();
       expect(res.decryptRecord(undefined)).toBeUndefined();
@@ -229,9 +211,12 @@ describe('Medical Data Encryption Tests', () => {
       const encrypted1 = encrypt(data);
       const encrypted2 = encrypt(data);
       
-      // Extract IVs (part before the colon)
-      const iv1 = encrypted1.split(':')[0];
-      const iv2 = encrypted2.split(':')[0];
+      // Format: version:iv:authTag:encrypted
+      // Extract IVs (second part after version)
+      const parts1 = encrypted1.split(':');
+      const parts2 = encrypted2.split(':');
+      const iv1 = parts1[1];
+      const iv2 = parts2[1];
       
       expect(iv1).not.toBe(iv2);
     });
@@ -315,7 +300,7 @@ describe('Medical Data Encryption Tests', () => {
       `;
       
       const encrypted = encrypt(formattedData);
-      const decrypted = decrypt(formattedData);
+      const decrypted = decrypt(encrypted);
       expect(decrypted).toBe(formattedData);
     });
 
@@ -340,7 +325,7 @@ describe('Medical Data Encryption Tests', () => {
 
   describe('Compliance and Audit Tests', () => {
     test('should not log sensitive data in error messages', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       
       try {
         decrypt('invalid-encrypted-data');
@@ -356,13 +341,14 @@ describe('Medical Data Encryption Tests', () => {
       const data = 'PHI data for audit test';
       const encrypted = encrypt(data);
       
+      // Format: version:iv:authTag:encrypted
       // Should be able to identify this as encrypted data
-      expect(encrypted).toMatch(/^[a-f0-9]{32}:[a-f0-9]+$/);
-      
-      // Should contain IV and encrypted payload
-      const [iv, payload] = encrypted.split(':');
-      expect(iv).toHaveLength(32); // 16 bytes = 32 hex chars
-      expect(payload.length).toBeGreaterThan(0);
+      const parts = encrypted.split(':');
+      expect(parts).toHaveLength(4);
+      expect(parts[0]).toBe('v1'); // version
+      expect(parts[1].length).toBe(24); // IV: 12 bytes = 24 hex chars
+      expect(parts[2].length).toBe(32); // Auth tag: 16 bytes = 32 hex chars
+      expect(parts[3].length).toBeGreaterThan(0); // Encrypted payload
     });
   });
 });
