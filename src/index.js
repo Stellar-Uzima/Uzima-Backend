@@ -31,16 +31,17 @@ import versionRoutes from './routes/versionRoutes.js';
 import { versionDetection } from './middleware/apiVersion.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
-import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
-import sseRoutes from './routes/sseRoutes.js';
 import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
-import eventManager from './services/eventManager.js';
-import { autoRunMigrations } from './services/autoRunMigrations.js';
-import { initializeElasticsearch } from './config/elasticsearch.js';
-import { createIndex, indexExists } from './services/elasticsearchService.js';
+import sseRoutes from './routes/sseRoutes.js';
+import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
+import healthzRoutes from './routes/healthRoutes.js';
 import './config/redis.js';
 
+// Elasticsearch utilities
+import { initializeElasticsearch, indexExists, createIndex } from './services/elasticsearchService.js';
+
 // Make eventManager globally available for performance monitoring
+import { eventManager } from './utils/eventEmitter.js';
 global.eventManager = eventManager;
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
@@ -191,6 +192,9 @@ app.get('/debug-sentry', (req, res) => {
   throw new Error('Sentry test error');
 });
 
+// Health check endpoints (not rate-limited, used by orchestrators)
+app.use('/healthz', healthzRoutes);
+
 // 404 handler for undefined routes (must be before error handler)
 app.use((req, res, next) => {
   next(new NotFoundError(`Route ${req.method} ${req.path} not found`));
@@ -290,9 +294,6 @@ const startServer = async () => {
 
     // Initialize webhook worker if available
     try {
-
-      await import('./workers/webhookWorker.js');
-      logInfo('Webhook worker initialized
       const webhookWorker = await import('./workers/webhookWorker.js');
       if (webhookWorker?.startWorker) await webhookWorker.startWorker();
       // eslint-disable-next-line no-console
