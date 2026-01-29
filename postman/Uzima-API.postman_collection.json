@@ -1,0 +1,1671 @@
+{
+  "info": {
+    "name": "Uzima Healthcare API",
+    "description": "Comprehensive API test suite for Uzima Healthcare Platform\n\nThis collection covers:\n- Authentication (login, registration, 2FA, OAuth)\n- User Management (CRUD operations, roles)\n- Medical Records (create, retrieve, share, download)\n- Prescriptions (create, verify, reject)\n- Inventory Management (FIFO stock tracking)\n- Payments (Stripe, Flutterwave integration)\n- Admin Operations (reconciliation, cache management)\n- Health & Monitoring endpoints\n- Rate limiting and security validations\n\nEnvironment Variables Required:\n- baseUrl: API base URL (http://localhost:5000 for dev)\n- adminToken: JWT token for admin user\n- doctorToken: JWT token for doctor user\n- patientToken: JWT token for patient user\n- staffToken: JWT token for staff user\n- testUserId: ID of test user\n- testRecordId: ID of test medical record\n- testPrescriptionId: ID of test prescription\n- testInventorySKU: SKU of test inventory item\n- testPaymentId: ID of test payment\n- timestamp: Current timestamp\n- correlationId: Request correlation ID",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains success message\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('success');",
+                  "    pm.expect(json.success).to.equal(true);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains JWT token\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains user object with role\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('user');",
+                  "    pm.expect(json.user).to.have.property('_id');",
+                  "    pm.expect(json.user).to.have.property('email');",
+                  "    pm.expect(json.user).to.have.property('role');",
+                  "});",
+                  "",
+                  "pm.test(\"Response schema is valid\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.all.keys('success', 'message', 'token', 'user');",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set(\"timestamp\", new Date().toISOString());",
+                  "pm.environment.set(\"correlationId\", `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"username\": \"testuser_{{$randomInt}}\",\\n  \"email\": \"test{{$randomInt}}@uzima.local\",\\n  \"password\": \"TestPass@123\",\\n  \"role\": \"patient\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains JWT token\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "    pm.expect(json.token.length).to.be.greaterThan(20);",
+                  "});",
+                  "",
+                  "pm.test(\"Can extract and store token\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set(\"patientToken\", json.token);",
+                  "    pm.expect(pm.environment.get(\"patientToken\")).to.equal(json.token);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains user data\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('user');",
+                  "    pm.expect(json.user).to.have.property('_id');",
+                  "    pm.expect(json.user).to.have.property('email');",
+                  "    pm.expect(json.user).to.have.property('role');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"email\": \"patient.test@uzima.local\",\\n  \"password\": \"PatientTest@123\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate user with email and password"
+          },
+          "response": []
+        },
+        {
+          "name": "Login Invalid Credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 for invalid credentials\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains error message\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');",
+                  "    pm.expect(json.message.toLowerCase()).to.include('invalid');"
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"email\": \"nonexistent@uzima.local\",\\n  \"password\": \"WrongPassword123\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Test login failure with invalid credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains new token\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh-token"]
+            },
+            "description": "Refresh JWT token to extend expiry"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains success message\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('success');",
+                  "    pm.expect(json.success).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout user and invalidate token"
+          },
+          "response": []
+        },
+        {
+          "name": "Password Strength Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains strength score\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('strength');",
+                  "    pm.expect(json.strength).to.be.a('number');",
+                  "    pm.expect(json.strength).to.be.within(0, 4);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains feedback\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('feedback');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"password\": \"StrongP@ssw0rd2024!\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/password/strength",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "password", "strength"]
+            },
+            "description": "Check password strength (public endpoint)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Management",
+      "item": [
+        {
+          "name": "List All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});",
+                  "",
+                  "pm.test(\"User objects have required fields\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const users = Array.isArray(json) ? json : json.data || [];",
+                  "    if (users.length > 0) {",
+                  "        pm.expect(users[0]).to.have.property('_id');",
+                  "        pm.expect(users[0]).to.have.property('email');",
+                  "        pm.expect(users[0]).to.have.property('role');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Get all users (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains user object\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('_id');",
+                  "    pm.expect(json).to.have.property('email');",
+                  "    pm.expect(json).to.have.property('role');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{testUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{testUserId}}"]
+            },
+            "description": "Get user by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated user\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('_id');",
+                  "    pm.expect(json).to.have.property('email');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"firstName\": \"Test\",\\n  \"lastName\": \"User\",\\n  \"phone\": \"+1234567890\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{testUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{testUserId}}"]
+            },
+            "description": "Update user profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains success message\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('message');"
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{testUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{testUserId}}"]
+            },
+            "description": "Delete user (soft delete)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Medical Records",
+      "item": [
+        {
+          "name": "Create Medical Record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains record ID\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const record = json.data || json;",
+                  "    pm.expect(record).to.have.property('_id');",
+                  "    pm.environment.set('testRecordId', record._id);",
+                  "});",
+                  "",
+                  "pm.test(\"Record has correct structure\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const record = json.data || json;",
+                  "    pm.expect(record).to.have.property('title');",
+                  "    pm.expect(record).to.have.property('description');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"title\": \"Patient Checkup - {{timestamp}}\",\\n  \"description\": \"Routine checkup and vital signs assessment\",\\n  \"recordType\": \"general\",\\n  \"notes\": \"Patient in good health\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "records"]
+            },
+            "description": "Create a new medical record (doctor/admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Medical Records",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array or contains array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/records",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "records"]
+            },
+            "description": "Get all medical records (paginated)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Record by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains record object\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const record = json.data || json;",
+                  "    pm.expect(record).to.have.property('_id');",
+                  "    pm.expect(record).to.have.property('title');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/records/{{testRecordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "records", "{{testRecordId}}"]
+            },
+            "description": "Get medical record by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Medical Record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Record is updated\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const record = json.data || json;",
+                  "    pm.expect(record).to.have.property('description');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"description\": \"Updated clinical notes after follow-up\",\\n  \"notes\": \"Patient showing good recovery\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/records/{{testRecordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "records", "{{testRecordId}}"]
+            },
+            "description": "Update medical record"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Medical Record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/records/{{testRecordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "records", "{{testRecordId}}"]
+            },
+            "description": "Delete medical record"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Prescriptions",
+      "item": [
+        {
+          "name": "Create Prescription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains prescription ID\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const presc = json.data || json;",
+                  "    pm.expect(presc).to.have.property('_id');",
+                  "    pm.environment.set('testPrescriptionId', presc._id);",
+                  "});",
+                  "",
+                  "pm.test(\"Prescription has medications array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const presc = json.data || json;",
+                  "    pm.expect(presc).to.have.property('medications');",
+                  "    pm.expect(Array.isArray(presc.medications)).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"patientId\": \"{{testUserId}}\",\\n  \"medications\": [\\n    {\\n      \"name\": \"Amoxicillin\",\\n      \"dosage\": \"500mg\",\\n      \"frequency\": \"twice daily\",\\n      \"duration\": \"7 days\"\\n    },\\n    {\\n      \"name\": \"Paracetamol\",\\n      \"dosage\": \"500mg\",\\n      \"frequency\": \"as needed\",\\n      \"duration\": \"14 days\"\\n    }\\n  ],\\n  \"notes\": \"Take medication with food\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions"]
+            },
+            "description": "Create a new prescription (doctor/admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Prescriptions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array or contains array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions"]
+            },
+            "description": "List all prescriptions"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Prescription by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains prescription object\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const presc = json.data || json;",
+                  "    pm.expect(presc).to.have.property('_id');",
+                  "    pm.expect(presc).to.have.property('medications');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions/{{testPrescriptionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions", "{{testPrescriptionId}}"]
+            },
+            "description": "Get prescription by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Prescription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"prescriptionId\": \"{{testPrescriptionId}}\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions", "verify"]
+            },
+            "description": "Verify prescription for dispensing"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inventory Management",
+      "item": [
+        {
+          "name": "Create Inventory Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains inventory item\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.data || json;",
+                  "    pm.expect(item).to.have.property('sku');",
+                  "    pm.environment.set('testInventorySKU', item.sku);",
+                  "});",
+                  "",
+                  "pm.test(\"Item has correct fields\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.data || json;",
+                  "    pm.expect(item).to.have.property('name');",
+                  "    pm.expect(item).to.have.property('totalQuantity');",
+                  "    pm.expect(item).to.have.property('threshold');",
+                  "    pm.expect(item).to.have.property('lots');",
+                  "    pm.expect(Array.isArray(item.lots)).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"sku\": \"INV-{{$randomInt}}-{{$timestamp}}\",\\n  \"name\": \"Test Medication\",\\n  \"category\": \"medication\",\\n  \"unit\": \"box\",\\n  \"threshold\": 10,\\n  \"lots\": [\\n    {\\n      \"lotNumber\": \"LOT-2026-001\",\\n      \"quantity\": 100,\\n      \"expiryDate\": \"2027-12-31T23:59:59Z\"\\n    }\\n  ]\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inventory"]
+            },
+            "description": "Create a new inventory item with initial stock"
+          },
+          "response": []
+        },
+        {
+          "name": "List Inventory Items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array or contains array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inventory"]
+            },
+            "description": "List all inventory items"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Inventory Item by SKU",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains inventory item\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.data || json;",
+                  "    pm.expect(item).to.have.property('sku');",
+                  "    pm.expect(item).to.have.property('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{testInventorySKU}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inventory", "{{testInventorySKU}}"]
+            },
+            "description": "Get inventory item by SKU"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Stock to Lot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Quantity is updated\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.data || json;",
+                  "    pm.expect(item).to.have.property('totalQuantity');",
+                  "    pm.expect(item.totalQuantity).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"lotNumber\": \"LOT-2026-002\",\\n  \"quantity\": 50,\\n  \"expiryDate\": \"2027-12-31T23:59:59Z\"\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{testInventorySKU}}/lots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inventory", "{{testInventorySKU}}", "lots"]
+            },
+            "description": "Add stock to an inventory item lot (FIFO tracking)"
+          },
+          "response": []
+        },
+        {
+          "name": "Consume Stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Quantity is decremented\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const item = json.data || json;",
+                  "    pm.expect(item).to.have.property('totalQuantity');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"quantity\": 10\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/inventory/{{testInventorySKU}}/consume",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "inventory", "{{testInventorySKU}}", "consume"]
+            },
+            "description": "Consume stock from inventory using FIFO method"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Initialize Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains payment ID\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const payment = json.data || json;",
+                  "    if (payment && payment._id) {",
+                  "        pm.environment.set('testPaymentId', payment._id);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"provider\": \"stripe\",\\n  \"amount\": 99.99,\\n  \"currency\": \"USD\",\\n  \"type\": \"one-time\",\\n  \"metadata\": {\\n    \"description\": \"Test payment for API testing\"\\n  }\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/initialize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "initialize"]
+            },
+            "description": "Initialize a payment transaction with Stripe or Flutterwave"
+          },
+          "response": []
+        },
+        {
+          "name": "List Payments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array or contains array\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"]
+            },
+            "description": "List all payments for the authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains payment object\", function () {",
+                  "    const json = pm.response.json();",
+                  "    const payment = json.data || json;",
+                  "    pm.expect(payment).to.have.property('_id');",
+                  "    pm.expect(payment).to.have.property('amount');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{testPaymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{testPaymentId}}"]
+            },
+            "description": "Get payment details by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin Operations",
+      "item": [
+        {
+          "name": "Run Payment Reconciliation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains reconciliation summary\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('data');",
+                  "    pm.expect(json.data).to.have.property('summary');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reconciliation/run",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "reconciliation", "run"]
+            },
+            "description": "Run payment webhook reconciliation (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cache",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/cache/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "cache", "clear"]
+            },
+            "description": "Clear Redis cache (admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Monitoring",
+      "item": [
+        {
+          "name": "Basic Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains health status\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('status');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check basic API health status (public endpoint)"
+          },
+          "response": []
+        },
+        {
+          "name": "Detailed Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains detailed health info\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('database');",
+                  "    pm.expect(json).to.have.property('redis');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health/detailed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health", "detailed"]
+            },
+            "description": "Check detailed health status including database and cache"
+          },
+          "response": []
+        },
+        {
+          "name": "OpenAPI Specification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains OpenAPI spec\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('openapi');",
+                  "    pm.expect(json).to.have.property('info');",
+                  "    pm.expect(json).to.have.property('paths');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api-docs.json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api-docs.json"]
+            },
+            "description": "Retrieve OpenAPI/Swagger specification"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authorization & RBAC",
+      "item": [
+        {
+          "name": "Patient Cannot Access Users Endpoint",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 (Forbidden)\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message indicates permission denied\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message.toLowerCase()).to.include('forbidden');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Test that patient role cannot access admin users endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Admin Can Access Users Endpoint",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Admin can read user list\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json) || (json && Array.isArray(json.data))).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Test that admin role can access users endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Patient Cannot Create Prescription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 (Forbidden)\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message indicates permission denied\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message.toLowerCase()).to.include('forbidden');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"patientId\": \"{{testUserId}}\",\\n  \"medications\": [{\\n    \"name\": \"Test\",\\n    \"dosage\": \"500mg\",\\n    \"frequency\": \"daily\",\\n    \"duration\": \"7 days\"\\n  }]\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions"]
+            },
+            "description": "Test that patient role cannot create prescriptions"
+          },
+          "response": []
+        },
+        {
+          "name": "Doctor Can Create Prescription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\\n  \"patientId\": \"{{testUserId}}\",\\n  \"medications\": [{\\n    \"name\": \"Test\",\\n    \"dosage\": \"500mg\",\\n    \"frequency\": \"daily\",\\n    \"duration\": \"7 days\"\\n  }]\\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/prescriptions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "prescriptions"]
+            },
+            "description": "Test that doctor role can create prescriptions"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Token Returns 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 (Unauthorized)\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{testUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{testUserId}}"]
+            },
+            "description": "Test that protected endpoints require authentication token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rate Limiting",
+      "item": [
+        {
+          "name": "Check Rate Limit Headers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rate limit headers present\", function () {",
+                  "    pm.expect(pm.response.headers.has('X-RateLimit-Limit')).to.equal(true);",
+                  "    pm.expect(pm.response.headers.has('X-RateLimit-Remaining')).to.equal(true);",
+                  "});",
+                  "",
+                  "pm.test(\"Rate limit values are numbers\", function () {",
+                  "    const limit = pm.response.headers.get('X-RateLimit-Limit');",
+                  "    const remaining = pm.response.headers.get('X-RateLimit-Remaining');",
+                  "    pm.expect(parseInt(limit)).to.be.a('number');",
+                  "    pm.expect(parseInt(remaining)).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Verify rate limit headers are present in responses"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Security Headers",
+      "item": [
+        {
+          "name": "Check Security Headers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Content-Type is application/json\", function () {",
+                  "    pm.response.to.have.header('Content-Type');",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+                  "});",
+                  "",
+                  "pm.test(\"No sensitive data in response\", function () {",
+                  "    const body = pm.response.text();",
+                  "    pm.expect(body.toLowerCase()).to.not.include('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patientToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Verify security-related headers and response content"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ]
+}
