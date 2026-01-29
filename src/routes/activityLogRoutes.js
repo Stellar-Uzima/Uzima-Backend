@@ -12,6 +12,7 @@ import {
 } from '../controllers/activityLogController.js';
 import { auth } from '../middleware/authMiddleware.js';
 import requireRoles from '../middleware/requireRole.js';
+import { cacheMiddleware } from '../middleware/cache.js';
 
 const router = express.Router();
 
@@ -476,6 +477,11 @@ router.get(
   '/admin/activity/top-actions',
   auth,
   requireRoles('admin', 'super_admin'),
+  cacheMiddleware({
+    prefix: 'activity:top-actions',
+    ttl: 600, // 10 minutes
+    queryParams: ['limit', 'startDate', 'endDate', 'userId'],
+  }),
   getTopActions
 );
 

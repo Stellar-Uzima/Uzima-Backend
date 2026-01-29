@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const fileSchema = new mongoose.Schema(
   {
@@ -17,6 +17,14 @@ const fileSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    originalFilename: {
+      type: String,
+      required: true,
+    },
+    sanitizedFilename: {
+      type: String,
+      required: true,
+    },
     contentType: {
       type: String,
       required: true,
@@ -30,6 +38,23 @@ const fileSchema = new mongoose.Schema(
       enum: ['pending', 'scanning', 'clean', 'infected', 'quarantined'],
       default: 'pending',
       index: true,
+    },
+    mimeTypeVerified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    signatureValid: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    signatureValidationResult: {
+      valid: Boolean,
+      detectedType: String,
+      error: String,
+      threat: String,
+      validatedAt: Date,
     },
     scanResult: {
       scannedAt: Date,
@@ -51,5 +76,6 @@ const fileSchema = new mongoose.Schema(
 
 // Index for querying user files
 fileSchema.index({ userId: 1, status: 1, createdAt: -1 });
+fileSchema.index({ mimeTypeVerified: 1, signatureValid: 1 });
 
-module.exports = mongoose.model('File', fileSchema);
+export default mongoose.model('File', fileSchema);
