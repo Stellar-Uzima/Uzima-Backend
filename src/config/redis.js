@@ -1,43 +1,48 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
+import { getConfig } from './index.js';
 
-dotenv.config();
+/**
+ * Redis client configuration using unified config loader.
+ * Config is validated on load, so we can assume redis.url is always present.
+ */
+const createRedisClient = () => {
+  const { redis } = getConfig();
+  
+  return createClient({
+    url: redis.url,
+    socket: {
+      reconnectStrategy: (retries) => {
+        if (retries > 10) {
+          // End reconnecting with built in error
+          return new Error('Redis reconnection attempts exhausted');
+        }
+        // Reconnect after exponential backoff
+        return Math.min(retries * 100, 3000);
+      },
+    },
+  });
+};
 
-// Redis client configuration
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  retry_strategy: (options) => {
-    if (options.error && options.error.code === 'ECONNREFUSED') {
-      // End reconnecting on a specific error and flush all commands with a individual error
-      return new Error('The server refused the connection');
-    }
-    if (options.total_retry_time > 1000 * 60 * 60) {
-      // End reconnecting after a specific timeout and flush all commands with a individual error
-      return new Error('Retry time exhausted');
-    }
-    if (options.attempt > 10) {
-      // End reconnecting with built in error
-      return undefined;
-    }
-    // Reconnect after
-    return Math.min(options.attempt * 100, 3000);
-  }
-});
+const redisClient = createRedisClient();
 
 // Handle Redis connection events
 redisClient.on('error', (err) => {
+  // eslint-disable-next-line no-console
   console.error('Redis Client Error:', err);
 });
 
 redisClient.on('connect', () => {
+  // eslint-disable-next-line no-console
   console.log('Redis Client Connected');
 });
 
 redisClient.on('ready', () => {
+  // eslint-disable-next-line no-console
   console.log('Redis Client Ready');
 });
 
 redisClient.on('end', () => {
+  // eslint-disable-next-line no-console
   console.log('Redis Client Disconnected');
 });
 
@@ -45,11 +50,19 @@ redisClient.on('end', () => {
 const connectRedis = async () => {
   try {
     await redisClient.connect();
+    // eslint-disable-next-line no-console
     console.log('Connected to Redis successfully');
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Failed to connect to Redis:', error);
     // In production, you might want to exit the process
     // process.exit(1);
+  }
+};
+
+export const closeRedis = async () => {
+  if (redisClient) {
+    await redisClient.quit();
   }
 };
 

@@ -1,7 +1,6 @@
 // Articles model for health articles with topic tags
-const mongoose = require('mongoose');
-
-
+import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 const ArticleSchema = new mongoose.Schema({
   title: { type: String, required: true },
   summary: { type: String }, // Short summary for previews
@@ -19,4 +18,7 @@ const ArticleSchema = new mongoose.Schema({
   // For future: language, reading time, etc.
 });
 
-module.exports = mongoose.model('Article', ArticleSchema);
+// Apply soft delete plugin
+ArticleSchema.plugin(softDeletePlugin);
+
+export default mongoose.model('Article', ArticleSchema);

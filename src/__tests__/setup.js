@@ -35,11 +35,10 @@ beforeAll(async () => {
         lookupHeader: 'accept-language',
       },
     });
-});
+}, 60000);
 
 afterAll(async () => {
   await mongoose.disconnect();
-  await replset.stop();
 });
 
 afterEach(async () => {
