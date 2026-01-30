@@ -35,6 +35,7 @@ import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
 import sseRoutes from './routes/sseRoutes.js';
 import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
 import healthzRoutes from './routes/healthRoutes.js';
+import tenantMiddleware from './middleware/tenantMiddleware.js';
 import './config/redis.js';
 
 // Elasticsearch utilities
@@ -121,6 +122,9 @@ app.use(generalRateLimit);
 
 // API version detection middleware
 app.use(versionDetection);
+
+// Multi-tenant context initialization (must be after auth/session)
+app.use(tenantMiddleware);
 
 // Sentry request & tracing handlers
 // app.use(Sentry.Handlers);

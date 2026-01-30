@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import softDeletePlugin from './plugins/softDeletePlugin.js';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const medicationSchema = new mongoose.Schema(
   {
@@ -38,7 +39,7 @@ const prescriptionSchema = new mongoose.Schema(
     prescriptionNumber: {
       type: String,
       required: true,
-      unique: true,
+      unique: false,
       index: true,
     },
     patientName: {
@@ -138,6 +139,8 @@ const prescriptionSchema = new mongoose.Schema(
   }
 );
 
+prescriptionSchema.plugin(tenantPlugin);
+
 // Generate prescription number
 prescriptionSchema.statics.generatePrescriptionNumber = function () {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -177,10 +180,11 @@ prescriptionSchema.methods.isExpired = function () {
 };
 
 // Indexes for efficient querying
-prescriptionSchema.index({ patientId: 1, issuedDate: -1 });
-prescriptionSchema.index({ doctorId: 1, issuedDate: -1 });
-prescriptionSchema.index({ status: 1, expiryDate: 1 });
-prescriptionSchema.index({ signature: 1 });
+prescriptionSchema.index({ tenantId: 1, prescriptionNumber: 1 }, { unique: true });
+prescriptionSchema.index({ tenantId: 1, patientId: 1, issuedDate: -1 });
+prescriptionSchema.index({ tenantId: 1, doctorId: 1, issuedDate: -1 });
+prescriptionSchema.index({ tenantId: 1, status: 1, expiryDate: 1 });
+prescriptionSchema.index({ tenantId: 1, signature: 1 });
 // Text index for search functionality
 prescriptionSchema.index({
   patientName: 'text',

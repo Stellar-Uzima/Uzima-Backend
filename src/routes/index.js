@@ -9,6 +9,7 @@ import adminRoutes from './adminRoutes.js';
 import adminGDPRRoutes from './adminGDPRRoutes.js';
 import backupRoutes from './backupRoutes.js';
 import activityLogRoutes from './activityLogRoutes.js';
+import tenantRoutes from './tenantRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import prescriptionRoutes from './prescriptionRoutes.js';
 import analyticsRoutes from './analyticsRoutes.js';
@@ -58,7 +59,8 @@ router.use('/admin/backups', backupRoutes); // Backup admin routes
 router.use('/payments', paymentRoutes); // Payment routes
 router.use('/payments', paymentWebhookRoutes); // Payment webhook routes
 // router.use('/payments', webhookRoutes); // Payment webhook routes - commented out
-router.use('/activity', activityLogRoutes); // Activity log routes
+router.use('/admin/activity-logs', activityLogRoutes);
+router.use('/admin/tenants', tenantRoutes);
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes

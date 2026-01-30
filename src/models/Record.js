@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import tenantPlugin from './plugins/tenantPlugin.js';
 import encryptedFieldPlugin from './plugins/encryptedField.js';
 
 const fileSchema = new mongoose.Schema({
@@ -49,12 +50,12 @@ const recordSchema = new mongoose.Schema({
   txHash: {
     type: String,
     required: true,
-    unique: true,
+    unique: false,
   },
   clientUUID: {
     type: String,
     required: true,
-    unique: true,
+    unique: false,
   },
   syncTimestamp: {
     type: Date,
@@ -94,15 +95,15 @@ recordSchema.pre('save', function (next) {
   next();
 });
 
-// Create compound index for clientUUID and syncTimestamp
-recordSchema.index({ clientUUID: 1, syncTimestamp: 1 }, { unique: true });
+recordSchema.index({ tenantId: 1, clientUUID: 1, syncTimestamp: 1 }, { unique: true });
 // Index for deletedAt
-recordSchema.index({ deletedAt: 1 });
+recordSchema.plugin(tenantPlugin);
+recordSchema.index({ tenantId: 1, deletedAt: 1 });
 // Compound index for createdBy and createdAt for efficient queries
-recordSchema.index({ createdBy: 1, createdAt: -1 });
+recordSchema.index({ tenantId: 1, createdBy: 1, createdAt: -1 });
 // Index for common query patterns
-recordSchema.index({ patientName: 1, createdAt: -1 });
-recordSchema.index({ txHash: 1 }, { unique: true });
+recordSchema.index({ tenantId: 1, patientName: 1, createdAt: -1 });
+recordSchema.index({ tenantId: 1, txHash: 1 }, { unique: true });
 // Text index for search functionality on diagnosis and treatment
 recordSchema.index({
   patientName: 'text',

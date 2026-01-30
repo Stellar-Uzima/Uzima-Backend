@@ -67,12 +67,6 @@
     "redis": "^5.8.2",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
-
-    "swagger-ui-express": "^5.0.1"
-    "swagger-ui-express": "^5.0.1"
-    "axios": "^1.7.7",
-    "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^5.0.0"
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
@@ -93,17 +87,9 @@
     "supertest": "^7.1.1",
     "newman": "^6.1.0",
     "newman-reporter-html": "^1.0.5",
-    "postman-collection": "^4.6.0"
+    "postman-collection": "^4.5.0"
   },
   "jest": {
-    "transform": {
-      "^.+\\.js$": [
-        "babel-jest",
-        {
-          "configFile": "./babel.config.json"
-        }
-      ]
-    },
     "testEnvironment": "node",
     "setupFilesAfterEnv": [
       "./src/__tests__/setup.js"
