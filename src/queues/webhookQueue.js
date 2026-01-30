@@ -15,6 +15,12 @@ function parseRedisUrl(urlString) {
 }
 
 const connection = parseRedisUrl(process.env.REDIS_URL);
+// QueueScheduler removed in BullMQ v5
+// const scheduler = new QueueScheduler(queueName, { connection });
+import { connection } from '../config/bullmq.js';
+
+const queueName = 'webhook-queue';
+
 const webhookQueue = new Queue(queueName, { connection });
 
 export async function enqueueWebhook(data) {
@@ -27,7 +33,14 @@ export async function enqueueWebhook(data) {
 }
 
 export async function getQueueStats() {
-  const counts = await webhookQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+  const counts = await webhookQueue.getJobCounts(
+    'waiting',
+    'active',
+    'completed',
+    'failed',
+    'delayed'
+  );
+
   return {
     waiting: counts.waiting || 0,
     active: counts.active || 0,
