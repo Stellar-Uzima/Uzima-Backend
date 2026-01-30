@@ -42,8 +42,8 @@ export function validateEnv() {
     }
   });
 
-  if (process.env.DATABASE_URL && !isValidUrl(process.env.DATABASE_URL)) {
-    errors.push('DATABASE_URL is not a valid URL');
+  if (process.env.MONGO_URI && !isValidUrl(process.env.MONGO_URI)) {
+    errors.push('MONGO_URI is not a valid URL');
   }
 
   if (process.env.PORT && !isValidPort(process.env.PORT)) {

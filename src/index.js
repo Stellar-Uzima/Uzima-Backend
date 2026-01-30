@@ -1,8 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import compression from './middleware/compression.js';
+import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { corsMiddleware } from './config/cors.js';
 import morgan from 'morgan';
+import cspNonce from './middleware/cspNonce.js';
+import { getCspDirectives } from './config/csp.js';
+import cspReportRoutes from './routes/cspReportRoutes.js';
 import swaggerUi from 'swagger-ui-express';
 import i18nextMiddleware from 'i18next-http-middleware';
 import * as Sentry from '@sentry/node';
@@ -89,8 +94,17 @@ if (config.monitoring.sentryDsn) {
 app.use(i18nextMiddleware.handle(i18next));
 
 // Middleware
-
+app.use(cspNonce);
+app.use((req, res, next) => {
+  const isSwagger = req.path.startsWith('/api-docs');
+  helmet({
+    contentSecurityPolicy: isSwagger ? false : {
+      directives: getCspDirectives(res.locals.cspNonce),
+    },
+  })(req, res, next);
+});
 app.use(corsMiddleware);
+app.use(compression);
 app.use(morgan('dev'));
 app.use(express.json({
   verify: (req, res, buf) => {
@@ -149,6 +163,8 @@ app.get('/api-docs.json', (req, res) => {
   res.send(specs);
 });
 
+// Routes
+app.use('/api', cspReportRoutes);
 // Version info endpoint
 app.use(versionRoutes);
 
