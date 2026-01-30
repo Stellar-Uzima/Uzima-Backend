@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const auditLogSchema = new mongoose.Schema(
   {
@@ -49,10 +50,12 @@ const auditLogSchema = new mongoose.Schema(
   }
 );
 
+auditLogSchema.plugin(tenantPlugin);
+
 // Compound indexes for efficient queries
-auditLogSchema.index({ userId: 1, timestamp: -1 });
-auditLogSchema.index({ resourceType: 1, resourceId: 1, timestamp: -1 });
-auditLogSchema.index({ action: 1, timestamp: -1 });
+auditLogSchema.index({ tenantId: 1, userId: 1, timestamp: -1 });
+auditLogSchema.index({ tenantId: 1, resourceType: 1, resourceId: 1, timestamp: -1 });
+auditLogSchema.index({ tenantId: 1, action: 1, timestamp: -1 });
 
 // Prevent updates and deletes - immutable logs
 auditLogSchema.pre('findOneAndUpdate', function () {

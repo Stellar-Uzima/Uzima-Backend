@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const notificationSchema = new mongoose.Schema({
   type: {
@@ -75,9 +76,9 @@ notificationSchema.pre('save', function (next) {
 });
 
 // Index for efficient queries
-notificationSchema.index({ status: 1, createdAt: -1 });
-notificationSchema.index({ 'recipient.email': 1 });
-notificationSchema.index({ 'recipient.userId': 1 });
-notificationSchema.index({ type: 1 });
+notificationSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
+notificationSchema.index({ tenantId: 1, 'recipient.email': 1 });
+notificationSchema.index({ tenantId: 1, 'recipient.userId': 1 });
+notificationSchema.index({ tenantId: 1, type: 1 });
 
 export default mongoose.model('Notification', notificationSchema);

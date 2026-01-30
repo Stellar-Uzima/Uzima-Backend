@@ -9,6 +9,7 @@ export const generateAccessToken = (user, twoFactorVerified = false) => {
       id: user._id,
       username: user.username,
       role: user.role,
+      tenantId: user.tenantId,
       twoFactorEnabled: user.twoFactor?.enabled || false,
       twoFactorVerified,
     },

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import softDeletePlugin from './plugins/softDeletePlugin.js';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -12,7 +13,7 @@ const paymentSchema = new mongoose.Schema(
     reference: {
       type: String,
       required: true,
-      unique: true,
+      unique: false,
       index: true,
     },
     transactionId: {
@@ -43,8 +44,11 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-paymentSchema.index({ provider: 1, transactionId: 1 }, { unique: true });
-paymentSchema.index({ user: 1, createdAt: -1 }); // For querying payments by user
+paymentSchema.plugin(tenantPlugin);
+
+paymentSchema.index({ tenantId: 1, reference: 1 }, { unique: true });
+paymentSchema.index({ tenantId: 1, provider: 1, transactionId: 1 }, { unique: true });
+paymentSchema.index({ tenantId: 1, user: 1, createdAt: -1 }); // For querying payments by user
 
 // Apply soft delete plugin
 paymentSchema.plugin(softDeletePlugin);

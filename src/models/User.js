@@ -2,6 +2,7 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import encryptedFieldPlugin from './plugins/encryptedField.js';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const userSchema = new mongoose.Schema({
   // User preferences for notifications, UI, language, etc.
@@ -44,7 +45,7 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    unique: true,
+    unique: false,
     trim: true,
   },
   email: {
@@ -56,11 +57,11 @@ const userSchema = new mongoose.Schema({
   },
   email_hash: {
     type: String,
-    unique: true,
+    unique: false,
   },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       // Password is required unless user has OAuth accounts
       return !this.oauthAccounts || Object.keys(this.oauthAccounts).length === 0;
     },
@@ -156,10 +157,9 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-userSchema.index({ email: 1, deletedAt: 1 });
-userSchema.index({ username: 1, deletedAt: 1 });
-userSchema.index({ role: 1, createdAt: -1 });
-userSchema.index({ createdAt: -1 });
+userSchema.plugin(tenantPlugin);
+
+
 
 // Static method for registration trends
 userSchema.statics.getRegistrationTrends = async function (startDate, endDate) {
@@ -211,11 +211,11 @@ userSchema.statics.getRoleDistribution = async function () {
 };
 
 userSchema.plugin(encryptedFieldPlugin, { fields: ['email'] });
-// Compound indexes for optimal query performance
-userSchema.index({ email: 1, deletedAt: 1 });
-userSchema.index({ username: 1, deletedAt: 1 });
-userSchema.index({ role: 1, createdAt: -1 });
-userSchema.index({ createdAt: -1 });
+userSchema.index({ tenantId: 1, email: 1, deletedAt: 1 });
+userSchema.index({ tenantId: 1, username: 1, deletedAt: 1 }, { unique: true });
+userSchema.index({ tenantId: 1, email_hash: 1 }, { unique: true });
+userSchema.index({ tenantId: 1, role: 1, createdAt: -1 });
+userSchema.index({ tenantId: 1, createdAt: -1 });
 
 
 userSchema.methods.createResetPasswordToken = function () {
@@ -228,34 +228,34 @@ userSchema.methods.createResetPasswordToken = function () {
 };
 
 // OAuth helper methods
-userSchema.methods.linkOAuthAccount = function(provider, profileData) {
+userSchema.methods.linkOAuthAccount = function (provider, profileData) {
   if (!this.oauthAccounts) {
     this.oauthAccounts = {};
   }
-  
+
   this.oauthAccounts[provider] = {
     ...profileData,
     linkedAt: new Date()
   };
-  
+
   return this.save();
 };
 
-userSchema.methods.unlinkOAuthAccount = function(provider) {
+userSchema.methods.unlinkOAuthAccount = function (provider) {
   if (this.oauthAccounts && this.oauthAccounts[provider]) {
     delete this.oauthAccounts[provider];
-    
+
     // If user has no password and no other OAuth accounts, they need to set a password
     if (!this.password && Object.keys(this.oauthAccounts).length === 0) {
       throw new Error('Cannot unlink last authentication method. Please set a password first.');
     }
-    
+
     return this.save();
   }
   throw new Error(`OAuth account for ${provider} not found`);
 };
 
-userSchema.methods.getOAuthProviders = function() {
+userSchema.methods.getOAuthProviders = function () {
   const providers = [];
   if (this.oauthAccounts) {
     Object.keys(this.oauthAccounts).forEach(provider => {
@@ -272,23 +272,23 @@ userSchema.methods.getOAuthProviders = function() {
   return providers;
 };
 
-userSchema.methods.hasOAuthProvider = function(provider) {
+userSchema.methods.hasOAuthProvider = function (provider) {
   return this.oauthAccounts && this.oauthAccounts[provider] && this.oauthAccounts[provider].id;
 };
 
-userSchema.methods.isOAuthUser = function() {
+userSchema.methods.isOAuthUser = function () {
   return this.oauthAccounts && Object.keys(this.oauthAccounts).length > 0;
 };
 
 // Static method to find user by OAuth provider and ID
-userSchema.statics.findByOAuthProvider = function(provider, id) {
+userSchema.statics.findByOAuthProvider = function (provider, id) {
   const query = {};
   query[`oauthAccounts.${provider}.id`] = id;
   return this.findOne(query);
 };
 
 // Static method to find user by OAuth email
-userSchema.statics.findByOAuthEmail = function(provider, email) {
+userSchema.statics.findByOAuthEmail = function (provider, email) {
   const query = {};
   query[`oauthAccounts.${provider}.email`] = email;
   return this.findOne(query);

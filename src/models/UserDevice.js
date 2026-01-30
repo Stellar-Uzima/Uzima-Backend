@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const userDeviceSchema = new mongoose.Schema(
   {
@@ -88,10 +89,12 @@ const userDeviceSchema = new mongoose.Schema(
   }
 );
 
+userDeviceSchema.plugin(tenantPlugin);
+
 // Compound indexes for efficient querying
-userDeviceSchema.index({ userId: 1, fingerprintHash: 1 }, { unique: true });
-userDeviceSchema.index({ userId: 1, isActive: 1, lastSeenAt: -1 });
-userDeviceSchema.index({ fingerprintHash: 1 });
+userDeviceSchema.index({ tenantId: 1, userId: 1, fingerprintHash: 1 }, { unique: true });
+userDeviceSchema.index({ tenantId: 1, userId: 1, isActive: 1, lastSeenAt: -1 });
+userDeviceSchema.index({ tenantId: 1, fingerprintHash: 1 });
 
 // Virtual for device display name
 userDeviceSchema.virtual('displayName').get(function () {

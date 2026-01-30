@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import encryptedFieldPlugin from './plugins/encryptedField.js';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const patientSchema = new mongoose.Schema({
   firstName: String,
@@ -9,7 +10,11 @@ const patientSchema = new mongoose.Schema({
   address: String,
 });
 
+patientSchema.plugin(tenantPlugin);
+
 patientSchema.plugin(encryptedFieldPlugin, { fields: ['email', 'phone', 'address'] });
+
+patientSchema.index({ tenantId: 1 });
 
 // Full-text index for patient search
 patientSchema.index({

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import tenantPlugin from './plugins/tenantPlugin.js';
 
 const activityLogSchema = new mongoose.Schema({
   // User who performed the action
@@ -93,7 +94,7 @@ const activityLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
     validate: {
-      validator: function(value) {
+      validator: function (value) {
         // Ensure metadata is an object and not too large
         return typeof value === 'object' && JSON.stringify(value).length <= 10000;
       },
@@ -183,29 +184,31 @@ const activityLogSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
+activityLogSchema.plugin(tenantPlugin);
+
 // Compound indexes for efficient querying
-activityLogSchema.index({ userId: 1, timestamp: -1 });
-activityLogSchema.index({ action: 1, timestamp: -1 });
-activityLogSchema.index({ userId: 1, action: 1, timestamp: -1 });
-activityLogSchema.index({ resourceType: 1, resourceId: 1, timestamp: -1 });
-activityLogSchema.index({ result: 1, timestamp: -1 });
-activityLogSchema.index({ sessionId: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, userId: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, action: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, userId: 1, action: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, resourceType: 1, resourceId: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, result: 1, timestamp: -1 });
+activityLogSchema.index({ tenantId: 1, sessionId: 1, timestamp: -1 });
 
 // TTL index for automatic cleanup
 activityLogSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Virtual for age calculation
-activityLogSchema.virtual('age').get(function() {
+activityLogSchema.virtual('age').get(function () {
   return Date.now() - this.timestamp;
 });
 
 // Virtual for formatted timestamp
-activityLogSchema.virtual('formattedTimestamp').get(function() {
+activityLogSchema.virtual('formattedTimestamp').get(function () {
   return this.timestamp.toISOString();
 });
 
 // Static method to log an activity
-activityLogSchema.statics.logActivity = async function(activityData) {
+activityLogSchema.statics.logActivity = async function (activityData) {
   try {
     const log = new this(activityData);
     await log.save();
@@ -218,7 +221,7 @@ activityLogSchema.statics.logActivity = async function(activityData) {
 };
 
 // Static method to get user activity summary
-activityLogSchema.statics.getUserActivitySummary = async function(userId, days = 30) {
+activityLogSchema.statics.getUserActivitySummary = async function (userId, days = 30) {
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   return await this.aggregate([
@@ -250,7 +253,7 @@ activityLogSchema.statics.getUserActivitySummary = async function(userId, days =
 
 
 // Static method to get detailed action trends for analytics
-activityLogSchema.statics.getActionTrendsOverTime = async function(startDate, endDate) {
+activityLogSchema.statics.getActionTrendsOverTime = async function (startDate, endDate) {
   return await this.aggregate([
     {
       $match: {
@@ -322,7 +325,7 @@ activityLogSchema.statics.getActionTrendsOverTime = async function(startDate, en
 };
 
 // Static method for Performance Analytics
-activityLogSchema.statics.getPerformanceMetrics = async function(startDate, endDate) {
+activityLogSchema.statics.getPerformanceMetrics = async function (startDate, endDate) {
   return await this.aggregate([
     {
       $match: {
@@ -375,7 +378,7 @@ activityLogSchema.statics.getPerformanceMetrics = async function(startDate, endD
 };
 
 // Static method for Error Analytics
-activityLogSchema.statics.getErrorAnalytics = async function(startDate, endDate) {
+activityLogSchema.statics.getErrorAnalytics = async function (startDate, endDate) {
   return await this.aggregate([
     {
       $match: {
@@ -430,7 +433,7 @@ activityLogSchema.statics.getErrorAnalytics = async function(startDate, endDate)
 };
 
 // Static method to get activity statistics
-activityLogSchema.statics.getActivityStats = async function(filters = {}) {
+activityLogSchema.statics.getActivityStats = async function (filters = {}) {
   const matchStage = {};
 
   if (filters.startDate) {
@@ -477,14 +480,14 @@ activityLogSchema.statics.getActivityStats = async function(filters = {}) {
         failureCount: 1,
         successRate: {
           $cond: [
-             { $eq: ['$totalActivities', 0] },
-             0,
-             {
-               $multiply: [
-                 { $divide: ['$successCount', '$totalActivities'] },
-                 100
-               ]
-             }
+            { $eq: ['$totalActivities', 0] },
+            0,
+            {
+              $multiply: [
+                { $divide: ['$successCount', '$totalActivities'] },
+                100
+              ]
+            }
           ]
         },
         avgDuration: { $round: ['$avgDuration', 2] }
@@ -495,7 +498,7 @@ activityLogSchema.statics.getActivityStats = async function(filters = {}) {
 
 
 // Instance method to add additional metadata
-activityLogSchema.methods.addMetadata = function(key, value) {
+activityLogSchema.methods.addMetadata = function (key, value) {
   if (!this.metadata) {
     this.metadata = {};
   }
@@ -504,7 +507,7 @@ activityLogSchema.methods.addMetadata = function(key, value) {
 };
 
 // Pre-save middleware to validate and sanitize data
-activityLogSchema.pre('save', function(next) {
+activityLogSchema.pre('save', function (next) {
   // Ensure metadata doesn't contain sensitive information
   if (this.metadata) {
     // Remove any potential password fields

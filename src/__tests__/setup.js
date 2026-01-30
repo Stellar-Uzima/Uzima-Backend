@@ -10,6 +10,10 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let replset;
 
+// Set encryption keys for testing
+process.env.ENCRYPTION_KEY_CURRENT_VERSION = 'v1';
+process.env.ENCRYPTION_KEY_SECRET_v1 = '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
+
 beforeAll(async () => {
   // Setup MongoDB as a replica set to support transactions
   replset = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
@@ -39,7 +43,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await mongoose.disconnect();
-});
+}, 60000);
 
 afterEach(async () => {
   const collections = mongoose.connection.collections;
@@ -47,4 +51,4 @@ afterEach(async () => {
     const collection = collections[key];
     await collection.deleteMany({});
   }
-});
+}, 60000);
