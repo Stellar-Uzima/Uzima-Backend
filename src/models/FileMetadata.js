@@ -1,4 +1,5 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const fileMetadataSchema = new mongoose.Schema(
   {
@@ -78,4 +79,7 @@ fileMetadataSchema.index({ storageType: 1, storagePath: 1 });
 // Index for efficient querying by tags
 fileMetadataSchema.index({ tags: 1 });
 
-module.exports = mongoose.model('FileMetadata', fileMetadataSchema);
+// Apply soft delete plugin
+fileMetadataSchema.plugin(softDeletePlugin);
+
+export default mongoose.model('FileMetadata', fileMetadataSchema);

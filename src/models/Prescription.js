@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const medicationSchema = new mongoose.Schema(
   {
@@ -187,5 +188,8 @@ prescriptionSchema.index({
   'medications.name': 'text',
   instructions: 'text',
 });
+
+// Apply soft delete plugin
+prescriptionSchema.plugin(softDeletePlugin);
 
 export default mongoose.model('Prescription', prescriptionSchema);

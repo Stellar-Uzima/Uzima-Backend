@@ -12,7 +12,14 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "security:check": "npm audit --audit-level=critical"
+    "security:check": "npm audit --audit-level=critical",
+    "test:api": "npm run pretest:api && newman run postman/Uzima-API.postman_collection.json -e postman/environments/Development.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results.html --bail",
+    "test:api:dev": "npm run pretest:api && newman run postman/Uzima-API.postman_collection.json -e postman/environments/Development.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results-dev.html --bail",
+    "test:api:staging": "newman run postman/Uzima-API.postman_collection.json -e postman/environments/Staging.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results-staging.html --bail",
+    "test:api:prod": "newman run postman/Uzima-API.postman_collection.json -e postman/environments/Production.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results-prod.html --bail --folder 'Smoke Tests'",
+    "test:api:all": "npm run test:api:dev && npm run test:api:staging && npm run test:api:prod",
+    "pretest:api": "node scripts/api-test-setup.js",
+    "posttest:api": "node scripts/parse-newman-report.js || true"
   },
   "repository": {
     "type": "git",
@@ -40,6 +47,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "express-session": "^1.19.0",
+    "handlebars": "^4.7.8",
     "graphql": "^16.11.0",
     "graphql-tag": "^2.12.6",
     "helmet": "^8.1.0",
@@ -49,6 +57,7 @@
     "ipfs-http-client": "^60.0.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
+    "juice": "^11.0.0",
     "mongoose": "^8.18.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.0",
@@ -65,6 +74,8 @@
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
   },
@@ -81,7 +92,10 @@
     "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.0.2",
     "prettier": "^3.2.4",
-    "supertest": "^7.1.1"
+    "supertest": "^7.1.1",
+    "newman": "^6.1.0",
+    "newman-reporter-html": "^1.0.5",
+    "postman-collection": "^4.5.0"
   },
   "jest": {
     "transform": {

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from './middleware/compression.js';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { corsMiddleware } from './config/cors.js';
@@ -37,28 +38,34 @@ import versionRoutes from './routes/versionRoutes.js';
 import { versionDetection } from './middleware/apiVersion.js';
 import { setupGraphQL } from './graph/index.js';
 import stellarRoutes from './routes/stellarRoutes.js';
-import sseRoutes from './routes/sseRoutes.js';
 import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
-import eventManager from './services/eventManager.js';
-import { autoRunMigrations } from './services/autoRunMigrations.js';
-import { initializeElasticsearch } from './config/elasticsearch.js';
-import { createIndex, indexExists } from './services/elasticsearchService.js';
+import sseRoutes from './routes/sseRoutes.js';
+import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
+import healthzRoutes from './routes/healthRoutes.js';
 import './config/redis.js';
 
+// Elasticsearch utilities
+import { initializeElasticsearch, indexExists, createIndex } from './services/elasticsearchService.js';
+
 // Make eventManager globally available for performance monitoring
+import { eventManager } from './utils/eventEmitter.js';
 global.eventManager = eventManager;
 import './cron/reminderJob.js';
 import './cron/outboxJob.js';
 import './cron/reconciliationJob.js';
+import './cron/exportCleanupJob.js';
 // Backup job disabled - requires S3 configuration
 // import './cron/backupJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';
+import logger, { logInfo, logWarn, logError } from './utils/logger.js';
+
 import session from 'express-session';
 import passport from './config/passport.js';
 import { sessionConfig, validateOAuthConfig } from './config/oauth.js';
 import { getConfig, initConfig } from './config/index.js';
+
 
 // Initialize and validate configuration (must be first)
 initConfig();
@@ -101,8 +108,13 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 app.use(corsMiddleware);
+app.use(compression);
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationIdMiddleware);
 
@@ -175,12 +187,14 @@ app.use('/appointments', appointmentsRouter);
 app.use('/stellar', stellarRoutes);
 app.use('/events', sseRoutes);
 
+// Incoming Payment Webhooks
+app.use('/webhooks', paymentWebhookRoutes);
+
 // Load reminder cron job if available (guard missing dependencies)
 try {
   await import('./cron/reminderJob.js');
 } catch (e) {
-  // eslint-disable-next-line no-console
-  console.warn('Reminder job not loaded:', e.message);
+  logWarn('Reminder job not loaded', { error: e.message });
 }
 
 // GraphQL Setup
@@ -189,17 +203,18 @@ await setupGraphQL(app);
 // Initialize GDPR background jobs
 try {
   schedulePermanentDeletionJob();
-  // eslint-disable-next-line no-console
-  console.log('GDPR background jobs initialized');
+  logInfo('GDPR background jobs initialized');
 } catch (e) {
-  // eslint-disable-next-line no-console
-  console.warn('GDPR jobs not loaded:', e.message);
+  logWarn('GDPR jobs not loaded', { error: e.message });
 }
 
 // Debug route for Sentry testing
 app.get('/debug-sentry', (req, res) => {
   throw new Error('Sentry test error');
 });
+
+// Health check endpoints (not rate-limited, used by orchestrators)
+app.use('/healthz', healthzRoutes);
 
 // 404 handler for undefined routes (must be before error handler)
 app.use((req, res, next) => {
@@ -212,10 +227,9 @@ app.use(errorHandler);
 // Server bootstrap
 const startServer = async () => {
   try {
-    // eslint-disable-next-line no-console
-    console.log('Checking Stellar network connectivity...');
+    logInfo('Checking Stellar network connectivity...');
     // const stellarStatus = await getNetworkStatus();
-    // console.log(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
+    // logger.info(`Stellar ${stellarStatus.networkName} reachable - ledger #${stellarStatus.currentLedger}`);
 
     // Auto-run pending migrations (if enabled)
     try {
@@ -270,13 +284,11 @@ const startServer = async () => {
       const wsModule = await import('./wsServer.js');
       if (wsModule.initWebSocket) {
         wsModule.initWebSocket(httpServer);
-        // eslint-disable-next-line no-console
-        console.log('WebSocket server initialized');
+        logInfo('WebSocket server initialized');
       }
     } catch (e) {
       // WebSocket server not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('WebSocket server not available, continuing without it');
+      logInfo('WebSocket server not available, continuing without it');
     }
 
     // Initialize realtime service if available
@@ -284,25 +296,24 @@ const startServer = async () => {
       const realtimeModule = await import('./services/realtime.service.js');
       if (realtimeModule.initRealtime) {
         realtimeModule.initRealtime(httpServer);
-        // eslint-disable-next-line no-console
-        console.log('Realtime service initialized');
+        logInfo('Realtime service initialized');
       }
     } catch (e) {
       // Realtime service not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('Realtime service not available, continuing without it');
+      logInfo('Realtime service not available, continuing without it');
     }
 
     // Initialize email worker if available
     try {
+      await import('./workers/emailWorker.js');
+      logInfo('Email worker initialized');
       const emailWorker = await import('./workers/emailWorker.js');
       if (emailWorker?.startWorker) await emailWorker.startWorker();
       // eslint-disable-next-line no-console
       console.log('Email worker initialized');
     } catch (e) {
       // Email worker not available - continue without it
-      // eslint-disable-next-line no-console
-      console.log('Email worker not available, continuing without it');
+      logInfo('Email worker not available, continuing without it');
     }
 
     // Initialize webhook worker if available
@@ -312,31 +323,26 @@ const startServer = async () => {
       // eslint-disable-next-line no-console
       console.log('Webhook worker initialized');
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.log('Webhook worker not available, continuing without it');
+      logInfo('Webhook worker not available, continuing without it');
     }
 
     httpServer.listen(port, () => {
-      // eslint-disable-next-line no-console
-      console.log(`Server is running on http://localhost:${port}`);
-      // eslint-disable-next-line no-console
-      console.log(`API Documentation available at http://localhost:${port}/api-docs`);
-      // eslint-disable-next-line no-console
-      console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
+      logInfo(`Server is running on http://localhost:${port}`);
+      logInfo(`API Documentation available at http://localhost:${port}/api-docs`);
+      logInfo(`GraphQL Playground available at http://localhost:${port}/graphql`);
     });
 
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('\x1b[31m%s\x1b[0m', 'FATAL: Unable to start server');
-    // eslint-disable-next-line no-console
-    console.error(error.message);
+    logError('FATAL: Unable to start server', error);
     process.exit(1);
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

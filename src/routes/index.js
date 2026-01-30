@@ -18,9 +18,9 @@ import permissionRoutes from './permissionRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import paymentWebhookRoutes from './paymentWebhookRoutes.js';
 import securityRoutes from './securityRoutes.js';
-
-// import webhookRoutes from './webhookRoutes.js'; // Commented out - file doesn't exist
+import exportRoutes from './exportRoutes.js';
 import anonymizationRoutes from './anonymizationRoutes.js';
+import templateRoutes from './templateRoutes.js';
 
 // Optional webhook routes (may not exist)
 let webhookRoutes;
@@ -66,5 +66,7 @@ router.use('/security', securityRoutes); // Security routes (devices, login hist
 router.use('/health', healthRoutes); // Health check routes
 router.use('/jobs', jobRoutes);
 router.use('/anonymize', anonymizationRoutes); // Anonymization routes
+router.use('/exports', exportRoutes); // Export routes
+router.use('/templates', templateRoutes); // Email template preview routes
 
 export default router;

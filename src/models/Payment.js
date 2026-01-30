@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -44,6 +45,9 @@ const paymentSchema = new mongoose.Schema(
 
 paymentSchema.index({ provider: 1, transactionId: 1 }, { unique: true });
 paymentSchema.index({ user: 1, createdAt: -1 }); // For querying payments by user
+
+// Apply soft delete plugin
+paymentSchema.plugin(softDeletePlugin);
 
 const Payment = mongoose.model('Payment', paymentSchema);
 

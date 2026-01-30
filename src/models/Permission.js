@@ -1,5 +1,6 @@
 /* eslint-disable prettier/prettier */
 import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const permissionSchema = new mongoose.Schema(
   {
@@ -63,6 +64,9 @@ permissionSchema.statics.findByRole = function (role) {
 permissionSchema.statics.findByResourceAction = function (resource, action) {
   return this.findOne({ resource, action });
 };
+
+// Apply soft delete plugin
+permissionSchema.plugin(softDeletePlugin);
 
 const Permission = mongoose.model('Permission', permissionSchema);
 

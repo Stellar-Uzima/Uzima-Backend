@@ -204,6 +204,77 @@ const envSchema = Joi.object({
     .port()
     .default(6379)
     .description('Redis port (alternative to REDIS_URL)'),
+  
+  // MongoDB Connection Pool Configuration
+  MONGO_MAX_POOL_SIZE: Joi.number()
+    .integer()
+    .min(5)
+    .max(100)
+    .default(25)
+    .description('MongoDB max connection pool size'),
+  
+  MONGO_MIN_POOL_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .max(50)
+    .default(5)
+    .description('MongoDB min connection pool size'),
+  
+  MONGO_MAX_IDLE_TIME_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(30000)
+    .description('MongoDB max idle time before closing connection (ms)'),
+  
+  MONGO_CONNECT_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(60000)
+    .default(10000)
+    .description('MongoDB connection timeout (ms)'),
+  
+  MONGO_SOCKET_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(120000)
+    .default(30000)
+    .description('MongoDB socket timeout for operations (ms)'),
+  
+  MONGO_WAIT_QUEUE_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(60000)
+    .default(10000)
+    .description('MongoDB wait queue timeout (ms)'),
+  
+  MONGO_SERVER_SELECTION_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(120000)
+    .default(30000)
+    .description('MongoDB server selection timeout (ms)'),
+  
+  MONGO_RETRY_WRITES: Joi.boolean()
+    .default(true)
+    .description('Enable automatic retry of writes on transient errors'),
+  
+  MONGO_RETRY_READS: Joi.boolean()
+    .default(true)
+    .description('Enable automatic retry of reads on transient errors'),
+  
+  MONGO_CONNECTION_RETRY_MAX_ATTEMPTS: Joi.number()
+    .integer()
+    .min(1)
+    .max(10)
+    .default(3)
+    .description('Max attempts to connect to MongoDB on startup'),
+  
+  MONGO_CONNECTION_RETRY_INITIAL_DELAY_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(10000)
+    .default(1000)
+    .description('Initial delay for connection retry backoff (ms)'),
 })
   .unknown(true) // Allow other env vars
   .options({ abortEarly: false }); // Collect all errors
@@ -267,7 +338,22 @@ const validateAndBuildConfig = () => {
     // Database configuration
     db: {
       uri: validatedEnv.MONGO_URI,
-      options: envConfig.db.options,
+      options: {
+        ...envConfig.db.options,
+        maxPoolSize: validatedEnv.MONGO_MAX_POOL_SIZE,
+        minPoolSize: validatedEnv.MONGO_MIN_POOL_SIZE,
+        maxIdleTimeMS: validatedEnv.MONGO_MAX_IDLE_TIME_MS,
+        waitQueueTimeoutMS: validatedEnv.MONGO_WAIT_QUEUE_TIMEOUT_MS,
+        connectTimeoutMS: validatedEnv.MONGO_CONNECT_TIMEOUT_MS,
+        socketTimeoutMS: validatedEnv.MONGO_SOCKET_TIMEOUT_MS,
+        serverSelectionTimeoutMS: validatedEnv.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+        retryWrites: validatedEnv.MONGO_RETRY_WRITES,
+        retryReads: validatedEnv.MONGO_RETRY_READS,
+      },
+      pool: {
+        connectionRetryMaxAttempts: validatedEnv.MONGO_CONNECTION_RETRY_MAX_ATTEMPTS,
+        connectionRetryInitialDelay: validatedEnv.MONGO_CONNECTION_RETRY_INITIAL_DELAY_MS,
+      },
     },
 
     // JWT configuration
