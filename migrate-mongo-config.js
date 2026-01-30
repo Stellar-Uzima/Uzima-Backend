@@ -10,12 +10,12 @@ const config = {
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-    }
+    },
   },
   migrationsDir: 'src/migrations',
   changelogCollectionName: 'changelog',
   migrationFileExtension: '.cjs',
-  moduleSystem: 'commonjs'
+  moduleSystem: 'commonjs',
 };
 
 export default config;

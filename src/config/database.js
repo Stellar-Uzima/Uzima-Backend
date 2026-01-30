@@ -11,7 +11,7 @@ import { initializePoolMonitor } from '../utils/mongoPoolMonitor.js';
  */
 const connectDB = async () => {
   const { db } = getConfig();
-  
+
   try {
     // Use retry logic with exponential backoff
     await connectWithRetry(

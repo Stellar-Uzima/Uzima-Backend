@@ -24,7 +24,9 @@ import { apiRequestResponseLogger } from './utils/logger.js';
 import { NotFoundError } from './utils/errors.js';
 import { generalRateLimit } from './middleware/rateLimiter.js';
 import responseTimeMonitor from './middleware/responseTimeMonitor.js';
-import apiMetricsMiddleware, { metricsTaggingMiddleware } from './middleware/apiMetricsMiddleware.js';
+import apiMetricsMiddleware, {
+  metricsTaggingMiddleware,
+} from './middleware/apiMetricsMiddleware.js';
 import routes from './routes/index.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
@@ -98,9 +100,11 @@ app.use(cspNonce);
 app.use((req, res, next) => {
   const isSwagger = req.path.startsWith('/api-docs');
   helmet({
-    contentSecurityPolicy: isSwagger ? false : {
-      directives: getCspDirectives(res.locals.cspNonce),
-    },
+    contentSecurityPolicy: isSwagger
+      ? false
+      : {
+          directives: getCspDirectives(res.locals.cspNonce),
+        },
   })(req, res, next);
 });
 app.use(corsMiddleware);
@@ -163,14 +167,15 @@ app.get('/api-docs.json', (req, res) => {
   res.send(specs);
 });
 
-// Routes
-app.use('/api', cspReportRoutes);
 // Version info endpoint
 app.use(versionRoutes);
 
 // Versioned API Routes
 app.use('/api/v1', createV1Router());
 app.use('/api/v2', createV2Router());
+
+// Routes
+app.use('/api', cspReportRoutes);
 
 // Legacy routes (backward compatibility - defaults to v1)
 app.use('/api', routes);
@@ -264,7 +269,10 @@ const startServer = async () => {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('⚠️  Elasticsearch initialization failed:', error.message);
-      console.error('   Search features will be limited. Ensure Elasticsearch is running on', process.env.ELASTICSEARCH_NODE || 'http://localhost:9200');
+      console.error(
+        '   Search features will be limited. Ensure Elasticsearch is running on',
+        process.env.ELASTICSEARCH_NODE || 'http://localhost:9200'
+      );
       // Continue without Elasticsearch - the app can still run
     }
 
@@ -273,11 +281,6 @@ const startServer = async () => {
 
     // Initialize WebSocket if available
     try {
-      const wsModule = await import('./services/realtime.service.js');
-      if (wsModule.initRealtime) {
-        wsModule.initRealtime(httpServer);
-        // eslint-disable-next-line no-console
-        console.log('WebSocket server initialized');
       const wsModule = await import('./wsServer.js');
       if (wsModule.initWebSocket) {
         wsModule.initWebSocket(httpServer);
@@ -332,12 +335,6 @@ const startServer = async () => {
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
-
-    // WebSocket server is now initialized via wsServer.js
-    // The stub realtime service is no longer needed
-
-    // --- Option 2: Init custom realtime service ---
-    // initRealtime(httpServer); // Commented out - service doesn't exist
   } catch (error) {
     logError('FATAL: Unable to start server', error);
     process.exit(1);

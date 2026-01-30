@@ -16,7 +16,7 @@ const PASSWORD_REQUIREMENTS = {
 /**
  * Special characters allowed in passwords
  */
-const SPECIAL_CHARS_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/g;
+const SPECIAL_CHARS_REGEX = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/g;
 
 /**
  * Validates password complexity requirements

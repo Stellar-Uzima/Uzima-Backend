@@ -346,4 +346,4 @@ Authorization: Bearer <your-jwt-token>
 
 const specs = swaggerJsdoc(options);
 
-export default specs; 
+export default specs;

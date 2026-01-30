@@ -27,9 +27,7 @@ export async function initializeAPIMetrics() {
 
     // Verify TTL index
     const ttlIndex = await model.collection.indexInformation();
-    const hasTTL = Object.values(ttlIndex).some(
-      (idx) => idx.expireAfterSeconds !== undefined
-    );
+    const hasTTL = Object.values(ttlIndex).some(idx => idx.expireAfterSeconds !== undefined);
 
     if (hasTTL) {
       console.log('[APIMetrics] TTL index verified (90-day auto-cleanup enabled)');
@@ -53,7 +51,7 @@ export async function verifyAPIMetrics() {
 
     // Check if collection exists
     const collections = await mongoose.connection.db.listCollections().toArray();
-    const hasCollection = collections.some((c) => c.name === 'apiMetrics');
+    const hasCollection = collections.some(c => c.name === 'apiMetrics');
 
     if (!hasCollection) {
       console.warn('[APIMetrics] Collection does not exist yet (will be created on first metric)');
@@ -112,9 +110,7 @@ export async function cleanupOldMetrics(daysOld = 90) {
       createdAt: { $lt: cutoffDate },
     });
 
-    console.log(
-      `[APIMetrics] Deleted ${result.deletedCount} metrics older than ${daysOld} days`
-    );
+    console.log(`[APIMetrics] Deleted ${result.deletedCount} metrics older than ${daysOld} days`);
 
     return result;
   } catch (error) {
@@ -191,18 +187,16 @@ export async function archiveMetrics(beforeDate) {
     }
 
     // Insert into archive collection
-    await mongoose.connection.collection(archiveCollectionName).insertMany(
-      toArchive.map((doc) => doc.toObject())
-    );
+    await mongoose.connection
+      .collection(archiveCollectionName)
+      .insertMany(toArchive.map(doc => doc.toObject()));
 
     // Delete from main collection
     await model.deleteMany({
       createdAt: { $lt: beforeDate },
     });
 
-    console.log(
-      `[APIMetrics] Archived ${toArchive.length} metrics to ${archiveCollectionName}`
-    );
+    console.log(`[APIMetrics] Archived ${toArchive.length} metrics to ${archiveCollectionName}`);
 
     return {
       movedCount: toArchive.length,
@@ -236,10 +230,7 @@ export async function generateHealthReport() {
           errorRate: {
             $multiply: [
               {
-                $divide: [
-                  { $sum: { $cond: ['$isError', 1, 0] } },
-                  { $sum: 1 },
-                ],
+                $divide: [{ $sum: { $cond: ['$isError', 1, 0] } }, { $sum: 1 }],
               },
               100,
             ],
@@ -251,14 +242,8 @@ export async function generateHealthReport() {
 
     const [analyticsData] = await model.aggregate(pipeline);
 
-    const oldestMetric = await model
-      .findOne()
-      .sort({ createdAt: 1 })
-      .select('createdAt');
-    const newestMetric = await model
-      .findOne()
-      .sort({ createdAt: -1 })
-      .select('createdAt');
+    const oldestMetric = await model.findOne().sort({ createdAt: 1 }).select('createdAt');
+    const newestMetric = await model.findOne().sort({ createdAt: -1 }).select('createdAt');
 
     return {
       status: 'healthy',

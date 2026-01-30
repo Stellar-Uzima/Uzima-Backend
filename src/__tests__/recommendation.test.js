@@ -14,18 +14,26 @@ app.use('/api/recommendations', recommendationRoutes);
 let user;
 
 beforeAll(async () => {
-  await mongoose.connect('mongodb://localhost:27017/uzima_test', { useNewUrlParser: true, useUnifiedTopology: true });
+  await mongoose.connect('mongodb://localhost:27017/uzima_test', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
   await Article.deleteMany({});
   await User.deleteMany({});
   await UserReadHistory.deleteMany({});
 
-  user = await User.create({ username: 'testuser', email: 'test@example.com', password: 'pass', role: 'patient' });
+  user = await User.create({
+    username: 'testuser',
+    email: 'test@example.com',
+    password: 'pass',
+    role: 'patient',
+  });
 
   await Article.insertMany([
     { title: 'Heart Health', content: '...', topics: ['cardiology'], url: 'a1' },
     { title: 'Diabetes Care', content: '...', topics: ['endocrinology'], url: 'a2' },
     { title: 'Blood Pressure Tips', content: '...', topics: ['cardiology'], url: 'a3' },
-    { title: 'Healthy Eating', content: '...', topics: ['nutrition'], url: 'a4' }
+    { title: 'Healthy Eating', content: '...', topics: ['nutrition'], url: 'a4' },
   ]);
 
   const readArticle = await Article.findOne({ topics: 'cardiology' });
@@ -38,7 +46,10 @@ afterAll(async () => {
 
 test('should recommend articles with similar topics', async () => {
   // Mock auth middleware
-  app.use((req, res, next) => { req.user = user; next(); });
+  app.use((req, res, next) => {
+    req.user = user;
+    next();
+  });
 
   const res = await request(app)
     .get('/api/recommendations')

@@ -12,7 +12,7 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "security:check": "npm audit --audit-level=high",
+    "security:check": "npm audit --audit-level=critical",
     "test:api": "npm run pretest:api && newman run postman/Uzima-API.postman_collection.json -e postman/environments/Development.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results.html --bail",
     "test:api:dev": "npm run pretest:api && newman run postman/Uzima-API.postman_collection.json -e postman/environments/Development.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results-dev.html --bail",
     "test:api:staging": "newman run postman/Uzima-API.postman_collection.json -e postman/environments/Staging.postman_environment.json -r html,json --reporter-html-export test-results/api-test-results-staging.html --bail",
@@ -34,17 +34,19 @@
   "homepage": "https://github.com/Stellar-Uzima/Uzima-Backend#readme",
   "description": "",
   "dependencies": {
+    "@apollo/server": "^4.11.2",
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
     "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.7.7",
-    "@apollo/server": "^4.11.2",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
+    "bullmq": "^5.67.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
+    "express-session": "^1.19.0",
     "handlebars": "^4.7.8",
     "graphql": "^16.11.0",
     "graphql-tag": "^2.12.6",
@@ -69,22 +71,13 @@
     "pdfkit": "^0.17.1",
     "rate-limit-redis": "^4.2.2",
     "redis": "^5.8.2",
-<
-    "resend": "^6.1.2",
+"resend": "^6.1.2",
     "socket.io": "^4.8.3",
     "stellar-sdk": "^13.3.0",
-   
-    
-
-    
     "swagger-jsdoc": "^6.2.8",
-
-    "swagger-ui-express": "^5.0.1"
-    
-    "axios": "^1.7.7",
-    "winston": "^3.11.0",
-    "winston-daily-rotate-file": "^5.0.0"
     "swagger-ui-express": "^5.0.1",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
 
@@ -105,7 +98,7 @@
     "supertest": "^7.1.1",
     "newman": "^6.1.0",
     "newman-reporter-html": "^1.0.5",
-    "postman-collection": "^4.6.0"
+    "postman-collection": "^4.5.0"
   },
   "jest": {
     "transform": {

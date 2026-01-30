@@ -26,12 +26,12 @@ describe('GDPR Compliance Endpoints', () => {
   beforeAll(async () => {
     // Create test users
     const hashedPassword = await bcrypt.hash('testpassword123', 10);
-    
+
     testUser = new User({
       username: 'testuser',
       email: 'testuser@example.com',
       password: hashedPassword,
-      role: 'patient'
+      role: 'patient',
     });
     await testUser.save();
     testUserId = testUser._id;
@@ -40,7 +40,7 @@ describe('GDPR Compliance Endpoints', () => {
       username: 'testadmin',
       email: 'testadmin@example.com',
       password: hashedPassword,
-      role: 'admin'
+      role: 'admin',
     });
     await testAdmin.save();
     testAdminId = testAdmin._id;
@@ -54,22 +54,18 @@ describe('GDPR Compliance Endpoints', () => {
       txHash: 'test-hash-123',
       clientUUID: 'test-uuid-123',
       syncTimestamp: new Date(),
-      createdBy: testUserId
+      createdBy: testUserId,
     });
     await testRecord.save();
 
     // Generate JWT tokens
-    userToken = jwt.sign(
-      { id: testUserId, role: 'patient' },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1h' }
-    );
+    userToken = jwt.sign({ id: testUserId, role: 'patient' }, process.env.JWT_SECRET || 'secret', {
+      expiresIn: '1h',
+    });
 
-    adminToken = jwt.sign(
-      { id: testAdminId, role: 'admin' },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1h' }
-    );
+    adminToken = jwt.sign({ id: testAdminId, role: 'admin' }, process.env.JWT_SECRET || 'secret', {
+      expiresIn: '1h',
+    });
   });
 
   afterAll(async () => {
@@ -78,7 +74,7 @@ describe('GDPR Compliance Endpoints', () => {
     await Record.deleteMany({ clientUUID: 'test-uuid-123' });
     await GDPRRequest.deleteMany({ userId: { $in: [testUserId, testAdminId] } });
     await transactionLog.deleteMany({ userId: testUserId.toString() });
-    
+
     // Clean up export files
     const exportsDir = path.join(__dirname, '../exports');
     if (fs.existsSync(exportsDir)) {
@@ -147,7 +143,7 @@ describe('GDPR Compliance Endpoints', () => {
         username: 'otheruser',
         email: 'otheruser@example.com',
         password: 'hashedpassword',
-        role: 'patient'
+        role: 'patient',
       });
       await otherUser.save();
 
@@ -180,9 +176,7 @@ describe('GDPR Compliance Endpoints', () => {
     });
 
     it('should require authentication', async () => {
-      const response = await request(app)
-        .get(`/api/users/${testUserId}/export-data`)
-        .expect(401);
+      const response = await request(app).get(`/api/users/${testUserId}/export-data`).expect(401);
 
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('Unauthorized');
@@ -200,7 +194,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'completed',
         requestReason: 'Test export',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await gdprRequest.save();
 
@@ -260,7 +254,7 @@ describe('GDPR Compliance Endpoints', () => {
         username: 'otheruser2',
         email: 'otheruser2@example.com',
         password: 'hashedpassword',
-        role: 'patient'
+        role: 'patient',
       });
       await otherUser.save();
 
@@ -323,7 +317,7 @@ describe('GDPR Compliance Endpoints', () => {
         requestReason: 'Test deletion',
         ipAddress: '127.0.0.1',
         userAgent: 'test-agent',
-        deletionScheduledAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        deletionScheduledAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
       await gdprRequest.save();
 
@@ -360,7 +354,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'completed',
         requestReason: 'Test export',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await exportRequest.save();
 
@@ -371,7 +365,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'pending',
         requestReason: 'Test deletion',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await deleteRequest.save();
 
@@ -394,7 +388,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'completed',
         requestReason: 'Test',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await completedRequest.save();
 
@@ -405,7 +399,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'pending',
         requestReason: 'Test',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await pendingRequest.save();
 
@@ -452,7 +446,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'completed',
         requestReason: 'Test export',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await gdprRequest.save();
 
@@ -486,7 +480,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'completed',
         requestReason: 'Test',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await gdprRequest.save();
 
@@ -511,7 +505,7 @@ describe('GDPR Compliance Endpoints', () => {
       const auditLog = await transactionLog.findOne({
         action: 'gdpr_export_requested',
         resource: 'user',
-        resourceId: testUserId.toString()
+        resourceId: testUserId.toString(),
       });
 
       expect(auditLog).toBeTruthy();
@@ -530,7 +524,7 @@ describe('GDPR Compliance Endpoints', () => {
       const auditLog = await transactionLog.findOne({
         action: 'gdpr_deletion_requested',
         resource: 'user',
-        resourceId: testUserId.toString()
+        resourceId: testUserId.toString(),
       });
 
       expect(auditLog).toBeTruthy();
@@ -550,7 +544,7 @@ describe('GDPR Compliance Endpoints', () => {
         txHash: 'test-hash-456',
         clientUUID: 'test-uuid-456',
         syncTimestamp: new Date(),
-        createdBy: testUserId
+        createdBy: testUserId,
       });
       await additionalRecord.save();
 
@@ -563,7 +557,7 @@ describe('GDPR Compliance Endpoints', () => {
         status: 'processing',
         requestReason: 'Test export',
         ipAddress: '127.0.0.1',
-        userAgent: 'test-agent'
+        userAgent: 'test-agent',
       });
       await gdprRequest.save();
 
@@ -601,9 +595,7 @@ describe('GDPR Compliance Endpoints', () => {
     });
 
     it('should handle missing authorization header', async () => {
-      const response = await request(app)
-        .get(`/api/users/${testUserId}/export-data`)
-        .expect(401);
+      const response = await request(app).get(`/api/users/${testUserId}/export-data`).expect(401);
 
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('Unauthorized');

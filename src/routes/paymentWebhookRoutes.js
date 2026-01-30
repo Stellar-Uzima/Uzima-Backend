@@ -82,7 +82,7 @@ router.post('/webhooks/flutterwave', express.json(), async (req, res, next) => {
   try {
     // Flutterwave sends hash in header
     const signature = req.headers['verif-hash'] || req.headers['x-flutterwave-signature'];
-    
+
     const paymentService = PaymentServiceFactory.create('flutterwave');
     const result = await paymentService.handleWebhook(req.body, signature);
 

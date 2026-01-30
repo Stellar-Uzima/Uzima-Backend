@@ -24,20 +24,12 @@ export async function startReconciliationRun({ provider, since } = {}) {
   try {
     const sinceDate = since ? new Date(since) : null;
 
-    const [
-      webhookSide,
-      paymentSide,
-    ] = await Promise.all([
+    const [webhookSide, paymentSide] = await Promise.all([
       aggregateWebhooksToPayments({ provider, since: sinceDate }),
       aggregatePaymentsToWebhooks({ provider, since: sinceDate }),
     ]);
 
-    const {
-      matched,
-      orphanedWebhooks,
-      amountMismatches,
-      totalWebhooks,
-    } = webhookSide;
+    const { matched, orphanedWebhooks, amountMismatches, totalWebhooks } = webhookSide;
 
     const { missingWebhooks, totalPayments } = paymentSide;
 
@@ -65,7 +57,7 @@ export async function startReconciliationRun({ provider, since } = {}) {
     const sample = (arr, limit = 50) => (arr.length > limit ? arr.slice(0, limit) : arr);
 
     run.matched = sample(
-      matched.map((m) => ({
+      matched.map(m => ({
         transactionId: m.transactionId,
         provider: m.provider,
         paymentId: m.paymentId,
@@ -76,7 +68,7 @@ export async function startReconciliationRun({ provider, since } = {}) {
 
     run.unmatched = {
       orphanedWebhooks: sample(
-        orphanedWebhooks.map((w) => ({
+        orphanedWebhooks.map(w => ({
           webhookId: w._id,
           transactionId: w.transactionId,
           provider: w.provider,
@@ -84,7 +76,7 @@ export async function startReconciliationRun({ provider, since } = {}) {
         100
       ),
       missingWebhooks: sample(
-        missingWebhooks.map((p) => ({
+        missingWebhooks.map(p => ({
           paymentId: p._id,
           transactionId: p.transactionId,
           provider: p.provider,
@@ -92,7 +84,7 @@ export async function startReconciliationRun({ provider, since } = {}) {
         100
       ),
       amountMismatches: sample(
-        amountMismatches.map((m) => ({
+        amountMismatches.map(m => ({
           paymentId: m.paymentId,
           webhookId: m.webhookId,
           transactionId: m.transactionId,
@@ -171,8 +163,7 @@ async function aggregateWebhooksToPayments({ provider, since }) {
       typeof row.amount === 'number' &&
       typeof payment.amount === 'number' &&
       row.amount === payment.amount;
-    const sameCurrency =
-      row.currency && payment.currency && row.currency === payment.currency;
+    const sameCurrency = row.currency && payment.currency && row.currency === payment.currency;
 
     if (sameAmount && sameCurrency) {
       matched.push({
@@ -381,7 +372,7 @@ export function buildCsvReport(report) {
   const csvLines = [header.join(',')];
 
   for (const row of rows) {
-    const values = header.map((key) => {
+    const values = header.map(key => {
       const value = row[key];
       if (value === null || value === undefined) return '';
       const str = String(value);
@@ -431,12 +422,13 @@ export async function sendReconciliationAlert(report, { reason } = {}) {
     </ul>
   `;
 
-  const to = recipients.split(',').map((e) => e.trim()).filter(Boolean);
+  const to = recipients
+    .split(',')
+    .map(e => e.trim())
+    .filter(Boolean);
 
   try {
-    await Promise.all(
-      to.map((email) => mailer.sendMail(email, subject, html))
-    );
+    await Promise.all(to.map(email => mailer.sendMail(email, subject, html)));
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Failed to send reconciliation alert email(s):', err.message);

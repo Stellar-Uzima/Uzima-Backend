@@ -18,9 +18,7 @@ export async function autoRunMigrations(options = {}) {
     // Check if migrations are locked
     const lock = await migrationRunner.getLockStatus();
     if (lock) {
-      console.warn(
-        `⚠️  Migrations are locked by ${lock.lockedBy}. Reason: ${lock.reason}`
-      );
+      console.warn(`⚠️  Migrations are locked by ${lock.lockedBy}. Reason: ${lock.reason}`);
       return { skipped: true, reason: 'Migrations locked' };
     }
 
@@ -35,12 +33,8 @@ export async function autoRunMigrations(options = {}) {
       return { success: true, migrations: [] };
     }
 
-    const successful = result.migrations.filter(
-      (m) => m.status === 'completed'
-    ).length;
-    const failed = result.migrations.filter(
-      (m) => m.status === 'failed'
-    ).length;
+    const successful = result.migrations.filter(m => m.status === 'completed').length;
+    const failed = result.migrations.filter(m => m.status === 'failed').length;
 
     console.log(`✓ Auto-run completed: ${successful} successful, ${failed} failed`);
 

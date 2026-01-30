@@ -63,7 +63,9 @@ router.post('/initialize', protect, async (req, res, next) => {
     }
 
     if (!['stripe', 'flutterwave'].includes(provider.toLowerCase())) {
-      throw new BadRequestError('Invalid payment provider. Supported providers: stripe, flutterwave');
+      throw new BadRequestError(
+        'Invalid payment provider. Supported providers: stripe, flutterwave'
+      );
     }
 
     if (amount <= 0) {

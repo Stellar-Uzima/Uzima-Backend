@@ -37,9 +37,7 @@ class MigrationRunner {
       );
 
       if (lock.lockedBy !== this.lockId) {
-        throw new Error(
-          `Migration lock is held by ${lock.lockedBy}. Reason: ${lock.reason}`
-        );
+        throw new Error(`Migration lock is held by ${lock.lockedBy}. Reason: ${lock.reason}`);
       }
 
       // Refresh lock periodically
@@ -71,10 +69,7 @@ class MigrationRunner {
       if (this.lockInterval) {
         clearInterval(this.lockInterval);
       }
-      await MigrationLock.updateOne(
-        { lockedBy: this.lockId },
-        { locked: false, lockedBy: null }
-      );
+      await MigrationLock.updateOne({ lockedBy: this.lockId }, { locked: false, lockedBy: null });
     } catch (error) {
       console.error('Error releasing migration lock:', error);
     }
@@ -88,8 +83,7 @@ class MigrationRunner {
       const files = await fs.readdir(MIGRATIONS_DIR);
       return files
         .filter(
-          (file) =>
-            file.endsWith('.js') && /^\d+/.test(file) // Numbered files
+          file => file.endsWith('.js') && /^\d+/.test(file) // Numbered files
         )
         .sort();
     } catch (error) {
@@ -129,7 +123,7 @@ class MigrationRunner {
   async getPendingMigrations() {
     const files = await this.getMigrationFiles();
     const applied = await Migration.find({ status: 'completed' });
-    const appliedVersions = new Set(applied.map((m) => m.version));
+    const appliedVersions = new Set(applied.map(m => m.version));
 
     const pending = [];
     for (const file of files) {
@@ -161,19 +155,19 @@ class MigrationRunner {
     const lock = await MigrationLock.findOne({ locked: true });
 
     return {
-      applied: applied.map((m) => ({
+      applied: applied.map(m => ({
         version: m.version,
         name: m.name,
         appliedAt: m.appliedAt,
         executionTime: m.executionTime,
         reversible: m.reversible,
       })),
-      pending: pending.map((m) => ({
+      pending: pending.map(m => ({
         version: m.version,
         name: m.name,
         reversible: m.reversible,
       })),
-      failed: failed.map((m) => ({
+      failed: failed.map(m => ({
         version: m.version,
         name: m.name,
         error: m.error,
@@ -240,9 +234,7 @@ class MigrationRunner {
             migrationRecord.executionTime = executionTime;
             await migrationRecord.save();
 
-            console.log(
-              `✓ Applied migration: ${pend.name} (${executionTime}ms)`
-            );
+            console.log(`✓ Applied migration: ${pend.name} (${executionTime}ms)`);
             results.push({
               version: pend.version,
               name: pend.name,
@@ -257,9 +249,7 @@ class MigrationRunner {
           migrationRecord.executionTime = executionTime;
           await migrationRecord.save();
 
-          console.error(
-            `✗ Failed migration: ${pend.name} - ${error.message}`
-          );
+          console.error(`✗ Failed migration: ${pend.name} - ${error.message}`);
           results.push({
             version: pend.version,
             name: pend.name,
@@ -270,9 +260,7 @@ class MigrationRunner {
 
           // Stop on first failure unless continuing is specified
           if (!options.continueOnError) {
-            throw new Error(
-              `Migration ${pend.name} failed. Stopped execution.`
-            );
+            throw new Error(`Migration ${pend.name} failed. Stopped execution.`);
           }
         }
       }
@@ -306,9 +294,7 @@ class MigrationRunner {
 
       for (const migration of applied) {
         if (!migration.reversible) {
-          console.warn(
-            `⚠ Skipping non-reversible migration: ${migration.name}`
-          );
+          console.warn(`⚠ Skipping non-reversible migration: ${migration.name}`);
           results.push({
             version: migration.version,
             name: migration.name,
@@ -321,9 +307,7 @@ class MigrationRunner {
         const startTime = Date.now();
 
         try {
-          const migrationFile = await this.findMigrationFile(
-            migration.version
-          );
+          const migrationFile = await this.findMigrationFile(migration.version);
           if (!migrationFile) {
             throw new Error(`Migration file not found for version ${migration.version}`);
           }
@@ -352,9 +336,7 @@ class MigrationRunner {
               }
             );
 
-            console.log(
-              `↻ Rolled back migration: ${migration.name} (${executionTime}ms)`
-            );
+            console.log(`↻ Rolled back migration: ${migration.name} (${executionTime}ms)`);
             results.push({
               version: migration.version,
               name: migration.name,
@@ -373,9 +355,7 @@ class MigrationRunner {
             }
           );
 
-          console.error(
-            `✗ Failed rollback: ${migration.name} - ${error.message}`
-          );
+          console.error(`✗ Failed rollback: ${migration.name} - ${error.message}`);
           results.push({
             version: migration.version,
             name: migration.name,
@@ -401,7 +381,7 @@ class MigrationRunner {
    */
   async findMigrationFile(version) {
     const files = await this.getMigrationFiles();
-    return files.find((f) => f.startsWith(version));
+    return files.find(f => f.startsWith(version));
   }
 
   /**

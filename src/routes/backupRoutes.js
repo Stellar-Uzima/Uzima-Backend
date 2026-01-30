@@ -22,7 +22,7 @@ import {
   createFilteredBackupSchema,
   downloadFilteredBackupSchema,
   backupIdSchema,
-  listFilteredBackupsSchema
+  listFilteredBackupsSchema,
 } from '../validations/backupValidators.js';
 
 const router = express.Router();
@@ -270,7 +270,13 @@ router.post('/trigger', createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5
  *       500:
  *         description: Server error
  */
-router.post('/create', protect, validate(createFilteredBackupSchema), createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5 }), createFilteredBackup);
+router.post(
+  '/create',
+  protect,
+  validate(createFilteredBackupSchema),
+  createCustomRateLimit({ windowMs: 15 * 60 * 1000, max: 5 }),
+  createFilteredBackup
+);
 
 /**
  * @swagger
@@ -492,7 +498,12 @@ router.get('/:backupId/metadata', protect, validate(backupIdSchema), getFiltered
  *       403:
  *         description: Insufficient permissions
  */
-router.get('/:backupId/file', protect, validate(downloadFilteredBackupSchema), downloadFilteredBackup);
+router.get(
+  '/:backupId/file',
+  protect,
+  validate(downloadFilteredBackupSchema),
+  downloadFilteredBackup
+);
 
 /**
  * @swagger

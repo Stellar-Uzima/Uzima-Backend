@@ -127,7 +127,6 @@ export const verifyTOTP2FASchema = Joi.object({
     }),
 });
 
-
 // Forgot Password Validation Schema
 export const forgotPasswordSchema = Joi.object({
   email: Joi.string().email().trim().required().messages({
@@ -154,15 +153,11 @@ export const resetPasswordSchema = Joi.object({
 
 // Change Password Validation Schema (for authenticated users)
 export const changePasswordSchema = Joi.object({
-  currentPassword: Joi.string()
-    .min(8)
-    .max(64)
-    .required()
-    .messages({
-      'string.min': 'Current password must be at least 8 characters long',
-      'string.max': 'Current password must be at most 64 characters long',
-      'string.empty': 'Current password is required',
-    }),
+  currentPassword: Joi.string().min(8).max(64).required().messages({
+    'string.min': 'Current password must be at least 8 characters long',
+    'string.max': 'Current password must be at most 64 characters long',
+    'string.empty': 'Current password is required',
+  }),
 
   newPassword: Joi.string()
     .min(8)
@@ -179,12 +174,8 @@ export const changePasswordSchema = Joi.object({
       'any.invalid': 'New password must be different from current password',
     }),
 
-  confirmPassword: Joi.string()
-    .required()
-    .valid(Joi.ref('newPassword'))
-    .messages({
-      'any.only': 'Passwords do not match',
-      'string.empty': 'Password confirmation is required',
-    }),
+  confirmPassword: Joi.string().required().valid(Joi.ref('newPassword')).messages({
+    'any.only': 'Passwords do not match',
+    'string.empty': 'Password confirmation is required',
+  }),
 }).strict();
-

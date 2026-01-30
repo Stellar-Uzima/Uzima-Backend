@@ -27,9 +27,11 @@ export async function getVitalsMetrics(req, res) {
     const match = {
       recordedAt: { $gte: start, $lte: end },
     };
-    if (patientId) match.patientId = new (await import('mongoose')).default.Types.ObjectId(patientId);
+    if (patientId)
+      match.patientId = new (await import('mongoose')).default.Types.ObjectId(patientId);
 
-    const dateTrunc = bucketSize === 'month' ? '%Y-%m-01' : bucketSize === 'week' ? '%G-%V-1' : '%Y-%m-%d';
+    const dateTrunc =
+      bucketSize === 'month' ? '%Y-%m-01' : bucketSize === 'week' ? '%G-%V-1' : '%Y-%m-%d';
 
     const pipeline = [
       { $match: match },
@@ -68,7 +70,12 @@ export async function getVitalsMetrics(req, res) {
       { $sort: { '_id.dow': 1, '_id.hour': 1 } },
     ]);
 
-    const payload = { bucket: bucketSize, range: { from: start, to: end }, series: results, heatmap };
+    const payload = {
+      bucket: bucketSize,
+      range: { from: start, to: end },
+      series: results,
+      heatmap,
+    };
     await redisClient.set(cacheKey, JSON.stringify(payload), { EX: 60 });
     return res.json(payload);
   } catch (err) {
@@ -77,5 +84,3 @@ export async function getVitalsMetrics(req, res) {
     return res.status(500).json({ error: 'Failed to compute metrics' });
   }
 }
-
-

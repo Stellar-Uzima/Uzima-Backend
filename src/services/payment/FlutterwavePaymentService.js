@@ -8,9 +8,11 @@ export class FlutterwavePaymentService extends PaymentService {
     super('flutterwave');
     const publicKey = process.env.FLUTTERWAVE_PUBLIC_KEY;
     const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
-    
+
     if (!publicKey || !secretKey) {
-      throw new Error('FLUTTERWAVE_PUBLIC_KEY and FLUTTERWAVE_SECRET_KEY environment variables are required');
+      throw new Error(
+        'FLUTTERWAVE_PUBLIC_KEY and FLUTTERWAVE_SECRET_KEY environment variables are required'
+      );
     }
 
     this.flw = new Flutterwave(publicKey, secretKey);
@@ -34,7 +36,9 @@ export class FlutterwavePaymentService extends PaymentService {
         tx_ref: reference,
         amount: amount,
         currency: currency.toUpperCase(),
-        redirect_url: metadata.redirectUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/callback`,
+        redirect_url:
+          metadata.redirectUrl ||
+          `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/callback`,
         payment_options: 'card,account,ussd,banktransfer,mobilemoney',
         customer: {
           email: customerEmail,
@@ -192,13 +196,13 @@ export class FlutterwavePaymentService extends PaymentService {
       const txRef = event.data?.tx_ref || event.tx_ref;
       const eventType = event.event || event.status;
 
-      if (eventType === 'charge.completed' || (event.data?.status === 'successful')) {
+      if (eventType === 'charge.completed' || event.data?.status === 'successful') {
         updatedStatus = 'successful';
         payment = await Payment.findOne({
           reference: txRef,
           provider: 'flutterwave',
         });
-      } else if (eventType === 'charge.failed' || (event.data?.status === 'failed')) {
+      } else if (eventType === 'charge.failed' || event.data?.status === 'failed') {
         updatedStatus = 'failed';
         payment = await Payment.findOne({
           reference: txRef,

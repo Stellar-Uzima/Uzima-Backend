@@ -1,8 +1,8 @@
-import AuditLog from "../models/auditLog.model.js";
+import AuditLog from '../models/auditLog.model.js';
 
-export const logAction = (action) => {
+export const logAction = action => {
   return async (req, res, next) => {
-    res.on("finish", async () => {
+    res.on('finish', async () => {
       if ([200, 201, 204].includes(res.statusCode)) {
         try {
           await AuditLog.create({
@@ -11,7 +11,7 @@ export const logAction = (action) => {
             resourceId: req.params.id || req.body._id,
           });
         } catch (err) {
-          console.error("Audit log error:", err.message);
+          console.error('Audit log error:', err.message);
         }
       }
     });

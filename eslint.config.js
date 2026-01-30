@@ -4,10 +4,35 @@ import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 
 export default [
+  {
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'build/',
+      '.env',
+      '.git/',
+      '*.log',
+      'coverage/',
+      'ml-assistant-frontend/**',
+      'controllers/articleEngagementController.js',
+      'controllers/recommendationController.js',
+      'SSE_INTEGRATION_EXAMPLES.js',
+      'SSE_TEST_SCENARIOS.js',
+      'test-*.js',
+      'test-*.mjs',
+      'test-*.html',
+      'migrate-mongo-config.*',
+      'jest.encryption.config.js',
+      'babel.config.json',
+      'scripts/**',
+      'src/webrtc/**',
+      'src/services/activity_tracking_system.js',
+    ],
+  },
   js.configs.recommended,
   prettierConfig,
   {
-    files: ['**/*.js'],
+    files: ['**/*.js', '**/*.mjs'],
     plugins: {
       prettier,
     },
@@ -17,6 +42,17 @@ export default [
       globals: {
         console: 'readonly',
         process: 'readonly',
+        Buffer: 'readonly',
+        global: 'readonly',
+        performance: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setImmediate: 'readonly',
+        clearImmediate: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
         // Jest globals
         describe: 'readonly',
         test: 'readonly',
@@ -27,11 +63,28 @@ export default [
         beforeEach: 'readonly',
         it: 'readonly',
         jest: 'readonly',
+        // Browser globals for client-side code
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        fetch: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
+        // CommonJS
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
       },
     },
     rules: {
       'no-console': 'warn',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_*' }],
+      'no-useless-escape': 'warn',
+      'no-useless-catch': 'warn',
       'prettier/prettier': [
         'error',
         {
@@ -43,6 +96,43 @@ export default [
         },
       ],
     },
-    ignores: ['node_modules/', 'dist/', 'build/', '.env', '.git/', '*.log'],
+  },
+  {
+    files: ['**/*.cjs'],
+    plugins: {
+      prettier,
+    },
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        global: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        mongoose: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'warn',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_*' }],
+      'no-useless-escape': 'warn',
+      'no-useless-catch': 'warn',
+      'prettier/prettier': [
+        'error',
+        {
+          singleQuote: true,
+          trailingComma: 'es5',
+          printWidth: 100,
+          tabWidth: 2,
+          semi: true,
+        },
+      ],
+    },
   },
 ];

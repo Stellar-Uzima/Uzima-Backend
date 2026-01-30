@@ -107,9 +107,7 @@ describe('Migration System', () => {
       await migrationRunner.acquireLock('First lock');
 
       try {
-        const runner2 = Object.create(
-          Object.getPrototypeOf(migrationRunner)
-        );
+        const runner2 = Object.create(Object.getPrototypeOf(migrationRunner));
         runner2.lockId = 'different-id';
 
         await expect(runner2.acquireLock('Second lock')).rejects.toThrow();

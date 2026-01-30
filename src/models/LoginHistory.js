@@ -188,7 +188,10 @@ loginHistorySchema.statics.getUserLoginHistory = async function (userId, options
 };
 
 // Static method to get last successful login
-loginHistorySchema.statics.getLastSuccessfulLogin = async function (userId, excludeCurrentSession = null) {
+loginHistorySchema.statics.getLastSuccessfulLogin = async function (
+  userId,
+  excludeCurrentSession = null
+) {
   const query = {
     userId,
     loginStatus: 'success',
@@ -199,9 +202,7 @@ loginHistorySchema.statics.getLastSuccessfulLogin = async function (userId, excl
     query.sessionId = { $ne: excludeCurrentSession };
   }
 
-  return await this.findOne(query)
-    .sort({ loginAt: -1 })
-    .lean();
+  return await this.findOne(query).sort({ loginAt: -1 }).lean();
 };
 
 // Static method to get suspicious login count

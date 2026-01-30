@@ -126,11 +126,7 @@ userDeviceSchema.statics.findByFingerprint = async function (userId, fingerprint
 userDeviceSchema.statics.getActiveDevices = async function (userId, options = {}) {
   const { limit = 10, offset = 0, sortBy = '-lastSeenAt' } = options;
 
-  return await this.find({ userId, isActive: true })
-    .sort(sortBy)
-    .skip(offset)
-    .limit(limit)
-    .lean();
+  return await this.find({ userId, isActive: true }).sort(sortBy).skip(offset).limit(limit).lean();
 };
 
 // Instance method to update last seen

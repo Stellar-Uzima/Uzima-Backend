@@ -13,9 +13,9 @@ const hasPermission = (resource, action) => {
     const user = req.user;
 
     if (!user || !user.role) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Forbidden: No user role',
-        message: 'User authentication or role information is missing'
+        message: 'User authentication or role information is missing',
       });
     }
 
@@ -30,14 +30,16 @@ const hasPermission = (resource, action) => {
 
     // Log if permission check takes longer than 5ms
     if (duration > 5) {
-      console.warn(`Slow permission check: ${duration.toFixed(2)}ms for ${user.role}:${resource}:${action}`);
+      console.warn(
+        `Slow permission check: ${duration.toFixed(2)}ms for ${user.role}:${resource}:${action}`
+      );
     }
 
     if (!allowed) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Forbidden: Insufficient permissions',
         required: { resource, action },
-        userRole: user.role
+        userRole: user.role,
       });
     }
 

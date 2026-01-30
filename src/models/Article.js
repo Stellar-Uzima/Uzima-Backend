@@ -1,6 +1,7 @@
 // Articles model for health articles with topic tags
 import mongoose from 'mongoose';
 import softDeletePlugin from './plugins/softDeletePlugin.js';
+
 const ArticleSchema = new mongoose.Schema({
   title: { type: String, required: true },
   summary: { type: String }, // Short summary for previews

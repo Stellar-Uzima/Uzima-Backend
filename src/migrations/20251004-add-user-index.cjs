@@ -5,5 +5,5 @@ module.exports = {
 
   async down(db, client) {
     await db.collection('users').dropIndex('email_1');
-  }
+  },
 };

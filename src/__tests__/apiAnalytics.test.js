@@ -198,7 +198,7 @@ describe('API Analytics Integration Tests', () => {
         { endpoint: '/api/test/agg', method: 'GET' },
         { duration: 1 }
       );
-      const durations = metrics.map((m) => m.duration).sort((a, b) => a - b);
+      const durations = metrics.map(m => m.duration).sort((a, b) => a - b);
 
       const p50 = calculatePercentile(durations, 50);
       const p95 = calculatePercentile(durations, 95);
@@ -227,8 +227,8 @@ describe('API Analytics Integration Tests', () => {
       const result = await APIMetric.aggregate(pipeline);
 
       expect(result).toHaveLength(2);
-      const getGroup = result.find((r) => r._id.method === 'GET');
-      const postGroup = result.find((r) => r._id.method === 'POST');
+      const getGroup = result.find(r => r._id.method === 'GET');
+      const postGroup = result.find(r => r._id.method === 'POST');
 
       expect(getGroup.count).toBe(3);
       expect(postGroup.count).toBe(2);
@@ -247,10 +247,7 @@ describe('API Analytics Integration Tests', () => {
         {
           $project: {
             errorRate: {
-              $round: [
-                { $multiply: [{ $divide: ['$totalErrors', '$totalRequests'] }, 100] },
-                2,
-              ],
+              $round: [{ $multiply: [{ $divide: ['$totalErrors', '$totalRequests'] }, 100] }, 2],
             },
           },
         },
@@ -301,7 +298,7 @@ describe('API Analytics Integration Tests', () => {
       const result = await APIMetric.aggregate(pipeline);
 
       expect(result.length).toBeGreaterThanOrEqual(3);
-      result.forEach((hour) => {
+      result.forEach(hour => {
         expect(hour.totalRequests).toBe(5);
         expect(hour.avgDuration).toBeGreaterThan(0);
       });
@@ -323,10 +320,7 @@ describe('API Analytics Integration Tests', () => {
           $project: {
             timestamp: '$_id',
             errorRate: {
-              $round: [
-                { $multiply: [{ $divide: ['$errorCount', '$totalRequests'] }, 100] },
-                2,
-              ],
+              $round: [{ $multiply: [{ $divide: ['$errorCount', '$totalRequests'] }, 100] }, 2],
             },
           },
         },
@@ -336,7 +330,7 @@ describe('API Analytics Integration Tests', () => {
       const result = await APIMetric.aggregate(pipeline);
 
       expect(result.length).toBeGreaterThanOrEqual(3);
-      result.forEach((hour) => {
+      result.forEach(hour => {
         expect(hour.errorRate).toBe(20); // 1 error per 5 requests
       });
     });

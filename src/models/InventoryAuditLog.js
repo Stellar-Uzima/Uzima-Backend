@@ -3,7 +3,11 @@ import mongoose from 'mongoose';
 const InventoryAuditLogSchema = new mongoose.Schema(
   {
     sku: { type: String, required: true, index: true },
-    action: { type: String, required: true, enum: ['create', 'update', 'adjust_increase', 'adjust_decrease', 'consume', 'reconcile'] },
+    action: {
+      type: String,
+      required: true,
+      enum: ['create', 'update', 'adjust_increase', 'adjust_decrease', 'consume', 'reconcile'],
+    },
     change: {
       beforeQuantity: { type: Number, default: null },
       afterQuantity: { type: Number, default: null },
@@ -22,5 +26,3 @@ const InventoryAuditLogSchema = new mongoose.Schema(
 );
 
 export default mongoose.model('InventoryAuditLog', InventoryAuditLogSchema);
-
-

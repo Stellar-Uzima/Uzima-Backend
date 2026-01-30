@@ -1,6 +1,6 @@
 /**
  * Server-side utilities for detecting client-encrypted data
- * 
+ *
  * This module provides server-side functions to detect and handle
  * client-encrypted PHI data without requiring Web Crypto API.
  */
@@ -40,7 +40,7 @@ export function isValidClientEncryptedFormat(encryptedData) {
 
   // Validate base64 format (basic check)
   const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-  
+
   return (
     base64Regex.test(saltBase64) &&
     base64Regex.test(ivBase64) &&

@@ -20,13 +20,13 @@ class LocalStorage extends StorageService {
 
   async upload(fileData, key, options = {}) {
     await this.init(); // Ensure directory exists
-    
+
     const filePath = path.join(this.storagePath, key);
     const dirPath = path.dirname(filePath);
-    
+
     // Ensure directory exists
     await fs.mkdir(dirPath, { recursive: true });
-    
+
     // Write file data
     if (Buffer.isBuffer(fileData)) {
       await fs.writeFile(filePath, fileData);
@@ -40,10 +40,10 @@ class LocalStorage extends StorageService {
       }
       await fs.writeFile(filePath, Buffer.concat(chunks));
     }
-    
+
     // Get file stats
     const stats = await fs.stat(filePath);
-    
+
     // Create metadata
     const fileMetadata = {
       key,
@@ -55,16 +55,16 @@ class LocalStorage extends StorageService {
       additionalMetadata: {
         localPath: filePath,
         mtime: stats.mtime,
-        atime: stats.atime
-      }
+        atime: stats.atime,
+      },
     };
-    
+
     return fileMetadata;
   }
 
   async download(key) {
     const filePath = path.join(this.storagePath, key);
-    
+
     try {
       const fileBuffer = await fs.readFile(filePath);
       return fileBuffer;
@@ -78,7 +78,7 @@ class LocalStorage extends StorageService {
 
   async delete(key) {
     const filePath = path.join(this.storagePath, key);
-    
+
     try {
       await fs.unlink(filePath);
     } catch (error) {
@@ -92,20 +92,20 @@ class LocalStorage extends StorageService {
 
   async list(prefix = '', options = {}) {
     await this.init(); // Ensure directory exists
-    
+
     const searchPath = prefix ? path.join(this.storagePath, prefix) : this.storagePath;
-    
+
     try {
       const entries = await fs.readdir(searchPath, { withFileTypes: true });
       const files = [];
-      
+
       for (const entry of entries) {
         const fullPath = path.join(searchPath, entry.name);
         const relativePath = path.relative(this.storagePath, fullPath);
-        
+
         if (entry.isFile()) {
           const stats = await fs.stat(fullPath);
-          
+
           files.push({
             key: relativePath,
             filename: entry.name,
@@ -116,8 +116,8 @@ class LocalStorage extends StorageService {
             additionalMetadata: {
               localPath: fullPath,
               mtime: stats.mtime,
-              atime: stats.atime
-            }
+              atime: stats.atime,
+            },
           });
         } else if (entry.isDirectory() && options.recursive) {
           // Recursively list subdirectory if requested
@@ -125,7 +125,7 @@ class LocalStorage extends StorageService {
           files.push(...subFiles);
         }
       }
-      
+
       return files;
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -137,7 +137,7 @@ class LocalStorage extends StorageService {
 
   async exists(key) {
     const filePath = path.join(this.storagePath, key);
-    
+
     try {
       await fs.access(filePath);
       return true;
@@ -151,7 +151,7 @@ class LocalStorage extends StorageService {
     // This is a simplified approach - in a real application, you might want to implement
     // proper authentication for accessing files
     const expiresIn = options.expiresIn || 3600; // 1 hour default
-    
+
     // Note: This is not a true presigned URL as local storage doesn't support expiration
     // This would need to be handled by the application layer with proper authentication
     return `${this.baseUrl}/${key}`;
@@ -159,10 +159,10 @@ class LocalStorage extends StorageService {
 
   async getFileMetadata(key) {
     const filePath = path.join(this.storagePath, key);
-    
+
     try {
       const stats = await fs.stat(filePath);
-      
+
       return {
         key,
         filename: path.basename(key),
@@ -173,8 +173,8 @@ class LocalStorage extends StorageService {
         additionalMetadata: {
           localPath: filePath,
           mtime: stats.mtime,
-          atime: stats.atime
-        }
+          atime: stats.atime,
+        },
       };
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -206,9 +206,9 @@ class LocalStorage extends StorageService {
       '.xls': 'application/vnd.ms-excel',
       '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       '.ppt': 'application/vnd.ms-powerpoint',
-      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     };
-    
+
     return mimeTypes[ext] || 'application/octet-stream';
   }
 }

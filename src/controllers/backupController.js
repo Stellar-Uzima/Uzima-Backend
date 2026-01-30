@@ -16,17 +16,17 @@ const filteredBackupService = new FilteredBackupService();
 export const getBackups = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
-    
+
     // Build query filter
     const filter = {};
     if (status) {
       filter.status = status;
     }
-    
+
     // Build sort object
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
-    
+
     // Get paginated backups from database
     const skip = (page - 1) * limit;
     const backups = await Backup.find(filter)
@@ -34,34 +34,38 @@ export const getBackups = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .select('-__v');
-    
+
     const totalCount = await Backup.countDocuments(filter);
     const totalPages = Math.ceil(totalCount / limit);
-    
+
     // Get S3 backup list for additional details
     const s3Backups = await backupService.listBackups();
-    
+
     // Merge database and S3 information
     const enrichedBackups = backups.map(backup => {
       const s3Info = s3Backups.find(s3 => s3.backupId === backup.backupId);
       return {
         ...backup.toObject(),
         s3Info: s3Info || null,
-        downloadUrl: s3Info ? s3Info.url : null
+        downloadUrl: s3Info ? s3Info.url : null,
       };
     });
-    
-    return ApiResponse.success(res, {
-      backups: enrichedBackups,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages,
-        totalCount,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
-    }, 'success.BACKUPS_RETRIEVED', 200);
-    
+
+    return ApiResponse.success(
+      res,
+      {
+        backups: enrichedBackups,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalCount,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        },
+      },
+      'success.BACKUPS_RETRIEVED',
+      200
+    );
   } catch (error) {
     console.error('Error retrieving backups:', error);
     return ApiResponse.error(res, error.message || 'Failed to retrieve backups', 500);
@@ -75,20 +79,24 @@ export const getBackups = async (req, res) => {
 export const getBackupStatistics = async (req, res) => {
   try {
     const stats = await getBackupStats();
-    
+
     // Additional statistics
     const additionalStats = {
       storageUsed: await calculateTotalStorageUsed(),
       averageBackupSize: await calculateAverageBackupSize(),
       successRate: await calculateSuccessRate(),
-      lastBackupTime: await getLastBackupTime()
+      lastBackupTime: await getLastBackupTime(),
     };
-    
-    return ApiResponse.success(res, {
-      ...stats,
-      ...additionalStats
-    }, 'success.STATS_RETRIEVED', 200);
-    
+
+    return ApiResponse.success(
+      res,
+      {
+        ...stats,
+        ...additionalStats,
+      },
+      'success.STATS_RETRIEVED',
+      200
+    );
   } catch (error) {
     console.error('Error retrieving backup statistics:', error);
     return ApiResponse.error(res, error.message || 'Failed to retrieve backup statistics', 500);
@@ -102,16 +110,16 @@ export const getBackupStatistics = async (req, res) => {
 export const getBackupDetails = async (req, res) => {
   try {
     const { backupId } = req.params;
-    
+
     const backup = await Backup.findOne({ backupId }).select('-__v');
     if (!backup) {
       return ApiResponse.error(res, 'Backup not found', 404);
     }
-    
+
     // Get S3 information
     const s3Backups = await backupService.listBackups();
     const s3Info = s3Backups.find(s3 => s3.backupId === backupId);
-    
+
     // Verify backup integrity if not already verified
     let verificationResult = null;
     if (backup.s3Key && !backup.verificationStatus.verified) {
@@ -120,14 +128,18 @@ export const getBackupDetails = async (req, res) => {
         await backup.markVerified(backup.hash);
       }
     }
-    
-    return ApiResponse.success(res, {
-      ...backup.toObject(),
-      s3Info: s3Info || null,
-      downloadUrl: s3Info ? s3Info.url : null,
-      verificationResult
-    }, 'success.BACKUP_DETAILS_RETRIEVED', 200);
-    
+
+    return ApiResponse.success(
+      res,
+      {
+        ...backup.toObject(),
+        s3Info: s3Info || null,
+        downloadUrl: s3Info ? s3Info.url : null,
+        verificationResult,
+      },
+      'success.BACKUP_DETAILS_RETRIEVED',
+      200
+    );
   } catch (error) {
     console.error('Error retrieving backup details:', error);
     return ApiResponse.error(res, error.message || 'Failed to retrieve backup details', 500);
@@ -145,16 +157,20 @@ export const triggerBackup = async (req, res) => {
     if (inProgressBackup) {
       return ApiResponse.error(res, 'A backup is already in progress', 409);
     }
-    
+
     // Trigger manual backup asynchronously
     triggerManualBackup().catch(error => {
       console.error('Manual backup failed:', error);
     });
-    
-    return ApiResponse.success(res, {
-      message: 'Backup has been started and will run in the background'
-    }, 'success.BACKUP_TRIGGERED', 202);
-    
+
+    return ApiResponse.success(
+      res,
+      {
+        message: 'Backup has been started and will run in the background',
+      },
+      'success.BACKUP_TRIGGERED',
+      202
+    );
   } catch (error) {
     console.error('Error triggering backup:', error);
     return ApiResponse.error(res, error.message || 'Failed to trigger backup', 500);
@@ -168,22 +184,21 @@ export const triggerBackup = async (req, res) => {
 export const deleteBackup = async (req, res) => {
   try {
     const { backupId } = req.params;
-    
+
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
       return ApiResponse.error(res, 'Backup not found', 404);
     }
-    
+
     // Delete from S3 if exists
     if (backup.s3Key) {
       await backupService.deleteBackup(backup.s3Key);
     }
-    
+
     // Delete from database
     await Backup.deleteOne({ backupId });
-    
+
     return ApiResponse.success(res, {}, 'success.BACKUP_DELETED', 200);
-    
   } catch (error) {
     console.error('Error deleting backup:', error);
     return ApiResponse.error(res, error.message || 'Failed to delete backup', 500);
@@ -197,24 +212,23 @@ export const deleteBackup = async (req, res) => {
 export const verifyBackup = async (req, res) => {
   try {
     const { backupId } = req.params;
-    
+
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
       return ApiResponse.error(res, 'Backup not found', 404);
     }
-    
+
     if (!backup.s3Key) {
       return ApiResponse.error(res, 'Backup has no S3 key for verification', 400);
     }
-    
+
     const verificationResult = await backupService.verifyBackupIntegrity(backup.s3Key);
-    
+
     if (verificationResult.verified) {
       await backup.markVerified(backup.hash);
     }
-    
+
     return ApiResponse.success(res, verificationResult, 'success.BACKUP_VERIFIED', 200);
-    
   } catch (error) {
     console.error('Error verifying backup:', error);
     return ApiResponse.error(res, error.message || 'Failed to verify backup', 500);
@@ -228,25 +242,29 @@ export const verifyBackup = async (req, res) => {
 export const downloadBackup = async (req, res) => {
   try {
     const { backupId } = req.params;
-    
+
     const backup = await Backup.findOne({ backupId });
     if (!backup) {
       return ApiResponse.error(res, 'Backup not found', 404);
     }
-    
+
     if (!backup.s3Key) {
       return ApiResponse.error(res, 'Backup file not available for download', 400);
     }
-    
+
     // Generate pre-signed URL for download (valid for 1 hour)
     const downloadUrl = await backupService.generateDownloadUrl(backup.s3Key, 3600);
-    
-    return ApiResponse.success(res, {
-      downloadUrl,
-      expiresIn: 3600,
-      filename: `${backupId}.tar.gz.enc`
-    }, 'success.DOWNLOAD_URL_GENERATED', 200);
-    
+
+    return ApiResponse.success(
+      res,
+      {
+        downloadUrl,
+        expiresIn: 3600,
+        filename: `${backupId}.tar.gz.enc`,
+      },
+      'success.DOWNLOAD_URL_GENERATED',
+      200
+    );
   } catch (error) {
     console.error('Error generating download URL:', error);
     return ApiResponse.error(res, error.message || 'Failed to generate download URL', 500);
@@ -258,7 +276,7 @@ export const downloadBackup = async (req, res) => {
 async function calculateTotalStorageUsed() {
   const result = await Backup.aggregate([
     { $match: { status: 'completed' } },
-    { $group: { _id: null, totalSize: { $sum: '$size' } } }
+    { $group: { _id: null, totalSize: { $sum: '$size' } } },
   ]);
   return result[0]?.totalSize || 0;
 }
@@ -266,7 +284,7 @@ async function calculateTotalStorageUsed() {
 async function calculateAverageBackupSize() {
   const result = await Backup.aggregate([
     { $match: { status: 'completed' } },
-    { $group: { _id: null, avgSize: { $avg: '$size' } } }
+    { $group: { _id: null, avgSize: { $avg: '$size' } } },
   ]);
   return result[0]?.avgSize || 0;
 }
@@ -316,7 +334,7 @@ export const createFilteredBackup = async (req, res) => {
     const processedFilters = {
       ...filters,
       startDate: filters.startDate ? new Date(filters.startDate) : null,
-      endDate: filters.endDate ? new Date(filters.endDate) : null
+      endDate: filters.endDate ? new Date(filters.endDate) : null,
     };
 
     // Create the filtered backup
@@ -339,17 +357,17 @@ export const createFilteredBackup = async (req, res) => {
         collections: collections.map(name => ({
           name,
           documentCount: backupResult.metadata.recordCounts?.[name] || 0,
-          size: backupResult.files.json?.size || 0
+          size: backupResult.files.json?.size || 0,
         })),
         totalDocuments: backupResult.metadata.totalRecords,
-        totalSize: Object.values(backupResult.files).reduce((sum, f) => sum + (f.size || 0), 0)
+        totalSize: Object.values(backupResult.files).reduce((sum, f) => sum + (f.size || 0), 0),
       },
       filteredBackupMetadata: backupResult.metadata,
       filePaths: {
         jsonPath: backupResult.files.json?.path,
-        csvPath: backupResult.files.csv?.path
+        csvPath: backupResult.files.csv?.path,
       },
-      retentionDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days retention
+      retentionDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days retention
     });
 
     try {
@@ -361,13 +379,18 @@ export const createFilteredBackup = async (req, res) => {
       throw saveError;
     }
 
-    return ApiResponse.success(res, {
-      backupId: backupResult.backupId,
-      metadata: backupResult.metadata,
-      files: backupResult.files,
-      createdAt: backupResult.startTime,
-      duration: `${backupResult.duration}ms`
-    }, 'success.BACKUP_CREATED', 201);
+    return ApiResponse.success(
+      res,
+      {
+        backupId: backupResult.backupId,
+        metadata: backupResult.metadata,
+        files: backupResult.files,
+        createdAt: backupResult.startTime,
+        duration: `${backupResult.duration}ms`,
+      },
+      'success.BACKUP_CREATED',
+      201
+    );
   } catch (error) {
     console.error('Error creating filtered backup:', error);
     return ApiResponse.error(res, error.message || 'Failed to create filtered backup', 500);
@@ -391,15 +414,20 @@ export const getFilteredBackups = async (req, res) => {
 
     const total = await Backup.countDocuments({ backupCategory: 'filtered' });
 
-    return ApiResponse.success(res, {
-      backups,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / parseInt(limit)),
-        total,
-        limit: parseInt(limit)
-      }
-    }, 'success.BACKUPS_RETRIEVED', 200);
+    return ApiResponse.success(
+      res,
+      {
+        backups,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+          total,
+          limit: parseInt(limit),
+        },
+      },
+      'success.BACKUPS_RETRIEVED',
+      200
+    );
   } catch (error) {
     console.error('Error retrieving filtered backups:', error);
     return ApiResponse.error(res, error.message || 'Failed to retrieve filtered backups', 500);
@@ -440,13 +468,13 @@ export const downloadFilteredBackup = async (req, res) => {
     // Stream the file
     fileStream.pipe(res);
 
-    fileStream.on('error', (error) => {
+    fileStream.on('error', error => {
       console.error('Error streaming backup file:', error);
       if (!res.headersSent) {
-        res.status(500).json({ 
-          success: false, 
+        res.status(500).json({
+          success: false,
           message: 'Error downloading file',
-          error: error.message 
+          error: error.message,
         });
       }
     });
@@ -471,17 +499,22 @@ export const getFilteredBackupMetadata = async (req, res) => {
       return ApiResponse.error(res, 'Filtered backup not found', 404);
     }
 
-    return ApiResponse.success(res, {
-      backupId,
-      createdAt: backup.createdAt,
-      format: backup.filteredBackupMetadata.format,
-      filters: backup.filteredBackupMetadata.filters,
-      collections: backup.filteredBackupMetadata.collections,
-      recordCounts: backup.filteredBackupMetadata.recordCounts,
-      totalRecords: backup.filteredBackupMetadata.totalRecords,
-      filtersApplied: backup.filteredBackupMetadata.filtersApplied,
-      size: backup.metadata.totalSize
-    }, 'success.METADATA_RETRIEVED', 200);
+    return ApiResponse.success(
+      res,
+      {
+        backupId,
+        createdAt: backup.createdAt,
+        format: backup.filteredBackupMetadata.format,
+        filters: backup.filteredBackupMetadata.filters,
+        collections: backup.filteredBackupMetadata.collections,
+        recordCounts: backup.filteredBackupMetadata.recordCounts,
+        totalRecords: backup.filteredBackupMetadata.totalRecords,
+        filtersApplied: backup.filteredBackupMetadata.filtersApplied,
+        size: backup.metadata.totalSize,
+      },
+      'success.METADATA_RETRIEVED',
+      200
+    );
   } catch (error) {
     console.error('Error retrieving backup metadata:', error);
     return ApiResponse.error(res, error.message || 'Failed to retrieve backup metadata', 500);

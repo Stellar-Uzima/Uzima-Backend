@@ -6,7 +6,7 @@ const AbTestMetricSchema = new mongoose.Schema({
   group: { type: String, enum: ['A', 'B'], required: true },
   impressions: { type: Number, default: 0 },
   clicks: { type: Number, default: 0 },
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: { type: Date, default: Date.now },
 });
 
 module.exports = mongoose.model('AbTestMetric', AbTestMetricSchema);

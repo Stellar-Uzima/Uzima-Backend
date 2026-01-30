@@ -3,4 +3,16 @@ dist/
 build/
 .env
 .git/
-*.log 
+*.log
+coverage/
+ml-assistant-frontend/**
+controllers/articleEngagementController.js
+controllers/recommendationController.js
+SSE_INTEGRATION_EXAMPLES.js
+SSE_TEST_SCENARIOS.js
+test-*.js
+test-*.mjs
+test-*.html
+migrate-mongo-config.*
+jest.encryption.config.js
+babel.config.json 

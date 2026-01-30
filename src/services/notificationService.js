@@ -155,11 +155,7 @@ export async function getNotifications(filters = {}, options = {}) {
   if (email) query['recipient.email'] = email;
   if (userId) query['recipient.userId'] = userId;
 
-  const notifications = await Notification.find(query)
-    .sort(sort)
-    .limit(limit)
-    .skip(skip)
-    .lean();
+  const notifications = await Notification.find(query).sort(sort).limit(limit).skip(skip).lean();
 
   const total = await Notification.countDocuments(query);
 
@@ -176,7 +172,7 @@ export async function getNotifications(filters = {}, options = {}) {
  */
 export async function retryNotification(notificationId) {
   const notification = await Notification.findById(notificationId);
-  
+
   if (!notification) {
     throw new Error('Notification not found');
   }
@@ -218,10 +214,10 @@ export async function createSecurityNotification(data) {
 
   // Map notification types to enum values
   const typeMap = {
-    'NEW_DEVICE_LOGIN': 'new_device_login',
-    'NEW_LOCATION_LOGIN': 'new_location_login',
-    'IMPOSSIBLE_TRAVEL_DETECTED': 'impossible_travel_detected',
-    'SECURITY_ALERT': 'security_alert',
+    NEW_DEVICE_LOGIN: 'new_device_login',
+    NEW_LOCATION_LOGIN: 'new_location_login',
+    IMPOSSIBLE_TRAVEL_DETECTED: 'impossible_travel_detected',
+    SECURITY_ALERT: 'security_alert',
   };
 
   const notificationType = typeMap[type] || 'security_alert';
@@ -229,7 +225,7 @@ export async function createSecurityNotification(data) {
   // Get user info for email
   const User = (await import('../models/User.js')).default;
   const user = await User.findById(userId).select('email username').lean();
-  
+
   if (!user) {
     throw new Error(`User ${userId} not found`);
   }
@@ -305,13 +301,18 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                 </p>
               </div>
 
-              ${metadata && Object.keys(metadata).length > 0 ? `
+              ${
+                metadata && Object.keys(metadata).length > 0
+                  ? `
               <div style="margin: 24px 0;">
                 <h3 style="margin: 0 0 12px; color: #333333; font-size: 16px; font-weight: 600;">
                   Details:
                 </h3>
                 <table style="width: 100%; border-collapse: collapse;">
-                  ${Object.entries(metadata).filter(([key]) => !key.startsWith('_')).map(([key, value]) => `
+                  ${Object.entries(metadata)
+                    .filter(([key]) => !key.startsWith('_'))
+                    .map(
+                      ([key, value]) => `
                     <tr>
                       <td style="padding: 8px 0; color: #999999; font-size: 14px; text-transform: capitalize;">
                         ${key.replace(/_/g, ' ')}:
@@ -320,10 +321,14 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                         ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
                       </td>
                     </tr>
-                  `).join('')}
+                  `
+                    )
+                    .join('')}
                 </table>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
 
               <div style="margin: 32px 0 0; padding: 20px; background-color: #F5F5F5; border-radius: 4px;">
                 <p style="margin: 0 0 12px; color: #666666; font-size: 14px; line-height: 1.6;">

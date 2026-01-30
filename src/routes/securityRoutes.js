@@ -49,11 +49,7 @@ router.use(protect);
  *       401:
  *         description: Unauthorized
  */
-router.get(
-  '/devices',
-  activityLogger({ action: 'view_devices' }),
-  securityController.getDevices
-);
+router.get('/devices', activityLogger({ action: 'view_devices' }), securityController.getDevices);
 
 /**
  * @swagger

@@ -12,7 +12,7 @@ i18next
   .use(i18nextHttpMiddleware.LanguageDetector)
   .init({
     backend: {
-      loadPath: path.join(__dirname, '../locales/{{lng}}.json')
+      loadPath: path.join(__dirname, '../locales/{{lng}}.json'),
     },
     fallbackLng: 'en',
     supportedLngs: ['en', 'fr', 'sw'],
@@ -21,11 +21,11 @@ i18next
       order: ['querystring', 'header'],
       lookupQuerystring: 'lang',
       lookupHeader: 'accept-language',
-      caches: []
+      caches: [],
     },
     interpolation: {
-      escapeValue: false
-    }
+      escapeValue: false,
+    },
   });
 
 export const i18nMiddleware = i18nextHttpMiddleware.handle(i18next);

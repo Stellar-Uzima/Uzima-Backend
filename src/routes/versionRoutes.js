@@ -15,7 +15,8 @@ router.get('/version', (req, res) => {
       sunsetDate: info.sunsetDate,
     }));
 
-  const currentVersion = supportedVersions.find(v => !v.deprecated) || supportedVersions[supportedVersions.length - 1];
+  const currentVersion =
+    supportedVersions.find(v => !v.deprecated) || supportedVersions[supportedVersions.length - 1];
 
   res.json({
     current: currentVersion.version,

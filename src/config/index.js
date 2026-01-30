@@ -1,14 +1,14 @@
 /**
  * Unified Configuration Loader
- * 
+ *
  * Dynamically loads environment-specific configuration based on NODE_ENV.
  * Validates all required environment variables using Joi.
  * Provides clean getter functions for accessing configuration values.
- * 
+ *
  * @module config
  * @example
  * import { getConfig } from './config/index.js';
- * 
+ *
  * const dbUri = getConfig().db.uri;
  * const port = getConfig().server.port;
  */
@@ -38,13 +38,13 @@ const envConfigs = {
 const getEnv = () => {
   const env = process.env.NODE_ENV || 'development';
   const validEnvs = ['development', 'staging', 'production'];
-  
+
   if (!validEnvs.includes(env)) {
     // eslint-disable-next-line no-console
     console.warn(`Invalid NODE_ENV "${env}", defaulting to "development"`);
     return 'development';
   }
-  
+
   return env;
 };
 
@@ -57,56 +57,40 @@ const envSchema = Joi.object({
     .valid('development', 'staging', 'production')
     .default('development')
     .description('Application environment'),
-  
-  PORT: Joi.number()
-    .port()
-    .default(5000)
-    .description('Server port'),
-  
+
+  PORT: Joi.number().port().default(5000).description('Server port'),
+
   // Database
   MONGO_URI: Joi.string()
     .uri({ scheme: ['mongodb', 'mongodb+srv'] })
     .required()
     .description('MongoDB connection URI'),
-  
+
   // Authentication
-  JWT_SECRET: Joi.string()
-    .min(32)
-    .required()
-    .description('JWT signing secret (min 32 characters)'),
-  
+  JWT_SECRET: Joi.string().min(32).required().description('JWT signing secret (min 32 characters)'),
+
   // Email - SMTP (optional if using Resend)
-  SMTP_HOST: Joi.string()
-    .hostname()
-    .description('SMTP server hostname'),
-  
-  SMTP_PORT: Joi.number()
-    .port()
-    .default(587)
-    .description('SMTP server port'),
-  
-  SMTP_USER: Joi.string()
-    .email()
-    .description('SMTP authentication username'),
-  
-  SMTP_PASS: Joi.string()
-    .description('SMTP authentication password'),
-  
+  SMTP_HOST: Joi.string().hostname().description('SMTP server hostname'),
+
+  SMTP_PORT: Joi.number().port().default(587).description('SMTP server port'),
+
+  SMTP_USER: Joi.string().email().description('SMTP authentication username'),
+
+  SMTP_PASS: Joi.string().description('SMTP authentication password'),
+
   MAIL_FROM: Joi.string()
     .default('Uzima Health <noreply@uzima.health>')
     .description('Email sender address'),
-  
+
   // Email - Resend (optional)
-  RESEND_API_KEY: Joi.string()
-    .pattern(/^re_/)
-    .description('Resend API key (starts with re_)'),
-  
+  RESEND_API_KEY: Joi.string().pattern(/^re_/).description('Resend API key (starts with re_)'),
+
   // Redis
   REDIS_URL: Joi.string()
     .uri({ scheme: ['redis', 'rediss'] })
     .default('redis://localhost:6379')
     .description('Redis connection URL'),
-  
+
   // Email Queue
   EMAIL_MAX_ATTEMPTS: Joi.number()
     .integer()
@@ -114,135 +98,108 @@ const envSchema = Joi.object({
     .max(10)
     .default(3)
     .description('Maximum email retry attempts'),
-  
+
   EMAIL_BACKOFF_DELAY: Joi.number()
     .integer()
     .min(100)
     .default(2000)
     .description('Email retry backoff delay (ms)'),
-  
+
   EMAIL_WORKER_CONCURRENCY: Joi.number()
     .integer()
     .min(1)
     .max(50)
     .default(5)
     .description('Email worker concurrency'),
-  
+
   EMAIL_RATE_LIMIT_MAX: Joi.number()
     .integer()
     .min(1)
     .default(10)
     .description('Email rate limit max per duration'),
-  
+
   EMAIL_RATE_LIMIT_DURATION: Joi.number()
     .integer()
     .min(100)
     .default(1000)
     .description('Email rate limit duration (ms)'),
-  
+
   // AWS S3
-  AWS_ACCESS_KEY_ID: Joi.string()
-    .description('AWS access key ID'),
-  
-  AWS_SECRET_ACCESS_KEY: Joi.string()
-    .description('AWS secret access key'),
-  
-  AWS_REGION: Joi.string()
-    .default('us-east-1')
-    .description('AWS region'),
-  
-  S3_BACKUP_BUCKET: Joi.string()
-    .description('S3 bucket for backups'),
-  
+  AWS_ACCESS_KEY_ID: Joi.string().description('AWS access key ID'),
+
+  AWS_SECRET_ACCESS_KEY: Joi.string().description('AWS secret access key'),
+
+  AWS_REGION: Joi.string().default('us-east-1').description('AWS region'),
+
+  S3_BACKUP_BUCKET: Joi.string().description('S3 bucket for backups'),
+
   S3_BACKUP_PREFIX: Joi.string()
     .default('mongodb-backups/')
     .description('S3 prefix for backup files'),
-  
-  S3_BUCKET_NAME: Joi.string()
-    .description('S3 bucket for file uploads'),
-  
-  S3_ENDPOINT: Joi.string()
-    .uri()
-    .description('Custom S3 endpoint (for Minio)'),
-  
+
+  S3_BUCKET_NAME: Joi.string().description('S3 bucket for file uploads'),
+
+  S3_ENDPOINT: Joi.string().uri().description('Custom S3 endpoint (for Minio)'),
+
   S3_FORCE_PATH_STYLE: Joi.boolean()
     .default(false)
     .description('Force path style for S3 (for Minio)'),
-  
+
   // Backup
   BACKUP_RETENTION_DAYS: Joi.number()
     .integer()
     .min(1)
     .default(30)
     .description('Number of days to retain backups'),
-  
+
   BACKUP_ENCRYPTION_KEY: Joi.string()
     .min(32)
     .description('Encryption key for backups (min 32 characters)'),
-  
-  BACKUP_SCHEDULE: Joi.string()
-    .default('0 2 * * *')
-    .description('Cron schedule for backups'),
-  
+
+  BACKUP_SCHEDULE: Joi.string().default('0 2 * * *').description('Cron schedule for backups'),
+
   BACKUP_STORAGE_LIMIT_GB: Joi.number()
     .integer()
     .min(1)
     .default(100)
     .description('Backup storage limit in GB'),
-  
+
   // Monitoring
-  SENTRY_DSN: Joi.string()
-    .uri()
-    .description('Sentry DSN for error tracking'),
-  
+  SENTRY_DSN: Joi.string().uri().description('Sentry DSN for error tracking'),
+
   // Swagger
-  SWAGGER_USER: Joi.string()
-    .default('admin')
-    .description('Swagger UI username'),
-  
-  SWAGGER_PASSWORD: Joi.string()
-    .min(8)
-    .default('changeme')
-    .description('Swagger UI password'),
-  
+  SWAGGER_USER: Joi.string().default('admin').description('Swagger UI username'),
+
+  SWAGGER_PASSWORD: Joi.string().min(8).default('changeme').description('Swagger UI password'),
+
   SWAGGER_ALLOWED_IPS: Joi.string()
     .default('127.0.0.1')
     .description('Comma-separated allowed IPs for Swagger'),
-  
+
   // Stellar
-  STELLAR_SECRET_KEY: Joi.string()
-    .description('Stellar secret key'),
-  
+  STELLAR_SECRET_KEY: Joi.string().description('Stellar secret key'),
+
   // Queue
-  MAX_ATTEMPTS: Joi.number()
-    .integer()
-    .default(5)
-    .description('Maximum job retry attempts'),
-  
-  BACKOFF_BASE_MS: Joi.number()
-    .integer()
-    .default(1000)
-    .description('Job backoff base delay (ms)'),
-  
+  MAX_ATTEMPTS: Joi.number().integer().default(5).description('Maximum job retry attempts'),
+
+  BACKOFF_BASE_MS: Joi.number().integer().default(1000).description('Job backoff base delay (ms)'),
+
   // GDPR
   STAGING_MONGO_URI: Joi.string()
     .uri({ scheme: ['mongodb', 'mongodb+srv'] })
     .description('Staging MongoDB URI for restore testing'),
-  
+
   // Prescription
-  PRESCRIPTION_SECRET: Joi.string()
-    .description('Prescription signing secret'),
-  
+  PRESCRIPTION_SECRET: Joi.string().description('Prescription signing secret'),
+
   // ClamAV
-  CLAMAV_API_URL: Joi.string()
-    .uri()
-    .description('ClamAV API URL for virus scanning'),
-  
+  CLAMAV_API_URL: Joi.string().uri().description('ClamAV API URL for virus scanning'),
+
   REDIS_HOST: Joi.string()
     .hostname()
     .default('localhost')
     .description('Redis host (alternative to REDIS_URL)'),
-  
+
   REDIS_PORT: Joi.number()
     .port()
     .default(6379)
@@ -336,17 +293,15 @@ let cachedConfig = null;
 const validateAndBuildConfig = () => {
   const env = getEnv();
   const envConfig = envConfigs[env];
-  
+
   // Validate environment variables
   const { error, value: validatedEnv } = envSchema.validate(process.env, {
     stripUnknown: false,
   });
-  
+
   if (error) {
-    const errorMessages = error.details
-      .map((detail) => `  - ${detail.message}`)
-      .join('\n');
-    
+    const errorMessages = error.details.map(detail => `  - ${detail.message}`).join('\n');
+
     // eslint-disable-next-line no-console
     console.error('\n╔══════════════════════════════════════════════════════════╗');
     // eslint-disable-next-line no-console
@@ -367,10 +322,10 @@ const validateAndBuildConfig = () => {
     console.error('\n📝 Please check your .env file and fix the above errors.\n');
     // eslint-disable-next-line no-console
     console.error('💡 See src/config/CONFIG.md for documentation.\n');
-    
+
     throw new Error(`Configuration validation failed:\n${errorMessages}`);
   }
-  
+
   // Build the final configuration object
   return {
     // Server configuration
@@ -379,7 +334,7 @@ const validateAndBuildConfig = () => {
       port: validatedEnv.PORT || envConfig.server.port,
       logLevel: envConfig.server.logLevel,
     },
-    
+
     // Database configuration
     db: {
       uri: validatedEnv.MONGO_URI,
@@ -400,19 +355,19 @@ const validateAndBuildConfig = () => {
         connectionRetryInitialDelay: validatedEnv.MONGO_CONNECTION_RETRY_INITIAL_DELAY_MS,
       },
     },
-    
+
     // JWT configuration
     jwt: {
       secret: validatedEnv.JWT_SECRET,
     },
-    
+
     // Redis configuration
     redis: {
       url: validatedEnv.REDIS_URL || envConfig.redis?.url,
       host: validatedEnv.REDIS_HOST,
       port: validatedEnv.REDIS_PORT,
     },
-    
+
     // Email configuration
     email: {
       smtp: {
@@ -427,9 +382,10 @@ const validateAndBuildConfig = () => {
       backoffDelay: validatedEnv.EMAIL_BACKOFF_DELAY || envConfig.email.backoffDelay,
       workerConcurrency: validatedEnv.EMAIL_WORKER_CONCURRENCY || envConfig.email.workerConcurrency,
       rateLimitMax: validatedEnv.EMAIL_RATE_LIMIT_MAX || envConfig.email.rateLimitMax,
-      rateLimitDuration: validatedEnv.EMAIL_RATE_LIMIT_DURATION || envConfig.email.rateLimitDuration,
+      rateLimitDuration:
+        validatedEnv.EMAIL_RATE_LIMIT_DURATION || envConfig.email.rateLimitDuration,
     },
-    
+
     // AWS configuration
     aws: {
       accessKeyId: validatedEnv.AWS_ACCESS_KEY_ID,
@@ -443,7 +399,7 @@ const validateAndBuildConfig = () => {
         forcePathStyle: validatedEnv.S3_FORCE_PATH_STYLE,
       },
     },
-    
+
     // Backup configuration
     backup: {
       retentionDays: validatedEnv.BACKUP_RETENTION_DAYS || envConfig.backup.retentionDays,
@@ -451,48 +407,48 @@ const validateAndBuildConfig = () => {
       schedule: validatedEnv.BACKUP_SCHEDULE || envConfig.backup.schedule,
       storageLimitGb: validatedEnv.BACKUP_STORAGE_LIMIT_GB,
     },
-    
+
     // Monitoring configuration
     monitoring: {
       sentryDsn: validatedEnv.SENTRY_DSN,
     },
-    
+
     // Swagger configuration
     swagger: {
       user: validatedEnv.SWAGGER_USER,
       password: validatedEnv.SWAGGER_PASSWORD,
-      allowedIps: validatedEnv.SWAGGER_ALLOWED_IPS?.split(',').map((ip) => ip.trim()),
+      allowedIps: validatedEnv.SWAGGER_ALLOWED_IPS?.split(',').map(ip => ip.trim()),
     },
-    
+
     // Stellar configuration
     stellar: {
       secretKey: validatedEnv.STELLAR_SECRET_KEY,
     },
-    
+
     // Queue configuration
     queue: {
       maxAttempts: validatedEnv.MAX_ATTEMPTS,
       backoffBaseMs: validatedEnv.BACKOFF_BASE_MS,
     },
-    
+
     // GDPR configuration
     gdpr: {
       stagingMongoUri: validatedEnv.STAGING_MONGO_URI,
     },
-    
+
     // Prescription configuration
     prescription: {
       secret: validatedEnv.PRESCRIPTION_SECRET || validatedEnv.JWT_SECRET,
     },
-    
+
     // Scan configuration
     scan: {
       clamavApiUrl: validatedEnv.CLAMAV_API_URL,
     },
-    
+
     // Feature flags from environment config
     features: envConfig.features,
-    
+
     // Validation mode
     validation: envConfig.validation,
   };
@@ -506,7 +462,7 @@ const validateAndBuildConfig = () => {
 export const initConfig = () => {
   if (!cachedConfig) {
     cachedConfig = validateAndBuildConfig();
-    
+
     // Log successful initialization (non-sensitive info only)
     // eslint-disable-next-line no-console
     console.log(`\n✅ Configuration loaded for environment: ${cachedConfig.server.env}`);
@@ -515,14 +471,14 @@ export const initConfig = () => {
     // eslint-disable-next-line no-console
     console.log(`   Log level: ${cachedConfig.server.logLevel}\n`);
   }
-  
+
   return cachedConfig;
 };
 
 /**
  * Get the current configuration
  * Initializes config if not already done
- * 
+ *
  * @returns {Object} Configuration object
  * @example
  * const config = getConfig();

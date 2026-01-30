@@ -28,7 +28,7 @@ class FileService {
     // Generate presigned URL using the abstraction layer
     const uploadUrl = await this.storageManager.generatePresignedUrl(key, {
       expiresIn: this.uploadTTL,
-      operation: 'upload'
+      operation: 'upload',
     });
 
     return {
@@ -42,7 +42,7 @@ class FileService {
     // Generate presigned URL using the abstraction layer
     const signedUrl = await this.storageManager.generatePresignedUrl(key, {
       expiresIn: this.downloadTTL,
-      operation: 'read'
+      operation: 'read',
     });
 
     return signedUrl;
@@ -55,18 +55,18 @@ class FileService {
 
   async moveToQuarantine(key) {
     const quarantineKey = key.replace('users/', 'quarantine/');
-    
+
     // Get the file data from current location
     const fileData = await this.storageManager.download(key);
-    
+
     // Upload to quarantine location
     const metadata = await this.storageManager.upload(fileData, 'quarantine-file', 'system', {
-      originalFilename: quarantineKey.split('/').pop()
+      originalFilename: quarantineKey.split('/').pop(),
     });
-    
+
     // Delete the original file
     await this.storageManager.delete(key);
-    
+
     return quarantineKey;
   }
 }

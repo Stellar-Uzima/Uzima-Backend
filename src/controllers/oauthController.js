@@ -8,23 +8,21 @@ import transactionLog from '../models/transactionLog.js';
 
 const oauthController = {
   // Generate JWT token for user
-  generateToken: (user) => {
+  generateToken: user => {
     const payload = {
       id: user._id,
       email: user.email,
       role: user.role,
-      username: user.username
+      username: user.username,
     };
 
     const accessToken = jwt.sign(payload, jwtConfig.secret, {
-      expiresIn: jwtConfig.expiresIn
+      expiresIn: jwtConfig.expiresIn,
     });
 
-    const refreshToken = jwt.sign(
-      { id: user._id, type: 'refresh' },
-      jwtConfig.secret,
-      { expiresIn: jwtConfig.refreshExpiresIn }
-    );
+    const refreshToken = jwt.sign({ id: user._id, type: 'refresh' }, jwtConfig.secret, {
+      expiresIn: jwtConfig.refreshExpiresIn,
+    });
 
     return { accessToken, refreshToken };
   },
@@ -53,15 +51,19 @@ const oauthController = {
       try {
         if (err) {
           console.error(`OAuth ${provider} error:`, err);
-          return res.redirect(`${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('Authentication failed')}`);
+          return res.redirect(
+            `${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('Authentication failed')}`
+          );
         }
 
         if (!user) {
-          return res.redirect(`${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('User not found')}`);
+          return res.redirect(
+            `${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('User not found')}`
+          );
         }
 
         // Log the OAuth login
-        await withTransaction(async (session) => {
+        await withTransaction(async session => {
           await transactionLog.create(
             [
               {
@@ -75,9 +77,9 @@ const oauthController = {
                   provider,
                   email: user.email,
                   userAgent: req.get('User-Agent'),
-                  ipAddress: req.ip
-                }
-              }
+                  ipAddress: req.ip,
+                },
+              },
             ],
             { session }
           );
@@ -87,16 +89,18 @@ const oauthController = {
         const { accessToken, refreshToken } = oauthController.generateToken(user);
 
         // Redirect to frontend with tokens
-        const redirectUrl = `${process.env.FRONTEND_URL}/auth/success?` +
+        const redirectUrl =
+          `${process.env.FRONTEND_URL}/auth/success?` +
           `access_token=${encodeURIComponent(accessToken)}&` +
           `refresh_token=${encodeURIComponent(refreshToken)}&` +
           `provider=${provider}`;
 
         res.redirect(redirectUrl);
-
       } catch (error) {
         console.error(`OAuth ${provider} callback error:`, error);
-        res.redirect(`${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('Server error')}`);
+        res.redirect(
+          `${process.env.FRONTEND_URL}/auth/error?error=${encodeURIComponent('Server error')}`
+        );
       }
     })(req, res);
   },
@@ -152,14 +156,18 @@ const oauthController = {
           // Check if another user has this OAuth account
           const existingUser = await User.findByOAuthProvider(provider, profile.id);
           if (existingUser) {
-            return ApiResponse.error(res, `${provider} account is already linked to another user`, 400);
+            return ApiResponse.error(
+              res,
+              `${provider} account is already linked to another user`,
+              400
+            );
           }
 
           // Link the account
           await user.linkOAuthAccount(provider, profile);
 
           // Log the linking
-          await withTransaction(async (session) => {
+          await withTransaction(async session => {
             await transactionLog.create(
               [
                 {
@@ -172,21 +180,19 @@ const oauthController = {
                   metadata: {
                     provider,
                     oauthId: profile.id,
-                    oauthEmail: profile.email
-                  }
-                }
+                    oauthEmail: profile.email,
+                  },
+                },
               ],
               { session }
             );
           });
 
           return ApiResponse.success(res, null, `${provider} account linked successfully`);
-
         } catch (error) {
           return ApiResponse.error(res, error.message, 500);
         }
       })(req, res);
-
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }
@@ -211,7 +217,7 @@ const oauthController = {
       await user.unlinkOAuthAccount(provider);
 
       // Log the unlinking
-      await withTransaction(async (session) => {
+      await withTransaction(async session => {
         await transactionLog.create(
           [
             {
@@ -222,16 +228,15 @@ const oauthController = {
               timestamp: new Date(),
               details: `Unlinked ${provider} account from user`,
               metadata: {
-                provider
-              }
-            }
+                provider,
+              },
+            },
           ],
           { session }
         );
       });
 
       return ApiResponse.success(res, null, `${provider} account unlinked successfully`);
-
     } catch (error) {
       if (error.message.includes('Cannot unlink last authentication method')) {
         return ApiResponse.error(res, error.message, 400);
@@ -251,7 +256,7 @@ const oauthController = {
       const status = {
         isOAuthUser: user.isOAuthUser(),
         linkedProviders: user.getOAuthProviders(),
-        hasPassword: !!user.password
+        hasPassword: !!user.password,
       };
 
       return ApiResponse.success(res, status, 'OAuth status retrieved successfully');
@@ -278,17 +283,20 @@ const oauthController = {
       // Implementation depends on the specific OAuth provider
       // For now, we'll just return the current status
       const accountInfo = user.oauthAccounts[provider];
-      
-      return ApiResponse.success(res, {
-        provider,
-        hasRefreshToken: !!accountInfo.refreshToken,
-        linkedAt: accountInfo.linkedAt
-      }, 'OAuth token status retrieved');
 
+      return ApiResponse.success(
+        res,
+        {
+          provider,
+          hasRefreshToken: !!accountInfo.refreshToken,
+          linkedAt: accountInfo.linkedAt,
+        },
+        'OAuth token status retrieved'
+      );
     } catch (error) {
       return ApiResponse.error(res, error.message, 500);
     }
-  }
+  },
 };
 
 export default oauthController;

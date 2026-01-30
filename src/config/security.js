@@ -17,13 +17,13 @@ export default {
   fraudDetection: {
     // Speed threshold in km/h (airplane cruising speed ~900 km/h)
     impossibleTravelThreshold: parseInt(process.env.IMPOSSIBLE_TRAVEL_THRESHOLD_KMH || '1000'),
-    
+
     // Time window for suspicious activity detection (in minutes)
     suspiciousLoginWindow: parseInt(process.env.SUSPICIOUS_LOGIN_WINDOW_MINUTES || '15'),
-    
+
     // Maximum allowed devices per user
     maxDevicesPerUser: parseInt(process.env.MAX_DEVICES_PER_USER || '20'),
-    
+
     // Distance threshold to consider as new location (in km)
     newLocationThreshold: parseInt(process.env.NEW_LOCATION_THRESHOLD_KM || '50'),
   },
@@ -32,10 +32,10 @@ export default {
   loginHistory: {
     // Number of days to retain login history
     retentionDays: parseInt(process.env.LOGIN_HISTORY_RETENTION_DAYS || '180'),
-    
+
     // Maximum number of login history entries per user
     maxEntriesPerUser: parseInt(process.env.MAX_LOGIN_HISTORY_ENTRIES || '500'),
-    
+
     // Automatically expire old entries
     enableTTL: process.env.LOGIN_HISTORY_ENABLE_TTL !== 'false',
   },
@@ -44,7 +44,7 @@ export default {
   fingerprinting: {
     // Minimum confidence score to accept fingerprint (0-1)
     minConfidenceScore: parseFloat(process.env.FINGERPRINT_MIN_CONFIDENCE || '0.5'),
-    
+
     // Enable fingerprint spoofing detection
     enableSpoofingDetection: process.env.FINGERPRINT_ENABLE_SPOOFING_DETECTION !== 'false',
   },
@@ -53,13 +53,13 @@ export default {
   notifications: {
     // Send notification on new device login
     notifyOnNewDevice: process.env.NOTIFY_ON_NEW_DEVICE !== 'false',
-    
+
     // Send notification on new location login
     notifyOnNewLocation: process.env.NOTIFY_ON_NEW_LOCATION === 'true', // Off by default
-    
+
     // Send notification on impossible travel detection
     notifyOnImpossibleTravel: process.env.NOTIFY_ON_IMPOSSIBLE_TRAVEL !== 'false',
-    
+
     // Priority level for security notifications ('low', 'medium', 'high')
     defaultPriority: process.env.SECURITY_NOTIFICATION_PRIORITY || 'medium',
   },
@@ -71,7 +71,7 @@ export default {
     mediumThreshold: parseInt(process.env.RISK_MEDIUM_THRESHOLD || '50'),
     highThreshold: parseInt(process.env.RISK_HIGH_THRESHOLD || '70'),
     criticalThreshold: parseInt(process.env.RISK_CRITICAL_THRESHOLD || '90'),
-    
+
     // Actions based on risk scores
     actions: {
       low: 'allow', // Allow login normally
@@ -85,7 +85,7 @@ export default {
   deviceTrust: {
     // Automatically trust devices after N successful logins
     autoTrustAfterLogins: parseInt(process.env.AUTO_TRUST_AFTER_LOGINS || '5'),
-    
+
     // Days to keep device as trusted before re-verification
     trustExpiryDays: parseInt(process.env.DEVICE_TRUST_EXPIRY_DAYS || '90'),
   },
@@ -103,13 +103,13 @@ export default {
   features: {
     // Enable/disable geolocation tracking
     enableGeolocation: process.env.ENABLE_GEOLOCATION !== 'false',
-    
+
     // Enable/disable fingerprinting
     enableFingerprinting: process.env.ENABLE_FINGERPRINTING !== 'false',
-    
+
     // Enable/disable fraud detection
     enableFraudDetection: process.env.ENABLE_FRAUD_DETECTION !== 'false',
-    
+
     // Enable/disable security notifications
     enableSecurityNotifications: process.env.ENABLE_SECURITY_NOTIFICATIONS !== 'false',
   },
