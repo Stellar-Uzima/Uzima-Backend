@@ -71,6 +71,8 @@
     "pdfkit": "^0.17.1",
     "rate-limit-redis": "^4.2.2",
     "redis": "^5.8.2",
+"resend": "^6.1.2",
+    "socket.io": "^4.8.3",
     "stellar-sdk": "^13.3.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
@@ -78,6 +80,7 @@
     "winston-daily-rotate-file": "^5.0.0",
     "uuid": "^13.0.0",
     "yaml": "^2.8.2"
+
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",
