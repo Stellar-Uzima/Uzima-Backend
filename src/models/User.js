@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       // Password is required unless user has OAuth accounts
       return !this.oauthAccounts || Object.keys(this.oauthAccounts).length === 0;
     },
@@ -125,6 +125,23 @@ const userSchema = new mongoose.Schema({
       hash: String,
       changedAt: { type: Date, default: Date.now },
     }],
+    twoFactorCode: String,
+    twoFactorCodeExpires: Date,
+  },
+  phoneNumber: {
+    type: String,
+    sparse: true,
+    unique: true,
+    trim: true,
+  },
+  isPhoneVerified: {
+    type: Boolean,
+    default: false,
+  },
+  twoFactorMethod: {
+    type: String,
+    enum: ['sms', 'totp', null],
+    default: null,
   },
   twoFactor: {
     enabled: { type: Boolean, default: false },
@@ -228,34 +245,34 @@ userSchema.methods.createResetPasswordToken = function () {
 };
 
 // OAuth helper methods
-userSchema.methods.linkOAuthAccount = function(provider, profileData) {
+userSchema.methods.linkOAuthAccount = function (provider, profileData) {
   if (!this.oauthAccounts) {
     this.oauthAccounts = {};
   }
-  
+
   this.oauthAccounts[provider] = {
     ...profileData,
     linkedAt: new Date()
   };
-  
+
   return this.save();
 };
 
-userSchema.methods.unlinkOAuthAccount = function(provider) {
+userSchema.methods.unlinkOAuthAccount = function (provider) {
   if (this.oauthAccounts && this.oauthAccounts[provider]) {
     delete this.oauthAccounts[provider];
-    
+
     // If user has no password and no other OAuth accounts, they need to set a password
     if (!this.password && Object.keys(this.oauthAccounts).length === 0) {
       throw new Error('Cannot unlink last authentication method. Please set a password first.');
     }
-    
+
     return this.save();
   }
   throw new Error(`OAuth account for ${provider} not found`);
 };
 
-userSchema.methods.getOAuthProviders = function() {
+userSchema.methods.getOAuthProviders = function () {
   const providers = [];
   if (this.oauthAccounts) {
     Object.keys(this.oauthAccounts).forEach(provider => {
@@ -272,23 +289,23 @@ userSchema.methods.getOAuthProviders = function() {
   return providers;
 };
 
-userSchema.methods.hasOAuthProvider = function(provider) {
+userSchema.methods.hasOAuthProvider = function (provider) {
   return this.oauthAccounts && this.oauthAccounts[provider] && this.oauthAccounts[provider].id;
 };
 
-userSchema.methods.isOAuthUser = function() {
+userSchema.methods.isOAuthUser = function () {
   return this.oauthAccounts && Object.keys(this.oauthAccounts).length > 0;
 };
 
 // Static method to find user by OAuth provider and ID
-userSchema.statics.findByOAuthProvider = function(provider, id) {
+userSchema.statics.findByOAuthProvider = function (provider, id) {
   const query = {};
   query[`oauthAccounts.${provider}.id`] = id;
   return this.findOne(query);
 };
 
 // Static method to find user by OAuth email
-userSchema.statics.findByOAuthEmail = function(provider, email) {
+userSchema.statics.findByOAuthEmail = function (provider, email) {
   const query = {};
   query[`oauthAccounts.${provider}.email`] = email;
   return this.findOne(query);

@@ -2,7 +2,6 @@ import { Queue } from 'bullmq';
 import { connection } from '../config/bullmq.js';
 
 const queueName = 'webhook-queue';
-
 const webhookQueue = new Queue(queueName, { connection });
 
 export async function enqueueWebhook(data) {

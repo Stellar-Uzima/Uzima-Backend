@@ -17,6 +17,7 @@ import {
 import mailer from '../services/email.Service.js';
 import crypto from 'crypto';
 import { resetPasswordEmail } from '../templates/resetPasswordEmail.js';
+import { sendSMS } from '../services/smsService.js';
 import * as twoFactorService from '../services/twoFactorService.js';
 import jwt from 'jsonwebtoken';
 import {
@@ -220,20 +221,33 @@ const authController = {
         return ApiResponse.error(res, 'Invalid credentials', 401);
       }
 
-      // Check if 2FA is enabled
-      if (!user.twoFactor?.enabled) {
-        return ApiResponse.error(res, '2FA is not enabled for this account', 400);
-      }
-
       // Verify 2FA code based on method
       let verified = false;
 
-      if (method === 'totp') {
+      if (method === 'sms') {
+        if (!user.security.twoFactorCode || !user.security.twoFactorCodeExpires) {
+          return ApiResponse.error(res, 'No 2FA code generated', 400);
+        }
+        if (user.security.twoFactorCodeExpires < Date.now()) {
+          return ApiResponse.error(res, '2FA code expired', 400);
+        }
+        const hashedCode = crypto.createHash('sha256').update(twoFactorCode).digest('hex');
+        if (hashedCode !== user.security.twoFactorCode) {
+          return ApiResponse.error(res, 'Invalid 2FA code', 401);
+        }
+        // Clear 2FA code
+        user.security.twoFactorCode = undefined;
+        user.security.twoFactorCodeExpires = undefined;
+        await user.save();
+        verified = true;
+      } else if (method === 'totp') {
         // Decrypt secret and verify TOTP
+        if (!user.twoFactor?.enabled) return ApiResponse.error(res, '2FA not enabled', 400);
         const decryptedSecret = twoFactorService.decryptSecret(user.twoFactor.secret);
         verified = twoFactorService.verifyToken(decryptedSecret, twoFactorCode);
       } else if (method === 'backup') {
         // Check backup codes
+        if (!user.twoFactor?.enabled) return ApiResponse.error(res, '2FA not enabled', 400);
         for (const backupCode of user.twoFactor.backupCodes) {
           if (backupCode.usedAt) continue; // Skip used codes
 
@@ -359,7 +373,7 @@ const authController = {
         return ApiResponse.error(res, 'Invalid credentials', 401);
       }
 
-      // Check if 2FA is enabled
+      // Check if 2FA is enabled (Upstream TOTP)
       if (user.twoFactor?.enabled) {
         // Return indication that 2FA is required
         return ApiResponse.success(
@@ -371,6 +385,21 @@ const authController = {
           'Two-factor authentication required',
           200
         );
+      }
+
+      // Check if SMS 2FA is enabled (HEAD extension)
+      if (user.twoFactorMethod === 'sms' && user.isPhoneVerified) {
+        // Generate and send code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+
+        user.security.twoFactorCode = hashedCode;
+        user.security.twoFactorCodeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+        await user.save();
+
+        await sendSMS(user.phoneNumber, `Your verification code is: ${code}`);
+
+        return ApiResponse.success(res, { require2FA: true, method: 'sms' }, '2FA code sent', 200);
       }
 
       // Reset failed login attempts on successful login
@@ -672,10 +701,66 @@ const authController = {
 
   // 2FA methods
   enableSMS2FA: async (req, res) => {
-    return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
+    const { phoneNumber } = req.body;
+    const userId = req.user.id;
+
+    try {
+      const user = await User.findById(userId);
+      if (!user) return ApiResponse.error(res, 'User not found', 404);
+
+      // Check if phone number is already in use by another user
+      const existingPhone = await User.findOne({ phoneNumber, _id: { $ne: userId } });
+      if (existingPhone) {
+        return ApiResponse.error(res, 'Phone number already in use', 400);
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+
+      user.phoneNumber = phoneNumber;
+      user.security.twoFactorCode = hashedCode;
+      user.security.twoFactorCodeExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+      await user.save();
+
+      await sendSMS(phoneNumber, `Your verification code is: ${code}`);
+
+      return ApiResponse.success(res, null, 'Verification code sent');
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
+
   verifySMS2FA: async (req, res) => {
-    return ApiResponse.error(res, 'SMS 2FA not implemented yet', 501);
+    const { code } = req.body;
+    const userId = req.user.id;
+
+    try {
+      const user = await User.findById(userId);
+      if (!user) return ApiResponse.error(res, 'User not found', 404);
+
+      if (!user.security.twoFactorCode || !user.security.twoFactorCodeExpires) {
+        return ApiResponse.error(res, 'No verification code found', 400);
+      }
+
+      if (user.security.twoFactorCodeExpires < Date.now()) {
+        return ApiResponse.error(res, 'Verification code expired', 400);
+      }
+
+      const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+      if (hashedCode !== user.security.twoFactorCode) {
+        return ApiResponse.error(res, 'Invalid verification code', 401);
+      }
+
+      user.isPhoneVerified = true;
+      user.twoFactorMethod = 'sms';
+      user.security.twoFactorCode = undefined;
+      user.security.twoFactorCodeExpires = undefined;
+      await user.save();
+
+      return ApiResponse.success(res, null, 'SMS 2FA enabled successfully');
+    } catch (error) {
+      return ApiResponse.error(res, error.message, 500);
+    }
   },
   enableTOTP2FA: async (req, res) => {
     try {

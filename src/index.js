@@ -103,8 +103,8 @@ app.use((req, res, next) => {
     contentSecurityPolicy: isSwagger
       ? false
       : {
-          directives: getCspDirectives(res.locals.cspNonce),
-        },
+        directives: getCspDirectives(res.locals.cspNonce),
+      },
   })(req, res, next);
 });
 app.use(corsMiddleware);
@@ -335,6 +335,7 @@ const startServer = async () => {
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
+
   } catch (error) {
     logError('FATAL: Unable to start server', error);
     process.exit(1);

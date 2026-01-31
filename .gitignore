@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 .qodo
 .env.local
+error.log
 # Logs
 logs/*.log
 logs/*.gz

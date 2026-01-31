@@ -119,41 +119,12 @@ const logger = winston.createLogger({
   exitOnError: false,
 });
 
-// Request logger middleware
-function requestLogger(req, _res, next) {
-
-import pino from 'pino';
-import { randomUUID } from 'crypto';
-import { join } from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // Sensitive field patterns to sanitize
 const SENSITIVE_FIELDS = [
-  'password',
-  'token',
-  'accessToken',
-  'refreshToken',
-  'authorization',
-  'apiKey',
-  'api_key',
-  'secret',
-  'creditCard',
-  'cardNumber',
-  'cvv',
-  'ssn',
-  'socialSecurityNumber',
-  'dob',
-  'dateOfBirth',
-  'medicalHistory',
-  'diagnosis',
-  'prescription',
-  'email',
-  'phoneNumber',
-  'phone',
+  'password', 'token', 'accessToken', 'refreshToken', 'authorization',
+  'apiKey', 'api_key', 'secret', 'creditCard', 'cardNumber', 'cvv',
+  'ssn', 'socialSecurityNumber', 'dob', 'dateOfBirth',
+  'medicalHistory', 'diagnosis', 'prescription', 'email', 'phoneNumber', 'phone'
 ];
 
 // Function to sanitize sensitive data
@@ -189,162 +160,20 @@ function sanitizeHeaders(headers) {
   return sanitized;
 }
 
-// Create base logger for console output
-const consoleLogger = pino({
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname',
-    },
-  },
-  base: { service: 'uzima-backend' },
-  serializers: {
-    error: pino.stdSerializers.err,
-    req: req => ({
-      method: req.method,
-      url: req.url,
-      headers: sanitizeHeaders(req.headers || {}),
-    }),
-    res: res => ({
-      statusCode: res.statusCode,
-    }),
-  },
-});
-
-// Create file logger with daily rotation
-const getDateString = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const logFilePath = join(__dirname, '../../logs', `requests-${getDateString()}.log`);
-
-const fileLogger = pino(
-  {
-    level: 'info',
-    formatters: {
-      level: label => {
-        return { level: label };
-      },
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    base: { service: 'uzima-backend' },
-    serializers: {
-      error: pino.stdSerializers.err,
-    },
-  },
-  pino.destination({
-    dest: logFilePath,
-    sync: false,
-    mkdir: true,
-  })
-);
-
-// Combined logger that writes to both console and file
-const logger = {
-  info: (data, msg) => {
-    consoleLogger.info(data, msg);
-    fileLogger.info(data, msg);
-  },
-  error: (data, msg) => {
-    consoleLogger.error(data, msg);
-    fileLogger.error(data, msg);
-  },
-  warn: (data, msg) => {
-    consoleLogger.warn(data, msg);
-    fileLogger.warn(data, msg);
-  },
-  debug: (data, msg) => {
-    consoleLogger.debug(data, msg);
-    fileLogger.debug(data, msg);
-  },
-  child: bindings => {
-    const consoleChild = consoleLogger.child(bindings);
-    const fileChild = fileLogger.child(bindings);
-    return {
-      info: (data, msg) => {
-        consoleChild.info(data, msg);
-        fileChild.info(data, msg);
-      },
-      error: (data, msg) => {
-        consoleChild.error(data, msg);
-        fileChild.error(data, msg);
-      },
-      warn: (data, msg) => {
-        consoleChild.warn(data, msg);
-        fileChild.warn(data, msg);
-      },
-      debug: (data, msg) => {
-        consoleChild.debug(data, msg);
-        fileChild.debug(data, msg);
-      },
-    };
-  },
-};
-
-// Basic request logger (existing functionality)
-
+// Request logger middleware
+function requestLogger(req, _res, next) {
   req.requestId = randomUUID();
   req.log = logger.child({ requestId: req.requestId, userId: req.user?.id });
-  req.log.info({
+
+  logger.info({
     message: 'Incoming request',
     path: req.path,
     method: req.method,
+    requestId: req.requestId,
+    userId: req.user?.id
   });
   next();
 }
-
-// Create a child logger with context
-export const createLogger = (context = {}) => {
-  return logger.child(context);
-};
-
-// Helper methods for logging with context
-export const logWithContext = (level, message, context = {}) => {
-  logger.log(level, message, context);
-};
-
-// Convenience methods matching Winston log levels
-export const logError = (message, error = null, context = {}) => {
-  const logData = {
-    message,
-    ...context,
-  };
-
-  if (error) {
-    logData.error = error?.message || String(error);
-    logData.stack = error?.stack;
-    if (error?.cause) {
-      logData.cause = error.cause;
-    }
-  }
-
-  logger.error(logData);
-};
-
-export const logWarn = (message, context = {}) => {
-  logger.warn({ message, ...context });
-};
-
-export const logInfo = (message, context = {}) => {
-  logger.info({ message, ...context });
-};
-
-export const logDebug = (message, context = {}) => {
-  logger.debug({ message, ...context });
-};
-
-export const logHttp = (message, context = {}) => {
-  logger.http({ message, ...context });
-};
-
-export { logger, requestLogger };
-export default logger;
 
 // Comprehensive request/response logger middleware
 function apiRequestResponseLogger(req, res, next) {
@@ -373,13 +202,11 @@ function apiRequestResponseLogger(req, res, next) {
   };
 
   // Log request
-  logger.info(
-    {
-      type: 'REQUEST',
-      ...requestData,
-    },
-    `${req.method} ${req.path}`
-  );
+  logger.info({
+    type: 'REQUEST',
+    ...requestData,
+    message: `${req.method} ${req.path}`
+  });
 
   // Capture original methods
   const originalSend = res.send;
@@ -425,36 +252,61 @@ function apiRequestResponseLogger(req, res, next) {
       userId: req.user?._id?.toString() || req.user?.id,
     };
 
+    const msg = `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`;
+
     // Log based on status code
     if (res.statusCode >= 500) {
-      logger.error(
-        {
-          type: 'RESPONSE',
-          ...responseData,
-        },
-        `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
-      );
+      logger.error({ type: 'RESPONSE', ...responseData, message: msg });
     } else if (res.statusCode >= 400) {
-      logger.warn(
-        {
-          type: 'RESPONSE',
-          ...responseData,
-        },
-        `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
-      );
+      logger.warn({ type: 'RESPONSE', ...responseData, message: msg });
     } else {
-      logger.info(
-        {
-          type: 'RESPONSE',
-          ...responseData,
-        },
-        `${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
-      );
+      logger.info({ type: 'RESPONSE', ...responseData, message: msg });
     }
   });
 
   next();
 }
 
-export { logger, requestLogger, apiRequestResponseLogger, sanitizeData, sanitizeHeaders };
+// Create a child logger with context
+export const createLogger = (context = {}) => {
+  return logger.child(context);
+};
 
+// Helper methods for logging with context
+export const logWithContext = (level, message, context = {}) => {
+  logger.log(level, message, context);
+};
+
+// Convenience methods matching Winston log levels
+export const logError = (message, error = null, context = {}) => {
+  const logData = { message, ...context };
+
+  if (error) {
+    logData.error = error?.message || String(error);
+    logData.stack = error?.stack;
+    if (error?.cause) {
+      logData.cause = error.cause;
+    }
+  }
+
+  logger.error(logData);
+};
+
+export const logWarn = (message, context = {}) => {
+  logger.warn({ message, ...context });
+};
+
+export const logInfo = (message, context = {}) => {
+  logger.info({ message, ...context });
+};
+
+export const logDebug = (message, context = {}) => {
+  logger.debug({ message, ...context });
+};
+
+export const logHttp = (message, context = {}) => {
+  logger.http({ message, ...context });
+};
+
+export { logger, requestLogger, apiRequestResponseLogger, sanitizeData, sanitizeHeaders };
+export default logger;
