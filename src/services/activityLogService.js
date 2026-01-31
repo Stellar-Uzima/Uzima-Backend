@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
  * Provides comprehensive functionality for recording and retrieving user activity logs
  */
 class ActivityLogService {
-  
   /**
    * Record a new activity log entry
    * @param {Object} activityData - Activity data to log
@@ -21,7 +20,7 @@ class ActivityLogService {
       return null;
     }
   }
-  
+
   /**
    * Get activity logs for a specific user with pagination and filtering
    * @param {String} userId - User ID to get logs for
@@ -39,12 +38,12 @@ class ActivityLogService {
         endDate = null,
         resourceType = null,
         sortBy = 'timestamp',
-        sortOrder = 'desc'
+        sortOrder = 'desc',
       } = options;
-      
+
       // Build query
       const query = { userId: new mongoose.Types.ObjectId(userId) };
-      
+
       if (action) {
         if (Array.isArray(action)) {
           query.action = { $in: action };
@@ -52,26 +51,26 @@ class ActivityLogService {
           query.action = action;
         }
       }
-      
+
       if (result) {
         query.result = result;
       }
-      
+
       if (resourceType) {
         query.resourceType = resourceType;
       }
-      
+
       // Date range filter
       if (startDate || endDate) {
         query.timestamp = {};
         if (startDate) query.timestamp.$gte = new Date(startDate);
         if (endDate) query.timestamp.$lte = new Date(endDate);
       }
-      
+
       // Calculate pagination
       const skip = (page - 1) * limit;
       const sortDirection = sortOrder === 'desc' ? -1 : 1;
-      
+
       // Execute query with pagination
       const [logs, totalCount] = await Promise.all([
         ActivityLog.find(query)
@@ -80,9 +79,9 @@ class ActivityLogService {
           .limit(parseInt(limit))
           .populate('userId', 'username email role')
           .lean(),
-        ActivityLog.countDocuments(query)
+        ActivityLog.countDocuments(query),
       ]);
-      
+
       return {
         logs,
         pagination: {
@@ -90,15 +89,15 @@ class ActivityLogService {
           totalPages: Math.ceil(totalCount / limit),
           totalCount,
           hasNextPage: page * limit < totalCount,
-          hasPrevPage: page > 1
-        }
+          hasPrevPage: page > 1,
+        },
       };
     } catch (error) {
       console.error('ActivityLogService: Failed to get user activity logs:', error);
       throw new Error('Failed to retrieve activity logs');
     }
   }
-  
+
   /**
    * Get activity logs for multiple users (admin function)
    * @param {Object} options - Query options
@@ -117,12 +116,12 @@ class ActivityLogService {
         resourceType = null,
         ipAddress = null,
         sortBy = 'timestamp',
-        sortOrder = 'desc'
+        sortOrder = 'desc',
       } = options;
-      
+
       // Build query
       const query = {};
-      
+
       if (userId) {
         if (Array.isArray(userId)) {
           query.userId = { $in: userId.map(id => new mongoose.Types.ObjectId(id)) };
@@ -130,7 +129,7 @@ class ActivityLogService {
           query.userId = new mongoose.Types.ObjectId(userId);
         }
       }
-      
+
       if (action) {
         if (Array.isArray(action)) {
           query.action = { $in: action };
@@ -138,30 +137,30 @@ class ActivityLogService {
           query.action = action;
         }
       }
-      
+
       if (result) {
         query.result = result;
       }
-      
+
       if (resourceType) {
         query.resourceType = resourceType;
       }
-      
+
       if (ipAddress) {
         query.ipAddress = ipAddress;
       }
-      
+
       // Date range filter
       if (startDate || endDate) {
         query.timestamp = {};
         if (startDate) query.timestamp.$gte = new Date(startDate);
         if (endDate) query.timestamp.$lte = new Date(endDate);
       }
-      
+
       // Calculate pagination
       const skip = (page - 1) * limit;
       const sortDirection = sortOrder === 'desc' ? -1 : 1;
-      
+
       // Execute query with pagination
       const [logs, totalCount] = await Promise.all([
         ActivityLog.find(query)
@@ -170,9 +169,9 @@ class ActivityLogService {
           .limit(parseInt(limit))
           .populate('userId', 'username email role')
           .lean(),
-        ActivityLog.countDocuments(query)
+        ActivityLog.countDocuments(query),
       ]);
-      
+
       return {
         logs,
         pagination: {
@@ -180,15 +179,15 @@ class ActivityLogService {
           totalPages: Math.ceil(totalCount / limit),
           totalCount,
           hasNextPage: page * limit < totalCount,
-          hasPrevPage: page > 1
-        }
+          hasPrevPage: page > 1,
+        },
       };
     } catch (error) {
       console.error('ActivityLogService: Failed to get activity logs:', error);
       throw new Error('Failed to retrieve activity logs');
     }
   }
-  
+
   /**
    * Get activity summary for a user
    * @param {String} userId - User ID
@@ -203,7 +202,7 @@ class ActivityLogService {
       throw new Error('Failed to retrieve activity summary');
     }
   }
-  
+
   /**
    * Get system-wide activity statistics
    * @param {Object} filters - Filter options
@@ -212,20 +211,22 @@ class ActivityLogService {
   static async getActivityStatistics(filters = {}) {
     try {
       const stats = await ActivityLog.getActivityStats(filters);
-      return stats[0] || {
-        totalActivities: 0,
-        uniqueUserCount: 0,
-        successCount: 0,
-        failureCount: 0,
-        successRate: 0,
-        avgDuration: 0
-      };
+      return (
+        stats[0] || {
+          totalActivities: 0,
+          uniqueUserCount: 0,
+          successCount: 0,
+          failureCount: 0,
+          successRate: 0,
+          avgDuration: 0,
+        }
+      );
     } catch (error) {
       console.error('ActivityLogService: Failed to get activity statistics:', error);
       throw new Error('Failed to retrieve activity statistics');
     }
   }
-  
+
   /**
    * Get activity trends over time
    * @param {Object} options - Options for trend analysis
@@ -238,22 +239,22 @@ class ActivityLogService {
         endDate = new Date(),
         groupBy = 'day', // day, hour, week, month
         action = null,
-        userId = null
+        userId = null,
       } = options;
-      
+
       // Build match stage
       const matchStage = {
-        timestamp: { $gte: new Date(startDate), $lte: new Date(endDate) }
+        timestamp: { $gte: new Date(startDate), $lte: new Date(endDate) },
       };
-      
+
       if (action) {
         matchStage.action = action;
       }
-      
+
       if (userId) {
         matchStage.userId = new mongoose.Types.ObjectId(userId);
       }
-      
+
       // Build group stage based on groupBy parameter
       let groupStage;
       switch (groupBy) {
@@ -263,24 +264,24 @@ class ActivityLogService {
               year: { $year: '$timestamp' },
               month: { $month: '$timestamp' },
               day: { $dayOfMonth: '$timestamp' },
-              hour: { $hour: '$timestamp' }
-            }
+              hour: { $hour: '$timestamp' },
+            },
           };
           break;
         case 'week':
           groupStage = {
             _id: {
               year: { $year: '$timestamp' },
-              week: { $week: '$timestamp' }
-            }
+              week: { $week: '$timestamp' },
+            },
           };
           break;
         case 'month':
           groupStage = {
             _id: {
               year: { $year: '$timestamp' },
-              month: { $month: '$timestamp' }
-            }
+              month: { $month: '$timestamp' },
+            },
           };
           break;
         default: // day
@@ -288,20 +289,20 @@ class ActivityLogService {
             _id: {
               year: { $year: '$timestamp' },
               month: { $month: '$timestamp' },
-              day: { $dayOfMonth: '$timestamp' }
-            }
+              day: { $dayOfMonth: '$timestamp' },
+            },
           };
       }
-      
+
       groupStage.count = { $sum: 1 };
       groupStage.successCount = {
-        $sum: { $cond: [{ $eq: ['$result', 'success'] }, 1, 0] }
+        $sum: { $cond: [{ $eq: ['$result', 'success'] }, 1, 0] },
       };
       groupStage.failureCount = {
-        $sum: { $cond: [{ $eq: ['$result', 'failure'] }, 1, 0] }
+        $sum: { $cond: [{ $eq: ['$result', 'failure'] }, 1, 0] },
       };
       groupStage.uniqueUsers = { $addToSet: '$userId' };
-      
+
       const trends = await ActivityLog.aggregate([
         { $match: matchStage },
         { $group: groupStage },
@@ -313,23 +314,20 @@ class ActivityLogService {
             failureCount: 1,
             uniqueUserCount: { $size: '$uniqueUsers' },
             successRate: {
-              $multiply: [
-                { $divide: ['$successCount', '$count'] },
-                100
-              ]
-            }
-          }
+              $multiply: [{ $divide: ['$successCount', '$count'] }, 100],
+            },
+          },
         },
-        { $sort: { '_id': 1 } }
+        { $sort: { _id: 1 } },
       ]);
-      
+
       return trends;
     } catch (error) {
       console.error('ActivityLogService: Failed to get activity trends:', error);
       throw new Error('Failed to retrieve activity trends');
     }
   }
-  
+
   /**
    * Get top actions by frequency
    * @param {Object} options - Filter options
@@ -337,25 +335,20 @@ class ActivityLogService {
    */
   static async getTopActions(options = {}) {
     try {
-      const {
-        limit = 10,
-        startDate = null,
-        endDate = null,
-        userId = null
-      } = options;
-      
+      const { limit = 10, startDate = null, endDate = null, userId = null } = options;
+
       const matchStage = {};
-      
+
       if (startDate || endDate) {
         matchStage.timestamp = {};
         if (startDate) matchStage.timestamp.$gte = new Date(startDate);
         if (endDate) matchStage.timestamp.$lte = new Date(endDate);
       }
-      
+
       if (userId) {
         matchStage.userId = new mongoose.Types.ObjectId(userId);
       }
-      
+
       const topActions = await ActivityLog.aggregate([
         { $match: matchStage },
         {
@@ -363,14 +356,14 @@ class ActivityLogService {
             _id: '$action',
             count: { $sum: 1 },
             successCount: {
-              $sum: { $cond: [{ $eq: ['$result', 'success'] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ['$result', 'success'] }, 1, 0] },
             },
             failureCount: {
-              $sum: { $cond: [{ $eq: ['$result', 'failure'] }, 1, 0] }
+              $sum: { $cond: [{ $eq: ['$result', 'failure'] }, 1, 0] },
             },
             uniqueUsers: { $addToSet: '$userId' },
-            lastOccurrence: { $max: '$timestamp' }
-          }
+            lastOccurrence: { $max: '$timestamp' },
+          },
         },
         {
           $project: {
@@ -380,25 +373,22 @@ class ActivityLogService {
             failureCount: 1,
             uniqueUserCount: { $size: '$uniqueUsers' },
             successRate: {
-              $multiply: [
-                { $divide: ['$successCount', '$count'] },
-                100
-              ]
+              $multiply: [{ $divide: ['$successCount', '$count'] }, 100],
             },
-            lastOccurrence: 1
-          }
+            lastOccurrence: 1,
+          },
         },
         { $sort: { count: -1 } },
-        { $limit: parseInt(limit) }
+        { $limit: parseInt(limit) },
       ]);
-      
+
       return topActions;
     } catch (error) {
       console.error('ActivityLogService: Failed to get top actions:', error);
       throw new Error('Failed to retrieve top actions');
     }
   }
-  
+
   /**
    * Get suspicious activity patterns
    * @param {Object} options - Detection options
@@ -409,42 +399,42 @@ class ActivityLogService {
       const {
         timeWindow = 60, // minutes
         failureThreshold = 5,
-        startDate = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
+        startDate = new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
       } = options;
-      
+
       // Find users with high failure rates
       const suspiciousUsers = await ActivityLog.aggregate([
         {
           $match: {
             timestamp: { $gte: startDate },
-            result: 'failure'
-          }
+            result: 'failure',
+          },
         },
         {
           $group: {
             _id: {
               userId: '$userId',
-              ipAddress: '$ipAddress'
+              ipAddress: '$ipAddress',
             },
             failureCount: { $sum: 1 },
             actions: { $addToSet: '$action' },
             timeRange: {
-              $push: '$timestamp'
-            }
-          }
+              $push: '$timestamp',
+            },
+          },
         },
         {
           $match: {
-            failureCount: { $gte: failureThreshold }
-          }
+            failureCount: { $gte: failureThreshold },
+          },
         },
         {
           $lookup: {
             from: 'users',
             localField: '_id.userId',
             foreignField: '_id',
-            as: 'user'
-          }
+            as: 'user',
+          },
         },
         {
           $project: {
@@ -454,19 +444,19 @@ class ActivityLogService {
             actions: 1,
             user: { $arrayElemAt: ['$user', 0] },
             firstFailure: { $min: '$timeRange' },
-            lastFailure: { $max: '$timeRange' }
-          }
+            lastFailure: { $max: '$timeRange' },
+          },
         },
-        { $sort: { failureCount: -1 } }
+        { $sort: { failureCount: -1 } },
       ]);
-      
+
       return suspiciousUsers;
     } catch (error) {
       console.error('ActivityLogService: Failed to get suspicious activity:', error);
       throw new Error('Failed to retrieve suspicious activity');
     }
   }
-  
+
   /**
    * Export activity logs to CSV format
    * @param {Object} filters - Export filters
@@ -477,13 +467,13 @@ class ActivityLogService {
       const { logs } = await this.getActivityLogs({
         ...filters,
         limit: 10000, // Large limit for export
-        page: 1
+        page: 1,
       });
-      
+
       if (logs.length === 0) {
         return 'No data to export';
       }
-      
+
       // CSV headers
       const headers = [
         'Timestamp',
@@ -495,9 +485,9 @@ class ActivityLogService {
         'Resource Type',
         'Resource ID',
         'Duration (ms)',
-        'Error Message'
+        'Error Message',
       ];
-      
+
       // Convert logs to CSV rows
       const rows = logs.map(log => [
         log.timestamp.toISOString(),
@@ -509,21 +499,21 @@ class ActivityLogService {
         log.resourceType || '',
         log.resourceId || '',
         log.duration || '',
-        log.errorMessage || ''
+        log.errorMessage || '',
       ]);
-      
+
       // Combine headers and rows
       const csvData = [headers, ...rows]
         .map(row => row.map(field => `"${field}"`).join(','))
         .join('\n');
-      
+
       return csvData;
     } catch (error) {
       console.error('ActivityLogService: Failed to export activity logs:', error);
       throw new Error('Failed to export activity logs');
     }
   }
-  
+
   /**
    * Clean up old activity logs based on retention policy
    * @param {Number} retentionDays - Number of days to retain logs
@@ -532,14 +522,14 @@ class ActivityLogService {
   static async cleanupOldLogs(retentionDays = 90) {
     try {
       const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-      
+
       const result = await ActivityLog.deleteMany({
-        timestamp: { $lt: cutoffDate }
+        timestamp: { $lt: cutoffDate },
       });
-      
+
       return {
         deletedCount: result.deletedCount,
-        cutoffDate
+        cutoffDate,
       };
     } catch (error) {
       console.error('ActivityLogService: Failed to cleanup old logs:', error);

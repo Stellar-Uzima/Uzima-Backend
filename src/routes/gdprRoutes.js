@@ -93,7 +93,11 @@ router.get('/:id/export-data', hasPermission('gdpr_export'), gdprController.expo
  *       404:
  *         description: Export request not found
  */
-router.get('/:id/export-status/:requestId', hasPermission('gdpr_export'), gdprController.getExportStatus);
+router.get(
+  '/:id/export-status/:requestId',
+  hasPermission('gdpr_export'),
+  gdprController.getExportStatus
+);
 
 /**
  * @swagger
@@ -186,6 +190,10 @@ router.delete('/:id/erase', hasPermission('gdpr_delete'), gdprController.request
  *       404:
  *         description: Deletion request not found
  */
-router.get('/:id/deletion-status/:requestId', hasPermission('gdpr_delete'), gdprController.getDeletionStatus);
+router.get(
+  '/:id/deletion-status/:requestId',
+  hasPermission('gdpr_delete'),
+  gdprController.getDeletionStatus
+);
 
 export default router;

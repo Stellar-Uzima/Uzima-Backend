@@ -1,6 +1,7 @@
 const Queue = require('bull');
 const axios = require('axios');
 const fileService = require('./fileService');
+const File = require('../models/file');
 
 // Create Redis-backed queue for virus scanning
 const scanQueue = new Queue('virus-scan', {
@@ -86,7 +87,7 @@ scanQueue.process(async job => {
   }
 });
 
-// Simulate virus scan (replace with actual antivirus integration)
+// Perform virus scan with file signature validation
 async function performVirusScan(file) {
   // In production, integrate with ClamAV, VirusTotal, or cloud antivirus API
   // Example: ClamAV REST API, AWS S3 Object Lambda, etc.
@@ -115,17 +116,63 @@ async function performVirusScan(file) {
     }
   }
 
-  // Fallback: Basic file validation
-  // Check file extension matches content type
-  const suspiciousExtensions = ['.exe', '.bat', '.cmd', '.scr', '.js', '.vbs'];
+  // Fallback: Enhanced file validation with signature checking
+  // 1. Check for dangerous file extensions
+  const suspiciousExtensions = [
+    '.exe',
+    '.bat',
+    '.cmd',
+    '.scr',
+    '.js',
+    '.vbs',
+    '.jar',
+    '.sh',
+    '.ps1',
+    '.app',
+    '.dmg',
+  ];
   const fileExt = file.filename.toLowerCase().match(/\.[^.]+$/)?.[0];
 
   if (suspiciousExtensions.includes(fileExt)) {
     return {
       infected: true,
-      scanner: 'basic-validation',
+      scanner: 'signature-validation',
       threats: ['suspicious-extension'],
-      details: { reason: 'Suspicious file extension detected' },
+      details: { reason: 'Dangerous file extension detected' },
+    };
+  }
+
+  // 2. Check for double extensions (e.g., file.pdf.exe)
+  const doubleExtRegex = /\.[a-zA-Z0-9]+\.[a-zA-Z0-9]+$/;
+  if (doubleExtRegex.test(file.filename)) {
+    return {
+      infected: true,
+      scanner: 'signature-validation',
+      threats: ['double-extension'],
+      details: { reason: 'Double extension detected - possible malware attempt' },
+    };
+  }
+
+  // 3. Check for path traversal attempts
+  if (file.filename.includes('..') || file.filename.includes('/') || file.filename.includes('\\')) {
+    return {
+      infected: true,
+      scanner: 'signature-validation',
+      threats: ['path-traversal'],
+      details: { reason: 'Path traversal pattern detected' },
+    };
+  }
+
+  // 4. Verify file signature was validated
+  if (file.signatureValidationResult && !file.signatureValidationResult.valid) {
+    return {
+      infected: true,
+      scanner: 'signature-validation',
+      threats: ['invalid-signature', file.signatureValidationResult.threat].filter(Boolean),
+      details: {
+        reason: file.signatureValidationResult.error || 'File signature validation failed',
+        detectedType: file.signatureValidationResult.detectedType,
+      },
     };
   }
 
@@ -134,7 +181,7 @@ async function performVirusScan(file) {
 
   return {
     infected: false,
-    scanner: 'basic-validation',
+    scanner: 'signature-validation',
     threats: [],
     details: { message: 'No threats detected' },
   };

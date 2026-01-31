@@ -10,7 +10,7 @@ async function encryptAESGCM(plaintext, password) {
   const encryptedBuffer = await window.crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv: iv
+      iv: iv,
     },
     key,
     data
@@ -18,7 +18,7 @@ async function encryptAESGCM(plaintext, password) {
 
   return {
     iv: arrayBufferToBase64(iv),
-    data: arrayBufferToBase64(encryptedBuffer)
+    data: arrayBufferToBase64(encryptedBuffer),
   };
 }
 
@@ -30,7 +30,7 @@ async function decryptAESGCM(encryptedData, password) {
   const decryptedBuffer = await window.crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: base64ToArrayBuffer(iv)
+      iv: base64ToArrayBuffer(iv),
     },
     key,
     base64ToArrayBuffer(data)
@@ -47,7 +47,7 @@ async function getKeyMaterial(password) {
     'raw',
     enc.encode(password),
     {
-      name: 'PBKDF2'
+      name: 'PBKDF2',
     },
     false,
     ['deriveBits', 'deriveKey']
@@ -62,12 +62,12 @@ async function getKey(keyMaterial, usage) {
       name: 'PBKDF2',
       salt: salt,
       iterations: 100000,
-      hash: 'SHA-256'
+      hash: 'SHA-256',
     },
     keyMaterial,
     {
       name: 'AES-GCM',
-      length: 256
+      length: 256,
     },
     false, // Non-exportable
     [usage]
@@ -98,7 +98,4 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-export {
-  encryptAESGCM,
-  decryptAESGCM
-};
+export { encryptAESGCM, decryptAESGCM };

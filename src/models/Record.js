@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import encryptedFieldPlugin from './plugins/encryptedField.js';
 
 const fileSchema = new mongoose.Schema({
   cid: {
@@ -19,7 +20,7 @@ const fileSchema = new mongoose.Schema({
   uploadedAt: {
     type: Date,
     default: Date.now,
-  }
+  },
 });
 
 const recordSchema = new mongoose.Schema({
@@ -40,6 +41,10 @@ const recordSchema = new mongoose.Schema({
   treatment: {
     type: String,
     required: true,
+  },
+  history: {
+    type: String,
+    required: false,
   },
   txHash: {
     type: String,
@@ -72,17 +77,19 @@ const recordSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null,
-    index: true
+    index: true,
   },
   deletedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    default: null,
   },
 });
 
+recordSchema.plugin(encryptedFieldPlugin, { fields: ['diagnosis', 'treatment', 'history'] });
+
 // Update the updatedAt timestamp before saving
-recordSchema.pre('save', function(next) {
+recordSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
@@ -91,5 +98,16 @@ recordSchema.pre('save', function(next) {
 recordSchema.index({ clientUUID: 1, syncTimestamp: 1 }, { unique: true });
 // Index for deletedAt
 recordSchema.index({ deletedAt: 1 });
+// Compound index for createdBy and createdAt for efficient queries
+recordSchema.index({ createdBy: 1, createdAt: -1 });
+// Index for common query patterns
+recordSchema.index({ patientName: 1, createdAt: -1 });
+recordSchema.index({ txHash: 1 }, { unique: true });
+// Text index for search functionality on diagnosis and treatment
+recordSchema.index({
+  patientName: 'text',
+  diagnosis: 'text',
+  treatment: 'text',
+});
 
-export default mongoose.model('Record', recordSchema); 
+export default mongoose.model('Record', recordSchema);

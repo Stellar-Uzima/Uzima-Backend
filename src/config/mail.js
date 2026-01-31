@@ -1,14 +1,29 @@
 import nodemailer from 'nodemailer';
-import 'dotenv/config';
+import { getConfig } from './index.js';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+/**
+ * Create nodemailer transporter using unified config loader.
+ * SMTP settings are optional if using Resend API.
+ */
+const createTransporter = () => {
+  const { email } = getConfig();
+
+  // Return null if SMTP is not configured
+  if (!email.smtp.host) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: email.smtp.host,
+    port: email.smtp.port,
+    secure: email.smtp.port === 465, // Use TLS for port 465
+    auth: {
+      user: email.smtp.user,
+      pass: email.smtp.pass,
+    },
+  });
+};
+
+const transporter = createTransporter();
 
 export default transporter;

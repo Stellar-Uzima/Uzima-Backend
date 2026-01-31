@@ -5,10 +5,7 @@ const config = {
   mongodb: {
     url: process.env.MONGO_URI || "mongodb://localhost:27017/uzima_dev",
     databaseName: process.env.DB_NAME || "uzima_dev",
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    },
+    options: {},
   },
   migrationsDir: "src/migrations",
   changelogCollectionName: "changelog",

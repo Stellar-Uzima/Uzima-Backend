@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import softDeletePlugin from './plugins/softDeletePlugin.js';
 
 const InventoryLotSchema = new mongoose.Schema(
   {
@@ -33,6 +34,18 @@ InventoryItemSchema.pre('save', function computeTotals(next) {
   next();
 });
 
+// Additional indexes for performance optimization
+InventoryItemSchema.index({ name: 1 });
+InventoryItemSchema.index({ category: 1, totalQuantity: 1 });
+InventoryItemSchema.index({ totalQuantity: 1, threshold: 1 });
+// Text index for search functionality
+InventoryItemSchema.index({
+  name: 'text',
+  category: 'text',
+  sku: 'text',
+});
+
+// Apply soft delete plugin
+InventoryItemSchema.plugin(softDeletePlugin);
+
 export default mongoose.model('InventoryItem', InventoryItemSchema);
-
-

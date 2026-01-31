@@ -155,11 +155,7 @@ export async function getNotifications(filters = {}, options = {}) {
   if (email) query['recipient.email'] = email;
   if (userId) query['recipient.userId'] = userId;
 
-  const notifications = await Notification.find(query)
-    .sort(sort)
-    .limit(limit)
-    .skip(skip)
-    .lean();
+  const notifications = await Notification.find(query).sort(sort).limit(limit).skip(skip).lean();
 
   const total = await Notification.countDocuments(query);
 
@@ -176,7 +172,7 @@ export async function getNotifications(filters = {}, options = {}) {
  */
 export async function retryNotification(notificationId) {
   const notification = await Notification.findById(notificationId);
-  
+
   if (!notification) {
     throw new Error('Notification not found');
   }
@@ -202,8 +198,180 @@ export async function retryNotification(notificationId) {
   return notification;
 }
 
+/**
+ * Create security notification (in-app notification)
+ * @param {Object} data - Notification data
+ * @param {string} data.userId - User ID
+ * @param {string} data.type - Notification type
+ * @param {string} data.title - Notification title
+ * @param {string} data.message - Notification message
+ * @param {string} data.priority - Priority level (low, medium, high)
+ * @param {Object} data.metadata - Additional metadata
+ * @returns {Promise<Object>} Created notification
+ */
+export async function createSecurityNotification(data) {
+  const { userId, type, title, message, priority = 'medium', metadata = {} } = data;
+
+  // Map notification types to enum values
+  const typeMap = {
+    NEW_DEVICE_LOGIN: 'new_device_login',
+    NEW_LOCATION_LOGIN: 'new_location_login',
+    IMPOSSIBLE_TRAVEL_DETECTED: 'impossible_travel_detected',
+    SECURITY_ALERT: 'security_alert',
+  };
+
+  const notificationType = typeMap[type] || 'security_alert';
+
+  // Get user info for email
+  const User = (await import('../models/User.js')).default;
+  const user = await User.findById(userId).select('email username').lean();
+
+  if (!user) {
+    throw new Error(`User ${userId} not found`);
+  }
+
+  // Generate HTML email content
+  const html = generateSecurityAlertEmail({
+    username: user.username || 'User',
+    title,
+    message,
+    metadata,
+    priority,
+  });
+
+  // Create notification with email
+  return await createNotification({
+    to: user.email,
+    subject: title,
+    html,
+    text: message,
+    type: notificationType,
+    userId,
+  });
+}
+
+/**
+ * Generate HTML email for security alerts
+ * @private
+ */
+function generateSecurityAlertEmail({ username, title, message, metadata, priority }) {
+  const priorityColors = {
+    low: '#4CAF50',
+    medium: '#FF9800',
+    high: '#F44336',
+  };
+
+  const priorityColor = priorityColors[priority] || priorityColors.medium;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="padding: 40px 20px;">
+        <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 3px solid ${priorityColor};">
+              <h1 style="margin: 0; color: #333333; font-size: 24px; font-weight: 600;">
+                🔒 Security Alert
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 16px; color: #666666; font-size: 16px; line-height: 1.5;">
+                Hello ${username},
+              </p>
+              
+              <div style="padding: 20px; background-color: ${priority === 'high' ? '#FFF3E0' : '#F5F5F5'}; border-left: 4px solid ${priorityColor}; border-radius: 4px; margin: 24px 0;">
+                <h2 style="margin: 0 0 12px; color: #333333; font-size: 18px; font-weight: 600;">
+                  ${title}
+                </h2>
+                <p style="margin: 0; color: #666666; font-size: 14px; line-height: 1.6;">
+                  ${message}
+                </p>
+              </div>
+
+              ${
+                metadata && Object.keys(metadata).length > 0
+                  ? `
+              <div style="margin: 24px 0;">
+                <h3 style="margin: 0 0 12px; color: #333333; font-size: 16px; font-weight: 600;">
+                  Details:
+                </h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  ${Object.entries(metadata)
+                    .filter(([key]) => !key.startsWith('_'))
+                    .map(
+                      ([key, value]) => `
+                    <tr>
+                      <td style="padding: 8px 0; color: #999999; font-size: 14px; text-transform: capitalize;">
+                        ${key.replace(/_/g, ' ')}:
+                      </td>
+                      <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 500; text-align: right;">
+                        ${typeof value === 'object' ? JSON.stringify(value, null, 2) : value}
+                      </td>
+                    </tr>
+                  `
+                    )
+                    .join('')}
+                </table>
+              </div>
+              `
+                  : ''
+              }
+
+              <div style="margin: 32px 0 0; padding: 20px; background-color: #F5F5F5; border-radius: 4px;">
+                <p style="margin: 0 0 12px; color: #666666; font-size: 14px; line-height: 1.6;">
+                  <strong>What should you do?</strong>
+                </p>
+                <ul style="margin: 0; padding-left: 20px; color: #666666; font-size: 14px; line-height: 1.6;">
+                  <li>Review your recent login activity</li>
+                  <li>If this wasn't you, change your password immediately</li>
+                  <li>Consider enabling two-factor authentication</li>
+                  <li>Remove any devices you don't recognize</li>
+                </ul>
+              </div>
+
+              <div style="margin: 32px 0 0; text-align: center;">
+                <a href="${process.env.FRONTEND_URL || 'https://uzima.health'}/security/activity" 
+                   style="display: inline-block; padding: 12px 32px; background-color: ${priorityColor}; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">
+                  View Security Activity
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px; background-color: #F5F5F5; border-top: 1px solid #EEEEEE; border-radius: 0 0 8px 8px;">
+              <p style="margin: 0; color: #999999; font-size: 12px; line-height: 1.5; text-align: center;">
+                This is an automated security alert from Uzima Health.<br>
+                If you have any concerns, please contact our support team.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
 export default {
   createNotification,
+  createSecurityNotification,
   sendEmail,
   getNotification,
   getNotifications,

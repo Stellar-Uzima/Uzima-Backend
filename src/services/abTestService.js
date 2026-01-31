@@ -3,7 +3,7 @@ const AbTestMetric = require('../models/AbTestMetric');
 
 function assignGroup(userId) {
   // Simple hash for deterministic assignment
-  return (userId.toString().charCodeAt(0) % 2 === 0) ? 'A' : 'B';
+  return userId.toString().charCodeAt(0) % 2 === 0 ? 'A' : 'B';
 }
 
 async function logImpression(userId, group) {

@@ -26,8 +26,8 @@ export const resolvers = {
       // Reuse REST controller to ensure consistent aggregation and caching
       return await new Promise((resolve, reject) => {
         const res = {
-          json: (payload) => resolve(payload),
-          status: () => ({ json: (e) => reject(e) }),
+          json: payload => resolve(payload),
+          status: () => ({ json: e => reject(e) }),
         };
         getVitalsMetrics(req, res);
       });

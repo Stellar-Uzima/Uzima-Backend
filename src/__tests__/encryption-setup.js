@@ -5,7 +5,7 @@ process.env.NODE_ENV = 'test';
 
 // Mock performance API for Node.js environment
 global.performance = {
-  now: () => Date.now()
+  now: () => Date.now(),
 };
 
 // Global test utilities
@@ -17,11 +17,13 @@ global.generateTestRecord = (overrides = {}) => ({
   txHash: 'test-tx-hash',
   clientUUID: 'test-client-uuid',
   syncTimestamp: new Date().toISOString(),
-  ...overrides
+  ...overrides,
 });
 
 global.generateRandomString = (length = 10) => {
-  return Math.random().toString(36).substring(2, length + 2);
+  return Math.random()
+    .toString(36)
+    .substring(2, length + 2);
 };
 
 global.PHI_FIELDS = ['diagnosis', 'treatment', 'history'];

@@ -228,7 +228,7 @@ describe('Auth 2FA Unit Tests', () => {
 
         const res = await request(app)
             .post('/api/auth/login-2fa')
-            .send({ email: 'test@example.com', password: 'password', code: '123456' });
+            .send({ email: 'test@example.com', password: 'password', twoFactorCode: '123456', method: 'sms' });
 
         if (res.statusCode !== 200) console.log('Login-2FA Error:', res.body);
 

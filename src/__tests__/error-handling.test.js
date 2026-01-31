@@ -13,7 +13,7 @@ describe('Centralized Error Handling', () => {
     test('Returns standardized error shape { code, message, details?, correlationId }', async () => {
       // This route does not exist, should trigger 404
       const res = await request(app).get('/nonexistent-route');
-      
+
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty('code');
       expect(res.body).toHaveProperty('message');
@@ -21,21 +21,21 @@ describe('Centralized Error Handling', () => {
       expect(typeof res.body.correlationId).toBe('string');
       expect(res.headers).toHaveProperty('x-correlation-id');
       expect(res.body.correlationId).toBe(res.headers['x-correlation-id']);
-      
+
       // Should not have 'success' property (old format)
       expect(res.body).not.toHaveProperty('success');
     });
 
     test('Error shape for thrown error includes stack trace in development', async () => {
       const res = await request(app).get('/debug-sentry');
-      
+
       expect(res.status).toBe(500);
       expect(res.body).toHaveProperty('code');
       expect(res.body).toHaveProperty('message');
       expect(res.body).toHaveProperty('correlationId');
       expect(typeof res.body.correlationId).toBe('string');
       expect(res.headers).toHaveProperty('x-correlation-id');
-      
+
       // In development, should include stack trace in details
       if (process.env.NODE_ENV !== 'production') {
         expect(res.body).toHaveProperty('details');
@@ -47,7 +47,7 @@ describe('Centralized Error Handling', () => {
 
     test('Correlation ID is present in response headers and body', async () => {
       const res = await request(app).get('/nonexistent-route');
-      
+
       expect(res.headers).toHaveProperty('x-correlation-id');
       expect(res.body).toHaveProperty('correlationId');
       expect(res.body.correlationId).toBe(res.headers['x-correlation-id']);
@@ -57,10 +57,8 @@ describe('Centralized Error Handling', () => {
   describe('HTTP Status Code Mapping', () => {
     test('400 Bad Request', async () => {
       // Test with invalid request - this will depend on your routes
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({}); // Missing required fields
-      
+      const res = await request(app).post('/api/auth/login').send({}); // Missing required fields
+
       expect([400, 422]).toContain(res.status);
       expect(res.body).toHaveProperty('code');
       expect(res.body).toHaveProperty('message');
@@ -68,9 +66,8 @@ describe('Centralized Error Handling', () => {
 
     test('401 Unauthorized', async () => {
       // Test protected route without token
-      const res = await request(app)
-        .get('/api/users/profile');
-      
+      const res = await request(app).get('/api/users/profile');
+
       expect([401, 404]).toContain(res.status);
       if (res.status === 401) {
         expect(res.body).toHaveProperty('code');
@@ -80,17 +77,15 @@ describe('Centralized Error Handling', () => {
 
     test('404 Not Found', async () => {
       const res = await request(app).get('/api/nonexistent-endpoint');
-      
+
       expect(res.status).toBe(404);
       expect(res.body.code).toContain('NOT_FOUND');
     });
 
     test('422 Validation Error', async () => {
       // This depends on your validation setup
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ email: 'invalid-email' }); // Invalid email format
-      
+      const res = await request(app).post('/api/auth/register').send({ email: 'invalid-email' }); // Invalid email format
+
       if (res.status === 422) {
         expect(res.body).toHaveProperty('code');
         expect(res.body.code).toContain('VALIDATION');
@@ -140,7 +135,7 @@ describe('Centralized Error Handling', () => {
         email: 'Invalid email format',
         password: 'Password too short',
       });
-      
+
       expect(error.details).toBeDefined();
       expect(error.details.email).toBe('Invalid email format');
       expect(error.details.password).toBe('Password too short');

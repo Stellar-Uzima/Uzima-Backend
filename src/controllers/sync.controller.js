@@ -9,31 +9,39 @@ export async function syncRecords(req, res) {
     }
 
     // Validate each record has required fields
-    const invalidRecords = records.filter(record => 
-      !record.clientUUID || !record.syncTimestamp || !record.patientName || 
-      !record.diagnosis || !record.treatment || !record.createdBy
+    const invalidRecords = records.filter(
+      record =>
+        !record.clientUUID ||
+        !record.syncTimestamp ||
+        !record.patientName ||
+        !record.diagnosis ||
+        !record.treatment ||
+        !record.createdBy
     );
 
     if (invalidRecords.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid records found',
-        details: 'Each record must contain clientUUID, syncTimestamp, patientName, diagnosis, treatment, and createdBy'
+        details:
+          'Each record must contain clientUUID, syncTimestamp, patientName, diagnosis, treatment, and createdBy',
       });
     }
 
     // Convert syncTimestamp strings to Date objects
     const processedRecords = records.map(record => ({
       ...record,
-      syncTimestamp: new Date(record.syncTimestamp)
+      syncTimestamp: new Date(record.syncTimestamp),
     }));
 
     // Find existing records by clientUUID and syncTimestamp
     const existingRecords = await Record.find({
       $or: processedRecords.map(record => ({
         clientUUID: record.clientUUID,
-        syncTimestamp: record.syncTimestamp
-      }))
-    }).select('clientUUID syncTimestamp').lean();
+        syncTimestamp: record.syncTimestamp,
+      })),
+    })
+      .select('clientUUID syncTimestamp')
+      .lean();
 
     // Create a Set of existing record identifiers for quick lookup
     const existingIdentifiers = new Set(
@@ -41,14 +49,14 @@ export async function syncRecords(req, res) {
     );
 
     // Filter out records that already exist
-    const newRecords = processedRecords.filter(record => 
-      !existingIdentifiers.has(`${record.clientUUID}-${record.syncTimestamp.getTime()}`)
+    const newRecords = processedRecords.filter(
+      record => !existingIdentifiers.has(`${record.clientUUID}-${record.syncTimestamp.getTime()}`)
     );
 
     if (newRecords.length === 0) {
-      return res.json({ 
+      return res.json({
         synced: [],
-        message: 'No new records to sync'
+        message: 'No new records to sync',
       });
     }
 
@@ -58,9 +66,9 @@ export async function syncRecords(req, res) {
 
     try {
       await session.withTransaction(async () => {
-        const insertedRecords = await Record.insertMany(newRecords, { 
+        const insertedRecords = await Record.insertMany(newRecords, {
           session,
-          ordered: true // enforce atomicity
+          ordered: true, // enforce atomicity
         });
         syncedIds = insertedRecords.map(record => record._id);
       });
@@ -71,16 +79,15 @@ export async function syncRecords(req, res) {
       await session.endSession();
     }
 
-    return res.json({ 
+    return res.json({
       synced: syncedIds,
-      message: `Successfully synced ${syncedIds.length} records`
+      message: `Successfully synced ${syncedIds.length} records`,
     });
-
   } catch (error) {
     console.error('Sync error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Failed to sync records'
+      message: 'Failed to sync records',
     });
   }
 }
