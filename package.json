@@ -36,6 +36,7 @@
   "dependencies": {
     "@apollo/server": "^4.11.2",
     "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.994.0",
     "@elastic/elasticsearch": "^9.2.1",
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
@@ -61,6 +62,7 @@
     "ipfs-http-client": "^60.0.1",
     "joi": "^17.13.3",
     "jsdom": "^27.4.0",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
     "juice": "^11.0.0",
     "mongoose": "^8.18.2",
@@ -69,6 +71,7 @@
     "node-cron": "^4.0.7",
     "nodemailer": "^7.0.3",
     "opossum": "^9.0.0",
+    "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
@@ -125,7 +128,7 @@
       "./src/__tests__/setup.js"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(i18next|i18next-http-middleware|i18next-fs-backend)/)"
+      "node_modules/(?!(i18next|i18next-http-middleware|i18next-fs-backend|papaparse)/)"
     ]
   }
 }
