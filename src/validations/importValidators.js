@@ -1,27 +1,58 @@
-/* eslint-disable prettier/prettier */
-import { z } from 'zod';
+import Joi from 'joi';
 
-const rowSchema = z.object({
-  patientId: z.string().nonempty(),
-  name: z.string().min(2),
-  age: z.number().int().min(0),
-  gender: z.enum(['male', 'female', 'other']),
-  diagnosis: z.string().optional(),
+/**
+ * Schema for validating a single CSV row during record import.
+ * Fields are intentionally loose on type (strings from CSV) and
+ * coerced where appropriate.
+ */
+const csvRowSchema = Joi.object({
+  patientName: Joi.string().trim().min(2).max(200).required().messages({
+    'string.empty': 'Patient name is required',
+    'string.min': 'Patient name must be at least 2 characters',
+    'any.required': 'Patient name is required',
+  }),
+  diagnosis: Joi.string().trim().min(1).max(1000).required().messages({
+    'string.empty': 'Diagnosis is required',
+    'any.required': 'Diagnosis is required',
+  }),
+  treatment: Joi.string().trim().min(1).max(1000).required().messages({
+    'string.empty': 'Treatment is required',
+    'any.required': 'Treatment is required',
+  }),
+  date: Joi.date().iso().max('now').optional().messages({
+    'date.format': 'Date must be a valid ISO date',
+    'date.max': 'Date cannot be in the future',
+  }),
+  history: Joi.string().trim().max(5000).allow('', null).optional(),
 });
 
+/**
+ * Validates a single parsed CSV row against the record import schema.
+ * @param {Object} record - Raw row object from CSV parser
+ * @returns {{ success: boolean, data?: Object, errors?: Array<{field: string, message: string}> }}
+ */
 function validateRow(record) {
-  try {
-    const parsed = rowSchema.parse({
-      patientId: record.patientId,
-      name: record.name,
-      age: parseInt(record.age, 10),
-      gender: record.gender,
-      diagnosis: record.diagnosis,
-    });
-    return { success: true, data: parsed };
-  } catch (err) {
-    return { success: false, errors: err.errors.map(e => e.message) };
+  const { error, value } = csvRowSchema.validate(record, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+
+  if (error) {
+    const errors = error.details.map(detail => ({
+      field: detail.path.join('.'),
+      message: detail.message,
+    }));
+    return { success: false, errors };
   }
+
+  return { success: true, data: value };
 }
 
-export { validateRow };
+/**
+ * Joi schema for validating the CSV upload request body/query params.
+ */
+const importUploadSchema = Joi.object({
+  skipErrors: Joi.boolean().default(false),
+});
+
+export { validateRow, csvRowSchema, importUploadSchema };
