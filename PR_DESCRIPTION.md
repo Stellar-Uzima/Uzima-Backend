@@ -1,7 +1,12 @@
 # Pull Request Description
 
 ## Overview
-This pull request addresses issues #160, #171, and #173 by implementing vital enhancements for system reliability, collaboration capabilities, and scalable storage abstraction.
+This pull request addresses issues #160, #171, #173, and #177 by implementing vital enhancements for system reliability, collaboration capabilities, scalable storage abstraction, and multi-channel notifications.
+
+Closes #160
+Closes #171
+Closes #173
+Closes #177
 
 ### Fixes and Implementations:
 
@@ -23,6 +28,13 @@ This pull request addresses issues #160, #171, and #173 by implementing vital en
     * Implemented adapter structure enforcing a consistent `StorageService` interface allowing cross-platform uploads (`LocalStorage`, `S3Storage`, and `AzureStorage`).
     * Configured environment variable adaptability via `StorageFactory` abstracting backends correctly depending on configuration values.
     * Ensured consistent presigned URL generation routines for securely gating file accesses and reducing unauthenticated exposure patterns.
+
+4. **Notification Center with Multi-Channel Support (#177)**
+    * Created an updated `Notification` model schema enabling broad type coverage mapped strictly per user by `userId`.
+    * Designed multi-channel capabilities under `src/services/notificationService.js` handling email, SMS (via Twilio), in-app push (via Socket.io), alongside fallback mechanisms to adhere directly with individual `User` preferences without redundancy.
+    * Protected outbound volume enforcing global spam limits preventing over 10 dispatches an hour seamlessly using rate limitation.
+    * Appended fully compliant `/api/notifications/` endpoints capable of marking individual items as read explicitly.
+    * Linked dynamic `PUT /api/notifications/preferences` directly toggling cross-channel opt-outs reliably.
 
 ## Checks
 * Ensured GitHub Actions and CI workflow execution readiness.

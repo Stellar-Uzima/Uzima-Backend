@@ -36,6 +36,8 @@
   "dependencies": {
     "@apollo/server": "^4.11.2",
     "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.994.0",
+    "@azure/storage-blob": "^12.31.0",
     "@elastic/elasticsearch": "^9.2.1",
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
@@ -69,6 +71,7 @@
     "node-cron": "^4.0.7",
     "nodemailer": "^7.0.3",
     "opossum": "^9.0.0",
+    "ot": "^0.0.15",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",

@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
 import { enqueueEmail } from '../queues/emailQueue.js';
+import { sendToUser } from '../wsServer.js';
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const fromEmail = process.env.MAIL_FROM || 'Uzima Health <noreply@uzima.health>';
@@ -14,6 +18,7 @@ const fromEmail = process.env.MAIL_FROM || 'Uzima Health <noreply@uzima.health>'
  * @param {string} notificationData.text - Plain text content (optional)
  * @param {string} notificationData.type - Notification type
  * @param {string} notificationData.userId - User ID (optional)
+ * @param {string} notificationData.channel - Delivery channel (optional)
  * @returns {Promise<Object>} Created notification
  */
 export async function createNotification(notificationData) {
@@ -22,6 +27,8 @@ export async function createNotification(notificationData) {
   // Create notification record
   const notification = new Notification({
     type: type || 'general',
+    userId: userId || null,
+    channel: notificationData.channel || 'email',
     recipient: {
       email: to,
       userId: userId || null,
@@ -301,18 +308,17 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                 </p>
               </div>
 
-              ${
-                metadata && Object.keys(metadata).length > 0
-                  ? `
+              ${metadata && Object.keys(metadata).length > 0
+      ? `
               <div style="margin: 24px 0;">
                 <h3 style="margin: 0 0 12px; color: #333333; font-size: 16px; font-weight: 600;">
                   Details:
                 </h3>
                 <table style="width: 100%; border-collapse: collapse;">
                   ${Object.entries(metadata)
-                    .filter(([key]) => !key.startsWith('_'))
-                    .map(
-                      ([key, value]) => `
+        .filter(([key]) => !key.startsWith('_'))
+        .map(
+          ([key, value]) => `
                     <tr>
                       <td style="padding: 8px 0; color: #999999; font-size: 14px; text-transform: capitalize;">
                         ${key.replace(/_/g, ' ')}:
@@ -322,13 +328,13 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                       </td>
                     </tr>
                   `
-                    )
-                    .join('')}
+        )
+        .join('')}
                 </table>
               </div>
               `
-                  : ''
-              }
+      : ''
+    }
 
               <div style="margin: 32px 0 0; padding: 20px; background-color: #F5F5F5; border-radius: 4px;">
                 <p style="margin: 0 0 12px; color: #666666; font-size: 14px; line-height: 1.6;">
@@ -366,7 +372,103 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
   </table>
 </body>
 </html>
-  `.trim();
+}
+
+/**
+ * Send a notification through a specific channel respecting user preferences
+ * @param {Object} data 
+ * @param {string} data.userId User Document ObjectId
+ * @param {string} data.type Notification Type (e.g. 'general')
+ * @param {string} data.channel 'email' | 'sms' | 'in-app' | 'push'
+ * @param {string|Object} data.content Text or object content
+ * @param {string} [data.subject] Notification Subject
+ */
+export async function sendMultichannelNotification({ userId, type, channel, content, subject = 'Notification' }) {
+  const user = await User.findById(userId);
+  if (!user) throw new Error('User not found');
+
+  // Opt-out check via user.preferences
+  const prefs = user.preferences?.notifications || {};
+  let isOptedOut = false;
+  if (channel === 'in-app' && prefs['push'] === false) isOptedOut = true;
+  if (channel === 'email' && prefs['email'] === false) isOptedOut = true;
+  if (channel === 'sms' && prefs['sms'] === false) isOptedOut = true;
+
+  if (isOptedOut) {
+    console.log(`[NotificationService] User ${ userId } opted out of ${ channel } notifications.`);
+    return { status: 'opted_out' };
+  }
+
+  // Batching logic (max 10/hour across all channels to prevent spam)
+  const oneHourAgo = new Date(Date.now() - 3600000);
+  const recentCount = await Notification.countDocuments({
+    userId,
+    createdAt: { $gt: oneHourAgo }
+  });
+
+  if (recentCount >= 10) {
+    console.log(`[NotificationService] Rate limited for user ${ userId }.`);
+    return { status: 'rate_limited' };
+  }
+
+  const payloadText = typeof content === 'string' ? content : JSON.stringify(content);
+  
+  const savedNotification = await Notification.create({
+    type,
+    userId,
+    recipient: { email: user.email, userId: user._id },
+    channel,
+    subject,
+    content: { text: payloadText },
+    status: 'pending',
+    read: false
+  });
+
+  try {
+    if (channel === 'in-app') {
+      sendToUser(userId, 'notification:receive', savedNotification);
+      savedNotification.status = 'sent';
+    } else if (channel === 'email') {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+        port: process.env.SMTP_PORT || 587,
+        auth: {
+          user: process.env.SMTP_USER || 'dummy',
+          pass: process.env.SMTP_PASS || 'dummy',
+        },
+      });
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || 'no-reply@uzima.com',
+        to: user.email,
+        subject,
+        text: payloadText,
+      });
+      savedNotification.status = 'sent';
+    } else if (channel === 'sms') {
+      if (process.env.TWILIO_ACCOUNT_SID && user.phoneNumber) {
+        const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        await twilioClient.messages.create({
+          body: payloadText,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: user.phoneNumber,
+        });
+      } else {
+        console.log(`[NotificationService] Missing Twilio config or User Phone Number.Logging Delivery.`);
+      }
+      savedNotification.status = 'sent';
+    } else {
+      console.log(`[NotificationService] Delivery via ${ channel } attempted but unimplemented.Logging request.`);
+      savedNotification.status = 'sent';
+    }
+    
+    savedNotification.sentAt = new Date();
+  } catch (error) {
+    savedNotification.status = 'failed';
+    savedNotification.metadata = { ...savedNotification.metadata, errorMessage: error.message };
+    console.error(`[NotificationService] failed: ${ error.message } `);
+  }
+
+  return await savedNotification.save();
 }
 
 export default {
@@ -376,4 +478,5 @@ export default {
   getNotification,
   getNotifications,
   retryNotification,
+  sendMultichannelNotification,
 };

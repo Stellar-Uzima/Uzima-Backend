@@ -12,6 +12,9 @@ import {
   validateNotificationId,
 } from '../middleware/validateNotification.js';
 import { cacheMiddleware } from '../middleware/cache.js';
+import Notification from '../models/Notification.js';
+import User from '../models/User.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -222,5 +225,82 @@ router.post('/email/:id/retry', validateNotificationId, retryFailedNotification)
  */
 // Get queue statistics (cached for 30 seconds)
 router.get('/stats', cacheMiddleware({ prefix: 'notify:stats', ttl: 30 }), getStats);
+
+/**
+ * @route GET /
+ * @desc Get all notifications for the authenticated user
+ */
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const skip = parseInt(req.query.skip, 10) || 0;
+
+    const notifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Notification.countDocuments({ userId: req.user._id });
+    const unreadCount = await Notification.countDocuments({ userId: req.user._id, read: false });
+
+    res.json({ notifications, total, unreadCount });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+/**
+ * @route POST /:id/read
+ * @desc Mark a specific notification as read
+ */
+router.post('/:id/read', authenticate, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { $set: { read: true } },
+      { new: true }
+    );
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+/**
+ * @route PUT /preferences
+ * @desc Update user opt-out preferences per channel
+ */
+router.put('/preferences', authenticate, async (req, res) => {
+  try {
+    // req.body expects an object like { email: true, sms: false, push: true, in_app: true }
+    const updatePayload = req.body;
+
+    // We update the User's preferences field dynamically.
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.preferences) user.preferences = {};
+    if (!user.preferences.notifications) user.preferences.notifications = {};
+
+    // Merge new preferences
+    user.preferences.notifications = {
+      ...user.preferences.notifications,
+      ...updatePayload,
+    };
+
+    // Tell mongoose this mixed field was updated
+    user.markModified('preferences');
+    await user.save();
+
+    res.json(user.preferences.notifications);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
 
 export default router;

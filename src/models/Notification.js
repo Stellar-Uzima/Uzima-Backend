@@ -3,23 +3,26 @@ import mongoose from 'mongoose';
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: [
-      'account_activation',
-      'password_reset',
-      'health_record_update',
-      'appointment_reminder',
-      'general',
-      'new_device_login',
-      'new_location_login',
-      'impossible_travel_detected',
-      'security_alert',
-    ],
     required: true,
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true,
+  },
+  channel: {
+    type: String,
+    enum: ['email', 'sms', 'in-app', 'push'],
+    default: 'email',
+  },
+  read: {
+    type: Boolean,
+    default: false,
   },
   recipient: {
     email: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
       lowercase: true,
     },
@@ -30,7 +33,7 @@ const notificationSchema = new mongoose.Schema({
   },
   subject: {
     type: String,
-    required: true,
+    required: false,
   },
   content: {
     html: String,
@@ -78,6 +81,7 @@ notificationSchema.pre('save', function (next) {
 notificationSchema.index({ status: 1, createdAt: -1 });
 notificationSchema.index({ 'recipient.email': 1 });
 notificationSchema.index({ 'recipient.userId': 1 });
+notificationSchema.index({ userId: 1, read: 1 });
 notificationSchema.index({ type: 1 });
 
 export default mongoose.model('Notification', notificationSchema);
