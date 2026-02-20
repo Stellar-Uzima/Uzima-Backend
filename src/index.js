@@ -27,7 +27,9 @@ import responseTimeMonitor from './middleware/responseTimeMonitor.js';
 import apiMetricsMiddleware, {
   metricsTaggingMiddleware,
 } from './middleware/apiMetricsMiddleware.js';
+import { idempotencyMiddleware } from './middleware/idempotency.js';
 import routes from './routes/index.js';
+import recordRoutes from './routes/recordCollabRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import appointmentsRouter from './controllers/appointments.controller.js';
 import migrationRoutes from './routes/migrationRoutes.js';
@@ -45,7 +47,11 @@ import healthzRoutes from './routes/healthRoutes.js';
 import './config/redis.js';
 
 // Elasticsearch utilities
-import { initializeElasticsearch, indexExists, createIndex } from './services/elasticsearchService.js';
+import {
+  initializeElasticsearch,
+  indexExists,
+  createIndex,
+} from './services/elasticsearchService.js';
 
 // Make eventManager globally available for performance monitoring
 import { eventManager } from './utils/eventEmitter.js';
@@ -54,6 +60,7 @@ import './cron/reminderJob.js';
 import './cron/outboxJob.js';
 import './cron/reconciliationJob.js';
 import './cron/exportCleanupJob.js';
+import './cron/idempotencyCleanup.js';
 // Backup job disabled - requires S3 configuration
 // import './cron/backupJob.js';
 // Email worker will be loaded conditionally in startServer
@@ -65,7 +72,6 @@ import session from 'express-session';
 import passport from './config/passport.js';
 import { sessionConfig, validateOAuthConfig } from './config/oauth.js';
 import { getConfig, initConfig } from './config/index.js';
-
 
 // Initialize and validate configuration (must be first)
 initConfig();
@@ -103,18 +109,20 @@ app.use((req, res, next) => {
     contentSecurityPolicy: isSwagger
       ? false
       : {
-        directives: getCspDirectives(res.locals.cspNonce),
-      },
+          directives: getCspDirectives(res.locals.cspNonce),
+        },
   })(req, res, next);
 });
 app.use(corsMiddleware);
 app.use(compression);
 app.use(morgan('dev'));
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
-  }
-}));
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 app.use(correlationIdMiddleware);
 
@@ -139,6 +147,9 @@ app.use(generalRateLimit);
 
 // API version detection middleware
 app.use(versionDetection);
+
+// Idempotency Middleware for processing duplicate requests
+app.use(idempotencyMiddleware);
 
 // Sentry request & tracing handlers
 // app.use(Sentry.Handlers);
@@ -179,6 +190,7 @@ app.use('/api', cspReportRoutes);
 
 // Legacy routes (backward compatibility - defaults to v1)
 app.use('/api', routes);
+app.use('/api/records', recordRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/migrations', migrationRoutes);
 app.use('/api/performance', performanceRoutes);
@@ -335,7 +347,6 @@ const startServer = async () => {
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown(httpServer, 'SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown(httpServer, 'SIGINT'));
-
   } catch (error) {
     logError('FATAL: Unable to start server', error);
     process.exit(1);

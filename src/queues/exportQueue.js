@@ -29,57 +29,60 @@ if (!fs.existsSync(exportsDir)) {
 }
 
 // Worker to process export jobs
-const exportWorker = new Worker(queueName, async (job) => {
-  const { exportType, filters, format, userId } = job.data;
+const exportWorker = new Worker(
+  queueName,
+  async job => {
+    const { exportType, filters, format, userId } = job.data;
 
-  try {
-    // Update progress to 10%
-    await job.updateProgress(10);
+    try {
+      // Update progress to 10%
+      await job.updateProgress(10);
 
-    // Simulate data fetching (replace with actual data fetching logic)
-    let data = [];
-    if (exportType === 'records') {
-      // Import Record model dynamically to avoid circular dependencies
-      const { default: Record } = await import('../models/Record.js');
-      data = await Record.find(filters || {}).limit(10000); // Limit for demo
-    } else if (exportType === 'users') {
-      const { default: User } = await import('../models/User.js');
-      data = await User.find(filters || {}).limit(10000);
-    } else if (exportType === 'prescriptions') {
-      const { default: Prescription } = await import('../models/Prescription.js');
-      data = await Prescription.find(filters || {}).limit(10000);
+      // Simulate data fetching (replace with actual data fetching logic)
+      let data = [];
+      if (exportType === 'records') {
+        // Import Record model dynamically to avoid circular dependencies
+        const { default: Record } = await import('../models/Record.js');
+        data = await Record.find(filters || {}).limit(10000); // Limit for demo
+      } else if (exportType === 'users') {
+        const { default: User } = await import('../models/User.js');
+        data = await User.find(filters || {}).limit(10000);
+      } else if (exportType === 'prescriptions') {
+        const { default: Prescription } = await import('../models/Prescription.js');
+        data = await Prescription.find(filters || {}).limit(10000);
+      }
+
+      // Update progress to 50%
+      await job.updateProgress(50);
+
+      // Generate file
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `export_${exportType}_${timestamp}.${format}`;
+      const filePath = path.join(exportsDir, filename);
+
+      if (format === 'json') {
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      } else if (format === 'csv') {
+        // Simple CSV generation (for demo)
+        const csvData = data.map(item => JSON.stringify(item)).join('\n');
+        fs.writeFileSync(filePath, csvData);
+      }
+
+      // Update progress to 100%
+      await job.updateProgress(100);
+
+      // Store file info in job data
+      job.data.filePath = filePath;
+      job.data.filename = filename;
+
+      return { success: true, filePath, filename };
+    } catch (error) {
+      console.error('Export job failed:', error);
+      throw error;
     }
-
-    // Update progress to 50%
-    await job.updateProgress(50);
-
-    // Generate file
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `export_${exportType}_${timestamp}.${format}`;
-    const filePath = path.join(exportsDir, filename);
-
-    if (format === 'json') {
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-    } else if (format === 'csv') {
-      // Simple CSV generation (for demo)
-      const csvData = data.map(item => JSON.stringify(item)).join('\n');
-      fs.writeFileSync(filePath, csvData);
-    }
-
-    // Update progress to 100%
-    await job.updateProgress(100);
-
-    // Store file info in job data
-    job.data.filePath = filePath;
-    job.data.filename = filename;
-
-    return { success: true, filePath, filename };
-
-  } catch (error) {
-    console.error('Export job failed:', error);
-    throw error;
-  }
-}, { connection });
+  },
+  { connection }
+);
 
 export async function enqueueExport(data) {
   return exportQueue.add('process-export', data, {
@@ -109,7 +112,13 @@ export async function getJobStatus(jobId) {
 }
 
 export async function getQueueStats() {
-  const counts = await exportQueue.getJobCounts('waiting', 'active', 'completed', 'failed', 'delayed');
+  const counts = await exportQueue.getJobCounts(
+    'waiting',
+    'active',
+    'completed',
+    'failed',
+    'delayed'
+  );
   return {
     waiting: counts.waiting || 0,
     active: counts.active || 0,

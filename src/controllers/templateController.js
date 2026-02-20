@@ -13,7 +13,7 @@ import templateService from '../services/templateService.js';
 export async function listTemplates(req, res) {
   try {
     const templates = templateService.getAvailableTemplates();
-    const templateList = templates.map((name) => {
+    const templateList = templates.map(name => {
       const docs = templateService.getTemplateDocumentation(name);
       return {
         name,
@@ -332,7 +332,7 @@ function generateGalleryHtml(templates) {
     <div class="grid">
       ${templates
         .map(
-          (t) => `
+          t => `
         <div class="card">
           <div class="card-preview">
             ${t.error ? `<div style="padding: 20px; color: #ef4444;">${t.error}</div>` : `<iframe src="${t.previewUrl}" loading="lazy"></iframe>`}

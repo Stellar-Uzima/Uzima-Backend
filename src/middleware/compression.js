@@ -10,7 +10,7 @@ const shouldCompress = (req, res) => {
   return true;
 };
 
-const getEncoder = (acceptEncoding) => {
+const getEncoder = acceptEncoding => {
   if (acceptEncoding.includes('br')) {
     return { encoding: 'br', stream: () => zlib.createBrotliCompress() };
   }
@@ -60,7 +60,7 @@ export default function compressionMiddleware(req, res, next) {
     const compressStream = encoder.stream();
     const compressed = [];
 
-    compressStream.on('data', (chunk) => compressed.push(chunk));
+    compressStream.on('data', chunk => compressed.push(chunk));
     compressStream.on('end', () => {
       const result = Buffer.concat(compressed);
       res.setHeader('Content-Length', result.length);

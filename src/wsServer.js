@@ -3,6 +3,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { verifyAccessToken } from './utils/generateToken.js';
 import User from './models/User.js';
 import redisClient from './config/redis.js';
+import { handleCollabSocket } from './services/collabService.js';
 
 let io;
 
@@ -12,16 +13,16 @@ export const initWebSocket = httpServer => {
     cors: {
       origin: process.env.CLIENT_URL || 'http://localhost:3000',
       methods: ['GET', 'POST'],
-      credentials: true
+      credentials: true,
     },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
   });
 
   // Set up Redis adapter if Redis is available
   if (redisClient) {
     const pubClient = redisClient.duplicate();
     const subClient = redisClient.duplicate();
-    
+
     Promise.all([pubClient.connect(), subClient.connect()])
       .then(() => {
         io.adapter(createAdapter(pubClient, subClient));
@@ -36,7 +37,7 @@ export const initWebSocket = httpServer => {
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token || socket.handshake.query.token;
-      
+
       if (!token) {
         console.log('WebSocket connection attempt without token from:', socket.handshake.address);
         return next(new Error('Authentication token required'));
@@ -47,7 +48,12 @@ export const initWebSocket = httpServer => {
       try {
         decoded = verifyAccessToken(token);
       } catch (err) {
-        console.log('Invalid WebSocket token from:', socket.handshake.address, 'Token:', token.substring(0, 10) + '...');
+        console.log(
+          'Invalid WebSocket token from:',
+          socket.handshake.address,
+          'Token:',
+          token.substring(0, 10) + '...'
+        );
         return next(new Error('Invalid authentication token'));
       }
 
@@ -60,11 +66,16 @@ export const initWebSocket = httpServer => {
 
       // Attach user to socket
       socket.user = user.toObject();
-      console.log('WebSocket authenticated user:', user.username, 'from:', socket.handshake.address);
+      console.log(
+        'WebSocket authenticated user:',
+        user.username,
+        'from:',
+        socket.handshake.address
+      );
 
       // Join user to personal room for direct messages
       socket.join(`user_${user._id}`);
-      
+
       // Log successful connection
       await logConnectionAttempt(user._id, socket.handshake.address, 'success');
 
@@ -83,8 +94,10 @@ export const initWebSocket = httpServer => {
     socket.emit('connected', {
       message: 'Successfully connected to WebSocket server',
       userId: socket.user._id,
-      username: socket.user.username
+      username: socket.user.username,
     });
+
+    handleCollabSocket(io, socket);
 
     // Handle disconnection
     socket.on('disconnect', reason => {

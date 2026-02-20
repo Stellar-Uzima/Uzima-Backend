@@ -43,7 +43,6 @@ export const cleanupOldExports = async () => {
 
     console.log(`Export cleanup completed. Deleted ${deletedCount} old files.`);
     return { deletedCount };
-
   } catch (error) {
     console.error('Error during export cleanup:', error);
     throw error;
@@ -81,7 +80,6 @@ export const getExportStats = () => {
       oldestFile,
       oldestFileDate: oldestFile ? new Date(oldestTime) : null,
     };
-
   } catch (error) {
     console.error('Error getting export stats:', error);
     return { totalFiles: 0, totalSize: 0, oldestFile: null, error: error.message };

@@ -16,12 +16,12 @@ describe('WebSocket Authentication', () => {
     io = new Server(server, {
       cors: {
         origin: '*', // Allow all origins for testing
-        methods: ['GET', 'POST']
-      }
+        methods: ['GET', 'POST'],
+      },
     });
   });
 
-  afterEach((done) => {
+  afterEach(done => {
     if (clientSocket) {
       clientSocket.disconnect();
     }
@@ -35,7 +35,7 @@ describe('WebSocket Authentication', () => {
       _id: 'test-user-id',
       username: 'testuser',
       email: 'test@example.com',
-      role: 'patient'
+      role: 'patient',
     };
 
     // Generate a valid JWT token
@@ -48,9 +48,9 @@ describe('WebSocket Authentication', () => {
     server.listen(0, () => {
       const port = server.address().port;
       const clientIo = require('socket.io-client');
-      
+
       clientSocket = clientIo(`http://localhost:${port}`, {
-        auth: { token }
+        auth: { token },
       });
 
       clientSocket.on('connect', () => {
@@ -58,22 +58,22 @@ describe('WebSocket Authentication', () => {
         done();
       });
 
-      clientSocket.on('connect_error', (err) => {
+      clientSocket.on('connect_error', err => {
         done(err);
       });
     });
   });
 
-  test('should reject WebSocket connection without token', (done) => {
+  test('should reject WebSocket connection without token', done => {
     io.use(socketAuth);
 
     server.listen(0, () => {
       const port = server.address().port;
       const clientIo = require('socket.io-client');
-      
+
       clientSocket = clientIo(`http://localhost:${port}`);
 
-      clientSocket.on('connect_error', (err) => {
+      clientSocket.on('connect_error', err => {
         expect(err.message).toBe('Authentication token required');
         done();
       });
@@ -84,7 +84,7 @@ describe('WebSocket Authentication', () => {
     });
   });
 
-  test('should reject WebSocket connection with invalid token', (done) => {
+  test('should reject WebSocket connection with invalid token', done => {
     const invalidToken = 'invalid-token-here';
 
     io.use(socketAuth);
@@ -92,12 +92,12 @@ describe('WebSocket Authentication', () => {
     server.listen(0, () => {
       const port = server.address().port;
       const clientIo = require('socket.io-client');
-      
+
       clientSocket = clientIo(`http://localhost:${port}`, {
-        auth: { token: invalidToken }
+        auth: { token: invalidToken },
       });
 
-      clientSocket.on('connect_error', (err) => {
+      clientSocket.on('connect_error', err => {
         expect(err.message).toContain('Invalid authentication token');
         done();
       });
@@ -114,14 +114,14 @@ describe('WebSocket Integration Test', () => {
   test('should initialize WebSocket server with authentication', async () => {
     // This test verifies that the WebSocket initialization works correctly
     const httpServer = createServer();
-    
+
     // Import and initialize the realtime service
     const { initRealtime } = await import('../services/realtime.service.js');
-    
+
     expect(() => {
       initRealtime(httpServer);
     }).not.toThrow();
-    
+
     httpServer.close();
   });
 });

@@ -14,7 +14,9 @@ class HealthCheckService {
     return {
       status: isConnected ? 'up' : 'down',
       latency: Date.now() - startTime,
-      message: isConnected ? 'MongoDB connected' : `MongoDB disconnected (state: ${mongoose.connection.readyState})`,
+      message: isConnected
+        ? 'MongoDB connected'
+        : `MongoDB disconnected (state: ${mongoose.connection.readyState})`,
     };
   }
 
@@ -103,15 +105,10 @@ class HealthCheckService {
 
   async getReadiness() {
     const dbHealth = this.checkDatabase();
-    const [redisHealth, queueHealth] = await Promise.all([
-      this.checkRedis(),
-      this.checkQueue(),
-    ]);
+    const [redisHealth, queueHealth] = await Promise.all([this.checkRedis(), this.checkQueue()]);
 
-    const allReady = 
-      dbHealth.status === 'up' && 
-      redisHealth.status === 'up' && 
-      queueHealth.status === 'up';
+    const allReady =
+      dbHealth.status === 'up' && redisHealth.status === 'up' && queueHealth.status === 'up';
 
     return {
       status: allReady ? 'ready' : 'not-ready',

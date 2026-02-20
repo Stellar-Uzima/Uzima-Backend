@@ -5,7 +5,11 @@ import os from 'os';
 import { register, collectDefaultMetrics, Gauge } from 'prom-client';
 import CircuitBreaker from 'opossum';
 import axios from 'axios';
-import { getPoolStats, getPoolHealthStatus, getPoolDiagnostics } from '../utils/mongoPoolMonitor.js';
+import {
+  getPoolStats,
+  getPoolHealthStatus,
+  getPoolDiagnostics,
+} from '../utils/mongoPoolMonitor.js';
 
 const router = express.Router();
 
@@ -97,8 +101,8 @@ const checkMongoDB = async () => {
         warnings: getPoolDiagnostics().recommendations.map(r => r.message),
       };
     } else {
-      return { 
-        status: 'unhealthy', 
+      return {
+        status: 'unhealthy',
         message: `Connection state: ${state}`,
         poolSize: 0,
       };
@@ -207,10 +211,10 @@ router.get('/db', async (req, res) => {
       connectionState: {
         readyState: mongoState,
         states: {
-          '0': 'disconnected',
-          '1': 'connected',
-          '2': 'connecting',
-          '3': 'disconnecting',
+          0: 'disconnected',
+          1: 'connected',
+          2: 'connecting',
+          3: 'disconnecting',
         },
       },
       pool: {

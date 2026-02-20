@@ -14,9 +14,9 @@ export function initRealtime(httpServer) {
     cors: {
       origin: process.env.CLIENT_URL || 'http://localhost:3000',
       methods: ['GET', 'POST'],
-      credentials: true
+      credentials: true,
     },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
   });
 
   // Set up Redis adapter if Redis is available
@@ -45,7 +45,7 @@ export function initRealtime(httpServer) {
     socket.emit('connected', {
       message: 'Successfully connected to WebSocket server',
       userId: socket.user._id,
-      username: socket.user.username
+      username: socket.user.username,
     });
 
     // Handle disconnection
@@ -99,7 +99,7 @@ export function emitInventoryUpdate(data) {
   if (io) {
     io.emit('inventory:update', {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 }
@@ -108,7 +108,7 @@ export function emitLowStockAlert(data) {
   if (io) {
     io.emit('inventory:lowStock', {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 }

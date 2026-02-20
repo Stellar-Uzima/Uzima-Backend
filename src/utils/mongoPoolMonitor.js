@@ -1,10 +1,10 @@
 /**
  * MongoDB Connection Pool Monitor
- * 
+ *
  * Monitors MongoDB connection pool health and metrics using native driver events.
  * Tracks pool size, active connections, queue length, and connection lifecycle.
  * Provides pool statistics for health endpoints and metrics collection.
- * 
+ *
  * @module mongoPoolMonitor
  */
 
@@ -128,7 +128,7 @@ export function initializePoolMonitor() {
       poolMetrics.health.lastEventTime = new Date().toISOString();
 
       // Determine if pool is exhausted
-      poolMetrics.health.poolExhausted = 
+      poolMetrics.health.poolExhausted =
         poolMetrics.poolSize.available === 0 && poolMetrics.queue.waiting > 0;
 
       // eslint-disable-next-line no-console
@@ -187,9 +187,8 @@ export function initializePoolMonitor() {
  */
 export function getPoolStats() {
   // Recalculate health status
-  const hasExhaustedPool = 
-    poolMetrics.poolSize.available === 0 && poolMetrics.queue.waiting > 0;
-  
+  const hasExhaustedPool = poolMetrics.poolSize.available === 0 && poolMetrics.queue.waiting > 0;
+
   poolMetrics.health.poolExhausted = hasExhaustedPool;
 
   return {
@@ -261,9 +260,10 @@ export function getPoolDiagnostics() {
   }
 
   // Check if pool size is being used efficiently
-  const utilizationPercent = stats.poolSize.current > 0 
-    ? ((stats.poolSize.inUse / stats.poolSize.current) * 100).toFixed(1)
-    : 0;
+  const utilizationPercent =
+    stats.poolSize.current > 0
+      ? ((stats.poolSize.inUse / stats.poolSize.current) * 100).toFixed(1)
+      : 0;
 
   return {
     severity,
