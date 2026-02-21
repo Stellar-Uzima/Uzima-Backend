@@ -1,9 +1,9 @@
 /**
  * MongoDB Connection Retry Service
- * 
+ *
  * Implements exponential backoff retry logic for MongoDB connection initialization.
  * Handles transient connection failures with configurable retry attempts and delays.
- * 
+ *
  * @module connectionRetry
  */
 
@@ -17,15 +17,15 @@ import mongoose from 'mongoose';
 function isTransientError(error) {
   // Network-related transient errors that should be retried
   const transientErrorPatterns = [
-    'ECONNREFUSED',      // Connection refused
-    'ECONNRESET',        // Connection reset
-    'ETIMEDOUT',         // Connection timeout
-    'EHOSTUNREACH',      // Host unreachable
-    'ENETUNREACH',       // Network unreachable
-    'ENOTFOUND',         // DNS lookup failed
-    'EADDRINUSE',        // Address in use
+    'ECONNREFUSED', // Connection refused
+    'ECONNRESET', // Connection reset
+    'ETIMEDOUT', // Connection timeout
+    'EHOSTUNREACH', // Host unreachable
+    'ENETUNREACH', // Network unreachable
+    'ENOTFOUND', // DNS lookup failed
+    'EADDRINUSE', // Address in use
     'connect ECONNREFUSED', // Connection refused message
-    'no servers',        // Replica set server selection
+    'no servers', // Replica set server selection
     'topology destroyed', // Connection pool destroyed
   ];
 
@@ -35,7 +35,7 @@ function isTransientError(error) {
 
   // Check if error matches any transient pattern
   const isTransient = transientErrorPatterns.some(
-    pattern => 
+    pattern =>
       errorString.includes(pattern.toLowerCase()) ||
       errorCode.includes(pattern) ||
       errorMessage.includes(pattern.toLowerCase())
@@ -49,7 +49,7 @@ function isTransientError(error) {
  * @param {number} attemptNumber - Current attempt number (1-indexed)
  * @param {number} initialDelayMs - Initial delay in milliseconds
  * @returns {number} Delay in milliseconds for this attempt
- * 
+ *
  * @example
  * // Attempt 1: 1000ms
  * // Attempt 2: 2000ms
@@ -73,14 +73,14 @@ function sleep(ms) {
 
 /**
  * Attempts to connect to MongoDB with exponential backoff retry logic
- * 
+ *
  * @param {string} uri - MongoDB connection URI
  * @param {Object} options - Mongoose connection options
  * @param {number} maxAttempts - Maximum connection attempts (default: 3)
  * @param {number} initialDelayMs - Initial backoff delay in ms (default: 1000)
  * @returns {Promise<Object>} Mongoose connection object on success
  * @throws {Error} After max attempts exceeded
- * 
+ *
  * @example
  * try {
  *   const connection = await connectWithRetry(
@@ -94,12 +94,7 @@ function sleep(ms) {
  *   console.error('Connection failed after retries:', error.message);
  * }
  */
-export async function connectWithRetry(
-  uri,
-  options,
-  maxAttempts = 3,
-  initialDelayMs = 1000
-) {
+export async function connectWithRetry(uri, options, maxAttempts = 3, initialDelayMs = 1000) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -111,9 +106,7 @@ export async function connectWithRetry(
       const connection = await mongoose.connect(uri, options);
 
       // eslint-disable-next-line no-console
-      console.log(
-        `✅ MongoDB connected successfully on attempt ${attempt}`
-      );
+      console.log(`✅ MongoDB connected successfully on attempt ${attempt}`);
 
       return connection;
     } catch (error) {
@@ -129,21 +122,15 @@ export async function connectWithRetry(
       // If this is the last attempt or error is permanent, throw
       if (attempt === maxAttempts) {
         // eslint-disable-next-line no-console
-        console.error(
-          `\n⚠️  Failed to connect after ${maxAttempts} attempts`
-        );
+        console.error(`\n⚠️  Failed to connect after ${maxAttempts} attempts`);
 
         if (!isTransient) {
           // eslint-disable-next-line no-console
-          console.error(
-            'This appears to be a permanent error (not retrying):'
-          );
+          console.error('This appears to be a permanent error (not retrying):');
           // eslint-disable-next-line no-console
           console.error(`   - Error: ${error.message}`);
           // eslint-disable-next-line no-console
-          console.error(
-            '   - Check MongoDB URI, credentials, and network access\n'
-          );
+          console.error('   - Check MongoDB URI, credentials, and network access\n');
         }
 
         throw error;
@@ -153,9 +140,7 @@ export async function connectWithRetry(
       if (isTransient) {
         const delayMs = getBackoffDelay(attempt, initialDelayMs);
         // eslint-disable-next-line no-console
-        console.log(
-          `⏳ Retrying in ${delayMs}ms (transient error detected)...\n`
-        );
+        console.log(`⏳ Retrying in ${delayMs}ms (transient error detected)...\n`);
         await sleep(delayMs);
       } else {
         // Permanent error - don't retry

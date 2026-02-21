@@ -3,7 +3,7 @@
  */
 
 // Function to get connected user count
-export const getConnectedUserCount = (io) => {
+export const getConnectedUserCount = io => {
   if (!io) return 0;
   let count = 0;
   for (const roomName of io.sockets.adapter.rooms.keys()) {
@@ -15,7 +15,7 @@ export const getConnectedUserCount = (io) => {
 };
 
 // Function to get all connected users
-export const getConnectedUsers = (io) => {
+export const getConnectedUsers = io => {
   if (!io) return [];
   const users = [];
   for (const [id, socket] of io.sockets.sockets) {
@@ -24,7 +24,7 @@ export const getConnectedUsers = (io) => {
         id: socket.user._id,
         username: socket.user.username,
         socketId: id,
-        role: socket.user.role
+        role: socket.user.role,
       });
     }
   }
@@ -46,7 +46,7 @@ export const sendPrivateMessage = (io, userId, event, data) => {
   io.to(roomName).emit(event, {
     ...data,
     timestamp: new Date().toISOString(),
-    to: userId
+    to: userId,
   });
   return true;
 };
@@ -54,14 +54,14 @@ export const sendPrivateMessage = (io, userId, event, data) => {
 // Function to send a message to users with specific roles
 export const sendToRole = (io, role, event, data) => {
   if (!io) return;
-  
+
   for (const [id, socket] of io.sockets.sockets) {
     if (socket.user && socket.user.role === role) {
       socket.emit(event, {
         ...data,
         timestamp: new Date().toISOString(),
         to: socket.user.username,
-        role: role
+        role: role,
       });
     }
   }
@@ -73,7 +73,7 @@ export const broadcastToOthers = (socket, event, data) => {
   socket.broadcast.emit(event, {
     ...data,
     timestamp: new Date().toISOString(),
-    from: socket.user ? socket.user.username : 'unknown'
+    from: socket.user ? socket.user.username : 'unknown',
   });
 };
 
@@ -83,5 +83,5 @@ export default {
   isUserConnected,
   sendPrivateMessage,
   sendToRole,
-  broadcastToOthers
+  broadcastToOthers,
 };

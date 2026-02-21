@@ -4,20 +4,20 @@ import { sendToRole } from '../utils/websocketUtils.js';
 // Inventory WebSocket controller
 export const inventoryWsController = {
   // Emit inventory update to all connected clients
-  emitInventoryUpdate: (data) => {
+  emitInventoryUpdate: data => {
     sendToAll('inventory:update', {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   },
 
   // Emit low stock alert to relevant clients (admins and inventory managers)
-  emitLowStockAlert: (data) => {
+  emitLowStockAlert: data => {
     // Send to all for now - in a real implementation, we'd get the io instance
     // and use sendToRole with the io parameter
     sendToAll('inventory:lowStock', {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   },
 
@@ -25,9 +25,9 @@ export const inventoryWsController = {
   emitToRoom: (room, event, data) => {
     broadcastToRoom(room, event, {
       ...data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-  }
+  },
 };
 
 export default inventoryWsController;

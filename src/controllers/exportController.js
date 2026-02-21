@@ -20,7 +20,11 @@ export const requestExport = async (req, res) => {
 
     // Validate input
     if (!exportType || !['records', 'users', 'prescriptions'].includes(exportType)) {
-      return ApiResponse(res, 400, 'Invalid export type. Must be one of: records, users, prescriptions');
+      return ApiResponse(
+        res,
+        400,
+        'Invalid export type. Must be one of: records, users, prescriptions'
+      );
     }
 
     if (!['json', 'csv'].includes(format)) {
@@ -40,7 +44,6 @@ export const requestExport = async (req, res) => {
       jobId: job.id,
       status: 'queued',
     });
-
   } catch (error) {
     console.error('Error requesting export:', error);
     return ApiResponse(res, 500, 'Failed to queue export job', null, error.message);
@@ -61,7 +64,6 @@ export const getExportStatus = async (req, res) => {
     }
 
     return ApiResponse(res, 200, 'Export status retrieved successfully', jobStatus);
-
   } catch (error) {
     console.error('Error getting export status:', error);
     return ApiResponse(res, 500, 'Failed to get export status', null, error.message);
@@ -98,13 +100,12 @@ export const downloadExport = async (req, res) => {
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
 
-    fileStream.on('error', (error) => {
+    fileStream.on('error', error => {
       console.error('Error streaming export file:', error);
       if (!res.headersSent) {
         return ApiResponse(res, 500, 'Failed to download export file');
       }
     });
-
   } catch (error) {
     console.error('Error downloading export:', error);
     return ApiResponse(res, 500, 'Failed to download export', null, error.message);

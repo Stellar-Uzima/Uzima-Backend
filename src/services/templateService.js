@@ -80,13 +80,13 @@ function registerHelpers() {
   });
 
   // Uppercase helper
-  Handlebars.registerHelper('uppercase', (str) => (str ? str.toUpperCase() : ''));
+  Handlebars.registerHelper('uppercase', str => (str ? str.toUpperCase() : ''));
 
   // Lowercase helper
-  Handlebars.registerHelper('lowercase', (str) => (str ? str.toLowerCase() : ''));
+  Handlebars.registerHelper('lowercase', str => (str ? str.toLowerCase() : ''));
 
   // Capitalize helper
-  Handlebars.registerHelper('capitalize', (str) => {
+  Handlebars.registerHelper('capitalize', str => {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   });
@@ -95,7 +95,7 @@ function registerHelpers() {
   Handlebars.registerHelper('default', (value, defaultValue) => value || defaultValue);
 
   // JSON stringify helper (for debugging)
-  Handlebars.registerHelper('json', (context) => JSON.stringify(context, null, 2));
+  Handlebars.registerHelper('json', context => JSON.stringify(context, null, 2));
 
   // Truncate text helper
   Handlebars.registerHelper('truncate', (str, length) => {
@@ -118,7 +118,7 @@ function registerPartials() {
     return;
   }
 
-  const partialFiles = fs.readdirSync(PARTIALS_DIR).filter((file) => file.endsWith('.hbs'));
+  const partialFiles = fs.readdirSync(PARTIALS_DIR).filter(file => file.endsWith('.hbs'));
 
   for (const file of partialFiles) {
     const partialName = path.basename(file, '.hbs');
@@ -296,7 +296,9 @@ function generatePlainText(data, templateName) {
 
   // Footer
   lines.push('---');
-  lines.push(`© ${data.currentYear || new Date().getFullYear()} ${data.companyName || 'Uzima Health'}. All rights reserved.`);
+  lines.push(
+    `© ${data.currentYear || new Date().getFullYear()} ${data.companyName || 'Uzima Health'}. All rights reserved.`
+  );
   lines.push('This is an automated message, please do not reply.');
 
   return lines.join('\n');
@@ -313,8 +315,10 @@ export function getAvailableTemplates() {
 
   return fs
     .readdirSync(TEMPLATES_DIR)
-    .filter((file) => file.endsWith('.hbs') && !fs.statSync(path.join(TEMPLATES_DIR, file)).isDirectory())
-    .map((file) => path.basename(file, '.hbs'));
+    .filter(
+      file => file.endsWith('.hbs') && !fs.statSync(path.join(TEMPLATES_DIR, file)).isDirectory()
+    )
+    .map(file => path.basename(file, '.hbs'));
 }
 
 /**

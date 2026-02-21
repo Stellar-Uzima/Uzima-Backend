@@ -20,10 +20,10 @@ const connectDB = async () => {
       db.pool.connectionRetryMaxAttempts,
       db.pool.connectionRetryInitialDelay
     );
-    
+
     // Initialize pool monitoring
     initializePoolMonitor();
-    
+
     // eslint-disable-next-line no-console
     console.log('MongoDB connection pool configured:');
     // eslint-disable-next-line no-console

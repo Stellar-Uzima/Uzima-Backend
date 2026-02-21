@@ -1,48 +1,48 @@
 import mongoose from 'mongoose';
 
 const webhookLogSchema = new mongoose.Schema(
-    {
-        source: {
-            type: String,
-            required: true,
-            enum: ['stripe', 'flutterwave'],
-            index: true,
-        },
-        event: {
-            type: String,
-            required: true,
-            index: true,
-        },
-        payload: {
-            type: mongoose.Schema.Types.Mixed,
-            required: true,
-        },
-        status: {
-            type: String,
-            required: true,
-            enum: ['pending', 'processed', 'failed'],
-            default: 'pending',
-            index: true,
-        },
-        attempts: {
-            type: Number,
-            default: 0,
-        },
-        errorMessage: {
-            type: String,
-        },
-        signature: {
-            type: String,
-            required: true,
-        },
-        processingId: {
-            type: String,
-            index: true,
-        }
+  {
+    source: {
+      type: String,
+      required: true,
+      enum: ['stripe', 'flutterwave'],
+      index: true,
     },
-    {
-        timestamps: true,
-    }
+    event: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    payload: {
+      type: mongoose.Schema.Types.Mixed,
+      required: true,
+    },
+    status: {
+      type: String,
+      required: true,
+      enum: ['pending', 'processed', 'failed'],
+      default: 'pending',
+      index: true,
+    },
+    attempts: {
+      type: Number,
+      default: 0,
+    },
+    errorMessage: {
+      type: String,
+    },
+    signature: {
+      type: String,
+      required: true,
+    },
+    processingId: {
+      type: String,
+      index: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
 );
 
 // Indexes for faster searching/filtering

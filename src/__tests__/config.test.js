@@ -165,8 +165,9 @@ describe('Configuration System', () => {
       process.env.MONGO_URI = 'mongodb://localhost:27017/test';
       process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters';
 
-      const { isDevelopment, isProduction, isStaging, resetConfig } =
-        await import('../config/index.js');
+      const { isDevelopment, isProduction, isStaging, resetConfig } = await import(
+        '../config/index.js'
+      );
       resetConfig();
 
       expect(isDevelopment()).toBe(true);
@@ -179,8 +180,9 @@ describe('Configuration System', () => {
       process.env.MONGO_URI = 'mongodb://localhost:27017/test';
       process.env.JWT_SECRET = 'test-jwt-secret-at-least-32-characters';
 
-      const { isDevelopment, isProduction, isStaging, resetConfig } =
-        await import('../config/index.js');
+      const { isDevelopment, isProduction, isStaging, resetConfig } = await import(
+        '../config/index.js'
+      );
       resetConfig();
 
       expect(isDevelopment()).toBe(false);

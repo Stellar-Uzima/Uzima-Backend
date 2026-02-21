@@ -121,10 +121,27 @@ const logger = winston.createLogger({
 
 // Sensitive field patterns to sanitize
 const SENSITIVE_FIELDS = [
-  'password', 'token', 'accessToken', 'refreshToken', 'authorization',
-  'apiKey', 'api_key', 'secret', 'creditCard', 'cardNumber', 'cvv',
-  'ssn', 'socialSecurityNumber', 'dob', 'dateOfBirth',
-  'medicalHistory', 'diagnosis', 'prescription', 'email', 'phoneNumber', 'phone'
+  'password',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'authorization',
+  'apiKey',
+  'api_key',
+  'secret',
+  'creditCard',
+  'cardNumber',
+  'cvv',
+  'ssn',
+  'socialSecurityNumber',
+  'dob',
+  'dateOfBirth',
+  'medicalHistory',
+  'diagnosis',
+  'prescription',
+  'email',
+  'phoneNumber',
+  'phone',
 ];
 
 // Function to sanitize sensitive data
@@ -170,7 +187,7 @@ function requestLogger(req, _res, next) {
     path: req.path,
     method: req.method,
     requestId: req.requestId,
-    userId: req.user?.id
+    userId: req.user?.id,
   });
   next();
 }
@@ -205,7 +222,7 @@ function apiRequestResponseLogger(req, res, next) {
   logger.info({
     type: 'REQUEST',
     ...requestData,
-    message: `${req.method} ${req.path}`
+    message: `${req.method} ${req.path}`,
   });
 
   // Capture original methods

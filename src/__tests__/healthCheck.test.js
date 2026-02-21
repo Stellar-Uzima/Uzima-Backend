@@ -11,7 +11,7 @@ describe('Health Check Endpoints', () => {
   describe('GET /healthz/live - Liveness Probe', () => {
     it('should return 200 with alive status', async () => {
       const res = await request(app).get('/healthz/live');
-      
+
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('alive');
       expect(res.body.timestamp).toBeDefined();
@@ -19,7 +19,7 @@ describe('Health Check Endpoints', () => {
 
     it('should include process info', async () => {
       const res = await request(app).get('/healthz/live');
-      
+
       expect(res.body.checks.process).toBeDefined();
       expect(res.body.checks.process.pid).toBe(process.pid);
       expect(res.body.checks.process.uptime).toBeGreaterThan(0);
@@ -27,7 +27,7 @@ describe('Health Check Endpoints', () => {
 
     it('should include memory metrics', async () => {
       const res = await request(app).get('/healthz/live');
-      
+
       const mem = res.body.checks.process.memory;
       expect(mem.rss).toBeGreaterThan(0);
       expect(mem.heapTotal).toBeGreaterThan(0);
@@ -38,7 +38,7 @@ describe('Health Check Endpoints', () => {
   describe('GET /healthz/ready - Readiness Probe', () => {
     it('should return structured response', async () => {
       const res = await request(app).get('/healthz/ready');
-      
+
       expect(res.body.status).toMatch(/^(ready|not-ready)$/);
       expect(res.body.message).toBeDefined();
       expect(res.body.timestamp).toBeDefined();
@@ -47,7 +47,7 @@ describe('Health Check Endpoints', () => {
 
     it('should include all component checks', async () => {
       const res = await request(app).get('/healthz/ready');
-      
+
       expect(res.body.checks.database).toBeDefined();
       expect(res.body.checks.redis).toBeDefined();
       expect(res.body.checks.queue).toBeDefined();
@@ -56,7 +56,7 @@ describe('Health Check Endpoints', () => {
 
     it('should have valid status values for each check', async () => {
       const res = await request(app).get('/healthz/ready');
-      
+
       expect(res.body.checks.database.status).toMatch(/^(up|down)$/);
       expect(res.body.checks.redis.status).toMatch(/^(up|down)$/);
       expect(res.body.checks.queue.status).toMatch(/^(up|down)$/);
@@ -102,7 +102,7 @@ describe('Health Check Endpoints', () => {
     describe('checkProcess()', () => {
       it('should return valid process metrics', () => {
         const health = healthCheckService.checkProcess();
-        
+
         expect(health.status).toBe('up');
         expect(health.pid).toBe(process.pid);
         expect(health.uptime).toBeGreaterThan(0);
@@ -113,7 +113,7 @@ describe('Health Check Endpoints', () => {
     describe('checkDatabase()', () => {
       it('should return object with required fields', () => {
         const health = healthCheckService.checkDatabase();
-        
+
         expect(health.status).toMatch(/^(up|down)$/);
         expect(health.latency).toBeGreaterThanOrEqual(0);
         expect(health.message).toBeDefined();
@@ -121,7 +121,7 @@ describe('Health Check Endpoints', () => {
 
       it('should check MongoDB connection state', () => {
         const health = healthCheckService.checkDatabase();
-        
+
         // Connection state should be checked
         expect(health.status).toBeDefined();
         expect(health.message).toContain('MongoDB');
@@ -131,7 +131,7 @@ describe('Health Check Endpoints', () => {
     describe('checkRedis()', () => {
       it('should return async health status', async () => {
         const health = await healthCheckService.checkRedis();
-        
+
         expect(health.status).toMatch(/^(up|down)$/);
         expect(health.latency).toBeGreaterThanOrEqual(0);
         expect(health.message).toBeDefined();
@@ -139,7 +139,7 @@ describe('Health Check Endpoints', () => {
 
       it('should handle connection failures gracefully', async () => {
         const health = await healthCheckService.checkRedis();
-        
+
         // Should not throw, even if Redis is down
         expect(health).toBeDefined();
       });
@@ -148,7 +148,7 @@ describe('Health Check Endpoints', () => {
     describe('checkQueue()', () => {
       it('should return async queue status', async () => {
         const health = await healthCheckService.checkQueue();
-        
+
         expect(health.status).toMatch(/^(up|down)$/);
         expect(health.latency).toBeGreaterThanOrEqual(0);
         expect(health.message).toBeDefined();
@@ -156,7 +156,7 @@ describe('Health Check Endpoints', () => {
 
       it('should handle queue connection failures gracefully', async () => {
         const health = await healthCheckService.checkQueue();
-        
+
         // Should not throw
         expect(health).toBeDefined();
       });
@@ -165,7 +165,7 @@ describe('Health Check Endpoints', () => {
     describe('getLiveness()', () => {
       it('should return liveness status', async () => {
         const health = await healthCheckService.getLiveness();
-        
+
         expect(health.status).toBe('alive');
         expect(health.checks.process).toBeDefined();
         expect(health.timestamp).toBeDefined();
@@ -175,7 +175,7 @@ describe('Health Check Endpoints', () => {
     describe('getReadiness()', () => {
       it('should return readiness with all components', async () => {
         const health = await healthCheckService.getReadiness();
-        
+
         expect(['ready', 'not-ready']).toContain(health.status);
         expect(health.checks).toHaveProperty('database');
         expect(health.checks).toHaveProperty('redis');
@@ -185,8 +185,8 @@ describe('Health Check Endpoints', () => {
 
       it('should set ready=true only when all components up', async () => {
         const health = await healthCheckService.getReadiness();
-        
-        const allHealthy = 
+
+        const allHealthy =
           health.checks.database.status === 'up' &&
           health.checks.redis.status === 'up' &&
           health.checks.queue.status === 'up';

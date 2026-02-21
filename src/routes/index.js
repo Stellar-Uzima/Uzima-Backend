@@ -62,6 +62,7 @@ router.use('/payments', paymentWebhookRoutes); // Payment webhook routes
 router.use('/activity', activityLogRoutes); // Activity log routes
 router.use('/', activityLogRoutes); // Admin activity log routes
 router.use('/notify', notificationRoutes); // Notification routes
+router.use('/notifications', notificationRoutes); // Notifications alias
 router.use('/prescriptions', prescriptionRoutes); // Prescription routes
 router.use('/permissions', permissionRoutes); // Permission routes (RBAC)
 router.use('/security', securityRoutes); // Security routes (devices, login history)
