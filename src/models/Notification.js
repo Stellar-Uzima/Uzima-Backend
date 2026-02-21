@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true,
+  },
   type: {
     type: String,
     required: true,
@@ -83,5 +89,7 @@ notificationSchema.index({ 'recipient.email': 1 });
 notificationSchema.index({ 'recipient.userId': 1 });
 notificationSchema.index({ userId: 1, read: 1 });
 notificationSchema.index({ type: 1 });
+notificationSchema.index({ tenantId: 1, userId: 1 });
+notificationSchema.index({ tenantId: 1, status: 1 });
 
 export default mongoose.model('Notification', notificationSchema);

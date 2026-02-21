@@ -24,6 +24,12 @@ const fileSchema = new mongoose.Schema({
 });
 
 const recordSchema = new mongoose.Schema({
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true,
+  },
   patientName: {
     type: String,
     required: true,
@@ -109,5 +115,8 @@ recordSchema.index({
   diagnosis: 'text',
   treatment: 'text',
 });
+recordSchema.index({ tenantId: 1, createdBy: 1 });
+recordSchema.index({ tenantId: 1, patientName: 1 });
+recordSchema.index({ tenantId: 1, deletedAt: 1 });
 
 export default mongoose.model('Record', recordSchema);

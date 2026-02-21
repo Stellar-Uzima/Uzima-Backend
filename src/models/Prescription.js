@@ -35,6 +35,12 @@ const medicationSchema = new mongoose.Schema(
 
 const prescriptionSchema = new mongoose.Schema(
   {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tenant',
+      required: true,
+      index: true,
+    },
     prescriptionNumber: {
       type: String,
       required: true,
@@ -188,6 +194,9 @@ prescriptionSchema.index({
   'medications.name': 'text',
   instructions: 'text',
 });
+prescriptionSchema.index({ tenantId: 1, patientId: 1 });
+prescriptionSchema.index({ tenantId: 1, doctorId: 1 });
+prescriptionSchema.index({ tenantId: 1, status: 1 });
 
 // Apply soft delete plugin
 prescriptionSchema.plugin(softDeletePlugin);
