@@ -308,17 +308,18 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                 </p>
               </div>
 
-              ${metadata && Object.keys(metadata).length > 0
-      ? `
+              ${
+                metadata && Object.keys(metadata).length > 0
+                  ? `
               <div style="margin: 24px 0;">
                 <h3 style="margin: 0 0 12px; color: #333333; font-size: 16px; font-weight: 600;">
                   Details:
                 </h3>
                 <table style="width: 100%; border-collapse: collapse;">
                   ${Object.entries(metadata)
-        .filter(([key]) => !key.startsWith('_'))
-        .map(
-          ([key, value]) => `
+                    .filter(([key]) => !key.startsWith('_'))
+                    .map(
+                      ([key, value]) => `
                     <tr>
                       <td style="padding: 8px 0; color: #999999; font-size: 14px; text-transform: capitalize;">
                         ${key.replace(/_/g, ' ')}:
@@ -328,13 +329,13 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
                       </td>
                     </tr>
                   `
-        )
-        .join('')}
+                    )
+                    .join('')}
                 </table>
               </div>
               `
-      : ''
-    }
+                  : ''
+              }
 
               <div style="margin: 32px 0 0; padding: 20px; background-color: #F5F5F5; border-radius: 4px;">
                 <p style="margin: 0 0 12px; color: #666666; font-size: 14px; line-height: 1.6;">
@@ -372,18 +373,25 @@ function generateSecurityAlertEmail({ username, title, message, metadata, priori
   </table>
 </body>
 </html>
+`;
 }
 
 /**
  * Send a notification through a specific channel respecting user preferences
- * @param {Object} data 
+ * @param {Object} data
  * @param {string} data.userId User Document ObjectId
  * @param {string} data.type Notification Type (e.g. 'general')
  * @param {string} data.channel 'email' | 'sms' | 'in-app' | 'push'
  * @param {string|Object} data.content Text or object content
  * @param {string} [data.subject] Notification Subject
  */
-export async function sendMultichannelNotification({ userId, type, channel, content, subject = 'Notification' }) {
+export async function sendMultichannelNotification({
+  userId,
+  type,
+  channel,
+  content,
+  subject = 'Notification',
+}) {
   const user = await User.findById(userId);
   if (!user) throw new Error('User not found');
 
@@ -395,7 +403,7 @@ export async function sendMultichannelNotification({ userId, type, channel, cont
   if (channel === 'sms' && prefs['sms'] === false) isOptedOut = true;
 
   if (isOptedOut) {
-    console.log(`[NotificationService] User ${ userId } opted out of ${ channel } notifications.`);
+    console.log(`[NotificationService] User ${userId} opted out of ${channel} notifications.`);
     return { status: 'opted_out' };
   }
 
@@ -403,16 +411,16 @@ export async function sendMultichannelNotification({ userId, type, channel, cont
   const oneHourAgo = new Date(Date.now() - 3600000);
   const recentCount = await Notification.countDocuments({
     userId,
-    createdAt: { $gt: oneHourAgo }
+    createdAt: { $gt: oneHourAgo },
   });
 
   if (recentCount >= 10) {
-    console.log(`[NotificationService] Rate limited for user ${ userId }.`);
+    console.log(`[NotificationService] Rate limited for user ${userId}.`);
     return { status: 'rate_limited' };
   }
 
   const payloadText = typeof content === 'string' ? content : JSON.stringify(content);
-  
+
   const savedNotification = await Notification.create({
     type,
     userId,
@@ -421,7 +429,7 @@ export async function sendMultichannelNotification({ userId, type, channel, cont
     subject,
     content: { text: payloadText },
     status: 'pending',
-    read: false
+    read: false,
   });
 
   try {
@@ -453,19 +461,23 @@ export async function sendMultichannelNotification({ userId, type, channel, cont
           to: user.phoneNumber,
         });
       } else {
-        console.log(`[NotificationService] Missing Twilio config or User Phone Number.Logging Delivery.`);
+        console.log(
+          `[NotificationService] Missing Twilio config or User Phone Number.Logging Delivery.`
+        );
       }
       savedNotification.status = 'sent';
     } else {
-      console.log(`[NotificationService] Delivery via ${ channel } attempted but unimplemented.Logging request.`);
+      console.log(
+        `[NotificationService] Delivery via ${channel} attempted but unimplemented. Logging request.`
+      );
       savedNotification.status = 'sent';
     }
-    
+
     savedNotification.sentAt = new Date();
   } catch (error) {
     savedNotification.status = 'failed';
     savedNotification.metadata = { ...savedNotification.metadata, errorMessage: error.message };
-    console.error(`[NotificationService] failed: ${ error.message } `);
+    console.error(`[NotificationService] failed: ${error.message} `);
   }
 
   return await savedNotification.save();

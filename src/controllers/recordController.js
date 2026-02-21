@@ -2,6 +2,7 @@ import Record from '../models/Record.js';
 import ApiResponse from '../utils/apiResponse.js';
 import transactionLog from '../models/transactionLog.js';
 import { withTransaction } from '../utils/withTransaction.js';
+import { notifyUser, notifyResource } from '../wsServer.js';
 
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs/';
 
@@ -82,6 +83,16 @@ const recordController = {
       });
       await record.save();
 
+      // Emit WebSocket event for real-time notifications
+      const payload = {
+        recordId: record._id,
+        patientName: record.patientName,
+        diagnosis: record.diagnosis,
+        createdBy: record.createdBy,
+      };
+      notifyUser(req.user._id.toString(), 'record.created', payload);
+      notifyResource(record._id.toString(), 'record.created', payload);
+
       return ApiResponse.success(res, { record }, 'Record created successfully');
     } catch (error) {
       console.error('Error creating record:', error);
@@ -105,6 +116,17 @@ const recordController = {
       if (treatment) record.treatment = treatment;
 
       await record.save();
+
+      // Emit WebSocket event for real-time notifications
+      const payload = {
+        recordId: record._id,
+        patientName: record.patientName,
+        diagnosis: record.diagnosis,
+        updatedBy: req.user._id,
+      };
+      notifyUser(record.createdBy.toString(), 'record.updated', payload);
+      notifyResource(record._id.toString(), 'record.updated', payload);
+
       return ApiResponse.success(res, { record }, 'Record updated successfully');
     } catch (error) {
       console.error('Error updating record:', error);

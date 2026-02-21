@@ -11,11 +11,11 @@ import { notifyUser, notifyResource } from '../wsServer.js';
 export async function saveAndAnchorRecord(recordData) {
   let record;
 
-  await withTransaction(async (session) => {
+  await withTransaction(async session => {
     record = new Record({ ...recordData, txHash: 'pending' });
     await record.save({ session });
 
-    // Outbox job - worker will compute the hash and submit to Stellar
+    // worker will compute the hash and submit to Stellar
     await Outbox.create(
       [
         {
@@ -29,17 +29,16 @@ export async function saveAndAnchorRecord(recordData) {
     );
   });
 
-  // Real-time "record created" notification (with tx pending)
+  // Real-time "record created" notification
   const safePayload = {
-    _id: record._id,
+    recordId: record._id,
     createdBy: record.createdBy,
     txHash: record.txHash,
-    event: 'recordCreated',
+    status: 'pending',
   };
-  notifyUser(record.createdBy, 'recordCreated', safePayload);
-  notifyResource(record._id, 'recordCreated', safePayload);
+  notifyUser(record.createdBy.toString(), 'record.created', safePayload);
+  notifyResource(record._id.toString(), 'record.created', safePayload);
 
-  // Return 202-like response; tx will be updated once Stellar anchoring completes
   return { record, txHash: 'pending' };
 }
 

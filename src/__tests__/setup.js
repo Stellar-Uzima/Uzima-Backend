@@ -10,6 +10,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let replset;
 
+// Set required environment variables for tests
+process.env.NODE_ENV = 'development';
+process.env.MONGO_URI = 'mongodb://localhost:27017/test';
+process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-for-testing-only';
+process.env.CLIENT_URL = 'http://localhost:3000';
+
 beforeAll(async () => {
   // Setup MongoDB as a replica set to support transactions
   replset = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
