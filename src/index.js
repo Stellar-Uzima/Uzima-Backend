@@ -61,8 +61,8 @@ import './cron/outboxJob.js';
 import './cron/reconciliationJob.js';
 import './cron/exportCleanupJob.js';
 import './cron/idempotencyCleanup.js';
-// Backup job disabled - requires S3 configuration
-// import './cron/backupJob.js';
+// Backup job - supports both S3 and local storage
+import './cron/backupJob.js';
 // Email worker will be loaded conditionally in startServer
 import { schedulePermanentDeletionJob } from './jobs/gdprJobs.js';
 import http from 'http';

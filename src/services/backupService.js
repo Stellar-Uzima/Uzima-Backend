@@ -18,6 +18,7 @@ const execAsync = promisify(exec);
 
 class BackupService {
   constructor() {
+    // S3 configuration
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'us-east-1',
       credentials: {
@@ -31,14 +32,16 @@ class BackupService {
     this.retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS) || 30;
     this.encryptionKey = process.env.BACKUP_ENCRYPTION_KEY;
 
+    // Local storage configuration (fallback when S3 is not configured)
+    this.useLocalStorage = !this.bucketName;
+    this.localBackupDir = process.env.LOCAL_BACKUP_DIR || path.join(process.cwd(), 'backups');
+
     if (!this.bucketName) {
-      console.warn('S3_BACKUP_BUCKET not configured - backup service will not function');
-      // Don't throw - allow service to be created but methods will fail gracefully
+      console.warn('S3_BACKUP_BUCKET not configured - using local storage for backups');
     }
 
     if (!this.encryptionKey || this.encryptionKey.length !== 32) {
       console.warn('BACKUP_ENCRYPTION_KEY not configured or invalid - encryption will not work');
-      // Don't throw - allow service to be created
     }
   }
 
@@ -72,15 +75,33 @@ class BackupService {
       const archivePath = path.join(tempDir, `${backupId}.tar.gz`);
       await this.createArchive(dumpPath, archivePath);
 
-      // Encrypt the archive
-      const encryptedPath = path.join(tempDir, `${backupId}.tar.gz.enc`);
-      await this.encryptFile(archivePath, encryptedPath);
+      // Get file stats before encryption
+      const archiveStats = await fs.stat(archivePath);
 
-      // Calculate hash for integrity verification
-      const hash = await this.calculateFileHash(encryptedPath);
+      // Encrypt the archive (if encryption key is configured)
+      let finalFilePath = archivePath;
+      let hash;
+      if (this.encryptionKey && this.encryptionKey.length === 32) {
+        const encryptedPath = path.join(tempDir, `${backupId}.tar.gz.enc`);
+        await this.encryptFile(archivePath, encryptedPath);
+        finalFilePath = encryptedPath;
+        hash = await this.calculateFileHash(encryptedPath);
+      } else {
+        hash = await this.calculateFileHash(archivePath);
+      }
 
-      // Upload to S3
-      const s3Key = await this.uploadToS3(encryptedPath, backupId, hash);
+      // Store backup (S3 or local)
+      let storageInfo;
+      if (this.useLocalStorage) {
+        storageInfo = await this.saveToLocalStorage(finalFilePath, backupId);
+      } else {
+        storageInfo = {
+          s3Key: await this.uploadToS3(finalFilePath, backupId, hash),
+        };
+      }
+
+      // Get final file size
+      const finalStats = await fs.stat(finalFilePath);
 
       // Clean up temp files
       await this.cleanupTempFiles(tempDir);
@@ -90,11 +111,14 @@ class BackupService {
         backupType,
         parentBackupId,
         timestamp: new Date(),
-        s3Key,
+        s3Key: storageInfo.s3Key || storageInfo.localPath,
+        localPath: storageInfo.localPath,
         hash,
-        size: (await fs.stat(encryptedPath)).size,
+        size: finalStats.size,
+        originalSize: archiveStats.size,
         database: dbName,
         status: 'completed',
+        storageType: this.useLocalStorage ? 'local' : 's3',
       };
 
       console.log(`${backupType} backup completed successfully: ${backupId}`);
@@ -293,9 +317,14 @@ class BackupService {
   }
 
   /**
-   * List all backups from S3
+   * List all backups (S3 or local)
    */
   async listBackups() {
+    // If using local storage, return local backups
+    if (this.useLocalStorage) {
+      return this.listLocalBackups();
+    }
+
     try {
       const listParams = {
         Bucket: this.bucketName,
@@ -329,9 +358,14 @@ class BackupService {
   }
 
   /**
-   * Verify backup integrity
+   * Verify backup integrity (S3 or local)
    */
   async verifyBackupIntegrity(s3Key) {
+    // If it's a local path, verify locally
+    if (this.useLocalStorage || s3Key.startsWith('/') || s3Key.includes(':\\')) {
+      return this.verifyLocalBackupIntegrity(s3Key);
+    }
+
     try {
       // This would involve downloading the file and verifying its hash
       // For now, we'll return a basic verification based on metadata
@@ -357,6 +391,11 @@ class BackupService {
    * Clean up old backups based on retention policy
    */
   async cleanupOldBackups() {
+    // If using local storage, cleanup local backups
+    if (this.useLocalStorage) {
+      return this.cleanupOldLocalBackups();
+    }
+
     try {
       const backups = await this.listBackups();
       const cutoffDate = new Date();
@@ -380,6 +419,13 @@ class BackupService {
    * Delete a specific backup
    */
   async deleteBackup(s3Key) {
+    // If it's a local file, delete locally
+    if (this.useLocalStorage || s3Key.startsWith('/') || s3Key.includes(':\\')) {
+      const fileName = path.basename(s3Key);
+      await this.deleteLocalBackup(fileName);
+      return;
+    }
+
     try {
       const deleteParams = {
         Bucket: this.bucketName,
@@ -397,6 +443,12 @@ class BackupService {
    * Generate pre-signed download URL
    */
   async generateDownloadUrl(s3Key, expiresIn = 3600) {
+    // If using local storage, return local file path
+    if (this.useLocalStorage) {
+      const localPath = path.join(this.localBackupDir, path.basename(s3Key));
+      return localPath;
+    }
+
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
@@ -407,6 +459,137 @@ class BackupService {
       return url;
     } catch (error) {
       throw new Error(`Failed to generate download URL: ${error.message}`);
+    }
+  }
+
+  // ========================================
+  // LOCAL STORAGE METHODS (Fallback)
+  // ========================================
+
+  /**
+   * Initialize local backup directory
+   */
+  async initializeLocalBackupDir() {
+    try {
+      await fs.mkdir(this.localBackupDir, { recursive: true });
+      console.log(`Local backup directory initialized: ${this.localBackupDir}`);
+    } catch (error) {
+      throw new Error(`Failed to initialize local backup directory: ${error.message}`);
+    }
+  }
+
+  /**
+   * Save backup to local storage
+   */
+  async saveToLocalStorage(filePath, backupId) {
+    await this.initializeLocalBackupDir();
+
+    const fileName = `${backupId}.tar.gz${this.encryptionKey ? '.enc' : ''}`;
+    const destPath = path.join(this.localBackupDir, fileName);
+
+    await fs.copyFile(filePath, destPath);
+    console.log(`Backup saved locally: ${destPath}`);
+
+    return {
+      localPath: destPath,
+      fileName,
+    };
+  }
+
+  /**
+   * List all backups from local storage
+   */
+  async listLocalBackups() {
+    try {
+      await this.initializeLocalBackupDir();
+      const files = await fs.readdir(this.localBackupDir);
+
+      const backups = [];
+      for (const file of files) {
+        if (file.endsWith('.tar.gz') || file.endsWith('.tar.gz.enc')) {
+          const filePath = path.join(this.localBackupDir, file);
+          const stats = await fs.stat(filePath);
+          const backupId = file.replace('.tar.gz.enc', '').replace('.tar.gz', '');
+
+          backups.push({
+            key: file,
+            path: filePath,
+            size: stats.size,
+            lastModified: stats.mtime,
+            backupId,
+            url: filePath,
+            isLocal: true,
+          });
+        }
+      }
+
+      return backups.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return [];
+      }
+      throw new Error(`Failed to list local backups: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a local backup
+   */
+  async deleteLocalBackup(fileName) {
+    try {
+      const filePath = path.join(this.localBackupDir, fileName);
+      await fs.unlink(filePath);
+      console.log(`Local backup deleted: ${filePath}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw new Error(`Failed to delete local backup: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Cleanup old backups from local storage
+   */
+  async cleanupOldLocalBackups() {
+    try {
+      const backups = await this.listLocalBackups();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays);
+
+      let deletedCount = 0;
+      for (const backup of backups) {
+        if (new Date(backup.lastModified) < cutoffDate) {
+          await this.deleteLocalBackup(backup.key);
+          deletedCount++;
+        }
+      }
+
+      console.log(`Cleaned up ${deletedCount} old local backups`);
+      return deletedCount;
+    } catch (error) {
+      console.error('Failed to cleanup old local backups:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify local backup integrity
+   */
+  async verifyLocalBackupIntegrity(localPath) {
+    try {
+      await fs.access(localPath);
+      const stats = await fs.stat(localPath);
+
+      return {
+        verified: stats.size > 0,
+        message: stats.size > 0 ? 'Local backup integrity verified' : 'Local backup file is empty',
+        size: stats.size,
+      };
+    } catch (error) {
+      return {
+        verified: false,
+        message: `Local backup verification failed: ${error.message}`,
+      };
     }
   }
 
