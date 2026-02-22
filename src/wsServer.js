@@ -133,6 +133,36 @@ export const sendToUser = (userId, event, data) => {
   }
 };
 
+/**
+ * Notify a specific user with an event and data
+ * @param {string} userId - User ID to notify
+ * @param {string} event - Event name (e.g., 'record.created', 'system.alert')
+ * @param {Object} data - Event data payload
+ */
+export const notifyUser = (userId, event, data) => {
+  if (io) {
+    io.to(`user_${userId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
+/**
+ * Notify all clients subscribed to a resource room
+ * @param {string} resourceId - Resource ID (used as room name)
+ * @param {string} event - Event name (e.g., 'record.updated')
+ * @param {Object} data - Event data payload
+ */
+export const notifyResource = (resourceId, event, data) => {
+  if (io) {
+    io.to(`resource_${resourceId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
 export const broadcastToRoom = (room, event, data) => {
   if (io) {
     io.to(room).emit(event, data);

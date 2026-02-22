@@ -5,6 +5,7 @@ import {
   retryNotification,
 } from '../services/notificationService.js';
 import { getQueueStats } from '../queues/emailQueue.js';
+import { notifyUser, sendToAll } from '../wsServer.js';
 
 /**
  * @swagger
@@ -309,10 +310,95 @@ export async function getStats(req, res) {
   }
 }
 
+/**
+ * @swagger
+ * /api/notify/system-alert:
+ *   post:
+ *     summary: Send a system alert to users via WebSocket
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *               - level
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Alert message
+ *               level:
+ *                 type: string
+ *                 enum: [info, warning, error]
+ *                 description: Alert severity level
+ *               details:
+ *                 type: object
+ *                 description: Additional alert details
+ *               userId:
+ *                 type: string
+ *                 description: Optional specific user ID to notify (if omitted, broadcasts to all)
+ *     responses:
+ *       200:
+ *         description: System alert sent successfully
+ *       400:
+ *         description: Invalid request data
+ *       500:
+ *         description: Server error
+ */
+export async function sendSystemAlert(req, res) {
+  try {
+    const { message, level = 'info', details = {}, userId } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: message',
+      });
+    }
+
+    const payload = {
+      message,
+      level,
+      details,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (userId) {
+      // Send to specific user
+      notifyUser(userId, 'system.alert', payload);
+    } else {
+      // Broadcast to all connected users
+      sendToAll('system.alert', payload);
+    }
+
+    res.json({
+      success: true,
+      message: 'System alert sent successfully',
+      data: {
+        level,
+        recipient: userId || 'all',
+        timestamp: payload.timestamp,
+      },
+    });
+  } catch (error) {
+    console.error('Error sending system alert:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send system alert',
+      error: error.message,
+    });
+  }
+}
+
 export default {
   sendEmailNotification,
   getNotificationById,
   listNotifications,
   retryFailedNotification,
   getStats,
+  sendSystemAlert,
 };

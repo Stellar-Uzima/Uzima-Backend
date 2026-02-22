@@ -5,6 +5,7 @@ import {
   listNotifications,
   retryFailedNotification,
   getStats,
+  sendSystemAlert,
 } from '../controllers/notificationController.js';
 import {
   validateSendEmail,
@@ -15,6 +16,7 @@ import { cacheMiddleware } from '../middleware/cache.js';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
 import { authenticate } from '../middleware/authMiddleware.js';
+import { requireRole } from '../middleware/rbacMiddleware.js';
 
 const router = express.Router();
 
@@ -227,6 +229,46 @@ router.post('/email/:id/retry', validateNotificationId, retryFailedNotification)
 router.get('/stats', cacheMiddleware({ prefix: 'notify:stats', ttl: 30 }), getStats);
 
 /**
+ * @swagger
+ * /api/notify/system-alert:
+ *   post:
+ *     summary: Send a system alert via WebSocket
+ *     description: Broadcast a system alert to all connected users or a specific user
+ *     tags: [Notifications]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *               - level
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 example: "System maintenance scheduled"
+ *               level:
+ *                 type: string
+ *                 enum: [info, warning, error]
+ *                 example: "warning"
+ *               details:
+ *                 type: object
+ *               userId:
+ *                 type: string
+ *                 description: Optional specific user ID to notify
+ *     responses:
+ *       200:
+ *         description: Alert sent successfully
+ *       403:
+ *         description: Forbidden - Admin only
+ */
+// Send system alert (admin only)
+router.post('/system-alert', authenticate, requireRole(['admin']), sendSystemAlert);
+
+/**
  * @route GET /
  * @desc Get all notifications for the authenticated user
  */
@@ -278,7 +320,7 @@ router.put('/preferences', authenticate, async (req, res) => {
     // req.body expects an object like { email: true, sms: false, push: true, in_app: true }
     const updatePayload = req.body;
 
-    // We update the User's preferences field dynamically.
+    // update the User's preferences field dynamically.
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -293,7 +335,7 @@ router.put('/preferences', authenticate, async (req, res) => {
       ...updatePayload,
     };
 
-    // Tell mongoose this mixed field was updated
+    //
     user.markModified('preferences');
     await user.save();
 

@@ -71,6 +71,7 @@
     "node-cron": "^4.0.7",
     "nodemailer": "^7.0.3",
     "opossum": "^9.0.0",
+    "ot": "^0.0.15",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12",
