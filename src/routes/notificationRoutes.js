@@ -15,8 +15,8 @@ import {
 import { cacheMiddleware } from '../middleware/cache.js';
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
-import { authenticate } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/rbacMiddleware.js';
+import { auth } from '../middleware/authMiddleware.js';
+import requireRoles from '../middleware/requireRole.js';
 
 const router = express.Router();
 
@@ -266,13 +266,13 @@ router.get('/stats', cacheMiddleware({ prefix: 'notify:stats', ttl: 30 }), getSt
  *         description: Forbidden - Admin only
  */
 // Send system alert (admin only)
-router.post('/system-alert', authenticate, requireRole(['admin']), sendSystemAlert);
+router.post('/system-alert', auth, requireRoles(['admin']), sendSystemAlert);
 
 /**
  * @route GET /
  * @desc Get all notifications for the authenticated user
  */
-router.get('/', authenticate, async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = parseInt(req.query.skip, 10) || 0;
@@ -295,7 +295,7 @@ router.get('/', authenticate, async (req, res) => {
  * @route POST /:id/read
  * @desc Mark a specific notification as read
  */
-router.post('/:id/read', authenticate, async (req, res) => {
+router.post('/:id/read', auth, async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.user._id },
@@ -315,7 +315,7 @@ router.post('/:id/read', authenticate, async (req, res) => {
  * @route PUT /preferences
  * @desc Update user opt-out preferences per channel
  */
-router.put('/preferences', authenticate, async (req, res) => {
+router.put('/preferences', auth, async (req, res) => {
   try {
     // req.body expects an object like { email: true, sms: false, push: true, in_app: true }
     const updatePayload = req.body;

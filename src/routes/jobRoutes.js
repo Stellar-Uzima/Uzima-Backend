@@ -1,5 +1,5 @@
 import express from 'express';
-import { emailQueue } from '../queues/emailQueue.js';
+import emailQueueModule from '../queues/emailQueue.js';
 
 const router = express.Router();
 
@@ -25,7 +25,7 @@ router.get('/status/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
 
-    const job = await emailQueue.getJob(jobId);
+    const job = await emailQueueModule.queue.getJob(jobId);
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -64,7 +64,7 @@ router.get('/status/:jobId', async (req, res) => {
  */
 router.get('/stats', async (req, res) => {
   try {
-    const counts = await emailQueue.getJobCounts(
+    const counts = await emailQueueModule.queue.getJobCounts(
       'waiting',
       'active',
       'completed',
@@ -87,14 +87,3 @@ router.get('/stats', async (req, res) => {
 });
 
 export default router;
-const { registerQueue } = require('../queues');
-
-// Example — wrap existing queue creation
-const emailQueue = registerQueue('email', {
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-});
-const notificationQueue = registerQueue('notification', {
-  host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
-});

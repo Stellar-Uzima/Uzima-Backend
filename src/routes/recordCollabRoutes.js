@@ -1,11 +1,11 @@
 import express from 'express';
 import { getCollaborators } from '../services/collabService.js';
-import { authenticate } from '../middleware/auth.js';
+import { verifyUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET /records/:id/collaborators
-router.get('/:id/collaborators', authenticate, (req, res) => {
+router.get('/:id/collaborators', verifyUser, (req, res) => {
   try {
     const documentId = req.params.id;
     const activeCollaborators = getCollaborators(documentId);

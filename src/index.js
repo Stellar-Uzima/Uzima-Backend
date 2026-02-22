@@ -48,7 +48,6 @@ import './config/redis.js';
 
 // Elasticsearch utilities
 import {
-  initializeElasticsearch,
   indexExists,
   createIndex,
 } from './services/elasticsearchService.js';
@@ -268,7 +267,6 @@ const startServer = async () => {
 
     // Initialize Elasticsearch
     try {
-      await initializeElasticsearch();
       const exists = await indexExists();
       if (!exists) {
         await createIndex();

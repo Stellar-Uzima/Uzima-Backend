@@ -1,5 +1,5 @@
 // models/EmailBounce.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const emailBounceSchema = new mongoose.Schema(
   {
