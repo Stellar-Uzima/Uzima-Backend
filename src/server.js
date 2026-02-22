@@ -62,3 +62,7 @@ async function init() {
 }
 
 init();
+const queueRoutes = require('./routes/queueRoutes');
+
+// Mount under /queues
+app.use('/queues', queueRoutes);

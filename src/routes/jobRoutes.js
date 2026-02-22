@@ -87,3 +87,14 @@ router.get('/stats', async (req, res) => {
 });
 
 export default router;
+const { registerQueue } = require('../queues');
+
+// Example — wrap existing queue creation
+const emailQueue = registerQueue('email', {
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+});
+const notificationQueue = registerQueue('notification', {
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
+});
