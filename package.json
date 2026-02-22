@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "worker:notifications": "node workers/notificationWorker.js",
+    "worker:notifications:dev": "node workers/notificationWorker.js --env development",
+    "worker:notifications:prod": "node workers/notificationWorker.js --env production --email-concurrency 10 --push-concurrency 20",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
