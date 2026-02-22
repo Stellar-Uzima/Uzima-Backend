@@ -1,234 +1,98 @@
-# Uzima Backend
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
 
-This is the backend service for Uzima, built with Express and MongoDB.
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
 
-## Features
+  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+    <p align="center">
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
+<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
+<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
+<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
+<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
+  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
+    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
+  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+</p>
+  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
+  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-- RESTful API for user authentication, records, appointments, and Stellar integration
-- Swagger UI documentation at `/docs`
-- Cron jobs for scheduled reminders
-- **Sentry integration** for real-time error monitoring and performance tracing
-- **Rate limiting** with Redis to prevent abuse and brute force attacks
-- **Inventory**: real-time stock tracking with FIFO and low-stock alerts
-- **Comprehensive Password Policy**: Complexity validation, breach detection, expiry management, and account lockout
+## Description
 
-## Prerequisites
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-- Node.js v16 or higher
-- npm v8 or higher
-- MongoDB database
-- Redis server (for rate limiting)
-- A Sentry project and DSN (Data Source Name)
-
-## Installation
-
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/Stellar-Uzima/Uzima-Backend.git
-   cd Uzima-Backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-## Environment Variables
-
-Create a `.env` file in the project root (you can copy from `.env.example`) and set:
-
-```dotenv
-# Core Configuration
-MONGO_URI=<your MongoDB URI>
-PORT=5000
-JWT_SECRET=<your JWT secret>
-NODE_ENV=development
-
-# Email Configuration
-SMTP_HOST=<smtp host>`
-SMTP_PORT=<smtp port>
-SMTP_USER=<smtp user>
-SMTP_PASS=<smtp password>
-MAIL_FROM="Telemed Support <support@yourdomain.com>"
-
-# Monitoring & Logging
-SENTRY_DSN=<your Sentry DSN>
-REDIS_URL=redis://localhost:6379
-
-# Password Policy Configuration
-PASSWORD_MIN_LENGTH=8
-PASSWORD_MAX_LENGTH=64
-PASSWORD_REQUIRE_UPPERCASE=true
-PASSWORD_REQUIRE_LOWERCASE=true
-PASSWORD_REQUIRE_NUMBER=true
-PASSWORD_REQUIRE_SPECIAL_CHAR=true
-PASSWORD_EXPIRY_DAYS=90
-PASSWORD_HISTORY_COUNT=5
-
-# Account Security
-MAX_LOGIN_ATTEMPTS=5
-LOGIN_LOCKOUT_DURATION_MINUTES=15
-
-# Breach Detection (haveibeenpwned API)
-HIBP_CHECK_ENABLED=true
-HIBP_API_TIMEOUT_MS=5000
-HIBP_API_RETRY_COUNT=1
-
-# Password Policy Logging
-LOG_PASSWORD_CHANGES=true
-LOG_FAILED_LOGIN_ATTEMPTS=true
-LOG_ACCOUNT_LOCKOUTS=true
-```
-
-## Running the App
-
-Start in development mode (with nodemon):
+## Project setup
 
 ```bash
-npm run dev
+$ npm install
 ```
 
-Start in production mode:
+## Compile and run the project
 
 ```bash
-npm start
+# development
+$ npm run start
+
+# watch mode
+$ npm run start:dev
+
+# production mode
+$ npm run start:prod
 ```
 
-The API is now available at `http://localhost:<PORT>` and Swagger UI at `http://localhost:<PORT>/docs`.
-
-### Inventory System
-
-REST endpoints (under `/api/inventory`):
-
-- `POST /` create item `{ sku, name, threshold, lots? }`
-- `GET /` list items
-- `GET /:sku` fetch one item
-- `PATCH /:sku` update name/category/unit/threshold/metadata
-- `POST /:sku/lots` add stock to lot `{ lotNumber, quantity, expiryDate }`
-- `POST /:sku/consume` consume stock FIFO `{ quantity }`
-
-WebSocket events (Socket.IO, connect to the same host):
-
-- `inventory:update` payload `{ type, item, lotsConsumed? }`
-- `inventory:lowStock` payload `{ sku, name, totalQuantity, threshold, lots }`
-
-Behavior:
-
-- FIFO consumption prioritizes earliest `expiryDate` lots
-- Low-stock alerts emit when `totalQuantity <= threshold`
-- All changes are audit-logged in `InventoryAuditLog`
-
-## Password Policy System
-
-Uzima Backend includes enterprise-grade password security with comprehensive policies:
-
-### Features
-
-- **Password Complexity**: Enforces minimum 8 characters with uppercase, lowercase, numbers, and special characters
-- **Password History**: Prevents reuse of last 5 passwords
-- **Password Expiry**: Passwords expire after 90 days with warnings at 30, 14, and 7 days
-- **Breach Detection**: Checks passwords against haveibeenpwned database using k-anonymity for privacy
-- **Strength Scoring**: Provides 0-4 password strength scores with actionable feedback
-- **Account Lockout**: Locks account after 5 failed login attempts for 15 minutes
-- **Force Password Change**: Enforces password update on expiry or admin reset
-- **Audit Logging**: All password changes logged for compliance
-
-### API Endpoints
-
-- `POST /api/auth/password/strength` - Check password strength (public)
-- `POST /api/auth/password/change` - Change password (authenticated)
-- `GET /api/auth/password/status` - Get password status (authenticated)
-
-### Configuration
-
-All password policy settings are configurable via environment variables (see [PASSWORD_POLICY_ENV_CONFIG.md](./PASSWORD_POLICY_ENV_CONFIG.md)):
-
-```
-PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, PASSWORD_EXPIRY_DAYS, PASSWORD_HISTORY_COUNT,
-MAX_LOGIN_ATTEMPTS, LOG_PASSWORD_CHANGES, HIBP_CHECK_ENABLED, etc.
-```
-
-For complete documentation, see [PASSWORD_POLICY_README.md](./PASSWORD_POLICY_README.md).
-
-## Sentry Integration
-
-Uzima Backend is configured to report runtime errors and performance traces to Sentry.
-
-### Testing Error Reporting
-
-1. Ensure `SENTRY_DSN` is set in `.env`.
-2. Run the app.
-3. Open your browser and visit:
-   ```
-   http://localhost:<PORT>/debug-sentry
-   ```
-   This will throw a test error.
-4. Verify the error appears in your Sentry project under **Issues**.
-
-### Viewing Performance Metrics
-
-Sentry captures performance traces for all incoming requests (sampling rate = 100%).
-
-1. Call any endpoint (e.g., `/api`).
-2. In Sentry Dashboard, go to **Performance → Transactions** to inspect traces and response times.
-
-## Rate Limiting
-
-The API implements comprehensive rate limiting to prevent abuse and brute force attacks:
-
-- **General API**: 100 requests per 15 minutes
-- **Authentication**: 5 requests per 15 minutes
-- **2FA Operations**: 10 requests per 15 minutes
-- **File Uploads**: 20 requests per hour
-- **Admin Operations**: 200 requests per 15 minutes
-
-Rate limits are enforced per-IP for anonymous users and per-user for authenticated users. When limits are exceeded, the API returns HTTP 429 with retry information.
-
-For detailed information, see [RATE_LIMITING.md](./RATE_LIMITING.md).
-
-### Testing Rate Limits
+## Run tests
 
 ```bash
-# Test rate limiting functionality
-node test-rate-limit.js
+# unit tests
+$ npm run test
+
+# e2e tests
+$ npm run test:e2e
+
+# test coverage
+$ npm run test:cov
 ```
 
-## Security
+## Deployment
 
-### Automated Vulnerability Scanning
+When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
-We use `npm audit` and GitHub Actions to ensure our dependencies are secure.
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
-- **CI Integration**: Every Pull Request to `main` or `develop` triggers a security check that fails if High or Critical vulnerabilities are found.
-- **Manual Check**: You can run the security check locally:
-  ```bash
-  npm run security:check
-  ```
-- **Automated Fixes**: GitHub Dependabot is configured to automatically create Pull Requests for vulnerable dependencies.
+```bash
+$ npm install -g @nestjs/mau
+$ mau deploy
+```
 
-### Remediation Workflow
+With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
-1. **Detection**:
-   - CI pipeline fails on `npm run security:check`.
-   - Dependabot alerts or PRs are created.
+## Resources
 
-2. **Resolution**:
-   - **For Dependabot PRs**: Review the changelog and compatibility, then merge if tests pass.
-   - **Manual Fixes**:
-     Run `npm audit fix` to automatically fix compatible vulnerabilities.
-     ```bash
-     npm audit fix
-     ```
-     For breaking changes, run `npm audit fix --force` with caution or manually upgrade the package in `package.json`.
+Check out a few resources that may come in handy when working with NestJS:
 
-3. **Verification**:
-   - Run `npm run security:check` to confirm no high/critical vulnerabilities remain.
-   - Push changes to trigger the CI pipeline.
+- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
+- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
+- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
+- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
+- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
+- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
-## Monitoring and Alerts
+## Support
 
-- Configure alerts and dashboards in Sentry for proactive notifications.
-- Monitor rate limit violations in Redis and application logs.
+Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+
+## Stay in touch
+
+- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Website - [https://nestjs.com](https://nestjs.com/)
+- Twitter - [@nestframework](https://twitter.com/nestframework)
 
 ## License
 
-ISC
+Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
