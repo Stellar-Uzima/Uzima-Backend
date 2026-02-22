@@ -23,6 +23,7 @@ import exportRoutes from './exportRoutes.js';
 import anonymizationRoutes from './anonymizationRoutes.js';
 import templateRoutes from './templateRoutes.js';
 import importRoutes from './importRoutes.js';
+import tenantRoutes from './tenantRoutes.js';
 
 // Optional webhook routes (may not exist)
 let webhookRoutes;
@@ -72,6 +73,7 @@ router.use('/anonymize', anonymizationRoutes); // Anonymization routes
 router.use('/exports', exportRoutes); // Export routes
 router.use('/templates', templateRoutes); // Email template preview routes
 router.use('/import', importRoutes); // CSV import routes
+router.use('/admin/tenants', tenantRoutes); // Tenant management routes (admin only)
 
 // WebSocket test routes
 router.use('/ws-test', wsTestRoutes);

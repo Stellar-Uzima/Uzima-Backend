@@ -4,6 +4,13 @@ import crypto from 'crypto';
 import encryptedFieldPlugin from './plugins/encryptedField.js';
 
 const userSchema = new mongoose.Schema({
+  // Tenant isolation field
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+    index: true,
+  },
   // User preferences for notifications, UI, language, etc.
   preferences: {
     type: mongoose.Schema.Types.Mixed,
@@ -76,8 +83,8 @@ const userSchema = new mongoose.Schema({
       refreshToken: String,
       linkedAt: {
         type: Date,
-        default: Date.now
-      }
+        default: Date.now,
+      },
     },
     github: {
       id: String,
@@ -89,8 +96,8 @@ const userSchema = new mongoose.Schema({
       refreshToken: String,
       linkedAt: {
         type: Date,
-        default: Date.now
-      }
+        default: Date.now,
+      },
     },
     microsoft: {
       id: String,
@@ -101,9 +108,9 @@ const userSchema = new mongoose.Schema({
       refreshToken: String,
       linkedAt: {
         type: Date,
-        default: Date.now
-      }
-    }
+        default: Date.now,
+      },
+    },
   },
   role: {
     type: String,
@@ -121,10 +128,12 @@ const userSchema = new mongoose.Schema({
     passwordResetToken: String,
     passwordResetTokenExpires: Date,
     // Password history - stores last 5 password hashes
-    passwordHistory: [{
-      hash: String,
-      changedAt: { type: Date, default: Date.now },
-    }],
+    passwordHistory: [
+      {
+        hash: String,
+        changedAt: { type: Date, default: Date.now },
+      },
+    ],
     twoFactorCode: String,
     twoFactorCodeExpires: Date,
   },
@@ -177,6 +186,9 @@ userSchema.index({ email: 1, deletedAt: 1 });
 userSchema.index({ username: 1, deletedAt: 1 });
 userSchema.index({ role: 1, createdAt: -1 });
 userSchema.index({ createdAt: -1 });
+userSchema.index({ tenantId: 1, email: 1 });
+userSchema.index({ tenantId: 1, username: 1 });
+userSchema.index({ tenantId: 1, role: 1 });
 
 // Static method for registration trends
 userSchema.statics.getRegistrationTrends = async function (startDate, endDate) {
@@ -216,7 +228,7 @@ userSchema.statics.getTotalUserCount = async function (endDate) {
 userSchema.statics.getRoleDistribution = async function () {
   return await this.aggregate([
     {
-      $match: { deletedAt: null }
+      $match: { deletedAt: null },
     },
     {
       $group: {
@@ -233,7 +245,6 @@ userSchema.index({ email: 1, deletedAt: 1 });
 userSchema.index({ username: 1, deletedAt: 1 });
 userSchema.index({ role: 1, createdAt: -1 });
 userSchema.index({ createdAt: -1 });
-
 
 userSchema.methods.createResetPasswordToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
@@ -252,7 +263,7 @@ userSchema.methods.linkOAuthAccount = function (provider, profileData) {
 
   this.oauthAccounts[provider] = {
     ...profileData,
-    linkedAt: new Date()
+    linkedAt: new Date(),
   };
 
   return this.save();
@@ -281,7 +292,7 @@ userSchema.methods.getOAuthProviders = function () {
           provider,
           email: this.oauthAccounts[provider].email,
           name: this.oauthAccounts[provider].name,
-          linkedAt: this.oauthAccounts[provider].linkedAt
+          linkedAt: this.oauthAccounts[provider].linkedAt,
         });
       }
     });
