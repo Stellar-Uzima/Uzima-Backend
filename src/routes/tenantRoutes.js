@@ -1,7 +1,7 @@
 import express from 'express';
 import tenantController from '../controllers/tenantController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/rbacMiddleware.js';
+import { auth } from '../middleware/authMiddleware.js';
+import requireRoles from '../middleware/requireRole.js';
 
 const router = express.Router();
 
@@ -13,8 +13,8 @@ const router = express.Router();
  */
 
 // All routes require authentication and admin role
-router.use(authenticate);
-router.use(requireRole(['admin']));
+router.use(auth);
+router.use(requireRoles(['admin']));
 
 /**
  * @swagger

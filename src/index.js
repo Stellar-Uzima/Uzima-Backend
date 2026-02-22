@@ -44,11 +44,11 @@ import elasticSearchRoutes from './routes/elasticSearchRoutes.js';
 import sseRoutes from './routes/sseRoutes.js';
 import paymentWebhookRoutes from './routes/paymentWebhookRoutes.js';
 import healthzRoutes from './routes/healthRoutes.js';
+import notificationQueueRoutes from './routes/notificationQueueRoutes.js';
 import './config/redis.js';
 
 // Elasticsearch utilities
 import {
-  initializeElasticsearch,
   indexExists,
   createIndex,
 } from './services/elasticsearchService.js';
@@ -202,6 +202,9 @@ app.use('/events', sseRoutes);
 // Incoming Payment Webhooks
 app.use('/webhooks', paymentWebhookRoutes);
 
+// Notification Queue Management (Admin only)
+app.use('/api/admin/notifications/queues', notificationQueueRoutes);
+
 // Load reminder cron job if available (guard missing dependencies)
 try {
   await import('./cron/reminderJob.js');
@@ -268,7 +271,6 @@ const startServer = async () => {
 
     // Initialize Elasticsearch
     try {
-      await initializeElasticsearch();
       const exists = await indexExists();
       if (!exists) {
         await createIndex();

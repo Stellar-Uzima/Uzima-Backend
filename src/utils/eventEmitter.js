@@ -141,6 +141,8 @@ export function getEventStats() {
   return eventManager.getStats();
 }
 
+export { eventManager };
+
 export default {
   emitRecordCreated,
   emitRecordUpdated,
