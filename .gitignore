@@ -1,27 +1,56 @@
-node_modules/
-.env
-.env.*
-!.env.example
-.qodo
-.env.local
-error.log
+# compiled output
+/dist
+/node_modules
+/build
+
 # Logs
-logs/*.log
-logs/*.gz
-!logs/.gitkeep
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
+# OS
+.DS_Store
 
-# Payment integration documentation files
-PAYMENT_SETUP_GUIDE.md
-QUICK_START.md
-PAYMENT_IMPLEMENTATION_SUMMARY.md
-PR_MESSAGE.md
-PR_DESCRIPTION.md
-PR_USAGE_INSTRUCTIONS.md
-logs/
+# Tests
+/coverage
+/.nyc_output
 
-# API Testing artifacts (Newman/Postman)
-test-results/
-postman/environments/Development.postman_environment.json
-postman/environments/Staging.postman_environment.json
-.postman_history.json
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
