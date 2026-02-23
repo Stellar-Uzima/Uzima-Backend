@@ -25,6 +25,52 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Running Uzima Backend with Docker
+
+This project supports running the backend and a local PostgreSQL database using Docker Compose.
+
+### Prerequisites
+- [Docker](https://www.docker.com/get-started) installed
+- [Docker Compose](https://docs.docker.com/compose/) (usually included with Docker Desktop)
+
+### Steps
+
+1. **Build and start services:**
+
+  ```sh
+  docker compose up --build
+  ```
+
+  This will start:
+  - `postgres`: A local PostgreSQL database (port 5432)
+  - `backend`: The NestJS API (port 3000)
+
+2. **Access the API:**
+  - The backend will be available at [http://localhost:3000](http://localhost:3000)
+
+3. **Stop services:**
+
+  ```sh
+  docker compose down
+  ```
+
+### Environment Variables
+- The backend connects to the database using the following default values:
+  - DB_HOST: postgres
+  - DB_PORT: 5432
+  - DB_USERNAME: uzima
+  - DB_PASSWORD: uzima123
+  - DB_DATABASE: uzima_db
+
+You can change these in `docker-compose.yml` as needed.
+
+### Troubleshooting
+- If you change dependencies or code, restart with `docker compose up --build`.
+- Database data persists in a Docker volume (`pgdata`).
+
+---
+For local development without Docker, see the rest of this README.
+
 ## Project setup
 
 ```bash
