@@ -6,6 +6,9 @@ import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { AuthModule } from './auth/auth.module';
+import { StellarModule } from './stellar/stellar.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -19,6 +22,9 @@ import { AuthModule } from './auth/auth.module';
     }),
     QueueModule,
     AuthModule,
+    StellarModule,
+    AdminModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
