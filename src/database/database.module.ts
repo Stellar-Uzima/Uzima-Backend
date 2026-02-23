@@ -2,6 +2,7 @@ import { Module, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { typeOrmConfig } from './typeorm.config';
+import { DataSource } from 'typeorm';
 
 
 @Module({
@@ -21,7 +22,8 @@ export class DatabaseModule implements OnApplicationBootstrap {
       // Attempt to get the TypeORM connection (DataSource)
       // This will throw if connection fails
       const { DataSource } = await import('typeorm');
-      const dataSource = DataSource instanceof Function ? DataSource() : DataSource;
+      // Use ormconfig for DataSource options
+      const dataSource = (await import('../../ormconfig.js')).default as unknown as DataSource;
       if (!dataSource.isInitialized) {
         await dataSource.initialize();
       }

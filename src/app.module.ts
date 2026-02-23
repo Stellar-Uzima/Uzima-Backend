@@ -14,8 +14,12 @@ import { DatabaseModule } from './database/database.module';
       envFilePath: '.env',
     }),
     ThrottlerModule.forRoot({
-      ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
-      limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
+      throttlers: [
+        {
+          ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
+          limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
+        },
+      ],
     }),
     QueueModule,
     DatabaseModule, // Register DatabaseModule
