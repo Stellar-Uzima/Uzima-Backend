@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
@@ -10,6 +11,10 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+    ThrottlerModule.forRoot({
+      ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
+      limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
     }),
     QueueModule,
   ],
