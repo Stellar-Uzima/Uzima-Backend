@@ -27,8 +27,8 @@ export class AdminUsersService {
 
   // List users with filters
   async listUsers(dto: ListUsersDto) {
-    const page = dto.page ? parseInt(dto.page) : 1;
-    const limit = dto.limit ? parseInt(dto.limit) : 20;
+    const page = dto.page || 1;
+    const limit = dto.limit || 20;
 
     const qb = this.usersRepository.createQueryBuilder('user');
 
@@ -36,8 +36,7 @@ export class AdminUsersService {
       qb.andWhere('user.country = :country', { country: dto.country });
     if (dto.role) qb.andWhere('user.role = :role', { role: dto.role });
     if (dto.isActive !== undefined) {
-      const active = dto.isActive === 'true';
-      qb.andWhere('user.isActive = :active', { active });
+      qb.andWhere('user.isActive = :active', { active: dto.isActive });
     }
     if (dto.search) {
       qb.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
@@ -45,14 +44,48 @@ export class AdminUsersService {
       });
     }
 
+    qb.select([
+      'user.id',
+      'user.email',
+      'user.name',
+      'user.role',
+      'user.country',
+      'user.isActive',
+      'user.stellarWalletAddress',
+      'user.createdAt',
+      'user.updatedAt',
+    ]);
+
     qb.skip((page - 1) * limit).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
-    return { users, total, page, limit };
+    
+    return {
+      data: users,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getUserById(id: string) {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      select: [
+        'id',
+        'email',
+        'name',
+        'role',
+        'country',
+        'isActive',
+        'stellarWalletAddress',
+        'createdAt',
+        'updatedAt',
+      ],
+    });
     if (!user) throw new BadRequestException('User not found');
     return user;
   }

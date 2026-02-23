@@ -4,11 +4,11 @@ import { UsersService } from 'src/auth/services/users.service';
 import { User } from 'src/entities/user.entity';
 import { AdminUsersController } from './admin-user.controller';
 import { AdminUsersService } from './services/admin-users.service';
-import { AuditService } from 'src/audit/audit.service';
+import { AuditModule } from 'src/audit/audit.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([User]), AuditModule],
   controllers: [AdminUsersController],
-  providers: [AdminUsersService, UsersService, AuditService],
+  providers: [AdminUsersService, UsersService],
 })
 export class AdminModule {}
