@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Role } from '../enums/role.enum';
 
 @Entity('users')
@@ -32,6 +38,12 @@ export class User {
 
   @Column({ default: false })
   isVerified: boolean;
+
+  @Column({ nullable: true, unique: true })
+  emailVerificationToken: string;
+
+  @Column({ nullable: true })
+  emailVerificationExpiry: Date;
 
   @Column({ default: true })
   isActive: boolean;
