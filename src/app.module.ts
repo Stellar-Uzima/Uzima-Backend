@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
 import { AuthModule } from './auth/auth.module';
 import { OtpModule } from './otp/otp.module';
+import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 @Module({
@@ -23,6 +24,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
     QueueModule,
     OtpModule,
     AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
