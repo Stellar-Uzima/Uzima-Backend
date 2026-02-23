@@ -1,26 +1,69 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { User } from '../entities/user.entity';
+import { LinkWalletDto } from '../dto/link-wallet.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
 
+  async findById(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new Error('User not found');
+    return user;
+  }
+
   async create(userData: Partial<User>): Promise<User> {
+    if (!userData.password) {
+      throw new Error('Password is required');
+    }
+
     const hashedPassword = await bcrypt.hash(userData.password, 12);
+
+    // Only spread known properties to satisfy TypeORM
     const user = this.usersRepository.create({
-      ...userData,
+      email: userData.email!,
+      name: userData.name!,
+      country: userData.country!,
       password: hashedPassword,
     });
+
     return this.usersRepository.save(user);
+  }
+
+  async linkWallet(userId: string, dto: LinkWalletDto): Promise<User> {
+    const { address } = dto;
+
+    // Check if address is already linked to another account
+    const existingUser = await this.usersRepository.findOne({
+      where: { stellarWalletAddress: address },
+    });
+    if (existingUser && existingUser.id !== userId) {
+      throw new BadRequestException(
+        'This Stellar address is already linked to another account',
+      );
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+
+    user.stellarWalletAddress = address;
+    const updatedUser = await this.usersRepository.save(user);
+
+    // Emit wallet linked event
+    this.eventEmitter.emit('wallet.linked', { userId: user.id, address });
+
+    return updatedUser;
   }
 }
