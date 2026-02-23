@@ -42,24 +42,6 @@ export class User {
   @Column({ nullable: true, unique: true })
   emailVerificationToken: string;
 
-  @Column({ nullable: true })
-  emailVerificationExpiry: Date;
-
-  @Column({ default: true })
-  isActive: boolean;
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
-  @Column({ type: 'timestamp', nullable: true })
-  lastActiveAt: Date;
-
-  @Column({ nullable: true })
-  emailVerificationToken: string;
-
   @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpiry: Date;
 
@@ -68,4 +50,16 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   passwordResetExpiry: Date;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
