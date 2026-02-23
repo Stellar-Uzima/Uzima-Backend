@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
       limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
     }),
     QueueModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
