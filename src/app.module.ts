@@ -1,9 +1,13 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
+import { AuthModule } from './auth/auth.module';
+import { OtpModule } from './otp/otp.module';
+import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,7 +29,11 @@ import { AuditModule } from './audit/audit.module';
         },
       ],
     }),
+    EventEmitterModule.forRoot(),
     QueueModule,
+    OtpModule,
+    AuthModule,
+    UsersModule,
     DatabaseModule, // Register DatabaseModule
     AuthModule,
     StellarModule,
