@@ -1,8 +1,8 @@
 import {
-  Entity,
   Column,
-  PrimaryGeneratedColumn,
   CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
@@ -32,6 +32,15 @@ export class User {
 
   @Column({ length: 2 })
   country: string;
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @Column({ nullable: true, unique: true })
+  emailVerificationToken?: string;
+
+  @Column({ nullable: true })
+  emailVerificationExpiry?: Date;
 
   @CreateDateColumn()
   createdAt: Date;

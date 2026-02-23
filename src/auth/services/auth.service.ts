@@ -1,16 +1,16 @@
 import {
-  Injectable,
   ConflictException,
+  Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { createClient, RedisClientType } from 'redis';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { UsersService } from './users.service';
-import { RegisterDto } from '../dto/register.dto';
+import { createClient, RedisClientType } from 'redis';
 import { LoginDto } from '../dto/login.dto';
+import { RegisterDto } from '../dto/register.dto';
 import { Role } from '../enums/role.enum';
+import { UsersService } from './users.service';
 
 @Injectable()
 export class AuthService {
@@ -88,5 +88,78 @@ export class AuthService {
   // Logout
   async logout(userId: string) {
     await this.redisClient.del(`refresh:${userId}`);
+  }
+
+  // Verify email
+  async verifyEmail(dto: VerifyEmailDto) {
+    const user = await this.usersService.findByVerificationToken(dto.token);
+
+    if (!user) {
+      throw new BadRequestException('Invalid verification token');
+    }
+
+    if (
+      user.emailVerificationExpiry &&
+      user.emailVerificationExpiry < new Date()
+    ) {
+      throw new BadRequestException('Verification token has expired');
+    }
+
+    // Clear verification token and mark email as verified
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpiry = undefined;
+    user.isVerified = true;
+
+    await this.usersService.save(user);
+
+    // Emit email verified event
+    this.eventEmitter.emit('user.email.verified', {
+      userId: user.id,
+      email: user.email,
+    });
+
+    return { message: 'Email verified successfully' };
+  }
+
+  // Resend email verification
+  async resendEmailVerification(dto: ResendEmailVerificationDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    // Check rate limit (3 per hour)
+    const rateLimitKey = `email_verify:${user.email}`;
+    const currentCount = await this.redisClient.get(rateLimitKey);
+
+    if (currentCount && parseInt(currentCount) >= 3) {
+      throw new BadRequestException(
+        'Too many verification requests. Please try again later.',
+      );
+    }
+
+    // Generate new verification token
+    const verificationToken = uuidv4();
+    const expiryTime = new Date();
+    expiryTime.setHours(expiryTime.getHours() + 24); // 24-hour expiry
+
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationExpiry = expiryTime;
+
+    await this.usersService.save(user);
+
+    // Increment rate limit counter
+    await this.redisClient.incr(rateLimitKey);
+    await this.redisClient.expire(rateLimitKey, 3600); // 1 hour expiry
+
+    // TODO: Send verification email
+    // this.emailService.sendVerificationEmail(user.email, verificationToken);
+
+    return { message: 'Verification email sent' };
   }
 }
