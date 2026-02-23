@@ -8,14 +8,17 @@ import {
   ThrottlerGuard,
   ThrottlerException,
   ThrottlerStorage,
-  ThrottlerStorageRecord,
+  ThrottlerLimitDetail,
 } from '@nestjs/throttler';
 
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
-  protected throwThrottlingException(context: ExecutionContext): void {
+  protected async throwThrottlingException(
+    context: ExecutionContext,
+    throttlerLimitDetail: ThrottlerLimitDetail,
+  ): Promise<void> {
     const response = context.switchToHttp().getResponse();
-    response.set('Retry-After', this.ttl.toString());
+    response.set('Retry-After', throttlerLimitDetail.ttl.toString());
     throw new HttpException(
       {
         statusCode: HttpStatus.TOO_MANY_REQUESTS,

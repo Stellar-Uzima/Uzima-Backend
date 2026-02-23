@@ -9,6 +9,11 @@ import { AuthModule } from './auth/auth.module';
 import { OtpModule } from './otp/otp.module';
 import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
+import { StellarModule } from './stellar/stellar.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -17,14 +22,23 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
       envFilePath: '.env',
     }),
     ThrottlerModule.forRoot({
-      ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
-      limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
+      throttlers: [
+        {
+          ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
+          limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
+        },
+      ],
     }),
     EventEmitterModule.forRoot(),
     QueueModule,
     OtpModule,
     AuthModule,
     UsersModule,
+    DatabaseModule, // Register DatabaseModule
+    AuthModule,
+    StellarModule,
+    AdminModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],
