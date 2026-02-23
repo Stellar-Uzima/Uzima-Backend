@@ -1,19 +1,10 @@
 import { Module } from '@nestjs/common';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { OtpModule } from '../otp/otp.module';
-
-@Module({
-  imports: [OtpModule],
-  controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService],
-import { AuthService } from './services/auth.service';
-import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
-import { UsersService } from './services/users.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from 'src/entities/user.entity';
+import { User } from '../entities/user.entity';
+import { AuthController } from './auth.controller';
+import { AuthService } from './services/auth.service';
+import { UsersService } from './services/users.service';
 
 @Module({
   imports: [

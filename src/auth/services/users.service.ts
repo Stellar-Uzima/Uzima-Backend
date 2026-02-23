@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
+import { Repository } from 'typeorm';
 import { LinkWalletDto } from '../dto/link-wallet.dto';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { User } from '../entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -34,11 +34,21 @@ export class UsersService {
     // Only spread known properties to satisfy TypeORM
     const user = this.usersRepository.create({
       email: userData.email!,
-      name: userData.name!,
+      fullName: userData.fullName!,
       country: userData.country!,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
     });
 
+    return this.usersRepository.save(user);
+  }
+
+  async findByVerificationToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { emailVerificationToken: token },
+    });
+  }
+
+  async save(user: User): Promise<User> {
     return this.usersRepository.save(user);
   }
 
