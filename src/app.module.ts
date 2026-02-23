@@ -2,7 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { HealthModule } from './health/health.module';
+import { QueueModule } from './queue/queue.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 @Module({
@@ -11,7 +11,7 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    HealthModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],
