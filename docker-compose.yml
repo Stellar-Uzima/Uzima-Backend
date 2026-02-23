@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: uzima
+      POSTGRES_PASSWORD: uzima123
+      POSTGRES_DB: uzima_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: uzima
+      DB_PASSWORD: uzima123
+      DB_DATABASE: uzima_db
+    depends_on:
+      - postgres
+    command: ["node", "dist/main.js"]
+
+volumes:
+  pgdata:
