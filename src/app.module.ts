@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DatabaseModule } from './database/database.module';
     }),
     QueueModule,
     DatabaseModule, // Register DatabaseModule
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
