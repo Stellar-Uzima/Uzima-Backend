@@ -14,6 +14,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { TasksModule } from './tasks/tasks.module';
+import { RewardModule } from './rewards/reward.module';
 
 @Module({
   imports: [
@@ -34,12 +36,12 @@ import { AuditModule } from './audit/audit.module';
     OtpModule,
     AuthModule,
     UsersModule,
-    NotificationsModule,
-    DatabaseModule, // Register DatabaseModule
-    AuthModule,
+    DatabaseModule,
     StellarModule,
     AdminModule,
     AuditModule,
+    TasksModule,
+    RewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
