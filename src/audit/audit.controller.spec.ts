@@ -5,10 +5,12 @@ import { AuditService } from './audit.service';
 describe('AuditController', () => {
   let controller: AuditController;
 
+  const mockAuditService = { logAction: jest.fn() };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuditController],
-      providers: [AuditService],
+      providers: [{ provide: AuditService, useValue: mockAuditService }],
     }).compile();
 
     controller = module.get<AuditController>(AuditController);

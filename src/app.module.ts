@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { CouponModule } from './coupons/coupon.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AuditModule } from './audit/audit.module';
     StellarModule,
     AdminModule,
     AuditModule,
+    CouponModule,
   ],
   controllers: [AppController],
   providers: [AppService],
