@@ -10,7 +10,7 @@ import { OtpModule } from './otp/otp.module';
 import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
-import { AuthModule } from './auth/auth.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
@@ -34,6 +34,7 @@ import { AuditModule } from './audit/audit.module';
     OtpModule,
     AuthModule,
     UsersModule,
+    NotificationsModule,
     DatabaseModule, // Register DatabaseModule
     AuthModule,
     StellarModule,
