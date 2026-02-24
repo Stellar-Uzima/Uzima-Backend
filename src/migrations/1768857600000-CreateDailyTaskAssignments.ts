@@ -7,9 +7,7 @@ import {
   TableUnique,
 } from 'typeorm';
 
-export class CreateDailyTaskAssignments1768857600000
-  implements MigrationInterface
-{
+export class CreateDailyTaskAssignments1768857600000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
 
@@ -153,7 +151,9 @@ export class CreateDailyTaskAssignments1768857600000
 
     await queryRunner.dropTable('daily_task_assignment_tasks', true);
 
-    const assignmentTable = await queryRunner.getTable('daily_task_assignments');
+    const assignmentTable = await queryRunner.getTable(
+      'daily_task_assignments',
+    );
     if (assignmentTable) {
       const userFk = assignmentTable.foreignKeys.find(
         (fk) => fk.name === 'FK_daily_task_assignments_user_id',

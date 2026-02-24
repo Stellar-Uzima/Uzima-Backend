@@ -20,9 +20,7 @@ interface AuthenticatedRequest extends Request {
 @UseGuards(JwtAuthGuard)
 @Controller('tasks')
 export class TasksController {
-  constructor(
-    private readonly taskAssignmentService: TaskAssignmentService,
-  ) {}
+  constructor(private readonly taskAssignmentService: TaskAssignmentService) {}
 
   @Get('today')
   async getTodayTasks(@Req() req: AuthenticatedRequest) {

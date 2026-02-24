@@ -20,7 +20,10 @@ export class UserResponseDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ example: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', required: false })
+  @ApiProperty({
+    example: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+    required: false,
+  })
   stellarWalletAddress?: string;
 
   @ApiProperty({ example: '2024-01-01T00:00:00.000Z' })

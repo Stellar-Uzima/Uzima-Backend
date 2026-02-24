@@ -11,14 +11,19 @@ import {
 
 /**
  * Standard API response decorator that combines common response types
- * 
+ *
  * Usage:
  * @ApiStandardResponse({ type: UserResponseDto, description: 'User retrieved successfully' })
  */
 export function ApiStandardResponse<TModel extends Type<any>>(
   options: ApiResponseMetadata & { type?: TModel } = {},
 ) {
-  const { type, description = 'Success', status = 200, ...restOptions } = options;
+  const {
+    type,
+    description = 'Success',
+    status = 200,
+    ...restOptions
+  } = options;
 
   const decorators: Array<ClassDecorator | MethodDecorator> = [
     ApiResponse({
@@ -71,7 +76,7 @@ export function ApiStandardResponse<TModel extends Type<any>>(
 
 /**
  * Standard API response for paginated results
- * 
+ *
  * Usage:
  * @ApiPaginatedResponse(UserResponseDto, { description: 'Users retrieved successfully' })
  */
@@ -118,7 +123,7 @@ export function ApiPaginatedResponse<TModel extends Type<any>>(
 
 /**
  * API response for create operations (returns 201)
- * 
+ *
  * Usage:
  * @ApiCreatedResponse(UserResponseDto, { description: 'User created successfully' })
  */
@@ -126,7 +131,8 @@ export function ApiCreatedResponse<TModel extends Type<any>>(
   model: TModel,
   options: Omit<ApiResponseMetadata, 'type'> = {},
 ) {
-  const { description = 'Resource created successfully', ...restOptions } = options;
+  const { description = 'Resource created successfully', ...restOptions } =
+    options;
 
   return ApiStandardResponse({
     type: model,
@@ -138,14 +144,15 @@ export function ApiCreatedResponse<TModel extends Type<any>>(
 
 /**
  * API response for delete operations (returns 204)
- * 
+ *
  * Usage:
  * @ApiNoContentResponse({ description: 'Resource deleted successfully' })
  */
 export function ApiNoContentResponse(
   options: Omit<ApiResponseMetadata, 'type' | 'status'> = {},
 ) {
-  const { description = 'Resource deleted successfully', ...restOptions } = options;
+  const { description = 'Resource deleted successfully', ...restOptions } =
+    options;
 
   return applyDecorators(
     ApiResponse({

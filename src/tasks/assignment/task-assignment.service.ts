@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
@@ -38,7 +34,9 @@ export class TaskAssignmentService implements OnModuleDestroy {
     });
 
     this.redis.on('error', (error: Error) => {
-      this.logger.warn(`Redis unavailable for task assignments: ${error.message}`);
+      this.logger.warn(
+        `Redis unavailable for task assignments: ${error.message}`,
+      );
     });
   }
 
@@ -66,7 +64,9 @@ export class TaskAssignmentService implements OnModuleDestroy {
     if (existingAssignment) {
       const tasks = existingAssignment.tasks ?? [];
       await this.setCachedTasks(cacheKey, tasks);
-      this.logger.debug(`Using existing daily assignment for user ${userId} on ${today}`);
+      this.logger.debug(
+        `Using existing daily assignment for user ${userId} on ${today}`,
+      );
       return tasks;
     }
 
@@ -120,7 +120,10 @@ export class TaskAssignmentService implements OnModuleDestroy {
           `Concurrent assignment detected for user ${userId} on ${assignedDate}; re-fetching existing assignment`,
         );
 
-        const assignment = await this.findAssignmentForDate(userId, assignedDate);
+        const assignment = await this.findAssignmentForDate(
+          userId,
+          assignedDate,
+        );
         return assignment?.tasks ?? [];
       }
 
@@ -197,7 +200,10 @@ export class TaskAssignmentService implements OnModuleDestroy {
     }
   }
 
-  private async setCachedTasks(cacheKey: string, tasks: HealthTask[]): Promise<void> {
+  private async setCachedTasks(
+    cacheKey: string,
+    tasks: HealthTask[],
+  ): Promise<void> {
     const ttlSeconds = this.getSecondsUntilEndOfDay();
 
     try {

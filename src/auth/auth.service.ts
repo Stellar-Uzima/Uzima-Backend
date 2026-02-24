@@ -30,7 +30,9 @@ export class AuthService {
    * Request OTP for phone number login
    * POST /auth/phone/request-otp
    */
-  async requestPhoneOtp(phoneLoginDto: PhoneLoginDto): Promise<OtpRequestResponse> {
+  async requestPhoneOtp(
+    phoneLoginDto: PhoneLoginDto,
+  ): Promise<OtpRequestResponse> {
     const { phoneNumber } = phoneLoginDto;
 
     this.logger.log(`OTP requested for phone: ${phoneNumber}`);
@@ -49,12 +51,17 @@ export class AuthService {
    * Verify OTP and authenticate user
    * POST /auth/phone/verify-otp
    */
-  async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto): Promise<OtpVerificationResponse> {
+  async verifyPhoneOtp(
+    verifyOtpDto: VerifyOtpDto,
+  ): Promise<OtpVerificationResponse> {
     const { phoneNumber, otp } = verifyOtpDto;
 
     this.logger.log(`OTP verification attempted for phone: ${phoneNumber}`);
 
-    const verificationResult = await this.otpService.verifyOtp(phoneNumber, otp);
+    const verificationResult = await this.otpService.verifyOtp(
+      phoneNumber,
+      otp,
+    );
 
     if (!verificationResult.success) {
       return {
@@ -74,7 +81,9 @@ export class AuthService {
     // TODO: Implement actual user lookup/creation and JWT generation
     const isNewUser = true; // This should be determined by checking the database
 
-    this.logger.log(`User authenticated successfully via phone: ${phoneNumber}`);
+    this.logger.log(
+      `User authenticated successfully via phone: ${phoneNumber}`,
+    );
 
     return {
       success: true,

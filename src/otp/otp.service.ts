@@ -58,7 +58,8 @@ export class OtpService {
       const ttl = await this.redis.ttl(lockKey);
       return {
         success: false,
-        message: 'Phone number is temporarily locked due to too many failed attempts',
+        message:
+          'Phone number is temporarily locked due to too many failed attempts',
         lockoutMinutes: Math.ceil(ttl / 60),
       };
     }
@@ -160,11 +161,14 @@ export class OtpService {
         // Clean up OTP
         await this.redis.del(otpKey);
 
-        this.logger.warn(`Phone ${normalizedPhone} locked due to failed OTP attempts`);
+        this.logger.warn(
+          `Phone ${normalizedPhone} locked due to failed OTP attempts`,
+        );
 
         return {
           success: false,
-          message: 'Too many failed attempts. Phone number is locked for 30 minutes.',
+          message:
+            'Too many failed attempts. Phone number is locked for 30 minutes.',
         };
       }
 
@@ -209,19 +213,21 @@ export class OtpService {
   /**
    * Check if a phone is currently locked
    */
-  async isPhoneLocked(phoneNumber: string): Promise<{ locked: boolean; remainingMinutes?: number }> {
+  async isPhoneLocked(
+    phoneNumber: string,
+  ): Promise<{ locked: boolean; remainingMinutes?: number }> {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
     const lockKey = `${this.OTP_LOCK_PREFIX}${normalizedPhone}`;
-    
+
     const ttl = await this.redis.ttl(lockKey);
-    
+
     if (ttl > 0) {
       return {
         locked: true,
         remainingMinutes: Math.ceil(ttl / 60),
       };
     }
-    
+
     return { locked: false };
   }
 }

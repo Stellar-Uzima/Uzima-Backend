@@ -1,4 +1,10 @@
-import { IsString, IsEmail, IsOptional, Length, Matches } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  Length,
+  Matches,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateProfileDto {
@@ -10,7 +16,9 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString({ message: 'First name must be a string' })
-  @Length(1, 100, { message: 'First name must be between 1 and 100 characters' })
+  @Length(1, 100, {
+    message: 'First name must be between 1 and 100 characters',
+  })
   firstName?: string;
 
   @ApiPropertyOptional({
@@ -39,7 +47,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'Phone number must be a string' })
   @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: 'Please provide a valid phone number with country code (e.g., +2348012345678)',
+    message:
+      'Please provide a valid phone number with country code (e.g., +2348012345678)',
   })
   phoneNumber?: string;
 }

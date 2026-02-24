@@ -10,11 +10,7 @@ import { TaskAssignmentService } from './task-assignment.service';
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([
-      DailyTaskAssignment,
-      HealthTask,
-      TaskCompletion,
-    ]),
+    TypeOrmModule.forFeature([DailyTaskAssignment, HealthTask, TaskCompletion]),
   ],
   controllers: [TasksController],
   providers: [TaskAssignmentService],

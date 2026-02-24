@@ -24,7 +24,9 @@ async function bootstrap() {
   if (nodeEnv !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('Stellar Uzima API')
-      .setDescription('Uzima Backend API - Phone OTP Authentication and User Management')
+      .setDescription(
+        'Uzima Backend API - Phone OTP Authentication and User Management',
+      )
       .setVersion('1.0.0')
       .addBearerAuth(
         {
@@ -53,7 +55,9 @@ async function bootstrap() {
       customSiteTitle: 'Stellar Uzima API Docs',
     });
 
-    console.log(`Swagger UI available at: http://localhost:${process.env.PORT ?? 3000}/api/docs`);
+    console.log(
+      `Swagger UI available at: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
+    );
   }
 
   await app.listen(process.env.PORT ?? 3000);

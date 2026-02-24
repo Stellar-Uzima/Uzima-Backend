@@ -23,7 +23,7 @@ export class LoggingMiddleware implements NestMiddleware {
     res.end = function (this: Response, ...args: any[]) {
       const duration = Date.now() - startTime;
       const statusCode = res.statusCode;
-      
+
       // Determine log level based on status code
       let logLevel: 'log' | 'warn' | 'error' = 'log';
       if (statusCode >= 500) {

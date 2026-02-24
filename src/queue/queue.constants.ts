@@ -21,7 +21,8 @@ export const PUSH_NOTIFICATION_JOB = 'push-notification' as const;
 export const SMS_NOTIFICATION_JOB = 'sms-notification' as const;
 
 // Queue Job Types for Task Verification Queue
-export const TASK_COMPLETION_VERIFICATION_JOB = 'task-completion-verification' as const;
+export const TASK_COMPLETION_VERIFICATION_JOB =
+  'task-completion-verification' as const;
 export const TASK_QUALITY_CHECK_JOB = 'task-quality-check' as const;
 export const TASK_APPROVAL_JOB = 'task-approval' as const;
 

@@ -21,7 +21,10 @@ export class HealthTask {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @ManyToMany(() => DailyTaskAssignment, (dailyTaskAssignment) => dailyTaskAssignment.tasks)
+  @ManyToMany(
+    () => DailyTaskAssignment,
+    (dailyTaskAssignment) => dailyTaskAssignment.tasks,
+  )
   dailyTaskAssignments: DailyTaskAssignment[];
 
   @OneToMany(() => TaskCompletion, (taskCompletion) => taskCompletion.task)

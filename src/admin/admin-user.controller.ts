@@ -8,7 +8,12 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,7 +40,11 @@ export class AdminUsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
-  @ApiResponse({ status: 200, description: 'User found', type: UserResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'User found',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'User not found' })
   async getById(@Param('id') id: string) {
     return this.adminUsersService.getUserById(id);
@@ -43,7 +52,11 @@ export class AdminUsersController {
 
   @Patch(':id/role')
   @ApiOperation({ summary: 'Change user role' })
-  @ApiResponse({ status: 200, description: 'Role updated successfully', type: UserResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Role updated successfully',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 403, description: 'Cannot change own role' })
   async changeRole(
     @Req() req,
@@ -56,7 +69,11 @@ export class AdminUsersController {
 
   @Patch(':id/suspend')
   @ApiOperation({ summary: 'Suspend user account' })
-  @ApiResponse({ status: 200, description: 'User suspended successfully', type: UserResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'User suspended successfully',
+    type: UserResponseDto,
+  })
   @ApiResponse({ status: 403, description: 'Cannot suspend own account' })
   async suspend(@Req() req, @Param('id') id: string) {
     const adminId = req.user.sub;

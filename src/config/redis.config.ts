@@ -20,6 +20,6 @@ export const getRedisUrl = (config: RedisConfig): string => {
   const protocol = config.tls ? 'rediss' : 'redis';
   const auth = config.password ? `:${config.password}@` : '';
   const db = config.db ? `/${config.db}` : '';
-  
+
   return `${protocol}://${auth}${config.host}:${config.port}${db}`;
 };
