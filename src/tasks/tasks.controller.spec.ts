@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
 import { Role } from '../auth/enums/role.enum';
-import { TaskStatus } from './entities/health-task.entity';
+import { TaskStatus } from './enums/task-status.enum';
 
 describe('TasksController', () => {
   let controller: TasksController;
@@ -101,12 +101,11 @@ describe('TasksController', () => {
 
   describe('remove', () => {
     it('should remove a task', async () => {
-      const req = { user: { userId: 1, role: Role.ADMIN } };
       mockTasksService.remove.mockResolvedValue(undefined);
 
-      const result = await controller.remove('1', req);
+      const result = await controller.remove('1');
 
-      expect(service.remove).toHaveBeenCalledWith(1, Role.ADMIN);
+      expect(service.remove).toHaveBeenCalledWith(1);
       expect(result).toEqual({ message: 'Task archived successfully' });
     });
   });

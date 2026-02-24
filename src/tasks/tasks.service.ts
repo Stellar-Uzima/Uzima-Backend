@@ -2,11 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { HealthTask, TaskStatus } from './entities/health-task.entity';
-import { HealthTaskRepository } from './repositories/health-task.repository';
+import { Repository } from 'typeorm';
+import { HealthTask } from './entities/health-task.entity';
+import { TaskStatus } from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
@@ -16,7 +16,7 @@ import { Role } from '../auth/enums/role.enum';
 export class TasksService {
   constructor(
     @InjectRepository(HealthTask)
-    private readonly healthTaskRepository: HealthTaskRepository,
+    private readonly healthTaskRepository: Repository<HealthTask>,
   ) {}
 
   async create(createTaskDto: CreateTaskDto, userId: number): Promise<HealthTask> {
@@ -31,11 +31,20 @@ export class TasksService {
 
   async findAll(listTasksDto: ListTasksDto) {
     const { page, limit, categoryId } = listTasksDto;
-    const { tasks, total } = await this.healthTaskRepository.findActiveTasks(
-      page,
-      limit,
-      categoryId,
-    );
+    
+    const query = this.healthTaskRepository
+      .createQueryBuilder('task')
+      .where('task.status = :status', { status: TaskStatus.ACTIVE })
+      .leftJoinAndSelect('task.creator', 'creator')
+      .orderBy('task.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (categoryId) {
+      query.andWhere('task.categoryId = :categoryId', { categoryId });
+    }
+
+    const [tasks, total] = await query.getManyAndCount();
 
     return {
       data: tasks,
@@ -83,11 +92,7 @@ export class TasksService {
     return await this.healthTaskRepository.save(task);
   }
 
-  async remove(id: number, userRole: Role): Promise<void> {
-    if (userRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admins can delete tasks');
-    }
-
+  async remove(id: number): Promise<void> {
     const task = await this.findOne(id);
     
     // Soft delete by setting status to ARCHIVED

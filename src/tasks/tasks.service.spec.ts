@@ -4,7 +4,7 @@ import { TasksService } from './tasks.service';
 import { HealthTask } from './entities/health-task.entity';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Role } from '../auth/enums/role.enum';
-import { TaskStatus } from './entities/health-task.entity';
+import { TaskStatus } from './enums/task-status.enum';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -13,7 +13,6 @@ describe('TasksService', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
-    findActiveTasks: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
 
@@ -64,9 +63,17 @@ describe('TasksService', () => {
     it('should return paginated active tasks', async () => {
       const listTasksDto = { page: 1, limit: 20 };
       const mockTasks = [{ id: 1, name: 'Task 1', status: TaskStatus.ACTIVE }];
-      const mockResult = { tasks: mockTasks, total: 1 };
-
-      mockRepository.findActiveTasks.mockResolvedValue(mockResult);
+      
+      const getManyAndCount = jest.fn().mockResolvedValue([mockTasks, 1]);
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount,
+      });
 
       const result = await service.findAll(listTasksDto);
 
@@ -83,19 +90,29 @@ describe('TasksService', () => {
 
     it('should filter by categoryId', async () => {
       const listTasksDto = { page: 1, limit: 20, categoryId: 2 };
-      const mockResult = { tasks: [], total: 0 };
-
-      mockRepository.findActiveTasks.mockResolvedValue(mockResult);
+      
+      const andWhere = jest.fn().mockReturnThis();
+      const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere,
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount,
+      });
 
       await service.findAll(listTasksDto);
 
-      expect(mockRepository.findActiveTasks).toHaveBeenCalledWith(1, 20, 2);
+      expect(andWhere).toHaveBeenCalledWith('task.categoryId = :categoryId', { categoryId: 2 });
     });
   });
 
   describe('findOne', () => {
     it('should return a task by id', async () => {
-      const mockTask = { id: 1, name: 'Task 1' };
+      const mockTask = { id: 1, name: 'Task 1', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
 
       const result = await service.findOne(1);
@@ -107,6 +124,16 @@ describe('TasksService', () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return task even if status is not ACTIVE', async () => {
+      const mockTask = { id: 1, name: 'Task 1', status: TaskStatus.DRAFT };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+
+      const result = await service.findOne(1);
+
+      expect(result).toEqual(mockTask);
+      expect(result.status).toBe(TaskStatus.DRAFT);
     });
   });
 
@@ -165,21 +192,23 @@ describe('TasksService', () => {
   });
 
   describe('remove', () => {
-    it('should throw ForbiddenException if non-admin tries to delete', async () => {
-      await expect(service.remove(1, Role.HEALER)).rejects.toThrow(ForbiddenException);
-    });
-
-    it('should soft delete task by setting status to ARCHIVED', async () => {
+    it('should archive task by setting status to ARCHIVED', async () => {
       const mockTask = { id: 1, name: 'Task', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ARCHIVED });
 
-      await service.remove(1, Role.ADMIN);
+      await service.remove(1);
 
       expect(mockRepository.save).toHaveBeenCalledWith({
         ...mockTask,
         status: TaskStatus.ARCHIVED,
       });
+    });
+
+    it('should throw NotFoundException if task does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
   });
 });

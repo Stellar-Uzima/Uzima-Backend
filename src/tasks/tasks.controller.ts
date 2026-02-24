@@ -60,6 +60,7 @@ export class TasksController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HEALER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a health task (owner or ADMIN)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
@@ -83,8 +84,8 @@ export class TasksController {
   @ApiResponse({ status: 200, description: 'Task archived successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  async remove(@Param('id') id: string, @Request() req) {
-    await this.tasksService.remove(+id, req.user.role);
+  async remove(@Param('id') id: string) {
+    await this.tasksService.remove(+id);
     return { message: 'Task archived successfully' };
   }
 }

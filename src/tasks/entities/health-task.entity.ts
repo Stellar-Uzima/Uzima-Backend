@@ -8,12 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
-
-export enum TaskStatus {
-  DRAFT = 'DRAFT',
-  ACTIVE = 'ACTIVE',
-  ARCHIVED = 'ARCHIVED',
-}
+import { TaskStatus } from '../enums/task-status.enum';
 
 @Entity('health_tasks')
 export class HealthTask {
