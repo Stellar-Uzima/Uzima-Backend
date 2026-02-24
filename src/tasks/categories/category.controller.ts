@@ -28,10 +28,6 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Role } from '../../auth/enums/role.enum';
 import { Roles } from '../../auth/decorators/roles.decorator';
 
-// JwtAuthGuard should be imported from your auth module, e.g.:
-// import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-// It is referenced here as a placeholder comment — apply to admin-only routes.
-
 @ApiTags('Task Categories')
 @Controller('tasks/categories')
 export class CategoryController {
@@ -98,6 +94,6 @@ export class CategoryController {
     @ApiOperation({ summary: 'Deactivate a task category (admin)' })
     @ApiResponse({ status: 204 })
     remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-        return this.categoryService.remove(id);
+        return this.categoryService.deactivate(id);
     }
 }

@@ -28,10 +28,14 @@ export class CategoryService {
      * Retrieve a single category by ID
      */
     async findOne(id: string): Promise<CategoryResponseDto> {
-        const category = await this.categoryRepository.findOne({ where: { id } });
+        const category = await this.categoryRepository.findOne({
+            where: { id, isActive: true },
+        });
+
         if (!category) {
-            throw new NotFoundException(`Category with id "${id}" not found`);
+            throw new NotFoundException(`Category with id "${id}" not found or is deactivated`);
         }
+
         return category as CategoryResponseDto;
     }
 
@@ -59,10 +63,7 @@ export class CategoryService {
         return updated as CategoryResponseDto;
     }
 
-    /**
-     * Soft-delete a category by marking it inactive
-     */
-    async remove(id: string): Promise<void> {
+    async deactivate(id: string): Promise<void> {
         const category = await this.categoryRepository.findOne({ where: { id } });
         if (!category) {
             throw new NotFoundException(`Category with id "${id}" not found`);
