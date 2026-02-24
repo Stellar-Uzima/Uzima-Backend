@@ -15,6 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserStatsDto } from './dto/user-stats.dto';
 
 // JWT Auth Guard - will be implemented when JWT is added
 // For now, we'll use a mock guard interface
@@ -72,6 +73,25 @@ export class UsersController {
   })
   async getProfile(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
     return this.usersService.getProfile(req.user.userId);
+  }
+
+  @Get('me/stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get current user stats',
+    description: 'Returns aggregated stats for the dashboard including tasks completed, XLM earned, streak, and active coupons. Results are cached for 5 minutes.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User stats retrieved successfully',
+    type: UserStatsDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT token missing or invalid',
+  })
+  async getStats(@Req() req: AuthenticatedRequest): Promise<UserStatsDto> {
+    return this.usersService.getStats(req.user.userId);
   }
 
   @Patch('me')

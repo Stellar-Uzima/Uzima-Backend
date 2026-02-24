@@ -1,14 +1,20 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
+import { createClient, RedisClientType } from 'redis';
 import { User } from '../entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { UserStatsDto } from './dto/user-stats.dto';
+import { TaskCompletion } from './entities/task-completion.entity';
+import { Coupon, CouponStatus } from './entities/coupon.entity';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
+  private redisClient: RedisClientType;
+  private readonly CACHE_TTL = 300; // 5 minutes in seconds
 
   constructor(
     @InjectRepository(User)
