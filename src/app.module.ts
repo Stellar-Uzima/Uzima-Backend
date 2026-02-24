@@ -10,11 +10,12 @@ import { OtpModule } from './otp/otp.module';
 import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
-import { AuthModule } from './auth/auth.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { CouponModule } from './coupons/coupon.module';
+import { TasksModule } from './tasks/tasks.module';
+import { RewardModule } from './rewards/reward.module';
 
 @Module({
   imports: [
@@ -35,12 +36,13 @@ import { CouponModule } from './coupons/coupon.module';
     OtpModule,
     AuthModule,
     UsersModule,
-    DatabaseModule, // Register DatabaseModule
-    AuthModule,
+    DatabaseModule,
     StellarModule,
     AdminModule,
     AuditModule,
     CouponModule,
+    TasksModule,
+    RewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

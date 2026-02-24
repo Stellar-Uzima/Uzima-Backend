@@ -2,50 +2,44 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
-import { TaskCategory } from './task-category.entity';
-import { User } from '../../entities/user.entity';
-import { ProofType } from '../enums/proof-type.enum';
+import { User } from '../../auth/entities/user.entity';
 import { TaskStatus } from '../enums/task-status.enum';
-import { TaskDifficulty } from '../enums/task-difficulty.enum';
 
 @Entity('health_tasks')
 export class HealthTask {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  @Column()
-  title: string;
+  @Column({ type: 'varchar', length: 255 })
+  name: string;
 
-  @Column({ type: 'json', nullable: true })
-  titleTranslations: object;
-
-  @Column('text')
+  @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'json', nullable: true })
-  descriptionTranslations: object;
-
-  @ManyToOne(() => TaskCategory)
-  category: TaskCategory;
+  @Column({ type: 'int' })
+  categoryId: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   xlmReward: number;
 
-  @Column({ type: 'enum', enum: ProofType })
-  proofType: ProofType;
-
-  @Column({ type: 'enum', enum: TaskDifficulty })
-  difficulty: TaskDifficulty;
-
-  @Column({ type: 'enum', enum: TaskStatus, default: TaskStatus.DRAFT })
+  @Column({
+    type: 'enum',
+    enum: TaskStatus,
+    default: TaskStatus.DRAFT,
+  })
   status: TaskStatus;
 
+  @Column({ type: 'int' })
+  createdBy: number;
+
   @ManyToOne(() => User)
-  author: User;
+  @JoinColumn({ name: 'createdBy' })
+  creator: User;
 
   @CreateDateColumn()
   createdAt: Date;
