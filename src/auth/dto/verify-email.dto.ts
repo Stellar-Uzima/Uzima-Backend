@@ -1,12 +1,13 @@
-import { IsUUID, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsEmail } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class VerifyEmailDto {
   @ApiProperty({
-    description: 'Email verification token sent to user',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'The verification token sent to the user\'s email',
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsUUID()
+  @IsNotEmpty()
   token: string;
 }
 
@@ -16,5 +17,6 @@ export class ResendEmailVerificationDto {
     example: 'user@example.com',
   })
   @IsEmail()
+  @IsNotEmpty()
   email: string;
 }
