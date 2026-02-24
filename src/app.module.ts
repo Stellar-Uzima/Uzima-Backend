@@ -10,10 +10,10 @@ import { OtpModule } from './otp/otp.module';
 import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
-import { AuthModule } from './auth/auth.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { ReferenceModule } from './reference/reference.module';
 
 @Module({
   imports: [
@@ -34,11 +34,11 @@ import { AuditModule } from './audit/audit.module';
     OtpModule,
     AuthModule,
     UsersModule,
-    DatabaseModule, // Register DatabaseModule
-    AuthModule,
+    DatabaseModule,
     StellarModule,
     AdminModule,
     AuditModule,
+    ReferenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
