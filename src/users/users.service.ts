@@ -12,8 +12,8 @@ export class UsersService {
 
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {}
+    public readonly userRepository: Repository<User>,
+  ) { }
 
   /**
    * Find user by ID
@@ -120,5 +120,12 @@ export class UsersService {
   async create(userData: Partial<User>): Promise<User> {
     const user = this.userRepository.create(userData);
     return this.userRepository.save(user);
+  }
+
+  /**
+   * Update last active timestamp
+   */
+  async updateLastActiveAt(userId: string): Promise<void> {
+    await this.userRepository.update(userId, { lastActiveAt: new Date() });
   }
 }

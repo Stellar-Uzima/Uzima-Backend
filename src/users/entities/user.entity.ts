@@ -42,11 +42,20 @@ export class User {
   @Column({ nullable: true, unique: true })
   emailVerificationToken: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpiry: Date;
+
+  @Column({ nullable: true })
+  passwordResetToken: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiry: Date;
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;
