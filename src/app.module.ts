@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { RewardModule } from './rewards/reward.module';
 
@@ -40,6 +41,7 @@ import { RewardModule } from './rewards/reward.module';
     StellarModule,
     AdminModule,
     AuditModule,
+    CouponModule,
     TasksModule,
     RewardModule,
   ],
