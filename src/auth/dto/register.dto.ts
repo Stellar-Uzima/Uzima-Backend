@@ -5,7 +5,7 @@ import {
   Length,
   Matches,
 } from 'class-validator';
-import { IsISO31661Alpha2 } from 'class-validator-country-code';
+// import { IsISO31661Alpha2 } from 'class-validator-country-code';
 
 export class RegisterDto {
   @IsEmail()
@@ -19,8 +19,7 @@ export class RegisterDto {
   @IsNotEmpty()
   name: string;
 
-  @IsISO31661Alpha2({
-    message: 'Country must be a valid ISO 3166-1 alpha-2 code',
-  })
+  @IsString()
+  @Length(2, 2)
   country: string;
 }

@@ -34,9 +34,8 @@ export class UsersService {
     // Only spread known properties to satisfy TypeORM
     const user = this.usersRepository.create({
       email: userData.email!,
-      fullName: userData.fullName!,
-      country: userData.country!,
-      passwordHash: hashedPassword,
+      name: userData.name!,
+      password: hashedPassword,
     });
 
     return this.usersRepository.save(user);

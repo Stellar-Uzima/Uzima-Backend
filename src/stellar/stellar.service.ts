@@ -1,7 +1,6 @@
 // src/stellar/stellar.service.ts
 import { Injectable } from '@nestjs/common';
-import StellarSdk from 'stellar-sdk';
-const { Server, Keypair } = StellarSdk;
+import { Server } from 'stellar-sdk';
 
 @Injectable()
 export class StellarService {
@@ -21,4 +20,29 @@ export class StellarService {
   }
 
   // Add more Stellar logic here
+
+  async create(dto: any) {
+    // Implement create
+    return {};
+  }
+
+  async findAll() {
+    // Implement findAll
+    return [];
+  }
+
+  async findOne(id: number) {
+    // Implement findOne
+    return {};
+  }
+
+  async update(id: number, dto: any) {
+    // Implement update
+    return {};
+  }
+
+  async remove(id: number) {
+    // Implement remove
+    return {};
+  }
 }
