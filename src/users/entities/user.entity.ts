@@ -4,8 +4,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
+import { Streak } from '../../streaks/entities/streak.entity';
 
 @Entity('users')
 export class User {
@@ -62,4 +65,7 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToOne(() => Streak, (streak) => streak.user, { cascade: true })
+  streak: Streak;
 }
