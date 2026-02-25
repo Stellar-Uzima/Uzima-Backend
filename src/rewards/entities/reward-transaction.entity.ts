@@ -10,11 +10,7 @@ import {
 import { User } from '../../auth/entities/user.entity';
 import { TaskCompletion } from '../../task-completion/entities/task-completion.entity';
 
-export enum RewardStatus {
-  PENDING = 'PENDING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-}
+import { RewardStatus } from '../enums/reward-status.enum';
 
 @Entity('reward_transactions')
 export class RewardTransaction {
@@ -28,7 +24,7 @@ export class RewardTransaction {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'decimal', precision: 10, scale: 7 })
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
   @Column({
@@ -40,6 +36,9 @@ export class RewardTransaction {
 
   @Column({ nullable: true })
   stellarTxHash?: string;
+
+  @Column({ default: 0 })
+  attempts: number;
 
   @Column({ type: 'uuid', nullable: true })
   taskCompletionId?: string;
