@@ -12,7 +12,10 @@ import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
-import { ResendEmailVerificationDto, VerifyEmailDto } from '../dto/verify-email.dto';
+import {
+  ResendEmailVerificationDto,
+  VerifyEmailDto,
+} from '../dto/verify-email.dto';
 import { Role } from '../enums/role.enum';
 import { UsersService } from './users.service';
 
