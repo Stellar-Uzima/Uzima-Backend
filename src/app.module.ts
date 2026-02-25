@@ -17,7 +17,7 @@ import { AuditModule } from './audit/audit.module';
 import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { RewardModule } from './rewards/reward.module';
-import { StreaksModule } from './streaks/streaks.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -45,7 +45,8 @@ import { StreaksModule } from './streaks/streaks.module';
     CouponModule,
     TasksModule,
     RewardModule,
-    StreaksModule,
+    StorageModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],
