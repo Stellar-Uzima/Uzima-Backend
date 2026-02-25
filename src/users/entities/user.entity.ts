@@ -4,8 +4,11 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
+import { Streak } from '../../streaks/entities/streak.entity';
 
 @Entity('users')
 export class User {
@@ -42,15 +45,27 @@ export class User {
   @Column({ nullable: true, unique: true })
   emailVerificationToken: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpiry: Date;
+
+  @Column({ nullable: true })
+  passwordResetToken: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiry: Date;
 
   @Column({ default: true })
   isActive: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToOne(() => Streak, (streak) => streak.user, { cascade: true })
+  streak: Streak;
 }

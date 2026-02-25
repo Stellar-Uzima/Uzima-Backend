@@ -12,7 +12,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
@@ -75,5 +75,13 @@ export class UsersService {
     this.eventEmitter.emit('wallet.linked', { userId: user.id, address });
 
     return updatedUser;
+  }
+
+  async updateLastActiveAt(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { lastActiveAt: new Date() });
+  }
+
+  async findByPhoneNumber(phoneNumber: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phoneNumber } });
   }
 }

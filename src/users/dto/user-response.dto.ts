@@ -1,5 +1,31 @@
-import { Exclude, Expose } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+
+class NotificationPreferencesResponseDto {
+  @Expose()
+  @ApiProperty({ description: 'Enable or disable task reminder notifications' })
+  taskReminders: boolean;
+
+  @Expose()
+  @ApiProperty({ description: 'Enable or disable reward alert notifications' })
+  rewardAlerts: boolean;
+
+  @Expose()
+  @ApiProperty({ description: 'Enable or disable streak alert notifications' })
+  streakAlerts: boolean;
+
+  @Expose()
+  @ApiProperty({ description: 'Quiet hours start time (HH:mm format)', nullable: true })
+  quietHoursStart: string | null;
+
+  @Expose()
+  @ApiProperty({ description: 'Quiet hours end time (HH:mm format)', nullable: true })
+  quietHoursEnd: string | null;
+
+  @Expose()
+  @ApiProperty({ description: 'User timezone (IANA timezone string)' })
+  timezone: string;
+}
 
 @Exclude()
 export class UserResponseDto {
@@ -35,6 +61,8 @@ export class UserResponseDto {
   @ApiProperty({ description: 'Last update timestamp', example: '2024-01-20T14:45:00.000Z' })
   updatedAt: Date;
 
-  @Exclude()
-  password: string;
+  @Expose()
+  @Type(() => NotificationPreferencesResponseDto)
+  @ApiProperty({ description: 'Notification preferences', type: NotificationPreferencesResponseDto })
+  notificationPreferences?: NotificationPreferencesResponseDto;
 }

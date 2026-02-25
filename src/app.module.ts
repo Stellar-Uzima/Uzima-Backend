@@ -10,10 +10,14 @@ import { OtpModule } from './otp/otp.module';
 import { UsersModule } from './users/users.module';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { DatabaseModule } from './database/database.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { StellarModule } from './stellar/stellar.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
-import { ReferenceModule } from './reference/reference.module';
+import { CouponModule } from './coupons/coupon.module';
+import { TasksModule } from './tasks/tasks.module';
+import { RewardModule } from './rewards/reward.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -38,7 +42,11 @@ import { ReferenceModule } from './reference/reference.module';
     StellarModule,
     AdminModule,
     AuditModule,
-    ReferenceModule,
+    CouponModule,
+    TasksModule,
+    RewardModule,
+    StorageModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],
