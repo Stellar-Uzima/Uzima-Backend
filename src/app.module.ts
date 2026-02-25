@@ -46,6 +46,7 @@ import { StorageModule } from './storage/storage.module';
     TasksModule,
     RewardModule,
     StorageModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],
