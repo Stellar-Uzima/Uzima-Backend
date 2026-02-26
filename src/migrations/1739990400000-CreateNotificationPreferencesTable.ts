@@ -14,7 +14,7 @@ export class CreateNotificationPreferencesTable1739990400000 implements Migratio
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            default: 'gen_random_uuid()',
           },
           {
             name: 'userId',

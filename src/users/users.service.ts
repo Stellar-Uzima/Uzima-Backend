@@ -19,7 +19,11 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     public readonly userRepository: Repository<User>,
-  ) { }
+  ) {}
+
+  onModuleInit(): void {
+    // Optional: initialize Redis client for caching if needed
+  }
 
   /**
    * Find user by ID
@@ -132,6 +136,25 @@ export class UsersService implements OnModuleInit {
    * Update last active timestamp
    */
   async updateLastActiveAt(userId: string): Promise<void> {
-    await this.userRepository.update(userId, { lastActiveAt: new Date() });
+    await this.userRepository.update(userId, { lastActiveAt: new Date() } as Partial<User>);
+  }
+
+  /**
+   * Get user stats (tasks completed, XLM earned, streaks, coupons, rank)
+   */
+  async getStats(userId: string): Promise<UserStatsDto> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    // TODO: aggregate from TaskCompletion, rewards, coupons when available
+    return {
+      tasksCompleted: 0,
+      totalXlmEarned: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      activeCoupons: 0,
+      rank: 0,
+    };
   }
 }

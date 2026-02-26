@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsTimeZoneString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 
 // List of valid IANA timezones for validation

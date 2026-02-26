@@ -7,6 +7,10 @@ import {
 
 export class CreateHealthTasksTable1771814400000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const tableExists = await queryRunner.hasTable('health_tasks');
+    if (tableExists) {
+      return; // health_tasks already created by CreateHealthTasksAndCategories1740000000000
+    }
     await queryRunner.createTable(
       new Table({
         name: 'health_tasks',
@@ -16,7 +20,7 @@ export class CreateHealthTasksTable1771814400000 implements MigrationInterface {
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            default: 'gen_random_uuid()',
           },
           {
             name: 'title',

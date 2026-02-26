@@ -2,13 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   OneToOne,
   JoinColumn,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
-import { Streak } from '../../streaks/entities/streak.entity';
+import type { ReferralRecord } from '../../referral/entities/referral-record.entity';
 
 @Entity('users')
 export class User {
@@ -66,6 +68,15 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => Streak, (streak) => streak.user, { cascade: true })
-  streak: Streak;
+  @Column({ nullable: true, unique: true })
+  referralCode?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  referredBy?: User;
+
+  @OneToMany(
+    () => require('../../referral/entities/referral-record.entity').ReferralRecord,
+    'referrer',
+  )
+  referralRecords?: ReferralRecord[];
 }

@@ -14,7 +14,7 @@ export class CreateTaskCompletionsTable1739990401000 implements MigrationInterfa
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            default: 'gen_random_uuid()',
           },
           {
             name: 'userId',

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { LinkWalletDto } from '../dto/link-wallet.dto';
-import { User } from '../entities/user.entity';
+import { User } from '../../entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -24,19 +24,22 @@ export class UsersService {
     return user;
   }
 
-  async create(userData: Partial<User>): Promise<User> {
+  async create(userData: Partial<User> & { name?: string; fullName?: string; country?: string }): Promise<User> {
     if (!userData.password) {
       throw new Error('Password is required');
     }
 
     const hashedPassword = await bcrypt.hash(userData.password, 12);
+    const fullName = (userData.fullName ?? userData.name ?? '').trim() || 'User';
+    const spaceIndex = fullName.indexOf(' ');
+    const firstName = spaceIndex > 0 ? fullName.slice(0, spaceIndex) : fullName;
+    const lastName = spaceIndex > 0 ? fullName.slice(spaceIndex + 1) : fullName;
 
-    // Only spread known properties to satisfy TypeORM
     const user = this.usersRepository.create({
       email: userData.email!,
-      fullName: userData.fullName!,
-      country: userData.country!,
-      passwordHash: hashedPassword,
+      firstName,
+      lastName,
+      password: hashedPassword,
     });
 
     return this.usersRepository.save(user);

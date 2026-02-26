@@ -12,7 +12,7 @@ export class CreateTaskCategories1771889592955 implements MigrationInterface {
                     type: "uuid",
                     isPrimary: true,
                     isNullable: false,
-                    default: "uuid_generate_v4()",
+                    default: "gen_random_uuid()",
                 },
                 {
                     name: "name",

@@ -59,7 +59,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
+    const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
 
@@ -180,7 +180,7 @@ export class AuthService {
     const rateLimitKey = `email_verify:${user.email}`;
     const currentCount = await this.redisClient.get(rateLimitKey);
 
-    if (currentCount && parseInt(currentCount) >= 3) {
+    if (currentCount && parseInt(String(currentCount), 10) >= 3) {
       throw new BadRequestException(
         'Too many verification requests. Please try again later.',
       );
@@ -244,7 +244,7 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    user.passwordHash = hashedPassword;
+    user.password = hashedPassword;
     user.passwordResetToken = null;
     user.passwordResetExpiry = null;
 

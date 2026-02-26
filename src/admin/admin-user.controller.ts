@@ -14,7 +14,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ListUsersDto } from './dto/list-users.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
-import { UserResponseDto } from './dto/user-response.dto';
+import { AdminUserResponseDto } from './dto/user-response.dto';
 import { AdminUsersService } from './services/admin-users.service';
 import { Role } from 'src/auth/enums/role.enum';
 
@@ -35,7 +35,7 @@ export class AdminUsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
-  @ApiResponse({ status: 200, description: 'User found', type: UserResponseDto })
+  @ApiResponse({ status: 200, description: 'User found', type: AdminUserResponseDto })
   @ApiResponse({ status: 400, description: 'User not found' })
   async getById(@Param('id') id: string) {
     return this.adminUsersService.getUserById(id);
@@ -43,7 +43,7 @@ export class AdminUsersController {
 
   @Patch(':id/role')
   @ApiOperation({ summary: 'Change user role' })
-  @ApiResponse({ status: 200, description: 'Role updated successfully', type: UserResponseDto })
+  @ApiResponse({ status: 200, description: 'Role updated successfully', type: AdminUserResponseDto })
   @ApiResponse({ status: 403, description: 'Cannot change own role' })
   async changeRole(
     @Req() req,
@@ -56,7 +56,7 @@ export class AdminUsersController {
 
   @Patch(':id/suspend')
   @ApiOperation({ summary: 'Suspend user account' })
-  @ApiResponse({ status: 200, description: 'User suspended successfully', type: UserResponseDto })
+  @ApiResponse({ status: 200, description: 'User suspended successfully', type: AdminUserResponseDto })
   @ApiResponse({ status: 403, description: 'Cannot suspend own account' })
   async suspend(@Req() req, @Param('id') id: string) {
     const adminId = req.user.sub;
