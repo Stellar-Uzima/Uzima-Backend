@@ -26,6 +26,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.997.0",
     "@aws-sdk/s3-request-presigner": "^3.997.0",
+    "@nestjs-modules/ioredis": "^2.0.2",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.0.1",
@@ -48,7 +49,7 @@
     "class-validator": "^0.14.3",
     "ioredis": "^5.9.3",
     "passport-jwt": "^4.0.1",
-    "pg": "^8.18.0",
+    "pg": "^8.19.0",
     "redis": "^5.11.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
