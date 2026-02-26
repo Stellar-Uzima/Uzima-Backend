@@ -18,6 +18,7 @@ import { AuditModule } from './audit/audit.module';
 import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { RewardModule } from './rewards/reward.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -46,6 +47,8 @@ import { RewardModule } from './rewards/reward.module';
     CouponModule,
     TasksModule,
     RewardModule,
+    StorageModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],

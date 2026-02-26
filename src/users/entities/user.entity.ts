@@ -6,6 +6,8 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
 import type { ReferralRecord } from '../../referral/entities/referral-record.entity';
