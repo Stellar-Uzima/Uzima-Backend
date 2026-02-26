@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { ReferralService } from './referral.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @Controller('users/me')
 @UseGuards(JwtAuthGuard)

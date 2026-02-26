@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { QueueModule } from './queue/queue.module';
@@ -33,6 +34,7 @@ import { RewardModule } from './rewards/reward.module';
       ],
     }),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     QueueModule,
     OtpModule,
     AuthModule,

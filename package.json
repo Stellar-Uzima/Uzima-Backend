@@ -18,9 +18,9 @@
     "test:cov": "node node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
-    "migration:generate": "typeorm migration:generate -d ormconfig.ts",
-    "migration:run": "typeorm migration:run -d ormconfig.ts",
-    "migration:revert": "typeorm migration:revert -d ormconfig.ts",
+    "migration:generate": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d ormconfig.ts",
+    "migration:run": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d ormconfig.ts",
+    "migration:revert": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d ormconfig.ts",
     "migration:create": "typeorm migration:create"
   },
   "dependencies": {
@@ -34,7 +34,7 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
-    "@nestjs/swagger": "^8.0.0",
+    "@nestjs/schedule": "^6.1.1",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/terminus": "^11.1.1",
     "@nestjs/throttler": "^6.5.0",

@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Role } from 'src/auth/enums/role.enum';
 
-export class UserResponseDto {
+/** Admin API user response; unique name to avoid Swagger duplicate with users/UserResponseDto */
+export class AdminUserResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
 

@@ -42,6 +42,18 @@ export class User {
   @Column({ nullable: true })
   emailVerificationExpiry?: Date;
 
+  @Column({ nullable: true })
+  passwordResetToken?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiry?: Date;
+
+  @Column({ nullable: true, unique: true })
+  phoneNumber?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastActiveAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

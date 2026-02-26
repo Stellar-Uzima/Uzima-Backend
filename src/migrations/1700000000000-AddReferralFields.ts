@@ -24,7 +24,7 @@ export class AddReferralFields1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE referral_records (
-        id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         referrer_id uuid,
         referred_id uuid,
         reward_paid boolean DEFAULT false,

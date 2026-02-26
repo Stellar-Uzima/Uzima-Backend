@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RewardHistoryQueryDto, RewardHistoryResponseDto, RewardHistoryItemDto } from './dto/reward-history.dto';
 import { RewardTransaction } from './entities/reward-transaction.entity';
+import { RewardStatus } from './entities/reward-transaction.entity';
 import { TaskCompletion } from '../task-completion/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
+import { REWARD_MILESTONE_EVENT } from '../coupons/coupon.events';
+
+const XLM_MILESTONES = [10, 25, 50, 100, 250];
 
 @Injectable()
 export class RewardService {
@@ -18,7 +23,32 @@ export class RewardService {
     @InjectRepository(HealthTask)
     private readonly healthTaskRepository: Repository<HealthTask>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Call after recording a new reward (e.g. from reward distribution job).
+   * Emits reward.milestone when user's total XLM crosses a threshold; coupon service listens and creates coupons.
+   */
+  async emitMilestoneIfReached(userId: string): Promise<void> {
+    const { sum } = await this.rewardTransactionRepository
+      .createQueryBuilder('rt')
+      .select('COALESCE(SUM(rt.amount), 0)', 'sum')
+      .where('rt.userId = :userId', { userId })
+      .andWhere('rt.status = :status', { status: RewardStatus.COMPLETED })
+      .getRawOne<{ sum: string }>();
+
+    const totalXlm = parseFloat(sum ?? '0');
+    for (const milestone of XLM_MILESTONES) {
+      if (totalXlm >= milestone) {
+        this.eventEmitter.emit(REWARD_MILESTONE_EVENT, {
+          userId,
+          totalXlm,
+          milestoneReached: milestone,
+        });
+      }
+    }
+  }
 
   async getRewardHistory(
     userId: string,

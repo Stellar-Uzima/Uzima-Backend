@@ -64,7 +64,7 @@ export class CreateHealthTasksAndCategories1740000000000 implements MigrationInt
           },
           {
             name: 'createdBy',
-            type: 'int',
+            type: 'uuid',
           },
           {
             name: 'createdAt',

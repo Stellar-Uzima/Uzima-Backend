@@ -11,7 +11,7 @@ export class CreateTaskCategoriesTable1771814390000 implements MigrationInterfac
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            default: 'gen_random_uuid()',
           },
           {
             name: 'name',

@@ -14,7 +14,7 @@ export class CreateCouponsTable1739990402000 implements MigrationInterface {
             type: 'uuid',
             isPrimary: true,
             generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            default: 'gen_random_uuid()',
           },
           {
             name: 'userId',

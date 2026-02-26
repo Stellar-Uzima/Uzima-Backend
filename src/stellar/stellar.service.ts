@@ -1,14 +1,15 @@
 // src/stellar/stellar.service.ts
 import { Injectable } from '@nestjs/common';
 import StellarSdk from 'stellar-sdk';
-const { Server, Keypair } = StellarSdk;
+import { CreateStellarDto } from './dto/create-stellar.dto';
+import { UpdateStellarDto } from './dto/update-stellar.dto';
 
 @Injectable()
 export class StellarService {
-  private server;
+  private server: InstanceType<typeof StellarSdk.Horizon.Server>;
 
   constructor() {
-    this.server = new Server('https://horizon-testnet.stellar.org');
+    this.server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
   }
 
   async accountExists(address: string): Promise<boolean> {
@@ -20,5 +21,21 @@ export class StellarService {
     }
   }
 
-  // Add more Stellar logic here
+  async create(_createStellarDto: CreateStellarDto): Promise<unknown> {
+    return {};
+  }
+
+  async findAll(): Promise<unknown[]> {
+    return [];
+  }
+
+  async findOne(_id: number): Promise<unknown> {
+    return null;
+  }
+
+  async update(_id: number, _updateStellarDto: UpdateStellarDto): Promise<unknown> {
+    return {};
+  }
+
+  async remove(_id: number): Promise<void> {}
 }

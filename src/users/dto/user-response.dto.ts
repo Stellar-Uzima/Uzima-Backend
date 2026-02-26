@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Exclude, Expose, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 class NotificationPreferencesResponseDto {
