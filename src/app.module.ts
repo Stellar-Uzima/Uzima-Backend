@@ -19,9 +19,11 @@ import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { RewardModule } from './rewards/reward.module';
 import { StorageModule } from './storage/storage.module';
+import { TaskAssignmentModule } from './tasks/assignment/task-assignment.module';
 
 @Module({
   imports: [
+    TaskAssignmentModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -48,13 +50,8 @@ import { StorageModule } from './storage/storage.module';
     TasksModule,
     RewardModule,
     StorageModule,
-
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggingMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

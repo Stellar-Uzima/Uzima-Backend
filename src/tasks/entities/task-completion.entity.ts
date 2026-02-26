@@ -1,41 +1,28 @@
+// src/tasks/entities/task-completion.entity.ts
 import {
+  Entity,
+  PrimaryGeneratedColumn,
+  ManyToOne,
   Column,
   CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from '../../auth/entities/user.entity';
+import { User } from '../../users/entities/user.entity';
 import { HealthTask } from './health-task.entity';
-import { CompletionStatus } from '../enums/completion-status.enum';
 
 @Entity('task_completions')
 export class TaskCompletion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'userId' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   user: User;
 
-  @ManyToOne(() => HealthTask, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'taskId' })
+  @ManyToOne(() => HealthTask, { nullable: false, onDelete: 'CASCADE' })
   task: HealthTask;
 
-  @Column({ nullable: true })
-  proofUrl: string;
-
-  @Column({
-    type: 'enum',
-    enum: CompletionStatus,
-    default: CompletionStatus.PENDING,
-  })
-  status: CompletionStatus;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  xlmRewarded: number;
+  @Column({ type: 'date' })
+  completedDate: string;
 
   @CreateDateColumn()
-  completedAt: Date;
+  createdAt: Date;
 }

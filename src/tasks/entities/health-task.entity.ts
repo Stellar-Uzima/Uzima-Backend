@@ -1,49 +1,39 @@
+// src/tasks/entities/health-task.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import { User } from '../../auth/entities/user.entity';
-import { TaskStatus } from '../enums/task-status.enum';
+
+export enum TaskCategory {
+  NUTRITION = 'nutrition',
+  FITNESS = 'fitness',
+  MENTAL = 'mental',
+  SLEEP = 'sleep',
+  HYDRATION = 'hydration',
+}
 
 @Entity('health_tasks')
 export class HealthTask {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  name: string;
+  @Column()
+  title: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'int' })
-  categoryId: number;
+  @Column({ type: 'enum', enum: TaskCategory })
+  category: TaskCategory;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  xlmReward: number;
+  @Column({ type: 'jsonb', nullable: true })
+  targetProfile: Record<string, any>; // e.g. { minAge: 18, conditions: ['diabetes'] }
 
-  @Column({
-    type: 'enum',
-    enum: TaskStatus,
-    default: TaskStatus.DRAFT,
-  })
-  status: TaskStatus;
-
-  @Column({ type: 'int' })
-  createdBy: number;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'createdBy' })
-  creator: User;
+  @Column({ default: true })
+  isActive: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }
