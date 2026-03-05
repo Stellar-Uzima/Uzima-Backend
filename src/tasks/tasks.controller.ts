@@ -55,7 +55,7 @@ export class TasksController {
   @ApiResponse({ status: 200, description: 'Returns the task' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(+id);
+    return this.tasksService.findOne(id);
   }
 
   @Patch(':id')
@@ -72,7 +72,7 @@ export class TasksController {
     @Body() updateTaskDto: UpdateTaskDto,
     @Request() req,
   ) {
-    return this.tasksService.update(+id, updateTaskDto, req.user.userId, req.user.role);
+    return this.tasksService.update(id, updateTaskDto, req.user.userId, req.user.role);
   }
 
   @Delete(':id')
@@ -85,7 +85,7 @@ export class TasksController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   async remove(@Param('id') id: string) {
-    await this.tasksService.remove(+id);
+    await this.tasksService.remove(id);
     return { message: 'Task archived successfully' };
   }
 }

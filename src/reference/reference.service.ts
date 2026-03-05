@@ -30,7 +30,7 @@ export class ReferenceService {
       const cached = await this.redisClient.get(this.COUNTRIES_CACHE_KEY);
       if (cached) {
         this.logger.debug('Returning countries from cache');
-        return JSON.parse(cached);
+        return JSON.parse(cached as string);
       }
 
       // Cache miss - return static data and cache it
@@ -57,7 +57,7 @@ export class ReferenceService {
       const cached = await this.redisClient.get(this.LANGUAGES_CACHE_KEY);
       if (cached) {
         this.logger.debug('Returning languages from cache');
-        return JSON.parse(cached);
+        return JSON.parse(cached as string);
       }
 
       // Cache miss - return static data and cache it

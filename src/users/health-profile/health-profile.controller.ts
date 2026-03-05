@@ -1,7 +1,7 @@
 import { Controller, Patch, Body, UseGuards, Req } from '@nestjs/common';
 import { HealthProfileService } from './health-profile.service';
 import { UpdateHealthProfileDto } from './dto/health-profile.dto';
-import { JwtAuthGuard } from '../../auth/jwt-auth.guard'; // adjust path as needed
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @Controller('users/me/health-profile')
 export class HealthProfileController {

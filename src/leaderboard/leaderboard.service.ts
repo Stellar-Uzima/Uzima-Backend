@@ -6,8 +6,8 @@ import { Cache } from 'cache-manager';
 import Redis from 'ioredis';
 import {
   RewardTransaction,
-  RewardStatus,
 } from '../rewards/entities/reward-transaction.entity';
+import { RewardStatus } from '../rewards/enums/reward-status.enum';
 import {
   LeaderboardResponseDto,
   LeaderboardEntryDto,
@@ -100,7 +100,7 @@ export class LeaderboardService {
       .addSelect('u.fullName', 'fullName')
       .addSelect('u.country', 'country')
       .innerJoin('rt.user', 'u')
-      .where('rt.status = :status', { status: RewardStatus.COMPLETED })
+      .where('rt.status = :status', { status: RewardStatus.SUCCESS })
       .andWhere('rt.createdAt >= :startOfMonth', { startOfMonth })
       .groupBy('rt.userId')
       .addGroupBy('u.fullName')
