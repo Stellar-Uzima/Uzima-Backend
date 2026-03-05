@@ -48,6 +48,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   passwordResetExpiry: Date | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  walletAddress: string | null;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   stellarWalletAddress: string | null;
 
