@@ -24,6 +24,10 @@ export class UserResponseDto {
   preferredLanguage: string;
 
   @Expose()
+  @ApiProperty({ description: 'User phone number with country code', example: '+2348012345678', nullable: true })
+  phoneNumber: string | null;
+
+  @Expose()
   @ApiProperty({ description: 'User Stellar wallet address', nullable: true })
   stellarWalletAddress: string | null;
 

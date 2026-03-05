@@ -1,39 +1,62 @@
-import { IsString, IsEmail, IsOptional, Length, Matches } from 'class-validator';
+import { IsString, IsOptional, Length, Matches, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+// List of supported language codes
+const SUPPORTED_LANGUAGE_CODES = [
+  'en', // English
+  'fr', // French
+  'ar', // Arabic
+  'sw', // Swahili
+  'ha', // Hausa
+  'yo', // Yoruba
+  'am', // Amharic
+  'ig', // Igbo
+  'zu', // Zulu
+  'so', // Somali
+  'tw', // Twi
+  'wo', // Wolof
+];
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({
-    description: 'User first name',
-    example: 'John',
+    description: 'User full name',
+    example: 'John Doe',
     minLength: 1,
     maxLength: 100,
   })
   @IsOptional()
-  @IsString({ message: 'First name must be a string' })
-  @Length(1, 100, { message: 'First name must be between 1 and 100 characters' })
-  firstName?: string;
+  @IsString({ message: 'Full name must be a string' })
+  @Length(1, 100, { message: 'Full name must be between 1 and 100 characters' })
+  fullName?: string;
 
   @ApiPropertyOptional({
-    description: 'User last name',
-    example: 'Doe',
-    minLength: 1,
-    maxLength: 100,
+    description: 'User preferred language code (ISO 639-1)',
+    example: 'en',
+    enum: SUPPORTED_LANGUAGE_CODES,
   })
   @IsOptional()
-  @IsString({ message: 'Last name must be a string' })
-  @Length(1, 100, { message: 'Last name must be between 1 and 100 characters' })
-  lastName?: string;
+  @IsString({ message: 'Preferred language must be a string' })
+  @IsIn(SUPPORTED_LANGUAGE_CODES, {
+    message: `Preferred language must be one of the following: ${SUPPORTED_LANGUAGE_CODES.join(', ')}`,
+  })
+  preferredLanguage?: string;
 
   @ApiPropertyOptional({
-    description: 'User email address',
-    example: 'user@example.com',
+    description: 'User country code (ISO 3166-1 alpha-2)',
+    example: 'US',
+    minLength: 2,
+    maxLength: 2,
   })
   @IsOptional()
-  @IsEmail({}, { message: 'Please provide a valid email address' })
-  email?: string;
+  @IsString({ message: 'Country code must be a string' })
+  @Length(2, 2, { message: 'Country code must be exactly 2 characters (ISO 3166-1 alpha-2)' })
+  @Matches(/^[A-Z]{2}$/i, {
+    message: 'Country code must be a valid 2-letter ISO code (e.g., US, GB, NG)',
+  })
+  country?: string;
 
   @ApiPropertyOptional({
-    description: 'User phone number',
+    description: 'User phone number with country code',
     example: '+2348012345678',
   })
   @IsOptional()
