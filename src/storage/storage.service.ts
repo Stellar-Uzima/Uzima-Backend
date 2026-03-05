@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
@@ -65,6 +65,38 @@ export class StorageService {
     } catch (error) {
       this.logger.error('Failed to generate pre-signed URL', error);
       throw new Error('Failed to generate pre-signed URL');
+    }
+  }
+
+  /**
+   * Verifies that a file exists in S3 and checks its properties
+   * @param fileKey The S3 key of the file
+   * @returns Object with exists, contentType, and size
+   */
+  async verifyFileExists(fileKey: string): Promise<{
+    exists: boolean;
+    contentType?: string;
+    size?: number;
+  }> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileKey,
+      });
+
+      const response = await this.s3Client.send(command);
+
+      return {
+        exists: true,
+        contentType: response.ContentType,
+        size: response.ContentLength,
+      };
+    } catch (error) {
+      if (error.name === 'NotFound') {
+        return { exists: false };
+      }
+      this.logger.error(`Failed to verify file ${fileKey}`, error);
+      throw error;
     }
   }
 }

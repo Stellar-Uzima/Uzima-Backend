@@ -7,6 +7,7 @@
 export const REWARD_QUEUE = 'reward-queue' as const;
 export const NOTIFICATION_QUEUE = 'notification-queue' as const;
 export const TASK_VERIFICATION_QUEUE = 'task-verification-queue' as const;
+export const PROOF_VERIFICATION_QUEUE = 'proof-verification-queue' as const;
 export const USER_ACTIVITY_QUEUE = 'user-activity-queue' as const;
 export const DATA_PROCESSING_QUEUE = 'data-processing-queue' as const;
 

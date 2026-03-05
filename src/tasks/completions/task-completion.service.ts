@@ -9,11 +9,12 @@ import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TaskCompletion } from '../entities/task-completion.entity';
+import { TaskCompletion, TaskCompletionStatus } from '../entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import { CompleteTaskDto, ProofType } from './dto/complete-task.dto';
 import {
   REWARD_QUEUE,
+  PROOF_VERIFICATION_QUEUE,
   REWARD_DISTRIBUTION_JOB,
 } from '../../queue/queue.constants';
 
@@ -29,6 +30,8 @@ export class TaskCompletionService {
     private taskRepo: Repository<HealthTask>,
     @InjectQueue(REWARD_QUEUE)
     private rewardQueue: Queue,
+    @InjectQueue(PROOF_VERIFICATION_QUEUE)
+    private proofVerificationQueue: Queue,
     private eventEmitter: EventEmitter2,
   ) {}
 
@@ -62,21 +65,43 @@ export class TaskCompletionService {
     }
 
     // 4. Persist the completion record
+    const initialStatus = dto.proofType === ProofType.SELF_REPORT
+      ? TaskCompletionStatus.VERIFIED
+      : TaskCompletionStatus.PENDING;
+
     const completion = this.completionRepo.create({
       user: { id: userId } as any,
       task: { id: dto.taskId } as any,
       proofUrl: dto.proofUrl ?? null,
       xlmRewarded: Number(task.xlmReward),
+      status: initialStatus,
     });
     const saved = await this.completionRepo.save(completion);
 
-    // 5. Emit task.completed event
-    this.eventEmitter.emit('task.completed', {
-      completionId: saved.id,
-      userId,
-      taskId: dto.taskId,
-      xlmAmount: Number(task.xlmReward),
-    });
+    // 5. Handle verification and events
+    if (dto.proofType === ProofType.SELF_REPORT) {
+      // Self-report goes straight to verified
+      this.eventEmitter.emit('task.verified', {
+        completionId: saved.id,
+        userId,
+        taskId: dto.taskId,
+        xlmAmount: Number(task.xlmReward),
+      });
+    } else if (dto.proofType === ProofType.PHOTO) {
+      // Queue proof verification
+      await this.proofVerificationQueue.add(
+        'verify-proof',
+        { completionId: saved.id },
+        { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+      );
+
+      this.eventEmitter.emit('task.completed', {
+        completionId: saved.id,
+        userId,
+        taskId: dto.taskId,
+        xlmAmount: Number(task.xlmReward),
+      });
+    }
 
     // 6. Enqueue XLM reward distribution
     await this.rewardQueue.add(REWARD_DISTRIBUTION_JOB, {

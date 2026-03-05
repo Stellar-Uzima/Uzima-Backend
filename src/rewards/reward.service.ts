@@ -3,12 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import { RewardHistoryQueryDto, RewardHistoryResponseDto, RewardHistoryItemDto } from './dto/reward-history.dto';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
 import { TaskCompletion } from '../task-completion/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
+import { REWARD_QUEUE, REWARD_DISTRIBUTION_JOB } from '../queue/queue.constants';
 import { REWARD_MILESTONE_EVENT } from '../coupons/coupon.events';
 
 const XLM_MILESTONES = [10, 25, 50, 100, 250];
@@ -25,8 +28,18 @@ export class RewardService {
     @InjectRepository(HealthTask)
     private readonly healthTaskRepository: Repository<HealthTask>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @InjectQueue(REWARD_QUEUE) private readonly rewardQueue: Queue,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  @OnEvent('task.verified')
+  async handleTaskVerified(payload: { completionId: string; userId: string; taskId: string; xlmAmount: number }) {
+    await this.rewardQueue.add(REWARD_DISTRIBUTION_JOB, {
+      completionId: payload.completionId,
+      userId: payload.userId,
+      xlmAmount: payload.xlmAmount,
+    });
+  }
 
   /**
    * Call after recording a new reward (e.g. from reward distribution job).
