@@ -11,6 +11,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
 import { Role } from '../auth/enums/role.enum';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 
 @Injectable()
 export class TasksService {
@@ -29,33 +30,25 @@ export class TasksService {
     return await this.healthTaskRepository.save(task);
   }
 
-  async findAll(listTasksDto: ListTasksDto) {
-    const { page, limit, categoryId } = listTasksDto;
-    
-    const query = this.healthTaskRepository
-      .createQueryBuilder('task')
-      .where('task.status = :status', { status: TaskStatus.ACTIVE })
-      .leftJoinAndSelect('task.creator', 'creator')
-      .orderBy('task.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+async findAll(listTasksDto: ListTasksDto): Promise<PaginatedResponseDto<HealthTask>> {
+  const { page, limit, categoryId } = listTasksDto;
 
-    if (categoryId) {
-      query.andWhere('task.categoryId = :categoryId', { categoryId });
-    }
+  const query = this.healthTaskRepository
+    .createQueryBuilder('task')
+    .where('task.status = :status', { status: TaskStatus.ACTIVE })
+    .leftJoinAndSelect('task.creator', 'creator')
+    .orderBy('task.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit);
 
-    const [tasks, total] = await query.getManyAndCount();
-
-    return {
-      data: tasks,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+  if (categoryId) {
+    query.andWhere('task.categoryId = :categoryId', { categoryId });
   }
+
+  const [tasks, total] = await query.getManyAndCount();
+
+  return new PaginatedResponseDto(tasks, total, page, limit);
+}
 
   async findOne(id: string): Promise<HealthTask> {
     const task = await this.healthTaskRepository.findOne({

@@ -25,6 +25,8 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
+import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { HealthTask } from './entities/health-task.entity';
 
 @ApiTags('tasks')
 @Controller('tasks')
@@ -44,8 +46,13 @@ export class TasksController {
 
   @Get()
   @ApiOperation({ summary: 'Get all active health tasks (public)' })
-  @ApiResponse({ status: 200, description: 'Returns list of active tasks' })
-  findAll(@Query() listTasksDto: ListTasksDto) {
+  @ApiResponse({
+    status: 200,
+    description: 'Returns paginated list of active tasks',
+  })
+  findAll(
+    @Query() listTasksDto: ListTasksDto,
+  ): Promise<PaginatedResponseDto<HealthTask>> {
     return this.tasksService.findAll(listTasksDto);
   }
 
@@ -72,7 +79,12 @@ export class TasksController {
     @Body() updateTaskDto: UpdateTaskDto,
     @Request() req,
   ) {
-    return this.tasksService.update(id, updateTaskDto, req.user.userId, req.user.role);
+    return this.tasksService.update(
+      id,
+      updateTaskDto,
+      req.user.userId,
+      req.user.role,
+    );
   }
 
   @Delete(':id')
