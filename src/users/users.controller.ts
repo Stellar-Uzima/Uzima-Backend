@@ -99,7 +99,7 @@ export class UsersController {
   @UsePipes(
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
-      forbidNonWhitelisted: false, // Don't throw error for non-whitelisted properties, just strip them
+      forbidNonWhitelisted: true, // Reject requests with unknown fields
       transform: true,
     }),
   )
