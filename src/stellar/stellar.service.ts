@@ -21,6 +21,16 @@ export class StellarService {
     }
   }
 
+  async getAccountBalance(address: string): Promise<string> {
+    try {
+      const account = await this.server.accounts().accountId(address).call();
+      const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+      return xlmBalance ? xlmBalance.balance : '0';
+    } catch (error) {
+      throw new Error('Unable to fetch account balance');
+    }
+  }
+
   async create(_createStellarDto: CreateStellarDto): Promise<unknown> {
     return {};
   }
