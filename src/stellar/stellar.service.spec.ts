@@ -1,12 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StellarService } from './stellar.service';
 
+const mockServer = {
+  accounts: jest.fn().mockReturnValue({
+    accountId: jest.fn().mockReturnValue({
+      call: jest.fn().mockResolvedValue({}),
+    }),
+  }),
+};
+
 jest.mock('stellar-sdk', () => ({
   __esModule: true,
   default: {
-    Server: jest.fn().mockImplementation(() => ({
-      accounts: () => ({ accountId: () => ({ call: jest.fn() }) }),
-    })),
+    Horizon: {
+      Server: jest.fn().mockImplementation(() => mockServer),
+    },
     Keypair: {},
   },
 }));

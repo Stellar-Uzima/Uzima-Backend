@@ -31,7 +31,10 @@ describe('AuthService', () => {
     sign: jest.fn(),
     verify: jest.fn(),
   };
-  const mockEventEmitter = { emit: jest.fn() };
+  const mockOtpService = {
+    generateOtp: jest.fn(),
+    verifyOtp: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -41,6 +44,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: OtpService, useValue: mockOtpService },
       ],
     }).compile();
 
