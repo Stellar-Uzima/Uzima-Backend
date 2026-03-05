@@ -7,6 +7,8 @@ import { Category } from './entities/category.entity';
 import { TaskCompletion } from './entities/task-completion.entity';
 import { TaskCompletionService } from './completions/task-completion.service';
 import { TaskCompletionController } from './completions/task-completion.controller';
+import { ProofVerificationService } from './completions/verification/proof-verification.service';
+import { ProofVerificationProcessor } from './completions/verification/proof-verification.processor';
 import { QueueModule } from '../queue/queue.module';
 import { StorageModule } from '../storage/storage.module';
 
@@ -17,7 +19,7 @@ import { StorageModule } from '../storage/storage.module';
     StorageModule,
   ],
   controllers: [TasksController, TaskCompletionController],
-  providers: [TasksService, TaskCompletionService],
+  providers: [TasksService, TaskCompletionService, ProofVerificationService, ProofVerificationProcessor],
   exports: [TasksService],
 })
 export class TasksModule {}

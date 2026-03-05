@@ -79,7 +79,7 @@ describe('TasksController', () => {
 
       const result = await controller.findOne('1');
 
-      expect(service.findOne).toHaveBeenCalledWith(1);
+      expect(service.findOne).toHaveBeenCalledWith('1');
       expect(result).toEqual(expectedTask);
     });
   });
@@ -94,7 +94,7 @@ describe('TasksController', () => {
 
       const result = await controller.update('1', updateTaskDto, req);
 
-      expect(service.update).toHaveBeenCalledWith(1, updateTaskDto, 1, Role.HEALER);
+      expect(service.update).toHaveBeenCalledWith('1', updateTaskDto, 1, Role.HEALER);
       expect(result).toEqual(expectedTask);
     });
   });
@@ -105,7 +105,7 @@ describe('TasksController', () => {
 
       const result = await controller.remove('1');
 
-      expect(service.remove).toHaveBeenCalledWith(1);
+      expect(service.remove).toHaveBeenCalledWith('1');
       expect(result).toEqual({ message: 'Task archived successfully' });
     });
   });

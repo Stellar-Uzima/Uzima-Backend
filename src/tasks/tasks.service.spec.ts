@@ -48,7 +48,7 @@ describe('TasksService', () => {
       mockRepository.create.mockReturnValue(expectedTask);
       mockRepository.save.mockResolvedValue(expectedTask);
 
-      const result = await service.create(createTaskDto, userId);
+      const result = await service.create(createTaskDto, '1');
 
       expect(mockRepository.create).toHaveBeenCalledWith({
         ...createTaskDto,
@@ -115,7 +115,7 @@ describe('TasksService', () => {
       const mockTask = { id: 1, name: 'Task 1', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne('1');
 
       expect(result).toEqual(mockTask);
     });
@@ -123,14 +123,14 @@ describe('TasksService', () => {
     it('should throw NotFoundException if task not found', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('999')).rejects.toThrow(NotFoundException);
     });
 
     it('should return task even if status is not ACTIVE', async () => {
       const mockTask = { id: 1, name: 'Task 1', status: TaskStatus.DRAFT };
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne('1');
 
       expect(result).toEqual(mockTask);
       expect(result.status).toBe(TaskStatus.DRAFT);
@@ -139,53 +139,53 @@ describe('TasksService', () => {
 
   describe('update', () => {
     it('should allow owner to update their task', async () => {
-      const mockTask = { id: 1, name: 'Old Name', createdBy: 1 };
-      const updateDto = { name: 'New Name' };
+      const mockTask = { id: '1', title: 'Old Name', createdBy: '1' };
+      const updateDto = { title: 'New Name' };
 
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.save.mockResolvedValue({ ...mockTask, ...updateDto });
 
-      const result = await service.update(1, updateDto, 1, Role.HEALER);
+      const result = await service.update('1', updateDto, '1', Role.HEALER);
 
-      expect(result.name).toBe('New Name');
+      expect(result.title).toBe('New Name');
     });
 
     it('should allow admin to update any task', async () => {
-      const mockTask = { id: 1, name: 'Old Name', createdBy: 2 };
-      const updateDto = { name: 'New Name' };
+      const mockTask = { id: '1', title: 'Old Name', createdBy: '2' };
+      const updateDto = { title: 'New Name' };
 
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.save.mockResolvedValue({ ...mockTask, ...updateDto });
 
-      const result = await service.update(1, updateDto, 1, Role.ADMIN);
+      const result = await service.update('1', updateDto, '1', Role.ADMIN);
 
-      expect(result.name).toBe('New Name');
+      expect(result.title).toBe('New Name');
     });
 
     it('should throw ForbiddenException if non-owner tries to update', async () => {
-      const mockTask = { id: 1, name: 'Task', createdBy: 2 };
+      const mockTask = { id: '1', title: 'Task', createdBy: '2' };
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      await expect(service.update(1, {}, 1, Role.HEALER)).rejects.toThrow(ForbiddenException);
+      await expect(service.update('1', {}, '1', Role.HEALER)).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw ForbiddenException if non-admin tries to publish', async () => {
-      const mockTask = { id: 1, name: 'Task', createdBy: 1 };
+      const mockTask = { id: '1', title: 'Task', createdBy: '1' };
       const updateDto = { status: TaskStatus.ACTIVE };
 
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      await expect(service.update(1, updateDto, 1, Role.HEALER)).rejects.toThrow(ForbiddenException);
+      await expect(service.update('1', updateDto, '1', Role.HEALER)).rejects.toThrow(ForbiddenException);
     });
 
     it('should allow admin to publish task', async () => {
-      const mockTask = { id: 1, name: 'Task', createdBy: 1, status: TaskStatus.DRAFT };
+      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.DRAFT };
       const updateDto = { status: TaskStatus.ACTIVE };
 
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ACTIVE });
 
-      const result = await service.update(1, updateDto, 2, Role.ADMIN);
+      const result = await service.update('1', updateDto, '2', Role.ADMIN);
 
       expect(result.status).toBe(TaskStatus.ACTIVE);
     });
@@ -193,11 +193,11 @@ describe('TasksService', () => {
 
   describe('remove', () => {
     it('should archive task by setting status to ARCHIVED', async () => {
-      const mockTask = { id: 1, name: 'Task', status: TaskStatus.ACTIVE };
+      const mockTask = { id: '1', title: 'Task', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ARCHIVED });
 
-      await service.remove(1);
+      await service.remove('1');
 
       expect(mockRepository.save).toHaveBeenCalledWith({
         ...mockTask,
@@ -208,7 +208,7 @@ describe('TasksService', () => {
     it('should throw NotFoundException if task does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+      await expect(service.remove('999')).rejects.toThrow(NotFoundException);
     });
   });
 });

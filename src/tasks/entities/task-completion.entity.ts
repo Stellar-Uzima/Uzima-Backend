@@ -9,6 +9,12 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { HealthTask } from './health-task.entity';
 
+export enum TaskCompletionStatus {
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+}
+
 @Entity('task_completions')
 export class TaskCompletion {
   @PrimaryGeneratedColumn('uuid')
@@ -20,11 +26,14 @@ export class TaskCompletion {
   @ManyToOne(() => HealthTask, { nullable: false, onDelete: 'CASCADE' })
   task: HealthTask;
 
-  @Column({ type: 'varchar', default: 'completed' })
-  status: string;
+  @Column({ type: 'enum', enum: TaskCompletionStatus, default: TaskCompletionStatus.PENDING })
+  status: TaskCompletionStatus;
 
   @Column({ type: 'varchar', nullable: true })
   proofUrl: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  rejectionReason: string | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   xlmRewarded: number;

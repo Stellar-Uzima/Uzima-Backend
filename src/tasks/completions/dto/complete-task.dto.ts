@@ -4,6 +4,7 @@ export enum ProofType {
   PHOTO = 'photo',
   TEXT = 'text',
   NONE = 'none',
+  SELF_REPORT = 'self_report',
 }
 
 export class CompleteTaskDto {
