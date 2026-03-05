@@ -67,29 +67,51 @@ export class AuthService {
   }
 
   // Refresh access token
-  async refresh(userId: string, oldRefreshToken: string) {
-    const storedToken = await this.redisClient.get(`refresh:${userId}`);
-    if (!storedToken || storedToken !== oldRefreshToken) {
+  async refresh(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const { sub: userId, tokenId } = payload;
+
+      const key = `refresh:${userId}:${tokenId}`;
+      const storedToken = await this.redisClient.get(key);
+
+      if (!storedToken || storedToken !== refreshToken) {
+        // Replay attack or invalid token: clear all user sessions
+        await this.clearAllUserRefreshTokens(userId);
+        this.eventEmitter.emit('auth.suspicious_activity', {
+          userId,
+          reason: 'Invalid or reused refresh token',
+        });
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Delete the used token
+      await this.redisClient.del(key);
+
+      const user = await this.usersService.findById(userId);
+      return this.generateTokens(user.id, user.email, user.role);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid refresh token');
     }
-
-    await this.redisClient.del(`refresh:${userId}`);
-
-    const user = await this.usersService.findById(userId);
-    return this.generateTokens(user.id, user.email, user.role);
   }
 
   private async generateTokens(userId: string, email: string, role: Role) {
+    const tokenId = crypto.randomUUID();
+
     const accessToken = this.jwtService.sign(
       { sub: userId, email, role },
       { expiresIn: '15m' },
     );
     const refreshToken = this.jwtService.sign(
-      { sub: userId, email, role },
+      { sub: userId, email, role, tokenId },
       { expiresIn: '7d' },
     );
 
-    await this.redisClient.set(`refresh:${userId}`, refreshToken, {
+    const key = `refresh:${userId}:${tokenId}`;
+    await this.redisClient.set(key, refreshToken, {
       EX: 7 * 24 * 60 * 60,
     });
 
@@ -97,8 +119,23 @@ export class AuthService {
   }
 
   // Logout
-  async logout(userId: string) {
-    await this.redisClient.del(`refresh:${userId}`);
+  async logout(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken);
+      const { sub: userId, tokenId } = payload;
+      const key = `refresh:${userId}:${tokenId}`;
+      await this.redisClient.del(key);
+    } catch (error) {
+      // If token is invalid, do nothing (already logged out)
+    }
+  }
+
+  private async clearAllUserRefreshTokens(userId: string) {
+    const pattern = `refresh:${userId}:*`;
+    const keys = await this.redisClient.keys(pattern);
+    if (keys.length > 0) {
+      await this.redisClient.del(keys);
+    }
   }
 
   /**
@@ -118,18 +155,26 @@ export class AuthService {
     const isNewUser = !user;
 
     if (isNewUser) {
-      // In a real implementation, you might want to redirect to a completion profile page
+      // Create minimal user for phone login
+      user = await this.usersService.create({
+        phoneNumber: verifyOtpDto.phoneNumber,
+        firstName: 'Phone',
+        lastName: 'User',
+        email: null, // No email for phone users
+        password: null, // No password
+      });
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
-      // Minimal user creation or return info to client
     }
 
-    // Mock response matching previous implementation but integrated
+    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
     return {
       success: true,
       message: 'Authentication successful',
-      accessToken: 'mock-access-token', // TODO: Generate real JWT if user exists
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       user: {
-        phoneNumber: verifyOtpDto.phoneNumber,
+        id: user.id,
+        phoneNumber: user.phoneNumber,
         isNewUser,
       },
     };

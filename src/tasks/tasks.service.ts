@@ -19,7 +19,7 @@ export class TasksService {
     private readonly healthTaskRepository: Repository<HealthTask>,
   ) {}
 
-  async create(createTaskDto: CreateTaskDto, userId: number): Promise<HealthTask> {
+  async create(createTaskDto: CreateTaskDto, userId: string): Promise<HealthTask> {
     const task = this.healthTaskRepository.create({
       ...createTaskDto,
       createdBy: userId,
@@ -57,7 +57,7 @@ export class TasksService {
     };
   }
 
-  async findOne(id: number): Promise<HealthTask> {
+  async findOne(id: string): Promise<HealthTask> {
     const task = await this.healthTaskRepository.findOne({
       where: { id },
       relations: ['creator'],
@@ -71,9 +71,9 @@ export class TasksService {
   }
 
   async update(
-    id: number,
+    id: string,
     updateTaskDto: UpdateTaskDto,
-    userId: number,
+    userId: string,
     userRole: Role,
   ): Promise<HealthTask> {
     const task = await this.findOne(id);
@@ -92,7 +92,7 @@ export class TasksService {
     return await this.healthTaskRepository.save(task);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const task = await this.findOne(id);
     
     // Soft delete by setting status to ARCHIVED

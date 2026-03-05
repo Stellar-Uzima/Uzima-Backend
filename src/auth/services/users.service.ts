@@ -25,18 +25,19 @@ export class UsersService {
   }
 
   async create(userData: Partial<User> & { name?: string; fullName?: string; country?: string }): Promise<User> {
-    if (!userData.password) {
-      throw new Error('Password is required');
+    if (!userData.password && !userData.phoneNumber) {
+      throw new Error('Password or phone number is required');
     }
 
-    const hashedPassword = await bcrypt.hash(userData.password, 12);
+    const hashedPassword = userData.password ? await bcrypt.hash(userData.password, 12) : null;
     const fullName = (userData.fullName ?? userData.name ?? '').trim() || 'User';
     const spaceIndex = fullName.indexOf(' ');
     const firstName = spaceIndex > 0 ? fullName.slice(0, spaceIndex) : fullName;
     const lastName = spaceIndex > 0 ? fullName.slice(spaceIndex + 1) : fullName;
 
     const user = this.usersRepository.create({
-      email: userData.email!,
+      email: userData.email,
+      phoneNumber: userData.phoneNumber,
       firstName,
       lastName,
       password: hashedPassword,

@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './services/auth.service';
 import { PhoneLoginDto } from './dto/phone-login.dto';
@@ -7,6 +7,9 @@ import { VerifyEmailDto, ResendEmailVerificationDto } from './dto/verify-email.d
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { Request } from '@nestjs/common';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -66,5 +69,23 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password);
+  }
+
+  @Post('refresh')
+  @UseGuards(JwtRefreshGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token' })
+  async refresh(@Request() req) {
+    const refreshToken = req.headers.authorization?.replace('Bearer ', '');
+    return this.authService.refresh(refreshToken);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtRefreshGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout user' })
+  async logout(@Request() req) {
+    const refreshToken = req.headers.authorization?.replace('Bearer ', '');
+    return this.authService.logout(refreshToken);
   }
 }

@@ -20,8 +20,17 @@ export class TaskCompletion {
   @ManyToOne(() => HealthTask, { nullable: false, onDelete: 'CASCADE' })
   task: HealthTask;
 
-  @Column({ type: 'date' })
-  completedDate: string;
+  @Column({ type: 'varchar', default: 'completed' })
+  status: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  proofUrl: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  xlmRewarded: number;
+
+  @Column({ type: 'timestamp' })
+  completedAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

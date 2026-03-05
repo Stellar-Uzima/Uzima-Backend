@@ -28,6 +28,15 @@ export class HealthTask {
   @Column({ type: 'enum', enum: TaskCategory })
   category: TaskCategory;
 
+  @Column({ type: 'varchar', nullable: true })
+  createdBy: string | null;
+
+  @Column({ type: 'varchar', default: 'draft' })
+  status: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  xlmReward: number;
+
   @Column({ type: 'jsonb', nullable: true })
   targetProfile: Record<string, any>; // e.g. { minAge: 18, conditions: ['diabetes'] }
 

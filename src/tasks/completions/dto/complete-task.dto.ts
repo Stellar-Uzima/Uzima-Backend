@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsUrl, IsPositive } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export enum ProofType {
   PHOTO = 'photo',
@@ -7,9 +7,8 @@ export enum ProofType {
 }
 
 export class CompleteTaskDto {
-  @IsInt()
-  @IsPositive()
-  taskId: number;
+  @IsString()
+  taskId: string;
 
   @IsEnum(ProofType)
   proofType: ProofType;
