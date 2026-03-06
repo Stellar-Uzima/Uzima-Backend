@@ -18,8 +18,14 @@ import { StorageModule } from '../storage/storage.module';
     QueueModule,
     StorageModule,
   ],
+
   controllers: [TasksController, TaskCompletionController],
-  providers: [TasksService, TaskCompletionService, ProofVerificationService, ProofVerificationProcessor],
+  providers: [
+    TasksService,
+    TaskCompletionService,
+    ProofVerificationService,
+    ProofVerificationProcessor,
+  ],
   exports: [TasksService],
 })
 export class TasksModule {}

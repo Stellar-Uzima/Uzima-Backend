@@ -6,14 +6,12 @@ import { TaskAssignmentController } from './task-assignment.controller';
 import { DailyTaskAssignment } from '../entities/daily-task-assignment.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import { TaskCompletion } from '../entities/task-completion.entity';
+import { RedisModule } from '@nestjs-modules/ioredis';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      DailyTaskAssignment,
-      HealthTask,
-      TaskCompletion,
-    ]),
+    RedisModule,
+    TypeOrmModule.forFeature([DailyTaskAssignment, HealthTask, TaskCompletion]),
   ],
   controllers: [TaskAssignmentController],
   providers: [TaskAssignmentService],
