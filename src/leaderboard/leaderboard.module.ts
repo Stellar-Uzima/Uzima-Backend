@@ -8,7 +8,7 @@ import { LeaderboardService } from './leaderboard.service';
 import { LeaderboardController } from './leaderboard.controller';
 import { LeaderboardProcessor } from './leaderboard.processor';
 import { RewardTransaction } from '../rewards/entities/reward-transaction.entity';
-import { User } from '../auth/entities/user.entity';
+import { User } from '../entities/user.entity';
 
 @Module({
   imports: [

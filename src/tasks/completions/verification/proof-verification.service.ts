@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TaskCompletion, TaskCompletionStatus } from '../../entities/task-completion.entity';
+import {
+  TaskCompletion,
+  TaskCompletionStatus,
+} from '../../entities/task-completion.entity';
 import { StorageService } from '../../../storage/storage.service';
 
 @Injectable()
@@ -40,13 +43,22 @@ export class ProofVerificationService {
       const fileInfo = await this.storageService.verifyFileExists(fileKey);
 
       if (!fileInfo.exists) {
-        await this.rejectCompletion(completion, 'Proof file not found in storage');
+        await this.rejectCompletion(
+          completion,
+          'Proof file not found in storage',
+        );
         return;
       }
 
       // Check content type
-      if (!fileInfo.contentType || !['image/jpeg', 'image/png'].includes(fileInfo.contentType)) {
-        await this.rejectCompletion(completion, 'Invalid file type. Only JPEG and PNG images are allowed');
+      if (
+        !fileInfo.contentType ||
+        !['image/jpeg', 'image/png'].includes(fileInfo.contentType)
+      ) {
+        await this.rejectCompletion(
+          completion,
+          'Invalid file type. Only JPEG and PNG images are allowed',
+        );
         return;
       }
 
@@ -58,10 +70,15 @@ export class ProofVerificationService {
 
       // Verification passed
       await this.verifyCompletion(completion);
-
     } catch (error) {
-      this.logger.error(`Error verifying proof for completion ${completionId}`, error);
-      await this.rejectCompletion(completion, 'Verification failed due to system error');
+      this.logger.error(
+        `Error verifying proof for completion ${completionId}`,
+        error,
+      );
+      await this.rejectCompletion(
+        completion,
+        'Verification failed due to system error',
+      );
     }
   }
 
@@ -78,7 +95,10 @@ export class ProofVerificationService {
     });
   }
 
-  private async rejectCompletion(completion: TaskCompletion, reason: string): Promise<void> {
+  private async rejectCompletion(
+    completion: TaskCompletion,
+    reason: string,
+  ): Promise<void> {
     completion.status = TaskCompletionStatus.REJECTED;
     completion.rejectionReason = reason;
     await this.taskCompletionRepo.save(completion);
@@ -96,7 +116,7 @@ export class ProofVerificationService {
     // Assuming the proofUrl is something like https://bucket.s3.amazonaws.com/proofs/user/task/timestamp
     // Extract the key after the bucket
     const urlParts = url.split('/');
-    const keyIndex = urlParts.findIndex(part => part.includes('proofs'));
+    const keyIndex = urlParts.findIndex((part) => part.includes('proofs'));
     return urlParts.slice(keyIndex).join('/');
   }
 }

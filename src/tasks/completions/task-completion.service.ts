@@ -9,7 +9,10 @@ import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TaskCompletion, TaskCompletionStatus } from '../entities/task-completion.entity';
+import {
+  TaskCompletion,
+  TaskCompletionStatus,
+} from '../entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import { CompleteTaskDto, ProofType } from './dto/complete-task.dto';
 import {
@@ -65,9 +68,10 @@ export class TaskCompletionService {
     }
 
     // 4. Persist the completion record
-    const initialStatus = dto.proofType === ProofType.SELF_REPORT
-      ? TaskCompletionStatus.VERIFIED
-      : TaskCompletionStatus.PENDING;
+    const initialStatus =
+      dto.proofType === ProofType.SELF_REPORT
+        ? TaskCompletionStatus.VERIFIED
+        : TaskCompletionStatus.PENDING;
 
     const completion = this.completionRepo.create({
       user: { id: userId } as any,

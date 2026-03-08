@@ -1,6 +1,5 @@
 import { DataSource } from 'typeorm';
 
-
 /**
  * TypeORM DataSource configuration for database migrations and CLI.
  *
@@ -26,7 +25,7 @@ const AppDataSource = new DataSource({
   database: process.env.DATABASE_NAME || 'uzima', // Database name
   entities: [
     process.cwd() + '/src/entities/*.entity.{ts,js}',
-    process.cwd() + '/src/users/entities/*.entity.{ts,js}',
+    process.cwd() + '/src/referral/entities/*.entity.{ts,js}',
   ], // Auto-discover all entities
   migrations: ['src/migrations/*{.ts,.js}'], // Migration files for CLI
   migrationsTableName: 'migrations',

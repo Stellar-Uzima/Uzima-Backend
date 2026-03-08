@@ -23,7 +23,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   { code: 'KM', name: 'Comoros', flag: '🇰🇲' },
   { code: 'CG', name: 'Congo', flag: '🇨🇬' },
   { code: 'CD', name: 'Democratic Republic of the Congo', flag: '🇨🇩' },
-  { code: 'CI', name: 'Côte d\'Ivoire', flag: '🇨🇮' },
+  { code: 'CI', name: "Côte d'Ivoire", flag: '🇨🇮' },
   { code: 'DJ', name: 'Djibouti', flag: '🇩🇯' },
   { code: 'EG', name: 'Egypt', flag: '🇪🇬' },
   { code: 'GQ', name: 'Equatorial Guinea', flag: '🇬🇶' },

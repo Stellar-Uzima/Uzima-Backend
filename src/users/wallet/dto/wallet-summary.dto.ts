@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class WalletSummaryDto {
   @ApiProperty({
-    description: 'The user\'s Stellar wallet address',
+    description: "The user's Stellar wallet address",
     example: 'GABCDE...',
   })
   walletAddress: string;

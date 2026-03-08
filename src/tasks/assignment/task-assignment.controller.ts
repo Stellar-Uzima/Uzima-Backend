@@ -12,7 +12,9 @@ export class TaskAssignmentController {
   constructor(private readonly assignmentService: TaskAssignmentService) {}
 
   @Get('today')
-  @ApiOperation({ summary: "Get or generate today's personalized task assignment" })
+  @ApiOperation({
+    summary: "Get or generate today's personalized task assignment",
+  })
   async getTodayTasks(@Request() req) {
     return this.assignmentService.getTodayAssignment(req.user);
   }

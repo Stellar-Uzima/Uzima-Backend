@@ -1,9 +1,18 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { NotificationPreference } from '../entities/notification-preference.entity';
-import { UpdatePreferencesDto, isValidTimezone } from './dto/update-preferences.dto';
+import {
+  UpdatePreferencesDto,
+  isValidTimezone,
+} from './dto/update-preferences.dto';
 
 @Injectable()
 export class NotificationPreferencesService implements OnModuleInit {
@@ -17,14 +26,22 @@ export class NotificationPreferencesService implements OnModuleInit {
 
   onModuleInit() {
     // Listen for user.registered event to create default preferences
-    this.eventEmitter.on('user.registered', async (data: { userId: string }) => {
-      try {
-        await this.createDefaultsForNewUser(data.userId);
-        this.logger.log(`Default notification preferences created for new user: ${data.userId}`);
-      } catch (error) {
-        this.logger.error(`Failed to create default preferences for user ${data.userId}:`, error.message);
-      }
-    });
+    this.eventEmitter.on(
+      'user.registered',
+      async (data: { userId: string }) => {
+        try {
+          await this.createDefaultsForNewUser(data.userId);
+          this.logger.log(
+            `Default notification preferences created for new user: ${data.userId}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to create default preferences for user ${data.userId}:`,
+            error.message,
+          );
+        }
+      },
+    );
   }
 
   /**
@@ -60,7 +77,10 @@ export class NotificationPreferencesService implements OnModuleInit {
     // Validate quiet hours format if provided
     if (updateDto.quietHoursStart || updateDto.quietHoursEnd) {
       const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (updateDto.quietHoursStart && !timeRegex.test(updateDto.quietHoursStart)) {
+      if (
+        updateDto.quietHoursStart &&
+        !timeRegex.test(updateDto.quietHoursStart)
+      ) {
         throw new BadRequestException(
           'quietHoursStart must be in HH:mm format (e.g., 22:00)',
         );
@@ -93,7 +113,9 @@ export class NotificationPreferencesService implements OnModuleInit {
   /**
    * Create default notification preferences for a user
    */
-  async createDefaultPreferences(userId: string): Promise<NotificationPreference> {
+  async createDefaultPreferences(
+    userId: string,
+  ): Promise<NotificationPreference> {
     const defaultPreferences = this.preferencesRepository.create({
       userId,
       taskReminders: true,
@@ -112,6 +134,8 @@ export class NotificationPreferencesService implements OnModuleInit {
    */
   async createDefaultsForNewUser(userId: string): Promise<void> {
     await this.createDefaultPreferences(userId);
-    this.logger.log(`Default notification preferences created for new user: ${userId}`);
+    this.logger.log(
+      `Default notification preferences created for new user: ${userId}`,
+    );
   }
 }

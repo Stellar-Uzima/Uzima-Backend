@@ -6,10 +6,7 @@ import { CouponController } from './coupon.controller';
 import { CouponService } from './coupon.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Coupon]),
-    ConfigModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Coupon]), ConfigModule],
   controllers: [CouponController],
   providers: [CouponService],
   exports: [CouponService],

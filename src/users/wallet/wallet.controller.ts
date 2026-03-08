@@ -1,5 +1,10 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';

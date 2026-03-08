@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from 'src/entities/user.entity';
 import { ListUsersDto } from '../dto/list-users.dto';
 import { Role } from 'src/auth/enums/role.enum';
 import { AuditService } from 'src/audit/audit.service';
@@ -39,7 +39,7 @@ export class AdminUsersService {
       qb.andWhere('user.isActive = :active', { active: dto.isActive });
     }
     if (dto.search) {
-      qb.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
+      qb.andWhere('(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)', {
         search: `%${dto.search}%`,
       });
     }
@@ -47,7 +47,8 @@ export class AdminUsersService {
     qb.select([
       'user.id',
       'user.email',
-      'user.name',
+      'user.firstName',
+      'user.lastName',
       'user.role',
       'user.country',
       'user.isActive',
@@ -59,7 +60,7 @@ export class AdminUsersService {
     qb.skip((page - 1) * limit).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
-    
+
     return {
       data: users,
       meta: {
@@ -77,7 +78,8 @@ export class AdminUsersService {
       select: [
         'id',
         'email',
-        'name',
+        'firstName',
+        'lastName',
         'role',
         'country',
         'isActive',

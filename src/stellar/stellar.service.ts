@@ -9,7 +9,9 @@ export class StellarService {
   private server: InstanceType<typeof StellarSdk.Horizon.Server>;
 
   constructor() {
-    this.server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+    this.server = new StellarSdk.Horizon.Server(
+      'https://horizon-testnet.stellar.org',
+    );
   }
 
   async accountExists(address: string): Promise<boolean> {
@@ -24,7 +26,9 @@ export class StellarService {
   async getAccountBalance(address: string): Promise<string> {
     try {
       const account = await this.server.accounts().accountId(address).call();
-      const xlmBalance = account.balances.find(balance => balance.asset_type === 'native');
+      const xlmBalance = account.balances.find(
+        (balance) => balance.asset_type === 'native',
+      );
       return xlmBalance ? xlmBalance.balance : '0';
     } catch (error) {
       throw new Error('Unable to fetch account balance');
@@ -43,7 +47,10 @@ export class StellarService {
     return null;
   }
 
-  async update(_id: number, _updateStellarDto: UpdateStellarDto): Promise<unknown> {
+  async update(
+    _id: number,
+    _updateStellarDto: UpdateStellarDto,
+  ): Promise<unknown> {
     return {};
   }
 

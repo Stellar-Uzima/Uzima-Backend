@@ -10,7 +10,12 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { NotificationPreference } from '../entities/notification-preference.entity';
@@ -52,7 +57,8 @@ export class NotificationPreferencesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get notification preferences',
-    description: 'Returns the notification preferences for the currently authenticated user.',
+    description:
+      'Returns the notification preferences for the currently authenticated user.',
   })
   @ApiResponse({
     status: 200,
@@ -80,7 +86,8 @@ export class NotificationPreferencesController {
   )
   @ApiOperation({
     summary: 'Update notification preferences',
-    description: 'Update the notification preferences for the currently authenticated user. Only provided fields will be updated.',
+    description:
+      'Update the notification preferences for the currently authenticated user. Only provided fields will be updated.',
   })
   @ApiResponse({
     status: 200,

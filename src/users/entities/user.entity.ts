@@ -75,7 +75,8 @@ export class User {
   referredBy?: User;
 
   @OneToMany(
-    () => require('../../referral/entities/referral-record.entity').ReferralRecord,
+    () =>
+      require('../../referral/entities/referral-record.entity').ReferralRecord,
     'referrer',
   )
   referralRecords?: ReferralRecord[];

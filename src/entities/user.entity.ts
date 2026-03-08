@@ -4,6 +4,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
+  ManyToOne,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
 
@@ -18,11 +20,20 @@ export class User {
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phoneNumber: string;
 
+  @Column({ type: 'varchar', length: 2 })
+  country: string;
+
+  @Column({ default: 'en' })
+  preferredLanguage: string;
+
   @Column({ type: 'varchar', length: 100 })
   firstName: string;
 
   @Column({ type: 'varchar', length: 100 })
   lastName: string;
+
+  @Column({ type: 'varchar', length: 201, nullable: true })
+  fullName?: string;
 
   @Column({ type: 'varchar', length: 255, select: false, nullable: true })
   password: string;
@@ -62,4 +73,13 @@ export class User {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
+
+  @Column({ nullable: true, unique: true })
+  referralCode?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  referredBy?: User;
+
+  @OneToMany('ReferralRecord', 'referrer')
+  referralRecords?: any[];
 }

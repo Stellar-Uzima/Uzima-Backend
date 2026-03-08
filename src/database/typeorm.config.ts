@@ -13,7 +13,6 @@ export const typeOrmConfig = async (
   entities: [
     __dirname + '/../entities/*.entity{.ts,.js}',
     __dirname + '/../auth/entities/*.entity{.ts,.js}',
-    __dirname + '/../users/entities/*.entity{.ts,.js}',
     __dirname + '/../tasks/entities/*.entity{.ts,.js}',
     __dirname + '/../task-completion/entities/*.entity{.ts,.js}',
     __dirname + '/../coupons/entities/*.entity{.ts,.js}',

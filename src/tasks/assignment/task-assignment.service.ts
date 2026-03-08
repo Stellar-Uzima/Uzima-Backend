@@ -7,7 +7,7 @@ import Redis from 'ioredis';
 import { DailyTaskAssignment } from '../entities/daily-task-assignment.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import { TaskCompletion } from '../entities/task-completion.entity';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../entities/user.entity';
 
 const TASKS_PER_DAY = 5;
 const CACHE_TTL_SECONDS = 60 * 60 * 24; // 24 hours
@@ -54,18 +54,28 @@ export class TaskAssignmentService {
 
     // 3. Create lazily if not found
     if (!assignment) {
-      this.logger.debug(`Creating new assignment for user ${user.id} on ${today}`);
+      this.logger.debug(
+        `Creating new assignment for user ${user.id} on ${today}`,
+      );
       assignment = await this.createAssignment(user, today);
     }
 
     // 4. Cache and return
-    await this.redis.set(cacheKey, JSON.stringify(assignment), 'EX', CACHE_TTL_SECONDS);
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(assignment),
+      'EX',
+      CACHE_TTL_SECONDS,
+    );
     return assignment;
   }
 
   // ─── Private: Create Assignment ───────────────────────────────────────
 
-  private async createAssignment(user: User, today: string): Promise<DailyTaskAssignment> {
+  private async createAssignment(
+    user: User,
+    today: string,
+  ): Promise<DailyTaskAssignment> {
     const tasks = await this.selectTasksForUser(user, today);
 
     const assignment = this.assignmentRepo.create({
@@ -79,7 +89,10 @@ export class TaskAssignmentService {
 
   // ─── Private: Select Personalized Tasks ──────────────────────────────
 
-  private async selectTasksForUser(user: User, today: string): Promise<HealthTask[]> {
+  private async selectTasksForUser(
+    user: User,
+    today: string,
+  ): Promise<HealthTask[]> {
     const sevenDaysAgo = this.getDateDaysAgo(COMPLETION_LOOKBACK_DAYS);
 
     // Subquery: task IDs completed by this user in the last 7 days

@@ -89,13 +89,18 @@ describe('WalletService', () => {
 
       const result = await service.getWalletSummary('user-id');
 
-      expect(mockCacheManager.get).toHaveBeenCalledWith('wallet_summary:user-id');
+      expect(mockCacheManager.get).toHaveBeenCalledWith(
+        'wallet_summary:user-id',
+      );
       expect(result).toEqual(cachedSummary);
     });
 
     it('should return walletLinked false if no wallet address', async () => {
       mockCacheManager.get.mockResolvedValue(null);
-      mockUserRepo.findOne.mockResolvedValue({ id: 'user-id', walletAddress: null });
+      mockUserRepo.findOne.mockResolvedValue({
+        id: 'user-id',
+        walletAddress: null,
+      });
 
       const result = await service.getWalletSummary('user-id');
 
@@ -141,7 +146,9 @@ describe('WalletService', () => {
         id: 'user-id',
         walletAddress: 'GABCDE...',
       });
-      mockStellarService.getAccountBalance.mockRejectedValue(new Error('Network error'));
+      mockStellarService.getAccountBalance.mockRejectedValue(
+        new Error('Network error'),
+      );
       mockXlmPriceService.getXlmUsdRate.mockResolvedValue(0.12);
       mockRewardTransactionRepo.getRawOne
         .mockResolvedValueOnce({ total: null })
@@ -158,7 +165,9 @@ describe('WalletService', () => {
     it('should delete cache on reward.earned event', async () => {
       await service.invalidateCache({ userId: 'user-id' });
 
-      expect(mockCacheManager.del).toHaveBeenCalledWith('wallet_summary:user-id');
+      expect(mockCacheManager.del).toHaveBeenCalledWith(
+        'wallet_summary:user-id',
+      );
     });
   });
 });

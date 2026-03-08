@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { StreaksService } from './streaks.service';
 import { Streak } from './entities/streak.entity';
-import { User } from '../users/entities/user.entity';
+import { User } from '../entities/user.entity';
 
 describe('StreaksService', () => {
   let service: StreaksService;

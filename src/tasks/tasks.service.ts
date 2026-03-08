@@ -20,7 +20,10 @@ export class TasksService {
     private readonly healthTaskRepository: Repository<HealthTask>,
   ) {}
 
-  async create(createTaskDto: CreateTaskDto, userId: string): Promise<HealthTask> {
+  async create(
+    createTaskDto: CreateTaskDto,
+    userId: string,
+  ): Promise<HealthTask> {
     const task = this.healthTaskRepository.create({
       ...createTaskDto,
       createdBy: userId,
@@ -30,25 +33,27 @@ export class TasksService {
     return await this.healthTaskRepository.save(task);
   }
 
-async findAll(listTasksDto: ListTasksDto): Promise<PaginatedResponseDto<HealthTask>> {
-  const { page, limit, categoryId } = listTasksDto;
+  async findAll(
+    listTasksDto: ListTasksDto,
+  ): Promise<PaginatedResponseDto<HealthTask>> {
+    const { page, limit, categoryId } = listTasksDto;
 
-  const query = this.healthTaskRepository
-    .createQueryBuilder('task')
-    .where('task.status = :status', { status: TaskStatus.ACTIVE })
-    .leftJoinAndSelect('task.creator', 'creator')
-    .orderBy('task.createdAt', 'DESC')
-    .skip((page - 1) * limit)
-    .take(limit);
+    const query = this.healthTaskRepository
+      .createQueryBuilder('task')
+      .where('task.status = :status', { status: TaskStatus.ACTIVE })
+      .leftJoinAndSelect('task.creator', 'creator')
+      .orderBy('task.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-  if (categoryId) {
-    query.andWhere('task.categoryId = :categoryId', { categoryId });
+    if (categoryId) {
+      query.andWhere('task.categoryId = :categoryId', { categoryId });
+    }
+
+    const [tasks, total] = await query.getManyAndCount();
+
+    return new PaginatedResponseDto(tasks, total, page, limit);
   }
-
-  const [tasks, total] = await query.getManyAndCount();
-
-  return new PaginatedResponseDto(tasks, total, page, limit);
-}
 
   async findOne(id: string): Promise<HealthTask> {
     const task = await this.healthTaskRepository.findOne({
@@ -87,7 +92,7 @@ async findAll(listTasksDto: ListTasksDto): Promise<PaginatedResponseDto<HealthTa
 
   async remove(id: string): Promise<void> {
     const task = await this.findOne(id);
-    
+
     // Soft delete by setting status to ARCHIVED
     task.status = TaskStatus.ARCHIVED;
     await this.healthTaskRepository.save(task);

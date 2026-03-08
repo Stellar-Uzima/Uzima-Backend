@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsNumber, Min, Max, IsOptional, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  Min,
+  Max,
+  IsOptional,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTaskDto {
@@ -10,11 +18,12 @@ export class CreateTaskDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  title: string;
 
   @ApiPropertyOptional({
     description: 'Task description',
-    example: 'Walk at least 10,000 steps daily to maintain cardiovascular health',
+    example:
+      'Walk at least 10,000 steps daily to maintain cardiovascular health',
   })
   @IsString()
   @IsOptional()

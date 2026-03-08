@@ -11,7 +11,12 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
@@ -79,7 +84,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get current user stats',
-    description: 'Returns aggregated stats for the dashboard including tasks completed, XLM earned, streak, and active coupons. Results are cached for 5 minutes.',
+    description:
+      'Returns aggregated stats for the dashboard including tasks completed, XLM earned, streak, and active coupons. Results are cached for 5 minutes.',
   })
   @ApiResponse({
     status: 200,
@@ -105,7 +111,8 @@ export class UsersController {
   )
   @ApiOperation({
     summary: 'Update current user profile',
-    description: 'Update the profile of the currently authenticated user. Only provided fields will be updated.',
+    description:
+      'Update the profile of the currently authenticated user. Only provided fields will be updated.',
   })
   @ApiResponse({
     status: 200,
@@ -135,7 +142,8 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete current user account (soft delete)',
-    description: 'Soft deletes the currently authenticated user account. Sets isActive to false and anonymizes email.',
+    description:
+      'Soft deletes the currently authenticated user account. Sets isActive to false and anonymizes email.',
   })
   @ApiResponse({
     status: 204,

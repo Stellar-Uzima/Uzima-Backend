@@ -38,7 +38,9 @@ export class AddReferralFields1700000000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE referral_records;`);
-    await queryRunner.query(`ALTER TABLE users DROP CONSTRAINT FK_referred_by;`);
+    await queryRunner.query(
+      `ALTER TABLE users DROP CONSTRAINT FK_referred_by;`,
+    );
     await queryRunner.query(`ALTER TABLE users DROP COLUMN referred_by_id;`);
     await queryRunner.query(`ALTER TABLE users DROP COLUMN referral_code;`);
   }

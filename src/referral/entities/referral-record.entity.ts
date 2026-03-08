@@ -6,7 +6,7 @@ import {
   CreateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../entities/user.entity';
 
 @Entity('referral_records')
 export class ReferralRecord {

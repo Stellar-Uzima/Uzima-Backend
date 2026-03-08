@@ -15,13 +15,19 @@ export class ListUsersDto extends PaginationDto {
   @IsEnum(Role)
   role?: Role;
 
-  @ApiPropertyOptional({ description: 'Filter by active status', example: true })
+  @ApiPropertyOptional({
+    description: 'Filter by active status',
+    example: true,
+  })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Search by name or email', example: 'john' })
+  @ApiPropertyOptional({
+    description: 'Search by name or email',
+    example: 'john',
+  })
   @IsOptional()
   @IsString()
   search?: string;

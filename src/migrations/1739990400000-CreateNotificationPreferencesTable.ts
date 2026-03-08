@@ -1,6 +1,13 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+} from 'typeorm';
 
-export class CreateNotificationPreferencesTable1739990400000 implements MigrationInterface {
+export class CreateNotificationPreferencesTable1739990400000
+  implements MigrationInterface
+{
   name = 'CreateNotificationPreferencesTable1739990400000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

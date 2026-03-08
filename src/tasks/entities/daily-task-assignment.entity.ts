@@ -9,7 +9,7 @@ import {
   Unique,
   CreateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { HealthTask } from './health-task.entity';
 
 @Entity('daily_task_assignments')

@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../auth/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { TaskCompletion } from '../../task-completion/entities/task-completion.entity';
 
 import { RewardStatus } from '../enums/reward-status.enum';

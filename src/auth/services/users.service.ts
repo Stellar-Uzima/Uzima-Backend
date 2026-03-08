@@ -12,7 +12,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
@@ -24,13 +24,22 @@ export class UsersService {
     return user;
   }
 
-  async create(userData: Partial<User> & { name?: string; fullName?: string; country?: string }): Promise<User> {
+  async create(
+    userData: Partial<User> & {
+      name?: string;
+      fullName?: string;
+      country?: string;
+    },
+  ): Promise<User> {
     if (!userData.password && !userData.phoneNumber) {
       throw new Error('Password or phone number is required');
     }
 
-    const hashedPassword = userData.password ? await bcrypt.hash(userData.password, 12) : null;
-    const fullName = (userData.fullName ?? userData.name ?? '').trim() || 'User';
+    const hashedPassword = userData.password
+      ? await bcrypt.hash(userData.password, 12)
+      : null;
+    const fullName =
+      (userData.fullName ?? userData.name ?? '').trim() || 'User';
     const spaceIndex = fullName.indexOf(' ');
     const firstName = spaceIndex > 0 ? fullName.slice(0, spaceIndex) : fullName;
     const lastName = spaceIndex > 0 ? fullName.slice(spaceIndex + 1) : fullName;

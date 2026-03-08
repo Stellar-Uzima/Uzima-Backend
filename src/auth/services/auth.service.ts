@@ -19,7 +19,10 @@ import { UsersService } from './users.service';
 import { OtpService } from '../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
-import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
+import {
+  VerifyEmailDto,
+  ResendEmailVerificationDto,
+} from '../dto/verify-email.dto';
 
 @Injectable()
 export class AuthService {
@@ -146,12 +149,17 @@ export class AuthService {
   }
 
   async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto) {
-    const verificationResult = await this.otpService.verifyOtp(verifyOtpDto.phoneNumber, verifyOtpDto.otp);
+    const verificationResult = await this.otpService.verifyOtp(
+      verifyOtpDto.phoneNumber,
+      verifyOtpDto.otp,
+    );
     if (!verificationResult.success) {
       throw new UnauthorizedException(verificationResult.message);
     }
 
-    let user = await this.usersService.findByPhoneNumber(verifyOtpDto.phoneNumber);
+    let user = await this.usersService.findByPhoneNumber(
+      verifyOtpDto.phoneNumber,
+    );
     const isNewUser = !user;
 
     if (isNewUser) {
@@ -163,10 +171,16 @@ export class AuthService {
         email: null, // No email for phone users
         password: null, // No password
       });
-      this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
+      this.logger.log(
+        `New user registered via phone: ${verifyOtpDto.phoneNumber}`,
+      );
     }
 
-    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email || user.phoneNumber,
+      user.role,
+    );
     return {
       success: true,
       message: 'Authentication successful',
@@ -186,7 +200,7 @@ export class AuthService {
       where: {
         emailVerificationToken: dto.token,
         emailVerificationExpiry: MoreThan(new Date()),
-      }
+      },
     });
 
     if (!user) {

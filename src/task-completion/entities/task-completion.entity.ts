@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../auth/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { HealthTask } from '../../entities/health-task.entity';
 
 @Entity('task_completions')
