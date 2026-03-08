@@ -15,7 +15,9 @@ export class ProofVerificationProcessor extends WorkerHost {
   async process(job: Job<{ completionId: string }>): Promise<void> {
     const { completionId } = job.data;
 
-    this.logger.log(`Processing proof verification for completion ${completionId}`);
+    this.logger.log(
+      `Processing proof verification for completion ${completionId}`,
+    );
 
     await this.proofVerificationService.verifyProof(completionId);
   }
@@ -27,6 +29,8 @@ export class ProofVerificationProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job, err: Error) {
-    this.logger.error(`Proof verification failed for job ${job.id}: ${err.message}`);
+    this.logger.error(
+      `Proof verification failed for job ${job.id}: ${err.message}`,
+    );
   }
 }

@@ -6,7 +6,7 @@ import {
   Column,
   CreateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { HealthTask } from './health-task.entity';
 
 export enum TaskCompletionStatus {
@@ -26,7 +26,11 @@ export class TaskCompletion {
   @ManyToOne(() => HealthTask, { nullable: false, onDelete: 'CASCADE' })
   task: HealthTask;
 
-  @Column({ type: 'enum', enum: TaskCompletionStatus, default: TaskCompletionStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: TaskCompletionStatus,
+    default: TaskCompletionStatus.PENDING,
+  })
   status: TaskCompletionStatus;
 
   @Column({ type: 'varchar', nullable: true })

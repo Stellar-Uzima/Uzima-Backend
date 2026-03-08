@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
@@ -136,7 +141,9 @@ export class UsersService implements OnModuleInit {
    * Update last active timestamp
    */
   async updateLastActiveAt(userId: string): Promise<void> {
-    await this.userRepository.update(userId, { lastActiveAt: new Date() } as Partial<User>);
+    await this.userRepository.update(userId, {
+      lastActiveAt: new Date(),
+    } as Partial<User>);
   }
 
   /**

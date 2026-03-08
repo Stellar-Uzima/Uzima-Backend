@@ -4,7 +4,10 @@ import { ApiProperty } from '@nestjs/swagger';
 @Exclude()
 export class UserResponseDto {
   @Expose()
-  @ApiProperty({ description: 'User unique identifier', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'User unique identifier',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   id: string;
 
   @Expose()
@@ -12,11 +15,17 @@ export class UserResponseDto {
   fullName: string;
 
   @Expose()
-  @ApiProperty({ description: 'User email address', example: 'user@example.com' })
+  @ApiProperty({
+    description: 'User email address',
+    example: 'user@example.com',
+  })
   email: string;
 
   @Expose()
-  @ApiProperty({ description: 'User country code (ISO 3166-1 alpha-2)', example: 'US' })
+  @ApiProperty({
+    description: 'User country code (ISO 3166-1 alpha-2)',
+    example: 'US',
+  })
   country: string;
 
   @Expose()
@@ -24,7 +33,11 @@ export class UserResponseDto {
   preferredLanguage: string;
 
   @Expose()
-  @ApiProperty({ description: 'User phone number with country code', example: '+2348012345678', nullable: true })
+  @ApiProperty({
+    description: 'User phone number with country code',
+    example: '+2348012345678',
+    nullable: true,
+  })
   phoneNumber: string | null;
 
   @Expose()
@@ -36,10 +49,16 @@ export class UserResponseDto {
   role: string;
 
   @Expose()
-  @ApiProperty({ description: 'Whether the user account is verified', example: true })
+  @ApiProperty({
+    description: 'Whether the user account is verified',
+    example: true,
+  })
   isVerified: boolean;
 
   @Expose()
-  @ApiProperty({ description: 'Account creation timestamp', example: '2024-01-15T10:30:00.000Z' })
+  @ApiProperty({
+    description: 'Account creation timestamp',
+    example: '2024-01-15T10:30:00.000Z',
+  })
   createdAt: Date;
 }

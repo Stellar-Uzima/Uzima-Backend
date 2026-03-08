@@ -1,6 +1,14 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey, TableIndex } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+  TableIndex,
+} from 'typeorm';
 
-export class CreateTaskCompletionsTable1739990401000 implements MigrationInterface {
+export class CreateTaskCompletionsTable1739990401000
+  implements MigrationInterface
+{
   name = 'CreateTaskCompletionsTable1739990401000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

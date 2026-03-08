@@ -49,9 +49,12 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString({ message: 'Country code must be a string' })
-  @Length(2, 2, { message: 'Country code must be exactly 2 characters (ISO 3166-1 alpha-2)' })
+  @Length(2, 2, {
+    message: 'Country code must be exactly 2 characters (ISO 3166-1 alpha-2)',
+  })
   @Matches(/^[A-Z]{2}$/i, {
-    message: 'Country code must be a valid 2-letter ISO code (e.g., US, GB, NG)',
+    message:
+      'Country code must be a valid 2-letter ISO code (e.g., US, GB, NG)',
   })
   country?: string;
 
@@ -62,7 +65,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'Phone number must be a string' })
   @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: 'Please provide a valid phone number with country code (e.g., +2348012345678)',
+    message:
+      'Please provide a valid phone number with country code (e.g., +2348012345678)',
   })
   phoneNumber?: string;
 }

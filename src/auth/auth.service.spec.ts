@@ -79,8 +79,12 @@ describe('AuthService', () => {
       const result = await service.refresh(refreshToken);
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(refreshToken);
-      expect(mockRedisClient.get).toHaveBeenCalledWith(`refresh:${userId}:${tokenId}`);
-      expect(mockRedisClient.del).toHaveBeenCalledWith(`refresh:${userId}:${tokenId}`);
+      expect(mockRedisClient.get).toHaveBeenCalledWith(
+        `refresh:${userId}:${tokenId}`,
+      );
+      expect(mockRedisClient.del).toHaveBeenCalledWith(
+        `refresh:${userId}:${tokenId}`,
+      );
       expect(result).toEqual({
         accessToken: 'new-access-token',
         refreshToken: 'new-refresh-token',
@@ -92,7 +96,9 @@ describe('AuthService', () => {
         throw new Error('Invalid token');
       });
 
-      await expect(service.refresh('invalid-token')).rejects.toThrow('Invalid refresh token');
+      await expect(service.refresh('invalid-token')).rejects.toThrow(
+        'Invalid refresh token',
+      );
     });
 
     it('should handle replay attack by clearing all user sessions', async () => {
@@ -102,17 +108,28 @@ describe('AuthService', () => {
 
       mockJwtService.verify.mockReturnValue(payload);
       mockRedisClient.get.mockResolvedValue(null); // Token not found
-      mockRedisClient.keys.mockResolvedValue([`refresh:${userId}:${tokenId}`, `refresh:${userId}:other`]);
+      mockRedisClient.keys.mockResolvedValue([
+        `refresh:${userId}:${tokenId}`,
+        `refresh:${userId}:other`,
+      ]);
       mockRedisClient.del.mockResolvedValue(2);
 
-      await expect(service.refresh('used-token')).rejects.toThrow('Invalid refresh token');
+      await expect(service.refresh('used-token')).rejects.toThrow(
+        'Invalid refresh token',
+      );
 
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith('auth.suspicious_activity', {
-        userId,
-        reason: 'Invalid or reused refresh token',
-      });
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'auth.suspicious_activity',
+        {
+          userId,
+          reason: 'Invalid or reused refresh token',
+        },
+      );
       expect(mockRedisClient.keys).toHaveBeenCalledWith(`refresh:${userId}:*`);
-      expect(mockRedisClient.del).toHaveBeenCalledWith([`refresh:${userId}:${tokenId}`, `refresh:${userId}:other`]);
+      expect(mockRedisClient.del).toHaveBeenCalledWith([
+        `refresh:${userId}:${tokenId}`,
+        `refresh:${userId}:other`,
+      ]);
     });
   });
 
@@ -129,7 +146,9 @@ describe('AuthService', () => {
       await service.logout(refreshToken);
 
       expect(mockJwtService.verify).toHaveBeenCalledWith(refreshToken);
-      expect(mockRedisClient.del).toHaveBeenCalledWith(`refresh:${userId}:${tokenId}`);
+      expect(mockRedisClient.del).toHaveBeenCalledWith(
+        `refresh:${userId}:${tokenId}`,
+      );
     });
 
     it('should not throw on invalid token', async () => {

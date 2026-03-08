@@ -30,7 +30,10 @@ export class HealthProfileService {
     return profile;
   }
 
-  async updateProfile(userId: string, dto: UpdateHealthProfileDto): Promise<HealthProfile> {
+  async updateProfile(
+    userId: string,
+    dto: UpdateHealthProfileDto,
+  ): Promise<HealthProfile> {
     const profile = await this.getProfileByUserId(userId);
     Object.assign(profile, dto);
     return this.healthProfileRepo.save(profile);

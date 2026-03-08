@@ -43,7 +43,12 @@ describe('TasksService', () => {
         xlmReward: 1.5,
       };
       const userId = '1';
-      const expectedTask = { ...createTaskDto, id: 1, createdBy: userId, status: TaskStatus.DRAFT };
+      const expectedTask = {
+        ...createTaskDto,
+        id: 1,
+        createdBy: userId,
+        status: TaskStatus.DRAFT,
+      };
 
       mockRepository.create.mockReturnValue(expectedTask);
       mockRepository.save.mockResolvedValue(expectedTask);
@@ -62,8 +67,8 @@ describe('TasksService', () => {
   describe('findAll', () => {
     it('should return paginated active tasks', async () => {
       const listTasksDto = { page: 1, limit: 20 };
-      const mockTasks = [{ id: 1, name: 'Task 1', status: TaskStatus.ACTIVE }];
-      
+      const mockTasks = [{ id: 1, title: 'Task 1', status: TaskStatus.ACTIVE }];
+
       const getManyAndCount = jest.fn().mockResolvedValue([mockTasks, 1]);
       mockRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
@@ -79,21 +84,19 @@ describe('TasksService', () => {
 
       expect(result).toEqual({
         data: mockTasks,
-        meta: {
-          page: 1,
-          limit: 20,
-          total: 1,
-          totalPages: 1,
-        },
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
       });
     });
 
     it('should filter by categoryId', async () => {
       const listTasksDto = { page: 1, limit: 20, categoryId: 2 };
-      
+
       const andWhere = jest.fn().mockReturnThis();
       const getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
-      
+
       mockRepository.createQueryBuilder.mockReturnValue({
         where: jest.fn().mockReturnThis(),
         andWhere,
@@ -106,7 +109,9 @@ describe('TasksService', () => {
 
       await service.findAll(listTasksDto);
 
-      expect(andWhere).toHaveBeenCalledWith('task.categoryId = :categoryId', { categoryId: 2 });
+      expect(andWhere).toHaveBeenCalledWith('task.categoryId = :categoryId', {
+        categoryId: 2,
+      });
     });
   });
 
@@ -166,7 +171,9 @@ describe('TasksService', () => {
       const mockTask = { id: '1', title: 'Task', createdBy: '2' };
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      await expect(service.update('1', {}, '1', Role.HEALER)).rejects.toThrow(ForbiddenException);
+      await expect(service.update('1', {}, '1', Role.HEALER)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException if non-admin tries to publish', async () => {
@@ -175,15 +182,25 @@ describe('TasksService', () => {
 
       mockRepository.findOne.mockResolvedValue(mockTask);
 
-      await expect(service.update('1', updateDto, '1', Role.HEALER)).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.update('1', updateDto, '1', Role.HEALER),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should allow admin to publish task', async () => {
-      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.DRAFT };
+      const mockTask = {
+        id: '1',
+        title: 'Task',
+        createdBy: '1',
+        status: TaskStatus.DRAFT,
+      };
       const updateDto = { status: TaskStatus.ACTIVE };
 
       mockRepository.findOne.mockResolvedValue(mockTask);
-      mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ACTIVE });
+      mockRepository.save.mockResolvedValue({
+        ...mockTask,
+        status: TaskStatus.ACTIVE,
+      });
 
       const result = await service.update('1', updateDto, '2', Role.ADMIN);
 
@@ -195,7 +212,10 @@ describe('TasksService', () => {
     it('should archive task by setting status to ARCHIVED', async () => {
       const mockTask = { id: '1', title: 'Task', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
-      mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ARCHIVED });
+      mockRepository.save.mockResolvedValue({
+        ...mockTask,
+        status: TaskStatus.ARCHIVED,
+      });
 
       await service.remove('1');
 

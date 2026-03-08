@@ -1,4 +1,9 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+} from 'typeorm';
 
 export class CreateCouponsTable1739990402000 implements MigrationInterface {
   name = 'CreateCouponsTable1739990402000';
@@ -67,10 +72,7 @@ export class CreateCouponsTable1739990402000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key
-    await queryRunner.dropForeignKey(
-      'coupons',
-      'fk_coupons_user',
-    );
+    await queryRunner.dropForeignKey('coupons', 'fk_coupons_user');
 
     // Drop the table
     await queryRunner.dropTable('coupons');

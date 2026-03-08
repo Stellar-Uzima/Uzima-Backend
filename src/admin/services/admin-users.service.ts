@@ -59,7 +59,7 @@ export class AdminUsersService {
     qb.skip((page - 1) * limit).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
-    
+
     return {
       data: users,
       meta: {

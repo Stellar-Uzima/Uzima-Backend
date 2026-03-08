@@ -41,9 +41,13 @@ export class WalletService {
     // Fetch live balance
     let liveBalance = 'unavailable';
     try {
-      liveBalance = await this.stellarService.getAccountBalance(user.walletAddress);
+      liveBalance = await this.stellarService.getAccountBalance(
+        user.walletAddress,
+      );
     } catch (error) {
-      this.logger.warn(`Failed to fetch balance for ${user.walletAddress}: ${error.message}`);
+      this.logger.warn(
+        `Failed to fetch balance for ${user.walletAddress}: ${error.message}`,
+      );
     }
 
     // Total earned from tasks
@@ -69,7 +73,10 @@ export class WalletService {
     const xlmUsdRate = await this.xlmPriceService.getXlmUsdRate();
 
     // Calculate balance in USD
-    const balanceUsd = liveBalance !== 'unavailable' ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2) : '0.00';
+    const balanceUsd =
+      liveBalance !== 'unavailable'
+        ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2)
+        : '0.00';
 
     const summary: WalletSummaryDto = {
       walletAddress: user.walletAddress,

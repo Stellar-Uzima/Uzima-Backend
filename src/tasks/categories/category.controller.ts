@@ -59,7 +59,9 @@ export class CategoryController {
   @ApiOperation({ summary: 'Get a task category by ID (public)' })
   @ApiResponse({ status: 200, type: CategoryResponseDto })
   @ApiResponse({ status: 404, description: 'Category not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<CategoryResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<CategoryResponseDto> {
     return this.categoryService.findOne(id);
   }
 

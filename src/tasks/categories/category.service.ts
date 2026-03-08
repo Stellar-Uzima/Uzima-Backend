@@ -55,7 +55,12 @@ export class CategoryService {
 
     // 3. Populate cache (fire-and-forget)
     try {
-      await this.redis.set(CACHE_KEY, JSON.stringify(result), 'EX', CACHE_TTL_SECONDS);
+      await this.redis.set(
+        CACHE_KEY,
+        JSON.stringify(result),
+        'EX',
+        CACHE_TTL_SECONDS,
+      );
       this.logger.debug(`Cached task categories (TTL ${CACHE_TTL_SECONDS}s)`);
     } catch (err) {
       this.logger.warn(`Redis write failed: ${err}`);
@@ -73,7 +78,9 @@ export class CategoryService {
     });
 
     if (!category) {
-      throw new NotFoundException(`Category with id "${id}" not found or is deactivated`);
+      throw new NotFoundException(
+        `Category with id "${id}" not found or is deactivated`,
+      );
     }
 
     return category as CategoryResponseDto;
@@ -93,7 +100,10 @@ export class CategoryService {
   /**
    * Update an existing task category
    */
-  async update(id: string, dto: UpdateCategoryDto): Promise<CategoryResponseDto> {
+  async update(
+    id: string,
+    dto: UpdateCategoryDto,
+  ): Promise<CategoryResponseDto> {
     const category = await this.categoryRepository.findOne({ where: { id } });
     if (!category) {
       throw new NotFoundException(`Category with id "${id}" not found`);

@@ -44,7 +44,12 @@ describe('TasksController', () => {
         xlmReward: 1.5,
       };
       const req = { user: { userId: 1, role: Role.HEALER } };
-      const expectedTask = { id: 1, ...createTaskDto, createdBy: 1, status: TaskStatus.DRAFT };
+      const expectedTask = {
+        id: 1,
+        ...createTaskDto,
+        createdBy: 1,
+        status: TaskStatus.DRAFT,
+      };
 
       mockTasksService.create.mockResolvedValue(expectedTask);
 
@@ -94,7 +99,12 @@ describe('TasksController', () => {
 
       const result = await controller.update('1', updateTaskDto, req);
 
-      expect(service.update).toHaveBeenCalledWith('1', updateTaskDto, 1, Role.HEALER);
+      expect(service.update).toHaveBeenCalledWith(
+        '1',
+        updateTaskDto,
+        1,
+        Role.HEALER,
+      );
       expect(result).toEqual(expectedTask);
     });
   });

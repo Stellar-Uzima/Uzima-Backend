@@ -50,7 +50,9 @@ export class CouponService implements OnModuleInit {
       REWARD_MILESTONE_EVENT,
       async (payload: RewardMilestonePayload) => {
         if (!payload?.userId) {
-          this.logger.warn('reward.milestone event received with no userId; skipping');
+          this.logger.warn(
+            'reward.milestone event received with no userId; skipping',
+          );
           return;
         }
         try {
@@ -102,13 +104,15 @@ export class CouponService implements OnModuleInit {
    */
   async getActiveForUser(userId: string): Promise<Coupon[]> {
     const now = new Date();
-    return this.couponRepository.find({
-      where: {
-        userId,
-        status: CouponStatus.ACTIVE,
-      },
-      order: { expiresAt: 'ASC' },
-    }).then((list) => list.filter((c) => c.expiresAt > now));
+    return this.couponRepository
+      .find({
+        where: {
+          userId,
+          status: CouponStatus.ACTIVE,
+        },
+        order: { expiresAt: 'ASC' },
+      })
+      .then((list) => list.filter((c) => c.expiresAt > now));
   }
 
   /**
@@ -124,7 +128,9 @@ export class CouponService implements OnModuleInit {
       .andWhere('expiresAt < :now', { now: new Date() })
       .execute();
 
-    this.logger.log(`Marked ${result.affected ?? 0} expired coupons as EXPIRED`);
+    this.logger.log(
+      `Marked ${result.affected ?? 0} expired coupons as EXPIRED`,
+    );
   }
 
   /**
@@ -165,7 +171,10 @@ export class CouponService implements OnModuleInit {
       return { valid: false, reason: 'already_used' };
     }
 
-    if (coupon.status === CouponStatus.EXPIRED || new Date() > coupon.expiresAt) {
+    if (
+      coupon.status === CouponStatus.EXPIRED ||
+      new Date() > coupon.expiresAt
+    ) {
       return { valid: false, reason: 'expired' };
     }
 

@@ -3,7 +3,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ProofVerificationService } from './proof-verification.service';
-import { TaskCompletion, TaskCompletionStatus } from '../../entities/task-completion.entity';
+import {
+  TaskCompletion,
+  TaskCompletionStatus,
+} from '../../entities/task-completion.entity';
 import { StorageService } from '../../../storage/storage.service';
 
 const mockTaskCompletionRepo = {
@@ -99,7 +102,8 @@ describe('ProofVerificationService', () => {
       expect(mockTaskCompletionRepo.save).toHaveBeenCalledWith({
         ...completion,
         status: TaskCompletionStatus.REJECTED,
-        rejectionReason: 'Invalid file type. Only JPEG and PNG images are allowed',
+        rejectionReason:
+          'Invalid file type. Only JPEG and PNG images are allowed',
       });
       expect(mockEventEmitter.emit).toHaveBeenCalledWith('task.rejected', {
         completionId: 'completion-id',

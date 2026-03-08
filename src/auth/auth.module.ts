@@ -39,4 +39,4 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
   ],
   exports: [AuthService, UsersService],
 })
-export class AuthModule { }
+export class AuthModule {}

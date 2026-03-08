@@ -4,9 +4,7 @@ import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import Redis from 'ioredis';
-import {
-  RewardTransaction,
-} from '../rewards/entities/reward-transaction.entity';
+import { RewardTransaction } from '../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../rewards/enums/reward-status.enum';
 import {
   LeaderboardResponseDto,

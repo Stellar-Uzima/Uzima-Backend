@@ -67,24 +67,28 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.getProfile(req as any);
+      const result = await controller.getProfile(req);
 
       expect(service.getProfile).toHaveBeenCalledWith('test-user-id');
       expect(result).toEqual(mockUserResponseDto);
-      
+
       // Verify passwordHash is not present in the response
       expect(result).not.toHaveProperty('passwordHash');
       expect(Object.keys(result)).not.toContain('passwordHash');
     });
 
     it('should throw NotFoundException if user is not found', async () => {
-      jest.spyOn(service, 'getProfile').mockRejectedValue(new NotFoundException('User not found'));
+      jest
+        .spyOn(service, 'getProfile')
+        .mockRejectedValue(new NotFoundException('User not found'));
 
       const req = {
         user: { userId: 'non-existent-user-id' },
       } as any;
 
-      await expect(controller.getProfile(req as any)).rejects.toThrow(NotFoundException);
+      await expect(controller.getProfile(req)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(service.getProfile).toHaveBeenCalledWith('non-existent-user-id');
     });
 
@@ -95,19 +99,35 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.getProfile(req as any);
+      const result = await controller.getProfile(req);
 
-      const allowedFields = ['id', 'fullName', 'email', 'country', 'preferredLanguage', 'stellarWalletAddress', 'role', 'isVerified', 'createdAt', 'phoneNumber'];
+      const allowedFields = [
+        'id',
+        'fullName',
+        'email',
+        'country',
+        'preferredLanguage',
+        'stellarWalletAddress',
+        'role',
+        'isVerified',
+        'createdAt',
+        'phoneNumber',
+      ];
       const resultKeys = Object.keys(result);
 
       // Check that all result keys are in allowed fields
-      resultKeys.forEach(key => {
+      resultKeys.forEach((key) => {
         expect(allowedFields).toContain(key);
       });
 
       // Check that no sensitive fields are present
-      const sensitiveFields = ['passwordHash', 'password', 'emailVerificationToken', 'passwordResetToken'];
-      sensitiveFields.forEach(field => {
+      const sensitiveFields = [
+        'passwordHash',
+        'password',
+        'emailVerificationToken',
+        'passwordResetToken',
+      ];
+      sensitiveFields.forEach((field) => {
         expect(result).not.toHaveProperty(field);
       });
     });
@@ -130,7 +150,7 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.getStats(req as any);
+      const result = await controller.getStats(req);
 
       expect(service.getStats).toHaveBeenCalledWith('test-user-id');
       expect(result).toEqual(mockStats);
@@ -155,9 +175,12 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.updateProfile(req as any, updateDto as any);
+      const result = await controller.updateProfile(req, updateDto as any);
 
-      expect(service.updateProfile).toHaveBeenCalledWith('test-user-id', updateDto);
+      expect(service.updateProfile).toHaveBeenCalledWith(
+        'test-user-id',
+        updateDto,
+      );
       expect(result).toEqual(updatedUser);
       expect(result).not.toHaveProperty('passwordHash');
     });
@@ -181,9 +204,12 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.updateProfile(req as any, updateDto as any);
+      const result = await controller.updateProfile(req, updateDto as any);
 
-      expect(service.updateProfile).toHaveBeenCalledWith('test-user-id', updateDto);
+      expect(service.updateProfile).toHaveBeenCalledWith(
+        'test-user-id',
+        updateDto,
+      );
       expect(result.fullName).toBe('John Doe Jr');
       expect(result.preferredLanguage).toBe('fr');
       expect(result.country).toBe('FR');
@@ -196,13 +222,17 @@ describe('UsersController', () => {
       };
 
       // Mock should not be called with invalid data
-      jest.spyOn(service, 'updateProfile').mockRejectedValue(new BadRequestException('Invalid input data'));
+      jest
+        .spyOn(service, 'updateProfile')
+        .mockRejectedValue(new BadRequestException('Invalid input data'));
 
       const req = {
         user: { userId: 'test-user-id' },
       } as any;
 
-      await expect(controller.updateProfile(req as any, invalidUpdateDto as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.updateProfile(req, invalidUpdateDto as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject invalid preferred language code', async () => {
@@ -211,27 +241,44 @@ describe('UsersController', () => {
       };
 
       // Mock should not be called with invalid data
-      jest.spyOn(service, 'updateProfile').mockRejectedValue(new BadRequestException('Invalid input data'));
+      jest
+        .spyOn(service, 'updateProfile')
+        .mockRejectedValue(new BadRequestException('Invalid input data'));
 
       const req = {
         user: { userId: 'test-user-id' },
       } as any;
 
-      await expect(controller.updateProfile(req as any, invalidUpdateDto as any)).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.updateProfile(req, invalidUpdateDto as any),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should accept valid preferred language codes', async () => {
-      const validLanguages = ['en', 'fr', 'ar', 'sw', 'ha', 'yo', 'am', 'ig', 'zu', 'so', 'tw', 'wo'];
+      const validLanguages = [
+        'en',
+        'fr',
+        'ar',
+        'sw',
+        'ha',
+        'yo',
+        'am',
+        'ig',
+        'zu',
+        'so',
+        'tw',
+        'wo',
+      ];
 
       for (const lang of validLanguages) {
         const updateDto = { preferredLanguage: lang };
         const updatedUser = { ...mockUserResponseDto, preferredLanguage: lang };
-        
+
         jest.spyOn(service, 'updateProfile').mockResolvedValue(updatedUser);
-        
+
         const req = { user: { userId: 'test-user-id' } } as any;
-        const result = await controller.updateProfile(req as any, updateDto as any);
-        
+        const result = await controller.updateProfile(req, updateDto as any);
+
         expect(result.preferredLanguage).toBe(lang);
       }
     });
@@ -248,17 +295,20 @@ describe('UsersController', () => {
       // For this test, we verify the service only receives allowed fields
       const filteredDto = { fullName: 'John Doe' };
       const updatedUser = { ...mockUserResponseDto, fullName: 'John Doe' };
-      
+
       jest.spyOn(service, 'updateProfile').mockResolvedValue(updatedUser);
 
       const req = {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.updateProfile(req as any, updateDto as any);
+      const result = await controller.updateProfile(req, updateDto as any);
 
       // Service should only be called with filtered DTO (unknown fields stripped)
-      expect(service.updateProfile).toHaveBeenCalledWith('test-user-id', expect.objectContaining({ fullName: 'John Doe' }));
+      expect(service.updateProfile).toHaveBeenCalledWith(
+        'test-user-id',
+        expect.objectContaining({ fullName: 'John Doe' }),
+      );
       expect(result.fullName).toBe('John Doe');
     });
 
@@ -278,9 +328,12 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      const result = await controller.updateProfile(req as any, updateDto as any);
+      const result = await controller.updateProfile(req, updateDto as any);
 
-      expect(service.updateProfile).toHaveBeenCalledWith('test-user-id', updateDto);
+      expect(service.updateProfile).toHaveBeenCalledWith(
+        'test-user-id',
+        updateDto,
+      );
       expect(result.fullName).toBe('Updated Name');
     });
   });
@@ -293,7 +346,7 @@ describe('UsersController', () => {
         user: { userId: 'test-user-id' },
       } as any;
 
-      await controller.deleteProfile(req as any);
+      await controller.deleteProfile(req);
 
       expect(service.softDelete).toHaveBeenCalledWith('test-user-id');
     });

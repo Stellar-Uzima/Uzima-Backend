@@ -1,6 +1,5 @@
 import { DataSource } from 'typeorm';
 
-
 /**
  * TypeORM DataSource configuration for database migrations and CLI.
  *
@@ -24,10 +23,7 @@ const AppDataSource = new DataSource({
   username: process.env.DATABASE_USERNAME || 'postgres', // Database username
   password: process.env.DATABASE_PASSWORD || 'postgres', // Database password
   database: process.env.DATABASE_NAME || 'uzima', // Database name
-  entities: [
-    process.cwd() + '/src/entities/*.entity.{ts,js}',
-    process.cwd() + '/src/users/entities/*.entity.{ts,js}',
-  ], // Auto-discover all entities
+  entities: [process.cwd() + '/src/entities/*.entity.{ts,js}'], // Auto-discover all entities
   migrations: ['src/migrations/*{.ts,.js}'], // Migration files for CLI
   migrationsTableName: 'migrations',
   synchronize: false, // Never use true in production
