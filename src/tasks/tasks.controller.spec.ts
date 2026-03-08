@@ -38,7 +38,7 @@ describe('TasksController', () => {
   describe('create', () => {
     it('should create a task', async () => {
       const createTaskDto = {
-        name: 'Test Task',
+        title: 'Test Task',
         description: 'Test Description',
         categoryId: 1,
         xlmReward: 1.5,
@@ -86,9 +86,9 @@ describe('TasksController', () => {
 
   describe('update', () => {
     it('should update a task', async () => {
-      const updateTaskDto = { name: 'Updated Task' };
+      const updateTaskDto = { title: 'Updated Task' };
       const req = { user: { userId: 1, role: Role.HEALER } };
-      const expectedTask = { id: 1, name: 'Updated Task' };
+      const expectedTask = { id: 1, title: 'Updated Task' };
 
       mockTasksService.update.mockResolvedValue(expectedTask);
 

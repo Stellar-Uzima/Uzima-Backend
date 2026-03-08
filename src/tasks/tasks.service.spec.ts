@@ -37,18 +37,18 @@ describe('TasksService', () => {
   describe('create', () => {
     it('should create a task with DRAFT status', async () => {
       const createTaskDto = {
-        name: 'Test Task',
+        title: 'Test Task',
         description: 'Test Description',
         categoryId: 1,
         xlmReward: 1.5,
       };
-      const userId = 1;
+      const userId = '1';
       const expectedTask = { ...createTaskDto, id: 1, createdBy: userId, status: TaskStatus.DRAFT };
 
       mockRepository.create.mockReturnValue(expectedTask);
       mockRepository.save.mockResolvedValue(expectedTask);
 
-      const result = await service.create(createTaskDto, '1');
+      const result = await service.create(createTaskDto, userId);
 
       expect(mockRepository.create).toHaveBeenCalledWith({
         ...createTaskDto,

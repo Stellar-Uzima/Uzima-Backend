@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
+import { OtpService } from '../otp/otp.service';
 import { Role } from './enums/role.enum';
 
 const mockRedisClient = {
@@ -34,6 +35,9 @@ describe('AuthService', () => {
   const mockOtpService = {
     generateOtp: jest.fn(),
     verifyOtp: jest.fn(),
+  };
+  const mockEventEmitter = {
+    emit: jest.fn(),
   };
 
   beforeEach(async () => {

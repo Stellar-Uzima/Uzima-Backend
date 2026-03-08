@@ -4,6 +4,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
+  ManyToOne,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
 
@@ -62,4 +64,16 @@ export class User {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
+
+  @Column({ nullable: true, unique: true })
+  referralCode?: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  referredBy?: User;
+
+  @OneToMany(
+    () => require('../referral/entities/referral-record.entity').ReferralRecord,
+    'referrer',
+  )
+  referralRecords?: any[];
 }
