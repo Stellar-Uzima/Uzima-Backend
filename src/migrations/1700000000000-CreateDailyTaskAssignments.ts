@@ -73,15 +73,8 @@ export class CreateDailyTaskAssignments1700000000000
       }),
     );
 
-    await queryRunner.createForeignKey(
-      'daily_task_assignment_tasks',
-      new TableForeignKey({
-        columnNames: ['task_id'],
-        referencedTableName: 'health_tasks',
-        referencedColumnNames: ['id'],
-        onDelete: 'CASCADE',
-      }),
-    );
+    // Note: Foreign key to health_tasks table will be added in a later migration
+    // when the health_tasks table is created
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
