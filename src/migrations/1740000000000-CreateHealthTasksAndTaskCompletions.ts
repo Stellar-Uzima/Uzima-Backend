@@ -21,22 +21,20 @@ export class CreateHealthTasksAndTaskCompletions1740000000000
         AS ENUM('pending', 'approved', 'rejected')
     `);
 
-    // task_completions table with FKs to users and health_tasks
+    // Add missing columns to existing task_completions table
     await queryRunner.query(`
-      CREATE TABLE "task_completions" (
-        "id"          uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "proofUrl"    character varying,
-        "status"      "public"."task_completions_status_enum" NOT NULL DEFAULT 'pending',
-        "xlmRewarded" numeric(10,2),
-        "completedAt" TIMESTAMP NOT NULL DEFAULT now(),
-        "userId"      uuid,
-        "taskId"      integer,
-        CONSTRAINT "PK_task_completions" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_task_completions_user"
-          FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL,
-        CONSTRAINT "FK_task_completions_task"
-          FOREIGN KEY ("taskId") REFERENCES "health_tasks"("id") ON DELETE SET NULL
-      )
+      ALTER TABLE "task_completions"
+      ADD COLUMN IF NOT EXISTS "proofUrl" character varying,
+      ADD COLUMN IF NOT EXISTS "status" "public"."task_completions_status_enum" NOT NULL DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS "xlmRewarded" numeric(10,2),
+      ADD COLUMN IF NOT EXISTS "taskId" integer
+    `);
+
+    // Add foreign key constraint to health_tasks
+    await queryRunner.query(`
+      ALTER TABLE "task_completions"
+      ADD CONSTRAINT "FK_task_completions_task"
+        FOREIGN KEY ("taskId") REFERENCES "health_tasks"("id") ON DELETE SET NULL
     `);
   }
 
