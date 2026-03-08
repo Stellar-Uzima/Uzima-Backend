@@ -8,6 +8,8 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
+
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
