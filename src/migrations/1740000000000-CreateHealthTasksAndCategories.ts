@@ -72,6 +72,7 @@ export class CreateHealthTasksAndCategories1740000000000
           {
             name: 'createdBy',
             type: 'uuid',
+            isNullable: true,
           },
           {
             name: 'createdAt',
