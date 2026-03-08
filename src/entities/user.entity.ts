@@ -8,8 +8,6 @@ import {
   ManyToOne,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
-
-@Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -80,9 +78,6 @@ export class User {
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
 
-  @OneToMany(
-    () => require('../referral/entities/referral-record.entity').ReferralRecord,
-    'referrer',
-  )
+  @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];
 }
