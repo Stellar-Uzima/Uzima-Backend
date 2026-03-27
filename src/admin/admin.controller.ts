@@ -15,12 +15,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
+import { TasksScheduler } from '../tasks/tasks.scheduler';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly tasksScheduler: TasksScheduler,
+  ) {}
 
   @Post()
   create(@Body() createAdminDto: CreateAdminDto) {
@@ -45,5 +49,15 @@ export class AdminController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.adminService.remove(+id);
+  }
+
+  @Post('tasks/assign-daily')
+  async assignDailyTasks() {
+    const result = await this.tasksScheduler.assignDailyTasksManually();
+    return {
+      message: 'Daily task assignment completed',
+      processed: result.processed,
+      errors: result.errors,
+    };
   }
 }
