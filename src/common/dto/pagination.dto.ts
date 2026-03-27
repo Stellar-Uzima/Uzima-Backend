@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { IsInt, Min, Max, IsOptional } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -8,6 +8,10 @@ export class PaginationDto {
     minimum: 1,
     default: 1,
     example: 1,
+  })
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return 1;
+    return Number(value);
   })
   @Type(() => Number)
   @IsInt()
@@ -21,6 +25,10 @@ export class PaginationDto {
     maximum: 100,
     default: 20,
     example: 20,
+  })
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return 20;
+    return Number(value);
   })
   @Type(() => Number)
   @IsInt()
