@@ -27,7 +27,46 @@ export class CategoryService {
    * Cached in Redis under "task_categories" for 1 hour.
    * Returns [] if none exist, never throws for an empty result.
    */
-  async findAll(): Promise<CategoryResponseDto[]> {
+  async findAll(
+    search?: string,
+    page = 1,
+    limit = 0,
+  ): Promise<CategoryResponseDto[]> {
+    const normalizedSearch = search?.trim();
+    const shouldFilter = !!normalizedSearch;
+    const shouldPaginate = page > 0 && limit > 0;
+
+    if (shouldFilter || shouldPaginate) {
+      const query = this.categoryRepository
+        .createQueryBuilder('category')
+        .select(['category.id', 'category.name', 'category.nameTranslations', 'category.icon', 'category.color'])
+        .where('category.isActive = true');
+
+      if (shouldFilter) {
+        const term = `%${normalizedSearch}%`;
+        query.andWhere(
+          '(category.name ILIKE :term OR category.nameTranslations::text ILIKE :term)',
+          { term },
+        );
+      }
+
+      query.orderBy('category.name', 'ASC');
+
+      if (shouldPaginate) {
+        query.skip((page - 1) * limit).take(limit);
+      }
+
+      const rows = await query.getMany();
+
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        nameTranslations: r.nameTranslations,
+        icon: r.icon,
+        color: r.color,
+      }));
+    }
+
     // 1. Try cache
     try {
       const cached = await this.redis.get(CACHE_KEY);

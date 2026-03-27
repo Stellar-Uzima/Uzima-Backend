@@ -24,6 +24,8 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { HealthTask } from './entities/health-task.entity';
@@ -38,7 +40,21 @@ export class TasksController {
   @Roles(Role.ADMIN, Role.HEALER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new health task (ADMIN or HEALER only)' })
+  @ApiBody({
+    type: CreateTaskDto,
+    description: 'Payload for creating a new task',
+    schema: {
+      example: {
+        title: 'Walk 10,000 steps',
+        description: 'Keep your heart healthy by walking daily',
+        categoryId: 2,
+        xlmReward: 1.0,
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'Task created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   create(@Body() createTaskDto: CreateTaskDto, @Request() req) {
     return this.tasksService.create(createTaskDto, req.user.userId);
@@ -46,10 +62,13 @@ export class TasksController {
 
   @Get()
   @ApiOperation({ summary: 'Get all active health tasks (public)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns paginated list of active tasks',
-  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page for pagination', example: 20 })
+  @ApiQuery({ name: 'categoryId', required: false, type: Number, description: 'Filter tasks by category ID', example: 2 })
+  @ApiResponse({ status: 200, description: 'Returns paginated list of active tasks' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   findAll(
     @Query() listTasksDto: ListTasksDto,
   ): Promise<PaginatedResponseDto<HealthTask>> {
@@ -60,6 +79,9 @@ export class TasksController {
   @ApiOperation({ summary: 'Get a specific health task by ID (public)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Returns the task' })
+  @ApiResponse({ status: 400, description: 'Invalid ID format' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   findOne(@Param('id') id: string) {
     return this.tasksService.findOne(id);
@@ -70,8 +92,23 @@ export class TasksController {
   @Roles(Role.ADMIN, Role.HEALER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a health task (owner or ADMIN)' })
+  @ApiBody({
+    type: UpdateTaskDto,
+    description: 'Payload to update the task',
+    schema: {
+      example: {
+        title: 'Updated walk challenge',
+        description: 'Updated description of the task',
+        categoryId: 1,
+        xlmReward: 1.5,
+        status: 'ACTIVE',
+      },
+    },
+  })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   update(
@@ -94,6 +131,8 @@ export class TasksController {
   @ApiOperation({ summary: 'Soft delete a health task (ADMIN only)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task archived successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid ID format' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   async remove(@Param('id') id: string) {
