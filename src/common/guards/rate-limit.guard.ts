@@ -18,7 +18,12 @@ export class RateLimitGuard extends ThrottlerGuard {
     throttlerLimitDetail: ThrottlerLimitDetail,
   ): Promise<void> {
     const response = context.switchToHttp().getResponse();
+    
+    // Set rate limit headers
+    response.set('X-RateLimit-Limit', throttlerLimitDetail.limit.toString());
+    response.set('X-RateLimit-Remaining', '0');
     response.set('Retry-After', throttlerLimitDetail.ttl.toString());
+    
     throw new HttpException(
       {
         statusCode: HttpStatus.TOO_MANY_REQUESTS,
