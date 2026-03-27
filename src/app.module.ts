@@ -7,6 +7,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
 import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './queue/queue.module';
 import { AuthModule } from './auth/auth.module';
@@ -68,6 +69,7 @@ import { StorageModule } from './storage/storage.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SanitizeMiddleware).forRoutes('*');
     consumer.apply(LoggingMiddleware).forRoutes('*');
   }
 }
