@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
@@ -38,18 +39,48 @@ export class CategoryController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'List all task categories',
+    summary: 'List task categories',
     description:
-      'Public endpoint. Returns all task categories for filter dropdowns. ' +
-      'Cached in Redis for 1 hour. Returns [] if none exist.',
+      'Public endpoint. Returns task categories for filter dropdowns. ' +
+      'Cached in Redis for 1 hour when no search or pagination is provided. Returns [] if no matches.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Optional case-insensitive partial search against category name',
+    example: 'nutrition',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Optional page number for pagination (1-indexed)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Optional page size for pagination',
+    example: 20,
   })
   @ApiResponse({
     status: 200,
     description: 'Array of task categories (may be empty)',
     type: [CategoryResponseDto],
   })
-  findAll(): Promise<CategoryResponseDto[]> {
-    return this.categoryService.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<CategoryResponseDto[]> {
+    const parsedPage = page ? Number(page) : 1;
+    const parsedLimit = limit ? Number(limit) : 0;
+
+    const resolvedPage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const resolvedLimit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
+    return this.categoryService.findAll(search, resolvedPage, resolvedLimit);
   }
 
   /**
