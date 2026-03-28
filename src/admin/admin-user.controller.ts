@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
   Patch,
   Body,
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ListUsersDto } from './dto/list-users.dto';
+import { CreateAdminDto } from './dto/create-admin.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { AdminUserResponseDto } from './dto/user-response.dto';
 import { AdminUsersService } from './services/admin-users.service';
@@ -30,6 +32,19 @@ import { Role } from 'src/auth/enums/role.enum';
 @Roles(Role.ADMIN)
 export class AdminUsersController {
   constructor(private adminUsersService: AdminUsersService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new admin user' })
+  @ApiResponse({
+    status: 201,
+    description: 'Admin user created successfully',
+    type: AdminUserResponseDto,
+  })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  async createAdmin(@Req() req, @Body() dto: CreateAdminDto) {
+    const adminId = req.user.sub;
+    return this.adminUsersService.createAdminUser(adminId, dto);
+  }
 
   @Get()
   @ApiOperation({ summary: 'List all users with filters and pagination' })
@@ -78,5 +93,18 @@ export class AdminUsersController {
   async suspend(@Req() req, @Param('id') id: string) {
     const adminId = req.user.sub;
     return this.adminUsersService.suspendUser(adminId, id);
+  }
+
+  @Patch(':id/reactivate')
+  @ApiOperation({ summary: 'Reactivate user account' })
+  @ApiResponse({
+    status: 200,
+    description: 'User reactivated successfully',
+    type: AdminUserResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'Cannot reactivate own account' })
+  async reactivate(@Req() req, @Param('id') id: string) {
+    const adminId = req.user.sub;
+    return this.adminUsersService.reactivateUser(adminId, id);
   }
 }
