@@ -41,6 +41,7 @@ export class TasksService {
     const query = this.healthTaskRepository
       .createQueryBuilder('task')
       .where('task.status = :status', { status: TaskStatus.ACTIVE })
+      .andWhere('task.deletedAt IS NULL')
       .leftJoinAndSelect('task.creator', 'creator')
       .orderBy('task.createdAt', 'DESC')
       .skip((page - 1) * limit)
@@ -91,10 +92,11 @@ export class TasksService {
   }
 
   async remove(id: string): Promise<void> {
-    const task = await this.findOne(id);
+    await this.findOne(id);
+    await this.healthTaskRepository.softDelete(id);
+  }
 
-    // Soft delete by setting status to ARCHIVED
-    task.status = TaskStatus.ARCHIVED;
-    await this.healthTaskRepository.save(task);
+  async restore(id: string): Promise<void> {
+    await this.healthTaskRepository.restore(id);
   }
 }

@@ -32,6 +32,7 @@ export type QueueName =
   | typeof REWARD_QUEUE
   | typeof NOTIFICATION_QUEUE
   | typeof TASK_VERIFICATION_QUEUE
+  | typeof PROOF_VERIFICATION_QUEUE
   | typeof USER_ACTIVITY_QUEUE
   | typeof DATA_PROCESSING_QUEUE;
 

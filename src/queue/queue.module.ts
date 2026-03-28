@@ -6,6 +6,7 @@ import {
   REWARD_QUEUE,
   NOTIFICATION_QUEUE,
   TASK_VERIFICATION_QUEUE,
+  PROOF_VERIFICATION_QUEUE,
   USER_ACTIVITY_QUEUE,
   DATA_PROCESSING_QUEUE,
 } from './queue.constants';
@@ -58,6 +59,13 @@ import {
       name: TASK_VERIFICATION_QUEUE,
       limiter: {
         max: 30,
+        duration: 1000,
+      },
+    }),
+    BullModule.registerQueue({
+      name: PROOF_VERIFICATION_QUEUE,
+      limiter: {
+        max: 50,
         duration: 1000,
       },
     }),

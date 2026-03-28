@@ -10,10 +10,10 @@ export interface RedisConfig {
 
 export const redisConfig = (configService: ConfigService): RedisConfig => ({
   host: configService.get<string>('REDIS_HOST', 'localhost'),
-  port: configService.get<number>('REDIS_PORT', 6379),
+  port: parseInt(configService.get<string>('REDIS_PORT', '6379'), 10),
   password: configService.get<string>('REDIS_PASSWORD'),
-  db: configService.get<number>('REDIS_DB', 0),
-  tls: configService.get<boolean>('REDIS_TLS', false),
+  db: parseInt(configService.get<string>('REDIS_DB', '0'), 10),
+  tls: configService.get<string>('REDIS_TLS') === 'true',
 });
 
 export const getRedisUrl = (config: RedisConfig): string => {
