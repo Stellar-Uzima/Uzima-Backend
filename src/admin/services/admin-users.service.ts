@@ -121,4 +121,21 @@ export class AdminUsersService {
     await this.auditService.logAction(adminId, `Suspended user ${userId}`);
     return updatedUser;
   }
+
+  async deleteUser(adminId: string, userId: string) {
+    if (adminId === userId)
+      throw new ForbiddenException('Admins cannot delete their own account');
+
+    const user = await this.getUserById(userId);
+    await this.usersRepository.remove(user);
+
+    // Invalidate refresh tokens in Redis
+    await this.redisClient.del(`refresh:${userId}`);
+
+    await this.auditService.logAction(
+      adminId,
+      `Deleted user ${userId} (${user.email})`,
+    );
+    return { message: 'User deleted successfully' };
+  }
 }

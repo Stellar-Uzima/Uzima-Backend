@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Patch,
+  Delete,
   Body,
   Query,
   UseGuards,
@@ -174,5 +175,37 @@ export class AdminUsersController {
   async suspend(@Req() req, @Param('id') id: string) {
     const adminId = req.user.sub;
     return this.adminUsersService.suspendUser(adminId, id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete user account',
+    description: 'Permanently deletes a user account. Cannot delete own account. Requires ADMIN role.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'User ID (UUID)',
+    type: 'string',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT token missing or invalid',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - requires ADMIN role, or cannot delete own account',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async delete(@Req() req, @Param('id') id: string) {
+    const adminId = req.user.sub;
+    return this.adminUsersService.deleteUser(adminId, id);
   }
 }
