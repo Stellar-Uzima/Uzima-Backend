@@ -23,6 +23,7 @@ import {
   VerifyEmailDto,
   ResendEmailVerificationDto,
 } from '../dto/verify-email.dto';
+import { AuditService } from '../../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,7 @@ export class AuthService {
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
     private otpService: OtpService,
+    private auditService: AuditService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -222,6 +224,12 @@ export class AuthService {
       email: user.email,
     });
 
+    // Audit log for email verification
+    await this.auditService.logAction(
+      user.id,
+      `Email verified: ${user.email}`,
+    );
+
     return { message: 'Email verified successfully' };
   }
 
@@ -311,6 +319,12 @@ export class AuthService {
 
     await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
+
+    // Audit log for password reset
+    await this.auditService.logAction(
+      user.id,
+      `Password reset completed for: ${user.email}`,
+    );
 
     return { message: 'Password reset successful' };
   }
