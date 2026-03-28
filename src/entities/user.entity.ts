@@ -6,15 +6,17 @@ import {
   UpdateDateColumn,
   OneToMany,
   ManyToOne,
+  Unique,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
 
 @Entity('users')
+@Unique(['email'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100, unique: true, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   email: string;
 
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })

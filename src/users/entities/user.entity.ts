@@ -8,16 +8,18 @@ import {
   UpdateDateColumn,
   OneToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Role } from '../enums/role.enum';
 import type { ReferralRecord } from '../../referral/entities/referral-record.entity';
 
 @Entity('users')
+@Unique(['email'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column()
   email: string;
 
   @Column()

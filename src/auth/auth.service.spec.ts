@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
 import { OtpService } from '../otp/otp.service';
@@ -59,6 +59,58 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('register', () => {
+    it('should return 409-style conflict when email already exists', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'existing-id',
+        email: 'user@example.com',
+      });
+
+      await expect(
+        service.register({
+          email: 'USER@EXAMPLE.COM',
+          password: 'password12',
+          name: 'Test User',
+          country: 'US',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      await expect(
+        service.register({
+          email: 'USER@EXAMPLE.COM',
+          password: 'password12',
+          name: 'Test User',
+          country: 'US',
+        }),
+      ).rejects.toThrow('An account with this email already exists');
+
+      expect(mockUsersService.create).not.toHaveBeenCalled();
+    });
+
+    it('should create user and return token when email is new', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue({
+        id: 'new-id',
+        email: 'new@example.com',
+      });
+      mockJwtService.sign.mockReturnValue('signed-jwt');
+
+      const result = await service.register({
+        email: 'new@example.com',
+        password: 'password12',
+        name: 'New User',
+        country: 'KE',
+      });
+
+      expect(mockUsersService.create).toHaveBeenCalled();
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'user.registered',
+        expect.objectContaining({ userId: 'new-id' }),
+      );
+      expect(result).toEqual({ token: 'signed-jwt' });
+    });
   });
 
   describe('refresh', () => {
