@@ -28,6 +28,12 @@ describe('AuthService', () => {
     findByEmail: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
+    // usersRepository is accessed directly in AuthService.verifyEmail
+    usersRepository: {
+      findOne: jest.fn(),
+    },
+    // save is called to persist the updated user
+    save: jest.fn(),
   };
   const mockJwtService = {
     sign: jest.fn(),
@@ -65,11 +71,11 @@ describe('AuthService', () => {
     const userId = 'user-id';
     const tokenId = 'token-id';
     const refreshToken = 'valid-refresh-token';
-    const user = { 
-      id: userId, 
-      email: 'test@example.com', 
+    const user = {
+      id: userId,
+      email: 'test@example.com',
       role: Role.USER,
-      phoneNumber: '+1234567890'
+      phoneNumber: '+1234567890',
     };
 
     beforeEach(() => {
@@ -77,24 +83,29 @@ describe('AuthService', () => {
     });
 
     it('should successfully refresh tokens with valid refresh token', async () => {
-      const payload = { sub: userId, tokenId, role: Role.USER, email: user.email };
+      const payload = {
+        sub: userId,
+        tokenId,
+        role: Role.USER,
+        email: user.email,
+      };
       const newAccessToken = 'new-access-token';
       const newRefreshToken = 'new-refresh-token';
 
       // Mock JWT verification
       mockJwtService.verify.mockReturnValue(payload);
-      
+
       // Mock Redis - token exists
       mockRedisClient.get.mockResolvedValue(refreshToken);
-      
+
       // Mock user lookup
       mockUsersService.findById.mockResolvedValue(user);
-      
+
       // Mock JWT signing for new tokens
       mockJwtService.sign
         .mockReturnValueOnce(newAccessToken)
         .mockReturnValueOnce(newRefreshToken);
-      
+
       // Mock Redis delete and set
       mockRedisClient.del.mockResolvedValue(1);
       mockRedisClient.set.mockResolvedValue('OK');
@@ -103,23 +114,23 @@ describe('AuthService', () => {
 
       // Verify JWT was verified
       expect(mockJwtService.verify).toHaveBeenCalledWith(refreshToken);
-      
+
       // Verify old token was retrieved from Redis
       expect(mockRedisClient.get).toHaveBeenCalledWith(
         `refresh:${userId}:${tokenId}`,
       );
-      
+
       // Verify old token was invalidated (deleted)
       expect(mockRedisClient.del).toHaveBeenCalledWith(
         `refresh:${userId}:${tokenId}`,
       );
-      
+
       // Verify user was looked up
       expect(mockUsersService.findById).toHaveBeenCalledWith(userId);
-      
+
       // Verify new tokens were generated
       expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
-      
+
       // Verify result contains new tokens
       expect(result).toEqual({
         accessToken: newAccessToken,
@@ -128,7 +139,12 @@ describe('AuthService', () => {
     });
 
     it('should verify the payload content of the new access token', async () => {
-      const payload = { sub: userId, tokenId, role: Role.USER, email: user.email };
+      const payload = {
+        sub: userId,
+        tokenId,
+        role: Role.USER,
+        email: user.email,
+      };
       const newAccessToken = 'new-access-token';
       const newRefreshToken = 'new-refresh-token';
 
@@ -145,14 +161,14 @@ describe('AuthService', () => {
 
       // Verify the new access token contains correct payload
       expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { 
-          sub: userId, 
-          email: user.email, 
-          role: Role.USER 
+        {
+          sub: userId,
+          email: user.email,
+          role: Role.USER,
         },
-        { expiresIn: '15m' }
+        { expiresIn: '15m' },
       );
-      
+
       // Verify the new refresh token contains tokenId for rotation
       expect(mockJwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -161,7 +177,7 @@ describe('AuthService', () => {
           role: Role.USER,
           tokenId: expect.any(String),
         }),
-        { expiresIn: '7d' }
+        { expiresIn: '7d' },
       );
     });
 
@@ -184,7 +200,7 @@ describe('AuthService', () => {
       // Verify the order: get token, then delete it (rotation)
       const callOrder = mockRedisClient.get.mock.invocationCallOrder[0];
       const deleteOrder = mockRedisClient.del.mock.invocationCallOrder[0];
-      
+
       expect(deleteOrder).toBeGreaterThan(callOrder);
       expect(mockRedisClient.del).toHaveBeenCalledWith(
         `refresh:${userId}:${tokenId}`,
@@ -280,7 +296,7 @@ describe('AuthService', () => {
           reason: 'Invalid or reused refresh token',
         },
       );
-      
+
       // Verify all user sessions were cleared
       expect(mockRedisClient.keys).toHaveBeenCalledWith(`refresh:${userId}:*`);
       expect(mockRedisClient.del).toHaveBeenCalledWith([
@@ -322,6 +338,56 @@ describe('AuthService', () => {
       });
 
       await expect(service.logout('invalid')).resolves.not.toThrow();
+    });
+  });
+
+  describe('verifyEmail', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should verify email successfully', async () => {
+      const token = 'verify-token-123';
+      const user = {
+        id: 'user-id-verify',
+        email: 'verify@example.com',
+        emailVerificationToken: token,
+        emailVerificationExpiry: new Date(Date.now() + 10000),
+        isVerified: false,
+      } as any;
+
+      // Mock repository lookup and save
+      mockUsersService.usersRepository.findOne.mockResolvedValue(user);
+
+      let savedUser: any = null;
+      mockUsersService.save.mockImplementation(async (u: any) => {
+        savedUser = u;
+        return u;
+      });
+
+      const result = await service.verifyEmail({ token } as any);
+
+      // Ensure findOne was called for the verification token
+      expect(mockUsersService.usersRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            emailVerificationToken: token,
+          }),
+        }),
+      );
+
+      // Service should return success message
+      expect(result).toEqual({ message: 'Email verified successfully' });
+
+      // Ensure save was called and the user was marked verified and tokens cleared
+      expect(mockUsersService.save).toHaveBeenCalled();
+      expect(savedUser).toEqual(
+        expect.objectContaining({
+          isVerified: true,
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
+        }),
+      );
     });
   });
 });
