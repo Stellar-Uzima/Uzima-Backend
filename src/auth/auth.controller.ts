@@ -42,6 +42,10 @@ export class AuthController {
   @ApiBody({ type: RegisterDto })
   @ApiResponse({ status: 201, description: 'User successfully registered' })
   @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({
+    status: 409,
+    description: 'An account with this email already exists',
+  })
   @ApiResponse({ status: 429, description: 'Too many registration attempts' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);

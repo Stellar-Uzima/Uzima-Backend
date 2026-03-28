@@ -15,7 +15,11 @@ export class UsersService {
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { email } });
+    const normalized = email.trim().toLowerCase();
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = :normalized', { normalized })
+      .getOne();
   }
 
   async findById(id: string): Promise<User> {
@@ -44,8 +48,13 @@ export class UsersService {
     const firstName = spaceIndex > 0 ? fullName.slice(0, spaceIndex) : fullName;
     const lastName = spaceIndex > 0 ? fullName.slice(spaceIndex + 1) : fullName;
 
+    const email =
+      userData.email != null && userData.email !== ''
+        ? userData.email.trim().toLowerCase()
+        : userData.email;
+
     const user = this.usersRepository.create({
-      email: userData.email,
+      email,
       phoneNumber: userData.phoneNumber,
       firstName,
       lastName,
