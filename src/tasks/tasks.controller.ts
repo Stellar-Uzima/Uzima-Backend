@@ -130,13 +130,27 @@ export class TasksController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Soft delete a health task (ADMIN only)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
-  @ApiResponse({ status: 200, description: 'Task archived successfully' })
+  @ApiResponse({ status: 200, description: 'Task deleted successfully' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   async remove(@Param('id') id: string) {
     await this.tasksService.remove(id);
-    return { message: 'Task archived successfully' };
+    return { message: 'Task deleted successfully' };
+  }
+
+  @Post(':id/restore')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Restore a soft-deleted health task (ADMIN only)' })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiResponse({ status: 200, description: 'Task restored successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  async restore(@Param('id') id: string) {
+    await this.tasksService.restore(id);
+    return { message: 'Task restored successfully' };
   }
 }

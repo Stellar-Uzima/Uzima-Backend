@@ -17,6 +17,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';

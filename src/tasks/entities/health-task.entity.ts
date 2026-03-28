@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 
 export enum TaskCategory {
@@ -45,4 +46,7 @@ export class HealthTask {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 }
