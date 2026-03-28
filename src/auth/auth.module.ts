@@ -12,6 +12,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
         signOptions: { expiresIn: '1h' },
       }),
     }),
+    AuditModule,
   ],
   controllers: [AuthController],
   providers: [
