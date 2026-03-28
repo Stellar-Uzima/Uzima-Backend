@@ -21,6 +21,7 @@ import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserStatsDto } from './dto/user-stats.dto';
+import { ErrorResponseDto } from './dto/error-response.dto';
 
 // JWT Auth Guard - will be implemented when JWT is added
 // For now, we'll use a mock guard interface
@@ -69,12 +70,29 @@ export class UsersController {
     type: UserResponseDto,
   })
   @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid request parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User does not have required permissions',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Unprocessable Entity - Validation failed',
+    type: ErrorResponseDto,
   })
   async getProfile(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
     return this.usersService.getProfile(req.user.userId);
@@ -93,8 +111,24 @@ export class UsersController {
     type: UserStatsDto,
   })
   @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid request parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User does not have required permissions',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Unprocessable Entity - Validation failed',
+    type: ErrorResponseDto,
   })
   async getStats(@Req() req: AuthenticatedRequest): Promise<UserStatsDto> {
     return this.usersService.getStats(req.user.userId);
@@ -121,15 +155,28 @@ export class UsersController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Invalid input data',
+    description: 'Bad Request - Invalid input data',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User does not have required permissions',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Unprocessable Entity - Validation failed',
+    type: ErrorResponseDto,
   })
   async updateProfile(
     @Req() req: AuthenticatedRequest,
@@ -150,12 +197,29 @@ export class UsersController {
     description: 'User account deleted successfully',
   })
   @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid request parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - User does not have required permissions',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'Unprocessable Entity - Validation failed',
+    type: ErrorResponseDto,
   })
   async deleteProfile(@Req() req: AuthenticatedRequest): Promise<void> {
     await this.usersService.softDelete(req.user.userId);
