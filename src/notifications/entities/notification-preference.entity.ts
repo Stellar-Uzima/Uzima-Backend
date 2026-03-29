@@ -30,6 +30,15 @@ export class NotificationPreference {
   @Column({ default: true })
   streakAlerts: boolean;
 
+  @Column({ default: true })
+  emailNotifications: boolean;
+
+  @Column({ default: true })
+  smsNotifications: boolean;
+
+  @Column({ default: true })
+  pushNotifications: boolean;
+
   @Column({ nullable: true })
   quietHoursStart: string; // 'HH:mm' format
 

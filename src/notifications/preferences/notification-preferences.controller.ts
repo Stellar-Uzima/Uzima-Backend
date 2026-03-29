@@ -53,7 +53,7 @@ export class NotificationPreferencesController {
     private readonly notificationPreferencesService: NotificationPreferencesService,
   ) {}
 
-  @Get('users/me/notification-preferences')
+  @Get('users/notification-preferences')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get notification preferences',
@@ -75,7 +75,7 @@ export class NotificationPreferencesController {
     return this.notificationPreferencesService.getPreferences(req.user.userId);
   }
 
-  @Patch('users/me/notification-preferences')
+  @Patch('users/notification-preferences')
   @HttpCode(HttpStatus.OK)
   @UsePipes(
     new ValidationPipe({

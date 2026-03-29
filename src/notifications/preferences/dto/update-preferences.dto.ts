@@ -116,6 +116,33 @@ export class UpdatePreferencesDto {
   streakAlerts?: boolean;
 
   @ApiProperty({
+    description: 'Enable or disable email notifications',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  emailNotifications?: boolean;
+
+  @ApiProperty({
+    description: 'Enable or disable SMS notifications',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  smsNotifications?: boolean;
+
+  @ApiProperty({
+    description: 'Enable or disable push notifications',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  pushNotifications?: boolean;
+
+  @ApiProperty({
     description: 'Quiet hours start time (HH:mm format)',
     example: '22:00',
     required: false,
