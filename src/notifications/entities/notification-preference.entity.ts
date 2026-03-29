@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToOne,
   JoinColumn,
 } from 'typeorm';
@@ -53,4 +54,7 @@ export class NotificationPreference {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }
