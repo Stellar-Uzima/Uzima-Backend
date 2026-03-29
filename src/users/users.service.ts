@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { createClient, RedisClientType } from 'redis';
 import { User } from '../entities/user.entity';
@@ -25,6 +25,7 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     public readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   onModuleInit(): void {
