@@ -1,9 +1,16 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import StellarSdk from 'stellar-sdk';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../rewards/enums/reward-status.enum';
 import { StellarService } from '../../stellar/stellar.service';
@@ -34,19 +41,22 @@ export class WalletService {
     }
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user || !user.walletAddress) {
+    if (!user) {
+      return { walletLinked: false } as any;
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
       return { walletLinked: false } as any;
     }
 
     // Fetch live balance
     let liveBalance = 'unavailable';
     try {
-      liveBalance = await this.stellarService.getAccountBalance(
-        user.walletAddress,
-      );
+      liveBalance = await this.stellarService.getAccountBalance(walletAddress);
     } catch (error) {
       this.logger.warn(
-        `Failed to fetch balance for ${user.walletAddress}: ${error.message}`,
+        `Failed to fetch balance for ${walletAddress}: ${error.message}`,
       );
     }
 
@@ -79,7 +89,7 @@ export class WalletService {
         : '0.00';
 
     const summary: WalletSummaryDto = {
-      walletAddress: user.walletAddress,
+      walletAddress,
       liveBalance,
       totalEarnedFromTasks: totalEarnedFromTasks?.total || '0.00',
       totalSpentOnConsultations,
@@ -99,5 +109,53 @@ export class WalletService {
   async invalidateCache(payload: { userId: string }) {
     const cacheKey = `wallet_summary:${payload.userId}`;
     await this.cacheManager.del(cacheKey);
+  }
+
+  /**
+   * Links a Stellar address to the user account.
+   * Validates format, existence on network, and uniqueness.
+   */
+  async linkWallet(userId: string, address: string): Promise<User> {
+    // 1. Validate format
+    if (!StellarSdk.StrKey.isValidEd25519PublicKey(address)) {
+      throw new BadRequestException('Invalid Stellar address format');
+    }
+
+    // 2. Verify account exists on Stellar network
+    const exists = await this.stellarService.accountExists(address);
+    if (!exists) {
+      throw new BadRequestException(
+        'Stellar account not found on the network. Please ensure it is funded.',
+      );
+    }
+
+    // 3. Check for existing link
+    const alreadyLinked = await this.userRepo.findOne({
+      where: { stellarWalletAddress: address },
+    });
+
+    if (alreadyLinked) {
+      if (alreadyLinked.id === userId) {
+        return alreadyLinked; // Already linked to this user
+      }
+      throw new ConflictException(
+        'This Stellar address is already linked to another account',
+      );
+    }
+
+    // 4. Update user
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    user.stellarWalletAddress = address;
+    const updatedUser = await this.userRepo.save(user);
+
+    // 5. Invalidate cache
+    await this.invalidateCache({ userId });
+
+    this.logger.log(`Wallet linked: ${address} for user ${userId}`);
+    return updatedUser;
   }
 }
