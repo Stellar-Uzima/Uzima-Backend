@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ShutdownService } from './common/shutdown/shutdown.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -65,7 +66,7 @@ import { StorageModule } from './storage/storage.module';
     StorageModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ShutdownService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

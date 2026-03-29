@@ -7,6 +7,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable Nest's shutdown hooks so OnApplicationShutdown is triggered
+  app.enableShutdownHooks();
+
   // Register global exception filter
   app.useGlobalFilters(new HttpExceptionFilter());
 
@@ -60,6 +63,36 @@ async function bootstrap() {
     );
   }
 
-  await app.listen(process.env.PORT ?? 3000);
+  const server = await app.listen(process.env.PORT ?? 3000);
+
+  // Handle SIGTERM for graceful shutdown with a 30s hard timeout
+  process.once('SIGTERM', async () => {
+    console.log('SIGTERM received: starting graceful shutdown');
+
+    // Stop accepting new connections if possible
+    try {
+      const httpServer = (app.getHttpServer && app.getHttpServer()) as any;
+      if (httpServer && typeof httpServer.close === 'function') {
+        httpServer.close(() => console.log('Stopped accepting new connections'));
+      }
+    } catch (e) {
+      console.warn('Error while closing http server:', (e as Error).message);
+    }
+
+    const forceTimeout = setTimeout(() => {
+      console.error('Graceful shutdown timed out, forcing exit');
+      process.exit(1);
+    }, 30000);
+
+    try {
+      await app.close();
+      clearTimeout(forceTimeout);
+      console.log('Graceful shutdown complete');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during graceful shutdown:', (err as Error).message);
+      process.exit(1);
+    }
+  });
 }
 bootstrap();
