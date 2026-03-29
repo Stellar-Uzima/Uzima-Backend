@@ -30,7 +30,7 @@ import { HealthModule } from './health/health.module';
     // ── Infrastructure (must be first) ───────────────────
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.test', '.env'],
     }),
     RedisModule.forRootAsync({
       inject: [ConfigService],

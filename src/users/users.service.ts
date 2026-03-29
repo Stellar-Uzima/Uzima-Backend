@@ -165,39 +165,4 @@ export class UsersService implements OnModuleInit {
       rank: 0,
     };
   }
-
-
-  // src/users/users.service.ts
-
-async deleteAccount(userId: string): Promise<void> {
-  const queryRunner = this.dataSource.createQueryRunner();
-
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
-
-  try {
-    // 1. Soft-delete Task Completions
-    await queryRunner.manager.softDelete(TaskCompletion, { userId });
-
-    // 2. Soft-delete Notifications
-    await queryRunner.manager.softDelete(Notification, { userId });
-
-    // 3. Soft-delete Health Profile
-    await queryRunner.manager.softDelete(HealthProfile, { userId });
-
-    // 4. Soft-delete the User itself
-    await queryRunner.manager.softDelete(User, userId);
-
-    // Commit the transaction
-    await queryRunner.commitTransaction();
-  } catch (err) {
-    // Rollback if any step fails
-    await queryRunner.rollbackTransaction();
-    throw err;
-  } finally {
-    // Release the query runner
-    await queryRunner.release();
-  }
-}
-
 }
