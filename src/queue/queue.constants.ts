@@ -11,6 +11,9 @@ export const PROOF_VERIFICATION_QUEUE = 'proof-verification-queue' as const;
 export const USER_ACTIVITY_QUEUE = 'user-activity-queue' as const;
 export const DATA_PROCESSING_QUEUE = 'data-processing-queue' as const;
 
+// Dead Letter Queue for failed reward jobs
+export const REWARD_DEAD_LETTER_QUEUE = 'reward-dead-letter-queue' as const;
+
 // Queue Job Types for Reward Queue
 export const REWARD_DISTRIBUTION_JOB = 'reward-distribution' as const;
 export const REWARD_CALCULATION_JOB = 'reward-calculation' as const;
@@ -34,7 +37,8 @@ export type QueueName =
   | typeof TASK_VERIFICATION_QUEUE
   | typeof PROOF_VERIFICATION_QUEUE
   | typeof USER_ACTIVITY_QUEUE
-  | typeof DATA_PROCESSING_QUEUE;
+  | typeof DATA_PROCESSING_QUEUE
+  | typeof REWARD_DEAD_LETTER_QUEUE;
 
 export type RewardJobType =
   | typeof REWARD_DISTRIBUTION_JOB
