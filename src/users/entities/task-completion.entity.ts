@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   Index,
@@ -30,4 +31,7 @@ export class TaskCompletion {
 
   @CreateDateColumn({ type: 'timestamp' })
   completedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

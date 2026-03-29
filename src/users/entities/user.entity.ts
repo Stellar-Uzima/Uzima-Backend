@@ -6,6 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToOne,
   JoinColumn,
   Unique,
@@ -82,4 +83,7 @@ export class User {
     'referrer',
   )
   referralRecords?: ReferralRecord[];
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

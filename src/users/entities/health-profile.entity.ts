@@ -4,6 +4,7 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  DeleteDateColumn,
   BeforeInsert,
   BeforeUpdate,
 } from 'typeorm';
@@ -42,6 +43,9 @@ export class HealthProfile {
 
   @Column({ default: 3 })
   dailyTaskTarget: number;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @BeforeInsert()
   @BeforeUpdate()
