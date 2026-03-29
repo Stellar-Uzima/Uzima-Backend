@@ -23,6 +23,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { TaskAssignmentModule } from './tasks/assignment/task-assignment.module';
 import { RewardModule } from './rewards/reward.module';
 import { StorageModule } from './storage/storage.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { StorageModule } from './storage/storage.module';
     TaskAssignmentModule,
     RewardModule,
     StorageModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService, ShutdownService],
