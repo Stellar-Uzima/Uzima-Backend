@@ -80,6 +80,18 @@ describe('StreaksService', () => {
       });
       expect(mockStreakRepo.save).toHaveBeenCalled();
     });
+
+    it('should not create a streak if user is not found', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+
+      await service.handleUserRegistered({
+        userId: 'nonexistent-user',
+        email: 'ghost@example.com',
+      });
+
+      expect(mockStreakRepo.create).not.toHaveBeenCalled();
+      expect(mockStreakRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('handleTaskCompleted', () => {
@@ -179,6 +191,92 @@ describe('StreaksService', () => {
       expect(mockStreak.longestStreak).toBe(5);
       expect(mockStreak.lastCompletedDate).toBe('2024-02-28');
       expect(mockStreakRepo.save).toHaveBeenCalledWith(mockStreak);
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing if streak record is not found', async () => {
+      mockStreakRepo.findOne.mockResolvedValue(null);
+
+      await service.handleTaskCompleted({
+        completionId: 'comp-5',
+        userId: 'user-missing',
+        taskId: 'task-1',
+        xlmAmount: 10,
+      });
+
+      expect(mockStreakRepo.save).not.toHaveBeenCalled();
+      expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('should not update longestStreak when reset streak is less than previous longest', async () => {
+      const mockStreak = {
+        user: { id: 'user-1' },
+        currentStreak: 3,
+        longestStreak: 10,
+        lastCompletedDate: '2024-01-01',
+      } as any;
+      mockStreakRepo.findOne.mockResolvedValue(mockStreak);
+
+      const date = new Date('2024-01-10T12:00:00Z');
+      jest.useFakeTimers().setSystemTime(date);
+
+      await service.handleTaskCompleted({
+        completionId: 'comp-6',
+        userId: 'user-1',
+        taskId: 'task-1',
+        xlmAmount: 10,
+      });
+
+      expect(mockStreak.currentStreak).toBe(1);
+      expect(mockStreak.longestStreak).toBe(10);
+    });
+
+    it('should emit milestone event at 14-day streak', async () => {
+      const mockStreak = {
+        user: { id: 'user-1' },
+        currentStreak: 13,
+        longestStreak: 13,
+        lastCompletedDate: '2024-03-13',
+      } as any;
+      mockStreakRepo.findOne.mockResolvedValue(mockStreak);
+
+      const date = new Date('2024-03-14T12:00:00Z');
+      jest.useFakeTimers().setSystemTime(date);
+
+      await service.handleTaskCompleted({
+        completionId: 'comp-7',
+        userId: 'user-1',
+        taskId: 'task-1',
+        xlmAmount: 10,
+      });
+
+      expect(mockStreak.currentStreak).toBe(14);
+      expect(eventEmitter.emit).toHaveBeenCalledWith('streak.milestone', {
+        userId: 'user-1',
+        milestoneDays: 14,
+      });
+    });
+
+    it('should not emit milestone event for non-milestone streak counts', async () => {
+      const mockStreak = {
+        user: { id: 'user-1' },
+        currentStreak: 4,
+        longestStreak: 4,
+        lastCompletedDate: '2024-03-04',
+      } as any;
+      mockStreakRepo.findOne.mockResolvedValue(mockStreak);
+
+      const date = new Date('2024-03-05T12:00:00Z');
+      jest.useFakeTimers().setSystemTime(date);
+
+      await service.handleTaskCompleted({
+        completionId: 'comp-8',
+        userId: 'user-1',
+        taskId: 'task-1',
+        xlmAmount: 10,
+      });
+
+      expect(mockStreak.currentStreak).toBe(5);
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
   });
