@@ -1,48 +1,61 @@
-import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
-import { HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
-import { InjectRedis } from '@nestjs-modules/ioredis';
-import Redis from 'ioredis';
+import { Controller, Get, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  HealthCheckError,
+  TypeOrmHealthIndicator,
+} from '@nestjs/terminus';
+import { RedisHealthIndicator } from './redis-health.indicator';
 
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(
-    private health: HealthCheckService,
-    private db: TypeOrmHealthIndicator,
-    @InjectRedis() private readonly redis: Redis,
+    private readonly db: TypeOrmHealthIndicator,
+    private readonly redis: RedisHealthIndicator,
   ) {}
 
   @Get()
   async check() {
-    let dbStatus = 'up';
-    let redisStatus = 'up';
+    const details: Record<string, unknown> = {};
+    let hasFailure = false;
 
     try {
-      await this.db.pingCheck('database');
-    } catch {
-      dbStatus = 'down';
+      Object.assign(details, await this.db.pingCheck('db'));
+    } catch (error) {
+      hasFailure = true;
+      details.db =
+        error instanceof HealthCheckError
+          ? error.causes.db
+          : {
+              status: 'down',
+            };
     }
 
     try {
-      await this.redis.ping();
-    } catch {
-      redisStatus = 'down';
+      Object.assign(details, await this.redis.isHealthy('redis'));
+    } catch (error) {
+      hasFailure = true;
+      details.redis =
+        error instanceof HealthCheckError
+          ? error.causes.redis
+          : {
+              status: 'down',
+            };
     }
 
-    if (dbStatus === 'down' || redisStatus === 'down') {
-      throw new HttpException(
-        {
-          status: 'error',
-          db: dbStatus,
-          redis: redisStatus,
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+    if (hasFailure) {
+      const payload = {
+        status: 'error',
+        ...details,
+      };
+
+      this.logger.error(`Health check failed: ${JSON.stringify(payload)}`);
+      throw new ServiceUnavailableException(payload);
     }
 
     return {
       status: 'ok',
-      db: dbStatus,
-      redis: redisStatus,
+      ...details,
     };
   }
 }
