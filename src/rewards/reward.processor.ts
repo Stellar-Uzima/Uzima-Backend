@@ -68,7 +68,8 @@ export class RewardProcessor {
         jobId: job.id?.toString(),
         attemptsMade: job.attemptsMade,
         jobType: REWARD_DISTRIBUTION_JOB,
-        jobData: job.data as any,
+       
+        jobData: job.data as unknown as Record<string, unknown>,
       });
 
       // Emit failure event for notification service

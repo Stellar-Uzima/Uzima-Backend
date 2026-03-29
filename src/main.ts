@@ -3,8 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { validateEnv } from './config/env.validation';
 
 async function bootstrap() {
+  // Fail fast: validate all required environment variables before app starts
+  validateEnv();
+
   const app = await NestFactory.create(AppModule);
 
   // Enable Nest's shutdown hooks so OnApplicationShutdown is triggered
