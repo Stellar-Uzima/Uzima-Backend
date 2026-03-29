@@ -1,10 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsValidCouponCode } from '../decorators/is-valid-coupon-code.decorator';
 
 export class ValidateCouponDto {
   @ApiProperty({ example: 'UZIMA1A2', description: 'Coupon code' })
   @IsString()
   @IsNotEmpty()
+  @IsValidCouponCode()
   code: string;
 
   @ApiProperty({
