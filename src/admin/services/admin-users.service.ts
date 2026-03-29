@@ -2,12 +2,15 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
+import * as bcrypt from 'bcrypt';
 import { User } from 'src/entities/user.entity';
 import { ListUsersDto } from '../dto/list-users.dto';
+import { CreateAdminDto } from '../dto/create-admin.dto';
 import { Role } from 'src/auth/enums/role.enum';
 import { AuditService } from 'src/audit/audit.service';
 
@@ -23,6 +26,34 @@ export class AdminUsersService {
       url: process.env.REDIS_URL || 'redis://localhost:6379',
     });
     this.redisClient.connect();
+  }
+
+  async createAdminUser(adminId: string, dto: CreateAdminDto) {
+    const existing = await this.usersRepository.findOne({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException('Email already in use');
+
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const user = this.usersRepository.create({
+      email: dto.email,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      password: hashedPassword,
+      country: dto.country,
+      role: Role.ADMIN,
+      isActive: true,
+      isVerified: true,
+    });
+    const savedUser = await this.usersRepository.save(user);
+
+    await this.auditService.logAction(
+      adminId,
+      `Created admin user ${savedUser.id}`,
+    );
+
+    const { password, ...result } = savedUser as User & { password: string };
+    return result;
   }
 
   // List users with filters
@@ -119,6 +150,18 @@ export class AdminUsersService {
     await this.redisClient.del(`refresh:${userId}`);
 
     await this.auditService.logAction(adminId, `Suspended user ${userId}`);
+    return updatedUser;
+  }
+
+  async reactivateUser(adminId: string, userId: string) {
+    if (adminId === userId)
+      throw new ForbiddenException('Admins cannot reactivate themselves');
+
+    const user = await this.getUserById(userId);
+    user.isActive = true;
+    const updatedUser = await this.usersRepository.save(user);
+
+    await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
     return updatedUser;
   }
 
