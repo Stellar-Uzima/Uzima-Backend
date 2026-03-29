@@ -64,10 +64,29 @@ export class NotificationPreferencesController {
     status: 200,
     description: 'Notification preferences retrieved successfully',
     type: NotificationPreference,
+    schema: {
+      example: {
+        id: 'uuid',
+        userId: 'uuid',
+        taskReminders: true,
+        rewardAlerts: true,
+        streakAlerts: true,
+        emailNotifications: true,
+        smsNotifications: true,
+        pushNotifications: true,
+        quietHoursStart: '22:00',
+        quietHoursEnd: '07:00',
+        timezone: 'Africa/Lagos',
+      },
+    },
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Notification preferences not found',
   })
   async getPreferences(
     @Req() req: AuthenticatedRequest,
@@ -101,6 +120,10 @@ export class NotificationPreferencesController {
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Notification preferences not found',
   })
   async updatePreferences(
     @Req() req: AuthenticatedRequest,

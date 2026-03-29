@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotificationPreference } from '../entities/notification-preference.entity';
+import { Notification } from '../entities/notification.entity';
 
 export interface NotificationOptions {
   userId: string;
@@ -17,7 +18,44 @@ export class NotificationService {
   constructor(
     @InjectRepository(NotificationPreference)
     private readonly preferenceRepository: Repository<NotificationPreference>,
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
   ) {}
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return this.notificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const count = await this.notificationRepository.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
+  }
+
+  async markAllAsRead(userId: string): Promise<{ updated: number }> {
+    const result = await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true },
+    );
+    return { updated: result.affected ?? 0 };
+  }
+
+  async createNotification(payload: {
+    userId: string;
+    type: string;
+    title: string;
+    body: string;
+  }): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      ...payload,
+      isRead: false,
+    });
+    return this.notificationRepository.save(notification);
+  }
 
   /**
    * Check if a user wants to receive notifications via a specific channel
@@ -50,7 +88,11 @@ export class NotificationService {
   /**
    * Send an email notification if the user has enabled email notifications
    */
-  async sendEmail(userId: string, template: string, data: any): Promise<boolean> {
+  async sendEmail(
+    userId: string,
+    template: string,
+    data: any,
+  ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'email');
 
     if (!canSend) {
@@ -102,7 +144,11 @@ export class NotificationService {
   /**
    * Send a push notification if the user has enabled push notifications
    */
-  async sendPush(userId: string, title: string, body: string): Promise<boolean> {
+  async sendPush(
+    userId: string,
+    title: string,
+    body: string,
+  ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'push');
 
     if (!canSend) {
@@ -165,7 +211,9 @@ export class NotificationService {
   /**
    * Get user's notification preferences
    */
-  async getUserPreferences(userId: string): Promise<NotificationPreference | null> {
+  async getUserPreferences(
+    userId: string,
+  ): Promise<NotificationPreference | null> {
     return this.preferenceRepository.findOne({ where: { userId } });
   }
 }
