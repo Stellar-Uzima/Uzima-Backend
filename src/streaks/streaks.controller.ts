@@ -24,7 +24,19 @@ export class StreaksController {
     summary: 'Get current user streak',
     description: 'Retrieve the current streak data including count, longest streak, and last activity for the authenticated user.',
   })
-  @ApiResponse({ status: 200, description: 'Streak data retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Streak data retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        currentStreak: { type: 'number', example: 7, description: 'Current consecutive days' },
+        longestStreak: { type: 'number', example: 30, description: 'Longest streak ever' },
+        lastCompletedDate: { type: 'string', example: '2026-03-29', description: 'Last activity date (YYYY-MM-DD)' },
+        milestoneNext: { type: 'number', example: 10, description: 'Next milestone days threshold' },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentStreak(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId || req.user?.sub;
@@ -40,7 +52,21 @@ export class StreaksController {
     summary: 'Get user streak history',
     description: 'Retrieve the full streak history showing daily activity records for the authenticated user.',
   })
-  @ApiResponse({ status: 200, description: 'Streak history retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Streak history retrieved successfully',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', example: '2026-03-29' },
+          completed: { type: 'boolean', example: true },
+          streakCount: { type: 'number', example: 7 },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getHistory(@Req() req: any) {
     const userId = req.user?.id || req.user?.userId || req.user?.sub;
