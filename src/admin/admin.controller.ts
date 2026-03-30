@@ -23,6 +23,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../auth/enums/role.enum';
 import { TasksScheduler } from '../tasks/tasks.scheduler';
+import { RewardsScheduler } from '../rewards/rewards.scheduler';
 
 @ApiTags('Admin - Management')
 @ApiBearerAuth()
@@ -34,6 +35,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly tasksScheduler: TasksScheduler,
+    private readonly rewardsScheduler: RewardsScheduler,
   ) {}
 
   @Post()
@@ -192,6 +194,32 @@ export class AdminController {
       message: 'Daily task assignment completed',
       processed: result.processed,
       errors: result.errors,
+    };
+  }
+
+  @Post('rewards/reset-daily')
+  @ApiOperation({
+    summary: 'Manually trigger daily rewards reset',
+    description:
+      'Resets the daily XLM rewards counter for all users. Requires ADMIN role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Daily rewards reset completed successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - JWT token missing or invalid',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - requires ADMIN role',
+  })
+  async resetDailyRewards() {
+    const result = await this.rewardsScheduler.resetDailyRewardsManually();
+    return {
+      message: 'Daily rewards reset completed',
+      ...result,
     };
   }
 }

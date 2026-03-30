@@ -67,6 +67,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true, unique: true })
   stellarWalletAddress: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  dailyXlmEarned: number;
+
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date | null;
 

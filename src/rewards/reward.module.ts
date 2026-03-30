@@ -9,10 +9,17 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { RewardProcessor } from './reward.processor';
 import { REWARD_QUEUE } from '../queue/queue.constants';
+import { User } from '../entities/user.entity';
+import { RewardsScheduler } from './rewards.scheduler';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RewardTransaction, TaskCompletion, HealthTask]),
+    TypeOrmModule.forFeature([
+      RewardTransaction,
+      TaskCompletion,
+      HealthTask,
+      User,
+    ]),
     CacheModule.register({
       ttl: 120, // 2 minutes default TTL
       isGlobal: false,
@@ -29,7 +36,7 @@ import { REWARD_QUEUE } from '../queue/queue.constants';
     }),
   ],
   controllers: [RewardController],
-  providers: [RewardService, RewardProcessor],
-  exports: [RewardService],
+  providers: [RewardService, RewardProcessor, RewardsScheduler],
+  exports: [RewardService, RewardsScheduler],
 })
 export class RewardModule {}
