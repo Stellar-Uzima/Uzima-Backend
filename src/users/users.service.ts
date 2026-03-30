@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { createClient, RedisClientType } from 'redis';
 import { User } from '../entities/user.entity';
@@ -14,6 +14,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { UserStatsDto } from './dto/user-stats.dto';
 import { TaskCompletion } from './entities/task-completion.entity';
 import { Coupon, CouponStatus } from './entities/coupon.entity';
+import { HealthProfile } from './entities/health-profile.entity';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -24,6 +25,7 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     public readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
   ) {}
 
   onModuleInit(): void {
