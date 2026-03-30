@@ -9,6 +9,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { LoggerService } from './common/logger/logger.service';
 import { DatabaseModule } from './database/database.module';
 import { QueueModule } from './queue/queue.module';
 import { AuthModule } from './auth/auth.module';
@@ -21,16 +23,16 @@ import { AuditModule } from './audit/audit.module';
 import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TaskAssignmentModule } from './tasks/assignment/task-assignment.module';
+import { StreaksModule } from './streaks/streaks.module';
 import { RewardModule } from './rewards/reward.module';
 import { StorageModule } from './storage/storage.module';
 import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
-    // ── Infrastructure (must be first) ───────────────────
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.test', '.env'],
     }),
     RedisModule.forRootAsync({
       inject: [ConfigService],
@@ -50,8 +52,6 @@ import { HealthModule } from './health/health.module';
     }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-
-    // ── Feature modules ───────────────────────────────────
     QueueModule,
     OtpModule,
     AuthModule,
@@ -66,12 +66,14 @@ import { HealthModule } from './health/health.module';
     RewardModule,
     StorageModule,
     HealthModule,
+    StreaksModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ShutdownService],
+  providers: [AppService, ShutdownService, LoggerService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
     consumer.apply(SanitizeMiddleware).forRoutes('*');
     consumer.apply(LoggingMiddleware).forRoutes('*');
   }
