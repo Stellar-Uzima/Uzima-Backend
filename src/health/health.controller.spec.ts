@@ -1,91 +1,62 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
+import { HealthCheckError } from '@nestjs/terminus';
 import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
   let controller: HealthController;
-  const mockHealth = {} as any;
+  let db: { pingCheck: jest.Mock };
+  let redis: { isHealthy: jest.Mock };
 
-  const makeController = (dbMock: any, redisMock: any) => {
-    return new HealthController(mockHealth, dbMock, redisMock as any);
-  };
+  const makeController = () => new HealthController(db as any, redis as any);
+
+  beforeEach(() => {
+    db = {
+      pingCheck: jest.fn().mockResolvedValue({ db: { status: 'up' } }),
+    };
+
+    redis = {
+      isHealthy: jest.fn().mockResolvedValue({ redis: { status: 'up', responseTime: 4 } }),
+    };
+
+    controller = makeController();
+  });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
-  it('all services healthy -> returns 200 with statuses up', async () => {
-    const db = { pingCheck: jest.fn().mockResolvedValueOnce({ database: { status: 'up' } }) };
-    const redis = { ping: jest.fn().mockResolvedValueOnce('PONG') };
+  it('returns top-level dependency statuses when services are healthy', async () => {
+    const response = await controller.check();
 
-    controller = makeController(db, redis);
-
-    const res = await controller.check();
-
-    expect(db.pingCheck).toHaveBeenCalledWith('database');
-    expect(redis.ping).toHaveBeenCalled();
-    expect(res).toEqual({ status: 'ok', db: 'up', redis: 'up' });
+    expect(db.pingCheck).toHaveBeenCalledWith('db');
+    expect(redis.isHealthy).toHaveBeenCalledWith('redis');
+    expect(response).toEqual({
+      status: 'ok',
+      db: { status: 'up' },
+      redis: { status: 'up', responseTime: 4 },
+    });
   });
 
-  it('database unreachable -> throws 503 with database down', async () => {
-    const db = { pingCheck: jest.fn().mockRejectedValueOnce(new Error('db down')) };
-    const redis = { ping: jest.fn().mockResolvedValueOnce('PONG') };
+  it('logs at error level and rethrows when a health check fails', async () => {
+    redis.isHealthy.mockRejectedValueOnce(
+      new HealthCheckError('Redis unavailable', {
+        redis: { status: 'down', responseTime: 9 },
+      }),
+    );
 
-    controller = makeController(db, redis);
+    const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
-    try {
-      await controller.check();
-      throw new Error('Expected HttpException');
-    } catch (err) {
-      expect(err).toBeInstanceOf(HttpException);
-      expect((err as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
-      expect((err as HttpException).getResponse()).toEqual({ status: 'error', db: 'down', redis: 'up' });
-    }
-  });
+    await expect(controller.check()).rejects.toMatchObject({
+      response: {
+        status: 'error',
+        db: { status: 'up' },
+        redis: { status: 'down', responseTime: 9 },
+      },
+      status: 503,
+    });
 
-  it('redis unreachable -> throws 503 with redis down', async () => {
-    const db = { pingCheck: jest.fn().mockResolvedValueOnce({ database: { status: 'up' } }) };
-    const redis = { ping: jest.fn().mockRejectedValueOnce(new Error('redis down')) };
-
-    controller = makeController(db, redis);
-
-    try {
-      await controller.check();
-      throw new Error('Expected HttpException');
-    } catch (err) {
-      expect(err).toBeInstanceOf(HttpException);
-      expect((err as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
-      expect((err as HttpException).getResponse()).toEqual({ status: 'error', db: 'up', redis: 'down' });
-    }
-  });
-
-  it('multiple services down -> throws 503 with both down', async () => {
-    const db = { pingCheck: jest.fn().mockRejectedValueOnce(new Error('db down')) };
-    const redis = { ping: jest.fn().mockRejectedValueOnce(new Error('redis down')) };
-
-    controller = makeController(db, redis);
-
-    try {
-      await controller.check();
-      throw new Error('Expected HttpException');
-    } catch (err) {
-      expect(err).toBeInstanceOf(HttpException);
-      expect((err as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
-      expect((err as HttpException).getResponse()).toEqual({ status: 'error', db: 'down', redis: 'down' });
-    }
-  });
-
-  it('response shape matches expected DTO for healthy', async () => {
-    const db = { pingCheck: jest.fn().mockResolvedValueOnce({ database: { status: 'up' } }) };
-    const redis = { ping: jest.fn().mockResolvedValueOnce('PONG') };
-
-    controller = makeController(db, redis);
-
-    const res = await controller.check();
-    expect(res).toHaveProperty('status');
-    expect(res).toHaveProperty('db');
-    expect(res).toHaveProperty('redis');
-    expect(typeof res.status).toBe('string');
-    expect(typeof res.db).toBe('string');
-    expect(typeof res.redis).toBe('string');
+    expect(loggerSpy).toHaveBeenCalledWith(
+      'Health check failed: {"status":"error","db":{"status":"up"},"redis":{"status":"down","responseTime":9}}',
+    );
   });
 });

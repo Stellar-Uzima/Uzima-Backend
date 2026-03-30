@@ -21,15 +21,17 @@ import { AuditModule } from './audit/audit.module';
 import { CouponModule } from './coupons/coupon.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TaskAssignmentModule } from './tasks/assignment/task-assignment.module';
+import { StreaksModule } from './streaks/streaks.module';
 import { RewardModule } from './rewards/reward.module';
 import { StorageModule } from './storage/storage.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     // ── Infrastructure (must be first) ───────────────────
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.test', '.env'],
     }),
     RedisModule.forRootAsync({
       inject: [ConfigService],
@@ -64,6 +66,9 @@ import { StorageModule } from './storage/storage.module';
     TaskAssignmentModule,
     RewardModule,
     StorageModule,
+    HealthModule,
+    // Streaks are a first-class engagement feature
+    StreaksModule,
   ],
   controllers: [AppController],
   providers: [AppService, ShutdownService],
