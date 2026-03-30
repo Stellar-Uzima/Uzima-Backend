@@ -5,21 +5,21 @@ import {
   Query,
   UseGuards,
   Request,
-  HttpStatus,
   HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RewardService } from './reward.service';
 import {
   RewardHistoryQueryDto,
   RewardHistoryResponseDto,
-  RewardHistoryItemDto,
 } from './dto/reward-history.dto';
 
 @ApiTags('rewards')
@@ -53,17 +53,19 @@ export class RewardController {
   @ApiOperation({
     summary: 'Get user reward history',
     description:
-      'Retrieve paginated list of XLM rewards earned from health tasks with optional filtering',
+      'Retrieve paginated list of XLM rewards earned from health tasks with optional filtering by date range and category',
   })
+  @ApiQuery({ name: 'page', required: false, description: 'Page number for pagination', type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of items per page', type: Number, example: 20 })
+  @ApiQuery({ name: 'startDate', required: false, description: 'Filter start date (ISO 8601 format)', type: String, example: '2026-03-01T00:00:00Z' })
+  @ApiQuery({ name: 'endDate', required: false, description: 'Filter end date (ISO 8601 format)', type: String, example: '2026-03-31T23:59:59Z' })
+  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by health task category ID', type: String })
   @ApiResponse({
     status: 200,
     description: 'Reward history retrieved successfully',
     type: RewardHistoryResponseDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getRewardHistory(
     @Request() req: any,
     @Query() queryDto: RewardHistoryQueryDto,
