@@ -20,7 +20,11 @@ import { RewardModule } from '../rewards/reward.module';
     TaskAssignmentModule,
     RewardModule,
   ],
-  controllers: [AdminUsersController, AdminController, FailedRewardJobController],
+  controllers: [
+    AdminUsersController,
+    AdminController,
+    FailedRewardJobController,
+  ],
   providers: [
     AdminUsersService,
     UsersService,
