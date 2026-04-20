@@ -1,0 +1,237 @@
+Stellar Uzima Backend - Directory Structure
+============================================
+
+backend/
+├── src/
+│   ├── main.ts                              # Application entry point
+│   ├── app.module.ts                        # Root module
+│   ├── app.controller.ts                    # Root controller
+│   ├── app.service.ts                       # Root service
+│   │
+│   ├── config/                              # Configuration management
+│   │   ├── app.config.ts                    # App configuration
+│   │   ├── database.config.ts               # Database configuration
+│   │   └── validation.schema.ts             # Env var validation
+│   │
+│   ├── database/                            # Database layer
+│   │   ├── database.module.ts               # Database module
+│   │   ├── README.md                        # Database documentation
+│   │   ├── entities/                        # TypeORM entities
+│   │   │   └── README.md                    # Entity creation guide
+│   │   ├── migrations/                      # Database migrations
+│   │   │   └── [migrations here]
+│   │   └── seeds/                           # Database seeds
+│   │       └── [seed files here]
+│   │
+│   ├── common/                              # Shared/common functionality
+│   │   ├── decorators/                      # Custom decorators
+│   │   │   ├── README.md
+│   │   │   ├── auth.decorator.ts
+│   │   │   ├── roles.decorator.ts
+│   │   │   ├── public.decorator.ts
+│   │   │   └── [other decorators]
+│   │   │
+│   │   ├── filters/                         # Exception filters
+│   │   │   ├── README.md
+│   │   │   ├── http-exception.filter.ts
+│   │   │   ├── validation-exception.filter.ts
+│   │   │   └── [other filters]
+│   │   │
+│   │   ├── guards/                          # Auth/Authz guards
+│   │   │   ├── README.md
+│   │   │   ├── jwt.guard.ts
+│   │   │   ├── roles.guard.ts
+│   │   │   └── [other guards]
+│   │   │
+│   │   ├── interceptors/                    # Request/Response interceptors
+│   │   │   ├── README.md
+│   │   │   ├── response.interceptor.ts
+│   │   │   ├── logging.interceptor.ts
+│   │   │   └── [other interceptors]
+│   │   │
+│   │   ├── pipes/                           # Data validation/transformation
+│   │   │   ├── README.md
+│   │   │   ├── validation.pipe.ts
+│   │   │   └── [other pipes]
+│   │   │
+│   │   ├── dtos/                            # Common DTOs
+│   │   │   ├── README.md
+│   │   │   ├── response.dto.ts
+│   │   │   ├── pagination.dto.ts
+│   │   │   └── error.dto.ts
+│   │   │
+│   │   └── utils/                           # Utility functions
+│   │       ├── README.md
+│   │       ├── date.util.ts
+│   │       ├── string.util.ts
+│   │       ├── pagination.util.ts
+│   │       └── logger.util.ts
+│   │
+│   ├── modules/                             # Feature modules
+│   │   ├── auth/                            # Authentication module
+│   │   │   ├── dto/
+│   │   │   │   ├── login.dto.ts
+│   │   │   │   └── register.dto.ts
+│   │   │   ├── strategies/
+│   │   │   │   └── jwt.strategy.ts
+│   │   │   ├── guards/
+│   │   │   │   └── jwt.guard.ts
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── auth.service.spec.ts
+│   │   │   └── README.md
+│   │   │
+│   │   ├── users/                           # User management module
+│   │   │   ├── dto/
+│   │   │   │   ├── create-user.dto.ts
+│   │   │   │   ├── update-user.dto.ts
+│   │   │   │   └── user-profile.dto.ts
+│   │   │   ├── entities/
+│   │   │   │   └── user.entity.ts
+│   │   │   ├── users.module.ts
+│   │   │   ├── users.controller.ts
+│   │   │   ├── users.service.ts
+│   │   │   ├── users.service.spec.ts
+│   │   │   └── README.md
+│   │   │
+│   │   └── health-tasks/                    # Health tasks module
+│   │       ├── dto/
+│   │       │   ├── create-health-task.dto.ts
+│   │       │   ├── update-health-task.dto.ts
+│   │       │   └── health-task.dto.ts
+│   │       ├── entities/
+│   │       │   └── health-task.entity.ts
+│   │       ├── enums/
+│   │       │   ├── task-status.enum.ts
+│   │       │   ├── task-category.enum.ts
+│   │       │   └── task-priority.enum.ts
+│   │       ├── health-tasks.module.ts
+│   │       ├── health-tasks.controller.ts
+│   │       ├── health-tasks.service.ts
+│   │       ├── health-tasks.service.spec.ts
+│   │       └── README.md
+│   │
+│   └── shared/                              # Shared services
+│       ├── mail/                            # Mail service
+│       │   ├── mail.service.ts
+│       │   ├── mail.module.ts
+│       │   ├── templates/
+│       │   └── mail.service.spec.ts
+│       │
+│       ├── notifications/                   # Notifications service
+│       │   ├── notification.service.ts
+│       │   ├── notification.module.ts
+│       │   └── notification.service.spec.ts
+│       │
+│       └── logger/                          # Logger service
+│           ├── logger.service.ts
+│           ├── logger.module.ts
+│           └── logger.service.spec.ts
+│
+├── test/                                    # E2E tests
+│   ├── app.e2e.spec.ts
+│   ├── fixtures/                            # Test fixtures
+│   └── factories/                           # Test data factories
+│
+├── dist/                                    # Compiled JavaScript (generated)
+│   └── [compiled files]
+│
+├── node_modules/                            # Dependencies (generated)
+│   └── [packages]
+│
+├── .env                                     # Environment variables (local)
+├── .env.example                             # Environment template
+├── .env.test                                # Test environment
+├── .gitignore                               # Git ignore file
+├── .eslintrc.js                             # ESLint configuration
+├── .prettierrc                              # Prettier configuration
+│
+├── package.json                             # NPM dependencies and scripts
+├── tsconfig.json                            # TypeScript configuration
+├── jest.config.js                           # Jest testing configuration
+├── nest-cli.json                            # NestJS CLI configuration
+├── Dockerfile                               # Docker container configuration
+├── docker-compose.yml                       # Docker Compose for local dev
+│
+├── README.md                                # Project documentation
+├── CONTRIBUTOR_GUIDE.md                     # Contributing guidelines
+├── PROJECT_STRUCTURE.md                     # This structure explained
+├── MODULE_TEMPLATE.md                       # Template for new modules
+├── TODO.md                                  # Implementation checklist
+└── .structure                               # This file
+
+
+Key Directories Explained:
+=========================
+
+src/
+  └─ Contains all application source code
+
+src/config/
+  └─ Configuration files for different environments
+
+src/database/
+  └─ Database setup, entities, migrations, seeds
+
+src/common/
+  └─ Shared utilities, guards, filters, pipes, etc.
+
+src/modules/
+  └─ Feature modules (auth, users, health-tasks, etc.)
+
+src/shared/
+  └─ Shared services (mail, notifications, logger)
+
+test/
+  └─ E2E and integration tests
+
+dist/
+  └─ Compiled TypeScript (created after build)
+
+node_modules/
+  └─ NPM packages (created after npm install)
+
+
+Development Workflow:
+====================
+
+1. Start with .env setup (copy from .env.example)
+2. Run: npm install
+3. Run: npm run start:dev
+4. Application runs on http://localhost:3000
+5. API docs available at http://localhost:3000/api/docs
+
+
+Module Structure Pattern:
+=========================
+
+Each module follows:
+  module.ts      - NestJS module configuration
+  controller.ts  - HTTP routes and request handlers
+  service.ts     - Business logic
+  entities/      - Database models
+  dto/           - Data transfer objects
+  enums/         - Enum types (if needed)
+  *.spec.ts      - Tests
+
+Always keep modules self-contained and focused!
+
+
+Important Notes:
+================
+
+- All source code is in TypeScript
+- Database uses TypeORM with PostgreSQL
+- Testing with Jest
+- API documentation with Swagger/OpenAPI
+- Code formatted with Prettier
+- Quality checked with ESLint
+- Environment variables managed in .env files
+
+For more details, see:
+  - README.md - Complete project documentation
+  - CONTRIBUTOR_GUIDE.md - How to contribute
+  - PROJECT_STRUCTURE.md - Detailed structure explanation
+  - MODULE_TEMPLATE.md - How to create new modules
+  - TODO.md - What needs to be implemented
