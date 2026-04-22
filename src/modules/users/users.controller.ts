@@ -1,44 +1,201 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Request,
+  ForbiddenException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UserFilterDto } from './dto/user-filter.dto';
+import { PaginatedResponseDto } from '../../common/dtos/pagination.dto';
+import { User } from '../../entities/user.entity';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { Role } from '../../auth/enums/role.enum';
 
 @ApiTags('users')
 @Controller('users')
+@UseGuards(RolesGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all users' })
-  async findAll() {
-    // TODO: Implement get all users with pagination
-    return { message: 'Get all users logic to be implemented' };
+  @ApiOperation({
+    summary: 'List all users (Admin only)',
+    description:
+      'Retrieve a paginated list of users with filtering and sorting options. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'array',
+          items: { $ref: '#/components/schemas/User' },
+        },
+        meta: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            total: { type: 'number' },
+            totalPages: { type: 'number' },
+            hasNext: { type: 'boolean' },
+            hasPrev: { type: 'boolean' },
+            nextPage: { type: 'number', nullable: true },
+            prevPage: { type: 'number', nullable: true },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @Roles(Role.ADMIN)
+  async findAll(
+    @Query() filterDto: UserFilterDto,
+    @Request() req: any
+  ): Promise<PaginatedResponseDto<User>> {
+    // Verify admin role (double check in addition to guard)
+    const currentUser = req.user;
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    return this.usersService.listUsers(filterDto);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get user by ID' })
-  async findOne(@Param('id') id: string) {
-    // TODO: Implement get user by ID
-    return { message: 'Get user by ID logic to be implemented' };
+  @ApiOperation({
+    summary: 'Get user by ID (Admin only)',
+    description: 'Retrieve a specific user by their ID. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Roles(Role.ADMIN)
+  async findOne(@Param('id') id: string, @Request() req: any): Promise<User> {
+    // Verify admin role
+    const currentUser = req.user;
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    const user = await this.usersService.findOne(id);
+    if (!user) {
+      throw new ForbiddenException('User not found');
+    }
+    return user;
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update user profile' })
-  async update(@Param('id') id: string, @Body() body: any) {
-    // TODO: Implement update user
-    return { message: 'Update user logic to be implemented' };
+  @ApiOperation({
+    summary: 'Update user profile (Admin only)',
+    description: "Update a user's profile information. Requires admin role.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Roles(Role.ADMIN)
+  async update(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    // Verify admin role
+    const currentUser = req.user;
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    // TODO: Implement update user logic
+    return { message: 'Update user logic to be implemented', userId: id };
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete user account' })
-  async delete(@Param('id') id: string) {
-    // TODO: Implement delete user
-    return { message: 'Delete user logic to be implemented' };
+  @ApiOperation({
+    summary: 'Delete user account (Admin only)',
+    description: 'Delete a user account. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Roles(Role.ADMIN)
+  async delete(@Param('id') id: string, @Request() req: any) {
+    // Verify admin role
+    const currentUser = req.user;
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    // TODO: Implement delete user logic
+    return { message: 'Delete user logic to be implemented', userId: id };
   }
 
   @Get(':id/profile')
-  @ApiOperation({ summary: 'Get user profile with stats' })
-  async getProfile(@Param('id') id: string) {
-    // TODO: Implement get profile with stats (tasks completed, earnings, etc.)
-    return { message: 'Get profile logic to be implemented' };
+  @ApiOperation({
+    summary: 'Get user profile with stats (Admin only)',
+    description: "Retrieve a user's profile including statistics. Requires admin role.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Roles(Role.ADMIN)
+  async getProfile(@Param('id') id: string, @Request() req: any) {
+    // Verify admin role
+    const currentUser = req.user;
+    if (currentUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Admin access required');
+    }
+
+    return this.usersService.getUserStats(id);
   }
 }
