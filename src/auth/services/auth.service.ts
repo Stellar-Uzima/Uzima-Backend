@@ -19,10 +19,7 @@ import { UsersService } from './users.service';
 import { OtpService } from '../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
-import {
-  VerifyEmailDto,
-  ResendEmailVerificationDto,
-} from '../dto/verify-email.dto';
+import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
 import { SessionService } from '@/modules/auth/services/session.service';
@@ -76,8 +73,14 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
-    if (!passwordMatches)
-      throw new UnauthorizedException('Invalid credentials');
+    if (!passwordMatches) throw new UnauthorizedException('Invalid credentials');
+
+    // Check user status - prevent login for inactive or suspended users
+    const loginCheck = await this.usersService.canUserLogin(user.id);
+    if (!loginCheck.canLogin) {
+      this.logger.warn(`Login attempt blocked for user ${user.id}: ${loginCheck.reason}`);
+      throw new UnauthorizedException(loginCheck.reason || 'Account access denied');
+    }
 
     if (!user.isVerified) {
       throw new UnauthorizedException('Email not verified');
@@ -121,13 +124,10 @@ export class AuthService {
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
 
-    const accessToken = this.jwtService.sign(
-      { sub: userId, email, role },
-      { expiresIn: '15m' },
-    );
+    const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(
       { sub: userId, email, role, tokenId },
-      { expiresIn: '7d' },
+      { expiresIn: '7d' }
     );
 
     const key = `refresh:${userId}:${tokenId}`;
@@ -175,15 +175,13 @@ export class AuthService {
   async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto) {
     const verificationResult = await this.otpService.verifyOtp(
       verifyOtpDto.phoneNumber,
-      verifyOtpDto.otp,
+      verifyOtpDto.otp
     );
     if (!verificationResult.success) {
       throw new UnauthorizedException(verificationResult.message);
     }
 
-    let user = await this.usersService.findByPhoneNumber(
-      verifyOtpDto.phoneNumber,
-    );
+    let user = await this.usersService.findByPhoneNumber(verifyOtpDto.phoneNumber);
     const isNewUser = !user;
 
     if (isNewUser) {
@@ -195,16 +193,10 @@ export class AuthService {
         email: undefined, // No email for phone users
         password: undefined, // No password
       });
-      this.logger.log(
-        `New user registered via phone: ${verifyOtpDto.phoneNumber}`,
-      );
+      this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
 
-    const tokens = await this.generateTokens(
-      user.id,
-      user.email || user.phoneNumber,
-      user.role,
-    );
+    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
     return {
       success: true,
       message: 'Authentication successful',
@@ -261,9 +253,7 @@ export class AuthService {
     const currentCount = await this.redisClient.get(rateLimitKey);
 
     if (currentCount && parseInt(String(currentCount), 10) >= 3) {
-      throw new BadRequestException(
-        'Too many verification requests. Please try again later.',
-      );
+      throw new BadRequestException('Too many verification requests. Please try again later.');
     }
 
   // Create a new email verification record and send email
@@ -325,10 +315,7 @@ export class AuthService {
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
     // Audit log for password reset
-    await this.auditService.logAction(
-      user.id,
-      `Password reset completed for: ${user.email}`,
-    );
+    await this.auditService.logAction(user.id, `Password reset completed for: ${user.email}`);
 
     return { message: 'Password reset successful' };
   }
