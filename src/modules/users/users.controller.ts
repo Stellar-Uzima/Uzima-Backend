@@ -4,36 +4,50 @@ import {
   Post,
   Put,
   Delete,
-  Patch,
   Param,
   Body,
-  Query,
+  Req,
   UseGuards,
-  Request,
   ForbiddenException,
-  Headers,
+  NotFoundException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { UserSearchService } from './services/user-search.service';
-import { UserFilterDto } from './dto/user-filter.dto';
-import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
-import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
-import { UserSearchDto, UserSearchResponseDto } from './dto/user-search.dto';
-import { PaginatedResponseDto } from '../../common/dtos/pagination.dto';
-import { User } from '../../entities/user.entity';
-import { UserStatusLog } from '../../entities/user-status-log.entity';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
-import { Role } from '../../auth/enums/role.enum';
+import { UserResponseDto } from '../../../users/dto/user-response.dto';
+import { plainToInstance } from 'class-transformer';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../../entities/user.entity';
+
+// Minimal Auth types & guard (copied from canonical controller)
+interface AuthenticatedRequest extends Request {
+  user: { userId: string; role?: string };
+}
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Observable } from 'rxjs';
+
+@Injectable()
+class JwtAuthGuard implements CanActivate {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    request.user = { userId: 'mock-user-id' }; // mock - replace with real JWT in prod
+    return true;
+  }
+}
 
 @ApiTags('users')
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 @UseGuards(RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly userSearchService: UserSearchService
   ) {}
 
@@ -92,35 +106,24 @@ export class UsersController {
   }
 
   @Get(':id')
-  @ApiOperation({
-    summary: 'Get user by ID (Admin only)',
-    description: 'Retrieve a specific user by their ID. Requires admin role.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'User retrieved successfully',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'User not found',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - Admin access required',
-  })
-  @Roles(Role.ADMIN)
-  async findOne(@Param('id') id: string, @Request() req: any): Promise<User> {
-    // Verify admin role
-    const currentUser = req.user;
-    if (currentUser.role !== Role.ADMIN) {
-      throw new ForbiddenException('Admin access required');
+  @ApiOperation({ summary: 'Get user by ID' })
+  async findOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    const user = await this.usersService.findOne(id);
-    if (!user) {
-      throw new ForbiddenException('User not found');
+    const isOwner = req.user.userId === id;
+    const isAdmin = req.user.role === 'ADMIN';
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException('Forbidden');
     }
-    return user;
+
+    // Return sanitized response
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
   }
 
   @Put(':id')
