@@ -15,9 +15,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UserSearchService } from './services/user-search.service';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { UserSearchDto, UserSearchResponseDto } from './dto/user-search.dto';
 import { PaginatedResponseDto } from '../../common/dtos/pagination.dto';
 import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
@@ -30,7 +32,10 @@ import { Role } from '../../auth/enums/role.enum';
 @UseGuards(RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly userSearchService: UserSearchService
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -382,5 +387,128 @@ export class UsersController {
     }
 
     return this.usersService.getProfile(userId);
+  }
+
+  @Get('search')
+  @ApiOperation({
+    summary: 'Search users (Admin only)',
+    description:
+      'Search for users by email, first name, last name, or full name with fuzzy matching and filtering. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Search results retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        results: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              email: { type: 'string' },
+              firstName: { type: 'string', nullable: true },
+              lastName: { type: 'string', nullable: true },
+              fullName: { type: 'string', nullable: true },
+              phoneNumber: { type: 'string', nullable: true },
+              avatar: { type: 'string', nullable: true },
+              role: { type: 'string', enum: ['USER', 'HEALER', 'ADMIN'] },
+              status: { type: 'string', enum: ['active', 'inactive', 'suspended'] },
+              isVerified: { type: 'boolean' },
+              country: { type: 'string', nullable: true },
+              preferredLanguage: { type: 'string', nullable: true },
+              lastActiveAt: { type: 'string', format: 'date-time', nullable: true },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' },
+              score: { type: 'number', nullable: true },
+            },
+          },
+        },
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        totalPages: { type: 'number' },
+        query: { type: 'string', nullable: true },
+        executionTimeMs: { type: 'number' },
+        fuzzyUsed: { type: 'boolean' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid search parameters',
+  })
+  @Roles(Role.ADMIN)
+  async searchUsers(@Query() searchDto: UserSearchDto): Promise<UserSearchResponseDto> {
+    return this.userSearchService.searchUsers(searchDto);
+  }
+
+  @Get('search/suggestions')
+  @ApiOperation({
+    summary: 'Get search suggestions (Admin only)',
+    description: 'Get search suggestions based on partial input. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Search suggestions retrieved successfully',
+    schema: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Partial input too short',
+  })
+  @Roles(Role.ADMIN)
+  async getSearchSuggestions(
+    @Query('partial') partial: string,
+    @Query('limit') limit?: number
+  ): Promise<string[]> {
+    if (!partial || partial.length < 2) {
+      return [];
+    }
+
+    const suggestionLimit = limit ? Math.min(Math.max(limit, 1), 50) : 10;
+    return this.userSearchService.getSearchSuggestions(partial, suggestionLimit);
+  }
+
+  @Get('search/stats')
+  @ApiOperation({
+    summary: 'Get search statistics (Admin only)',
+    description: 'Get search performance and usage statistics. Requires admin role.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Search statistics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        totalUsers: { type: 'number' },
+        searchableFields: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        averageSearchTime: { type: 'number', nullable: true },
+        popularFilters: { type: 'object', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @Roles(Role.ADMIN)
+  async getSearchStats() {
+    return this.userSearchService.getSearchStats();
   }
 }
