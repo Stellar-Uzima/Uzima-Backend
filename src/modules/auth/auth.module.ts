@@ -8,13 +8,15 @@ import { AuthService } from './auth.service';
 import { UsersModule } from '@modules/users/users.module';
 import { EmailVerification } from '../../database/entities/email-verification.entity';
 import { EmailVerificationService } from './services/email-verification.service';
+import { Session } from '../../database/entities/session.entity';
+import { SessionService } from './services/session.service';
 import { NotificationsModule } from '@/notifications/notifications.module';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
-    TypeOrmModule.forFeature([EmailVerification]),
+  TypeOrmModule.forFeature([EmailVerification, Session]),
     NotificationsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -27,7 +29,7 @@ import { NotificationsModule } from '@/notifications/notifications.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, EmailVerificationService],
-  exports: [AuthService, EmailVerificationService],
+  providers: [AuthService, EmailVerificationService, SessionService],
+  exports: [AuthService, EmailVerificationService, SessionService],
 })
 export class AuthModule {}

@@ -25,6 +25,7 @@ import {
 } from '../dto/verify-email.dto';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
+import { SessionService } from '@/modules/auth/services/session.service';
 
 @Injectable()
 export class AuthService {
@@ -38,6 +39,7 @@ export class AuthService {
     private otpService: OtpService,
     private auditService: AuditService,
     private emailVerificationService: EmailVerificationService,
+    private sessionService: SessionService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -132,6 +134,13 @@ export class AuthService {
     await this.redisClient.set(key, refreshToken, {
       EX: 7 * 24 * 60 * 60,
     });
+
+    // Record session metadata in DB (device info can be passed later)
+    try {
+      await this.sessionService.createSession(userId, tokenId);
+    } catch (err) {
+      this.logger.warn('Failed to record session in DB', err as any);
+    }
 
     return { accessToken, refreshToken };
   }
