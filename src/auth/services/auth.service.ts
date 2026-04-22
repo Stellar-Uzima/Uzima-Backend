@@ -21,6 +21,8 @@ import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
 import { AuditService } from '../../audit/audit.service';
+import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
+import { SessionService } from '@/modules/auth/services/session.service';
 
 @Injectable()
 export class AuthService {
@@ -32,7 +34,9 @@ export class AuthService {
     private jwtService: JwtService,
     private eventEmitter: EventEmitter2,
     private otpService: OtpService,
-    private auditService: AuditService
+    private auditService: AuditService,
+    private emailVerificationService: EmailVerificationService,
+    private sessionService: SessionService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -54,6 +58,11 @@ export class AuthService {
       email: user.email,
     });
 
+    // Create email verification token and send email
+    if (user.email) {
+      await this.emailVerificationService.createForUser(user.id);
+    }
+
     const token = this.jwtService.sign({ sub: user.id, email: user.email });
     return { token };
   }
@@ -71,6 +80,10 @@ export class AuthService {
     if (!loginCheck.canLogin) {
       this.logger.warn(`Login attempt blocked for user ${user.id}: ${loginCheck.reason}`);
       throw new UnauthorizedException(loginCheck.reason || 'Account access denied');
+    }
+
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
     }
 
     return this.generateTokens(user.id, user.email, user.role);
@@ -122,6 +135,13 @@ export class AuthService {
       EX: 7 * 24 * 60 * 60,
     });
 
+    // Record session metadata in DB (device info can be passed later)
+    try {
+      await this.sessionService.createSession(userId, tokenId);
+    } catch (err) {
+      this.logger.warn('Failed to record session in DB', err as any);
+    }
+
     return { accessToken, refreshToken };
   }
 
@@ -170,8 +190,8 @@ export class AuthService {
         phoneNumber: verifyOtpDto.phoneNumber,
         firstName: 'Phone',
         lastName: 'User',
-        email: null, // No email for phone users
-        password: null, // No password
+        email: undefined, // No email for phone users
+        password: undefined, // No password
       });
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
@@ -192,22 +212,16 @@ export class AuthService {
 
   // Verify email
   async verifyEmail(dto: VerifyEmailDto) {
-    const user = await this.usersService['usersRepository'].findOne({
-      where: {
-        emailVerificationToken: dto.token,
-        emailVerificationExpiry: MoreThan(new Date()),
-      },
-    });
-
-    if (!user) {
+    const record = await this.emailVerificationService.consume(dto.token);
+    if (!record) {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    // Clear verification token and mark email as verified
+    const user = record.user;
+    user.isVerified = true;
+    // clear legacy fields if present
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;
-    user.isVerified = true;
-
     await this.usersService.save(user);
 
     // Emit email verified event
@@ -242,15 +256,8 @@ export class AuthService {
       throw new BadRequestException('Too many verification requests. Please try again later.');
     }
 
-    // Generate new verification token (using UUID for consistency with remote)
-    const verificationToken = crypto.randomUUID();
-    const expiryTime = new Date();
-    expiryTime.setHours(expiryTime.getHours() + 24); // 24-hour expiry
-
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpiry = expiryTime;
-
-    await this.usersService.save(user);
+  // Create a new email verification record and send email
+  await this.emailVerificationService.createForUser(user.id);
 
     // Increment rate limit counter
     if (!currentCount) {
