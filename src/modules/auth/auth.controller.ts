@@ -1,6 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { VerifyEmailDto, ResendEmailVerificationDto } from '../../auth/dto/verify-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -18,6 +19,18 @@ export class AuthController {
     // - Create user in database
     // - Generate JWT token
     return { message: 'Registration logic to be implemented' };
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body() dto: ResendEmailVerificationDto) {
+    return this.authService.resendEmailVerification(dto);
   }
 
   @Post('login')
