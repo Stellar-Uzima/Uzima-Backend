@@ -1,20 +1,25 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like, Not, IsNull } from 'typeorm';
 import { User } from '../../entities/user.entity';
+import { UserStatusLog } from '../../entities/user-status-log.entity';
 import { UserFilterDto } from './dto/user-filter.dto';
+import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
 import {
   PaginatedResponseDto,
   PaginationMetaDto,
   SortOrder,
 } from '../../common/dtos/pagination.dto';
 import { Role } from '../../auth/enums/role.enum';
+import { UserStatus } from '../../auth/enums/user-status.enum';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(UserStatusLog)
+    private readonly userStatusLogRepository: Repository<UserStatusLog>
   ) {}
 
   /**
@@ -260,5 +265,194 @@ export class UsersService {
   async isAdmin(userId: string): Promise<boolean> {
     const user = await this.findOne(userId);
     return user?.role === Role.ADMIN;
+  }
+
+  /**
+   * Change user status with logging
+   * @param userId - User ID to change status for
+   * @param statusChangeDto - Status change details
+   * @param changedBy - User ID making the change
+   * @param ipAddress - IP address of the user making the change
+   * @param userAgent - User agent string
+   * @returns Status change response
+   */
+  async changeUserStatus(
+    userId: string,
+    statusChangeDto: UserStatusChangeDto,
+    changedBy: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<UserStatusResponseDto> {
+    // Find the user
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Find the user making the change
+    const changedByUser = await this.userRepository.findOne({ where: { id: changedBy } });
+    if (!changedByUser) {
+      throw new NotFoundException('User making the change not found');
+    }
+
+    // Check if the user making the change has admin role
+    if (changedByUser.role !== Role.ADMIN) {
+      throw new ForbiddenException('Only admins can change user status');
+    }
+
+    // Prevent changing status of other admins unless you're a super admin (add this logic if needed)
+    if (user.role === Role.ADMIN && user.id !== changedBy) {
+      throw new ForbiddenException('Cannot change status of other admin users');
+    }
+
+    const previousStatus = user.status;
+    const newStatus = statusChangeDto.status;
+
+    // Check if status is actually changing
+    if (previousStatus === newStatus) {
+      throw new ForbiddenException('User already has this status');
+    }
+
+    // Update user status
+    user.status = newStatus;
+    user.isActive = newStatus === UserStatus.ACTIVE; // Keep isActive in sync
+    await this.userRepository.save(user);
+
+    // Create status change log
+    const statusLog = this.userStatusLogRepository.create({
+      userId: user.id,
+      user: user,
+      previousStatus,
+      newStatus,
+      changedBy: changedByUser.id,
+      changedByUser: changedByUser,
+      changedByRole: changedByUser.role,
+      reason: statusChangeDto.reason,
+      notes: statusChangeDto.notes,
+      ipAddress,
+      userAgent,
+    });
+
+    await this.userStatusLogRepository.save(statusLog);
+
+    // Return response
+    return {
+      userId: user.id,
+      previousStatus,
+      newStatus,
+      changedAt: statusLog.createdAt,
+      changedBy: changedByUser.id,
+      changedByRole: changedByUser.role,
+      reason: statusChangeDto.reason,
+      notes: statusChangeDto.notes,
+    };
+  }
+
+  /**
+   * Get user status history
+   * @param userId - User ID to get status history for
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 20)
+   * @returns Paginated status history
+   */
+  async getUserStatusHistory(
+    userId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<PaginatedResponseDto<UserStatusLog>> {
+    // Check if user exists
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const offset = (page - 1) * limit;
+
+    const [logs, total] = await this.userStatusLogRepository.findAndCount({
+      where: { userId },
+      relations: ['changedByUser'],
+      order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+    const meta: PaginationMetaDto = {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+      nextPage: page < totalPages ? page + 1 : undefined,
+      prevPage: page > 1 ? page - 1 : undefined,
+    };
+
+    return {
+      data: logs,
+      meta,
+    };
+  }
+
+  /**
+   * Check if user can login based on status
+   * @param userId - User ID to check
+   * @returns Login eligibility
+   */
+  async canUserLogin(userId: string): Promise<{ canLogin: boolean; reason?: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      return { canLogin: false, reason: 'User not found' };
+    }
+
+    switch (user.status) {
+      case UserStatus.ACTIVE:
+        return { canLogin: true };
+      case UserStatus.INACTIVE:
+        return { canLogin: false, reason: 'Account is inactive' };
+      case UserStatus.SUSPENDED:
+        return { canLogin: false, reason: 'Account is suspended' };
+      default:
+        return { canLogin: false, reason: 'Account status unknown' };
+    }
+  }
+
+  /**
+   * Get users by status
+   * @param status - User status to filter by
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 20)
+   * @returns Paginated users with specified status
+   */
+  async getUsersByStatus(
+    status: UserStatus,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<PaginatedResponseDto<User>> {
+    const offset = (page - 1) * limit;
+
+    const [users, total] = await this.userRepository.findAndCount({
+      where: { status },
+      order: { updatedAt: 'DESC' },
+      skip: offset,
+      take: limit,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+    const meta: PaginationMetaDto = {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+      nextPage: page < totalPages ? page + 1 : undefined,
+      prevPage: page > 1 ? page - 1 : undefined,
+    };
+
+    return {
+      data: users,
+      meta,
+    };
   }
 }
