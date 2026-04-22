@@ -17,6 +17,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
+import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 import { PaginatedResponseDto } from '../../common/dtos/pagination.dto';
 import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
@@ -294,5 +295,92 @@ export class UsersController {
     }
 
     return this.usersService.getUserStats(id);
+  }
+
+  @Put('profile')
+  @ApiOperation({
+    summary: 'Update user profile',
+    description:
+      "Update the authenticated user's profile information. Users can update their own profile.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        email: { type: 'string' },
+        firstName: { type: 'string', nullable: true },
+        lastName: { type: 'string', nullable: true },
+        fullName: { type: 'string', nullable: true },
+        phoneNumber: { type: 'string', nullable: true },
+        avatar: { type: 'string', nullable: true },
+        bio: { type: 'string', nullable: true },
+        preferredLanguage: { type: 'string', nullable: true },
+        country: { type: 'string', nullable: true },
+        role: { type: 'string', enum: ['USER', 'HEALER', 'ADMIN'] },
+        status: { type: 'string', enum: ['active', 'inactive', 'suspended'] },
+        isVerified: { type: 'boolean' },
+        lastActiveAt: { type: 'string', format: 'date-time', nullable: true },
+        createdAt: { type: 'string', format: 'date-time' },
+        updatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid input data',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async updateProfile(
+    @Body() updateProfileDto: UpdateProfileDto,
+    @Request() req: any,
+    @Headers('user-agent') userAgent?: string
+  ): Promise<ProfileResponseDto> {
+    // Get the authenticated user's ID
+    const userId = req.user.sub;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
+    // Get IP address from request
+    const ipAddress = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress;
+
+    return this.usersService.updateProfile(userId, updateProfileDto, ipAddress, userAgent);
+  }
+
+  @Get('profile')
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: "Retrieve the authenticated user's profile information.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile retrieved successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async getCurrentProfile(@Request() req: any): Promise<ProfileResponseDto> {
+    // Get the authenticated user's ID
+    const userId = req.user.sub;
+    if (!userId) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
+    return this.usersService.getProfile(userId);
   }
 }

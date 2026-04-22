@@ -1,10 +1,16 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like, Not, IsNull } from 'typeorm';
 import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
+import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 import {
   PaginatedResponseDto,
   PaginationMetaDto,
@@ -12,6 +18,7 @@ import {
 } from '../../common/dtos/pagination.dto';
 import { Role } from '../../auth/enums/role.enum';
 import { UserStatus } from '../../auth/enums/user-status.enum';
+import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
 
 @Injectable()
 export class UsersService {
@@ -453,6 +460,179 @@ export class UsersService {
     return {
       data: users,
       meta,
+    };
+  }
+
+  /**
+   * Update user profile
+   * @param userId - User ID to update
+   * @param updateProfileDto - Profile update data
+   * @param ipAddress - IP address of the user making the update
+   * @param userAgent - User agent string
+   * @returns Updated user profile
+   */
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<ProfileResponseDto> {
+    // Find the user
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Store original values for logging
+    const originalValues = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      country: user.country,
+      preferredLanguage: user.preferredLanguage,
+    };
+
+    // Validate and update fields
+    const updates: Partial<User> = {};
+
+    // Update firstName
+    if (updateProfileDto.firstName !== undefined) {
+      if (!updateProfileDto.firstName.trim()) {
+        throw new BadRequestException('First name cannot be empty');
+      }
+      updates.firstName = updateProfileDto.firstName.trim();
+    }
+
+    // Update lastName
+    if (updateProfileDto.lastName !== undefined) {
+      if (!updateProfileDto.lastName.trim()) {
+        throw new BadRequestException('Last name cannot be empty');
+      }
+      updates.lastName = updateProfileDto.lastName.trim();
+    }
+
+    // Update phoneNumber with validation
+    if (updateProfileDto.phoneNumber !== undefined) {
+      const normalizedPhone = PhoneValidationUtil.normalizePhoneNumber(
+        updateProfileDto.phoneNumber
+      );
+      if (!normalizedPhone) {
+        throw new BadRequestException(
+          'Invalid phone number format. Please use international format (e.g., +1234567890)'
+        );
+      }
+
+      // Check if phone number is already taken by another user
+      const existingUserWithPhone = await this.userRepository.findOne({
+        where: { phoneNumber: normalizedPhone },
+      });
+      if (existingUserWithPhone && existingUserWithPhone.id !== userId) {
+        throw new BadRequestException('Phone number is already in use by another account');
+      }
+
+      updates.phoneNumber = normalizedPhone;
+    }
+
+    // Update avatar URL
+    if (updateProfileDto.avatar !== undefined) {
+      updates.walletAddress = updateProfileDto.avatar; // Assuming avatar is stored in walletAddress field
+    }
+
+    // Update bio
+    if (updateProfileDto.bio !== undefined) {
+      updates.referralCode = updateProfileDto.bio; // Assuming bio is stored in referralCode field
+    }
+
+    // Update preferredLanguage
+    if (updateProfileDto.preferredLanguage !== undefined) {
+      updates.preferredLanguage = updateProfileDto.preferredLanguage;
+    }
+
+    // Update country
+    if (updateProfileDto.country !== undefined) {
+      updates.country = updateProfileDto.country;
+    }
+
+    // Update fullName if firstName or lastName changed
+    if (updates.firstName !== undefined || updates.lastName !== undefined) {
+      const newFirstName = updates.firstName !== undefined ? updates.firstName : user.firstName;
+      const newLastName = updates.lastName !== undefined ? updates.lastName : user.lastName;
+      updates.fullName = `${newFirstName} ${newLastName}`.trim();
+    }
+
+    // Update lastActiveAt
+    updates.lastActiveAt = new Date();
+
+    // Apply updates
+    const updatedUser = await this.userRepository.save({
+      ...user,
+      ...updates,
+      updatedAt: new Date(),
+    });
+
+    // Log profile changes (you might want to create a separate audit log table for this)
+    const changedFields = Object.keys(updates).filter(
+      (key) => updates[key] !== undefined && updates[key] !== originalValues[key]
+    );
+    if (changedFields.length > 0) {
+      // This is a simplified logging - in production, you'd want a proper audit log
+      console.log(`Profile updated for user ${userId}:`, {
+        changedFields,
+        ipAddress,
+        userAgent,
+        timestamp: new Date(),
+      });
+    }
+
+    // Return profile response
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      fullName: updatedUser.fullName,
+      phoneNumber: updatedUser.phoneNumber,
+      avatar: updatedUser.walletAddress, // Assuming avatar is stored in walletAddress
+      bio: updatedUser.referralCode, // Assuming bio is stored in referralCode
+      preferredLanguage: updatedUser.preferredLanguage,
+      country: updatedUser.country,
+      role: updatedUser.role,
+      status: updatedUser.status,
+      isVerified: updatedUser.isVerified,
+      lastActiveAt: updatedUser.lastActiveAt,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
+    };
+  }
+
+  /**
+   * Get user profile for response
+   * @param userId - User ID
+   * @returns User profile data
+   */
+  async getProfile(userId: string): Promise<ProfileResponseDto> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      avatar: user.walletAddress, // Assuming avatar is stored in walletAddress
+      bio: user.referralCode, // Assuming bio is stored in referralCode
+      preferredLanguage: user.preferredLanguage,
+      country: user.country,
+      role: user.role,
+      status: user.status,
+      isVerified: user.isVerified,
+      lastActiveAt: user.lastActiveAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 }
