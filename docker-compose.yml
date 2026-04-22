@@ -1,32 +1,71 @@
 version: '3.8'
+
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    restart: always
-    ports:
-      - "5432:5432"
+    container_name: uzima_postgres
     environment:
-      POSTGRES_USER: uzima
-      POSTGRES_PASSWORD: uzima123
-      POSTGRES_DB: uzima_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_DATABASE:-uzima_dev}
+    ports:
+      - '${DB_PORT:-5432}:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - uzima_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  backend:
-    build: .
-    restart: always
-    ports:
-      - "3000:3000"
+  # NestJS Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: uzima_backend
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: uzima
-      DB_PASSWORD: uzima123
-      DB_DATABASE: uzima_db
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_DATABASE: ${DB_DATABASE:-uzima_dev}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - uzima_network
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:dev
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: uzima_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
     depends_on:
       - postgres
-    command: ["node", "dist/main.js"]
+    networks:
+      - uzima_network
 
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  uzima_network:
+    driver: bridge

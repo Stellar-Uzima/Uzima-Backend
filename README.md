@@ -1,146 +1,368 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Stellar Uzima Backend
 
-[![CI](https://github.com/Stellar-Uzima/Uzima-Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Stellar-Uzima/Uzima-Backend/actions/workflows/ci.yml)
+A robust, scalable NestJS backend for the Stellar Uzima health and wellness platform. This repository contains the core API and services that power the Uzima ecosystem.
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 📋 Table of Contents
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Development](#development)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Description
+## 🎯 Overview
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Stellar Uzima is a comprehensive health and wellness platform designed to help users manage their health goals, track progress, and receive personalized recommendations. The backend provides:
 
-## Running Uzima Backend with Docker
+- **Authentication & Authorization**: Secure user authentication with JWT tokens
+- **User Management**: Complete user profile and account management
+- **Health Tasks**: Track and manage health-related tasks and habits
+- **Data Persistence**: Robust database operations with TypeORM
+- **Error Handling**: Comprehensive error handling and logging
+- **API Documentation**: Auto-generated API documentation with Swagger
 
-This project supports running the backend and a local PostgreSQL database using Docker Compose.
+## 🛠 Tech Stack
+
+- **Runtime**: Node.js (v18+)
+- **Framework**: NestJS 10+
+- **Language**: TypeScript
+- **Database**: PostgreSQL with TypeORM
+- **Authentication**: JWT (JSON Web Tokens)
+- **Validation**: class-validator, class-transformer
+- **Testing**: Jest
+- **API Documentation**: Swagger/OpenAPI
+- **Linting & Formatting**: ESLint, Prettier
+
+## 📁 Project Structure
+
+```
+backend/
+├── src/
+│   ├── main.ts                 # Application entry point
+│   ├── app.module.ts           # Root module
+│   ├── app.controller.ts       # Root controller
+│   ├── app.service.ts          # Root service
+│   │
+│   ├── common/                 # Shared utilities and components
+│   │   ├── decorators/         # Custom decorators (auth, roles, etc.)
+│   │   ├── filters/            # Exception filters
+│   │   ├── guards/             # Authentication & authorization guards
+│   │   ├── interceptors/       # Request/response interceptors
+│   │   ├── pipes/              # Validation and transformation pipes
+│   │   ├── dtos/               # Common DTOs (pagination, responses)
+│   │   └── utils/              # Utility functions and helpers
+│   │
+│   ├── config/                 # Configuration management
+│   │   ├── database.config.ts
+│   │   ├── app.config.ts
+│   │   └── validation.schema.ts
+│   │
+│   ├── database/               # Database setup and migrations
+│   │   ├── migrations/
+│   │   ├── seeds/
+│   │   └── entities/           # Database entities
+│   │
+│   ├── modules/                # Feature modules
+│   │   ├── auth/               # Authentication module
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── strategies/     # Passport strategies
+│   │   │   ├── guards/
+│   │   │   └── dtos/
+│   │   │
+│   │   ├── users/              # User management module
+│   │   │   ├── users.module.ts
+│   │   │   ├── users.controller.ts
+│   │   │   ├── users.service.ts
+│   │   │   ├── entities/
+│   │   │   └── dtos/
+│   │   │
+│   │   └── health-tasks/       # Health tasks module
+│   │       ├── health-tasks.module.ts
+│   │       ├── health-tasks.controller.ts
+│   │       ├── health-tasks.service.ts
+│   │       ├── entities/
+│   │       └── dtos/
+│   │
+│   └── shared/                 # Shared services (mail, notifications, etc.)
+│       ├── mail/
+│       ├── notifications/
+│       └── logger/
+│
+├── test/                       # End-to-end tests
+│   └── app.e2e.spec.ts
+│
+├── package.json
+├── tsconfig.json
+├── nest-cli.json
+├── jest.config.js
+├── .env.example
+├── .eslintrc.js
+├── .prettierrc
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- [Docker](https://www.docker.com/get-started) installed
-- [Docker Compose](https://docs.docker.com/compose/) (usually included with Docker Desktop)
 
-### Steps
+- Node.js >= 18.x
+- npm, yarn, or pnpm
+- PostgreSQL 12+
 
-1. **Build and start services:**
+### Installation
 
-  ```sh
-  docker compose up --build
-  ```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Stellar-Uzima/Uzima-Backend.git
+   cd backend
+   ```
 
-  This will start:
-  - `postgres`: A local PostgreSQL database (port 5432)
-  - `backend`: The NestJS API (port 3000)
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
 
-2. **Access the API:**
-  - The backend will be available at [http://localhost:3000](http://localhost:3000)
+3. **Setup environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-3. **Stop services:**
+4. **Run database migrations**
+   ```bash
+   npm run migrate
+   ```
 
-  ```sh
-  docker compose down
-  ```
+5. **Seed the database (optional)**
+   ```bash
+   npm run seed
+   ```
+
+6. **Start the development server**
+   ```bash
+   npm run start:dev
+   ```
+
+The application will be available at `http://localhost:3000`
+
+## 💻 Development
+
+### Available Scripts
+
+```bash
+# Development
+npm run start          # Start the application
+npm run start:dev     # Start with hot reload
+npm run start:debug   # Start with debug mode
+
+# Building
+npm run build         # Build for production
+npm run build:watch  # Build with watch mode
+
+# Testing
+npm run test          # Run unit tests
+npm run test:watch   # Run tests with watch mode
+npm run test:cov     # Run tests with coverage
+npm run test:e2e     # Run e2e tests
+
+# Database
+npm run migrate       # Run migrations
+npm run migrate:revert # Revert last migration
+npm run seed         # Seed the database
+
+# Linting & Formatting
+npm run lint         # Run ESLint
+npm run lint:fix    # Fix linting errors
+npm run format      # Format with Prettier
+```
+
+### Code Style
+
+This project uses ESLint and Prettier for code consistency:
+
+- **ESLint**: Enforces code quality rules
+- **Prettier**: Handles automatic code formatting
+
+```bash
+# Format all files
+npm run format
+
+# Check and fix linting issues
+npm run lint:fix
+```
 
 ### Environment Variables
-- The backend connects to the database using the following default values:
-  - DB_HOST: postgres
-  - DB_PORT: 5432
-  - DB_USERNAME: uzima
-  - DB_PASSWORD: uzima123
-  - DB_DATABASE: uzima_db
 
-You can change these in `docker-compose.yml` as needed.
+See `.env.example` for all available environment variables:
 
-### Troubleshooting
-- If you change dependencies or code, restart with `docker compose up --build`.
-- Database data persists in a Docker volume (`pgdata`).
+```env
+# App
+NODE_ENV=development
+PORT=3000
+API_PREFIX=api
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=password
+DB_DATABASE=uzima_dev
+
+# JWT
+JWT_SECRET=your-secret-key
+JWT_EXPIRATION=7d
+
+# CORS
+CORS_ORIGIN=http://localhost:3000
+
+# Mail (optional)
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USER=your-email@example.com
+MAIL_PASSWORD=your-password
+```
+
+## 📚 API Documentation
+
+API documentation is available via Swagger at:
+
+```
+http://localhost:3000/api/docs
+```
+
+To regenerate OpenAPI documentation:
+
+```bash
+npm run swagger
+```
+
+## 🧪 Testing
+
+The project uses Jest for unit and integration testing.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:cov
+```
+
+### Writing Tests
+
+Create test files next to the modules with `.spec.ts` suffix:
+
+```typescript
+// Example: users.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from './users.service';
+
+describe('UsersService', () => {
+  let service: UsersService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [UsersService],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+```
+
+## 🐳 Docker
+
+### Build Docker Image
+
+```bash
+docker build -t uzima-backend .
+```
+
+### Run with Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+## 📖 Module Guides
+
+Detailed documentation for each module is available in their respective README files:
+
+- [Auth Module](./src/modules/auth/README.md) - Authentication and authorization
+- [Users Module](./src/modules/users/README.md) - User management
+- [Health Tasks Module](./src/modules/health-tasks/README.md) - Health task tracking
+- [Database Module](./src/database/README.md) - Database setup and migrations
+
+## 🤝 Contributing
+
+We welcome contributions! Please read our [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) for detailed guidelines on:
+
+- Setting up your development environment
+- Making code changes
+- Creating pull requests
+- Code review process
+- Commit message conventions
+
+## 📝 Commit Convention
+
+We follow conventional commits:
+
+```
+feat: Add new feature
+fix: Fix a bug
+docs: Update documentation
+style: Code style changes
+refactor: Refactor code
+perf: Performance improvements
+test: Add or update tests
+chore: Maintenance tasks
+```
+
+## 🔒 Security
+
+- Never commit `.env` files with sensitive data
+- Always use environment variables for secrets
+- Validate all user inputs
+- Follow OWASP security guidelines
+- Report security issues to the maintainers
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For issues, questions, or suggestions:
+
+1. Check existing [GitHub Issues](https://github.com/Stellar-Uzima/Uzima-Backend/issues)
+2. Create a new issue with a clear description
+3. Contact the maintainers
+
+## 🚀 Deployment
+
+For production deployment guidelines, see [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ---
-For local development without Docker, see the rest of this README.
 
-## Project setup
-
-```bash
-$ npm install
-```
-
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Happy coding! 🎉**
