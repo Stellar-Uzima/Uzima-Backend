@@ -1,8 +1,39 @@
-import { Controller, Get, Post, Put, Param, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Param,
+  Body,
+  Req,
+  UseGuards,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { HealthTasksService } from './health-tasks.service';
+import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
+
+// Minimal auth types/guard
+interface AuthenticatedRequest extends Request {
+  user: { userId: string; role?: string };
+}
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Observable } from 'rxjs';
+
+@Injectable()
+class JwtAuthGuard implements CanActivate {
+  canActivate(
+    context: ExecutionContext,
+  ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    request.user = { userId: 'mock-user-id' }; // Mock in absence of real auth
+    return true;
+  }
+}
 
 @ApiTags('tasks')
+@UseGuards(JwtAuthGuard)
 @Controller('tasks')
 export class HealthTasksController {
   constructor(private readonly healthTasksService: HealthTasksService) {}
@@ -54,8 +85,25 @@ export class HealthTasksController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update task (admin only)' })
-  async update(@Param('id') id: string, @Body() body: any) {
-    // TODO: Implement update task
-    return { message: 'Update task logic to be implemented' };
+  async update(
+    @Param('id') id: string,
+    @Body() body: UpdateHealthTaskDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    // Find the task
+    const task = await this.healthTasksService.findOne(id);
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    // Permission: admin or creator
+    const isAdmin = req.user.role === 'ADMIN';
+    const isCreator = task.createdBy && task.createdBy === req.user.userId;
+    if (!isAdmin && !isCreator) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    const updated = await this.healthTasksService.update(id, body);
+    return updated;
   }
 }

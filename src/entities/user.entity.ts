@@ -9,6 +9,7 @@ import {
   Unique,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
+import { UserStatus } from '../auth/enums/user-status.enum';
 
 @Entity('users')
 @Unique(['email'])
@@ -43,7 +44,11 @@ export class User {
   @Column({ type: 'enum', enum: Role, default: Role.USER })
   role: Role;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
+  status: UserStatus;
+
+  // Keep isActive for backward compatibility during migration
+  @Column({ type: 'boolean', default: true, select: false })
   isActive: boolean;
 
   @Column({ default: false })

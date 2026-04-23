@@ -19,11 +19,10 @@ import { UsersService } from './users.service';
 import { OtpService } from '../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
-import {
-  VerifyEmailDto,
-  ResendEmailVerificationDto,
-} from '../dto/verify-email.dto';
+import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
 import { AuditService } from '../../audit/audit.service';
+import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
+import { SessionService } from '@/modules/auth/services/session.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +35,8 @@ export class AuthService {
     private eventEmitter: EventEmitter2,
     private otpService: OtpService,
     private auditService: AuditService,
+    private emailVerificationService: EmailVerificationService,
+    private sessionService: SessionService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -57,6 +58,11 @@ export class AuthService {
       email: user.email,
     });
 
+    // Create email verification token and send email
+    if (user.email) {
+      await this.emailVerificationService.createForUser(user.id);
+    }
+
     const token = this.jwtService.sign({ sub: user.id, email: user.email });
     return { token };
   }
@@ -67,8 +73,18 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
-    if (!passwordMatches)
-      throw new UnauthorizedException('Invalid credentials');
+    if (!passwordMatches) throw new UnauthorizedException('Invalid credentials');
+
+    // Check user status - prevent login for inactive or suspended users
+    const loginCheck = await this.usersService.canUserLogin(user.id);
+    if (!loginCheck.canLogin) {
+      this.logger.warn(`Login attempt blocked for user ${user.id}: ${loginCheck.reason}`);
+      throw new UnauthorizedException(loginCheck.reason || 'Account access denied');
+    }
+
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
+    }
 
     return this.generateTokens(user.id, user.email, user.role);
   }
@@ -108,19 +124,23 @@ export class AuthService {
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
 
-    const accessToken = this.jwtService.sign(
-      { sub: userId, email, role },
-      { expiresIn: '15m' },
-    );
+    const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(
       { sub: userId, email, role, tokenId },
-      { expiresIn: '7d' },
+      { expiresIn: '7d' }
     );
 
     const key = `refresh:${userId}:${tokenId}`;
     await this.redisClient.set(key, refreshToken, {
       EX: 7 * 24 * 60 * 60,
     });
+
+    // Record session metadata in DB (device info can be passed later)
+    try {
+      await this.sessionService.createSession(userId, tokenId);
+    } catch (err) {
+      this.logger.warn('Failed to record session in DB', err as any);
+    }
 
     return { accessToken, refreshToken };
   }
@@ -155,15 +175,13 @@ export class AuthService {
   async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto) {
     const verificationResult = await this.otpService.verifyOtp(
       verifyOtpDto.phoneNumber,
-      verifyOtpDto.otp,
+      verifyOtpDto.otp
     );
     if (!verificationResult.success) {
       throw new UnauthorizedException(verificationResult.message);
     }
 
-    let user = await this.usersService.findByPhoneNumber(
-      verifyOtpDto.phoneNumber,
-    );
+    let user = await this.usersService.findByPhoneNumber(verifyOtpDto.phoneNumber);
     const isNewUser = !user;
 
     if (isNewUser) {
@@ -172,19 +190,13 @@ export class AuthService {
         phoneNumber: verifyOtpDto.phoneNumber,
         firstName: 'Phone',
         lastName: 'User',
-        email: null, // No email for phone users
-        password: null, // No password
+        email: undefined, // No email for phone users
+        password: undefined, // No password
       });
-      this.logger.log(
-        `New user registered via phone: ${verifyOtpDto.phoneNumber}`,
-      );
+      this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
 
-    const tokens = await this.generateTokens(
-      user.id,
-      user.email || user.phoneNumber,
-      user.role,
-    );
+    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
     return {
       success: true,
       message: 'Authentication successful',
@@ -200,22 +212,16 @@ export class AuthService {
 
   // Verify email
   async verifyEmail(dto: VerifyEmailDto) {
-    const user = await this.usersService['usersRepository'].findOne({
-      where: {
-        emailVerificationToken: dto.token,
-        emailVerificationExpiry: MoreThan(new Date()),
-      },
-    });
-
-    if (!user) {
+    const record = await this.emailVerificationService.consume(dto.token);
+    if (!record) {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    // Clear verification token and mark email as verified
+    const user = record.user;
+    user.isVerified = true;
+    // clear legacy fields if present
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;
-    user.isVerified = true;
-
     await this.usersService.save(user);
 
     // Emit email verified event
@@ -225,10 +231,7 @@ export class AuthService {
     });
 
     // Audit log for email verification
-    await this.auditService.logAction(
-      user.id,
-      `Email verified: ${user.email}`,
-    );
+    await this.auditService.logAction(user.id, `Email verified: ${user.email}`);
 
     return { message: 'Email verified successfully' };
   }
@@ -250,20 +253,11 @@ export class AuthService {
     const currentCount = await this.redisClient.get(rateLimitKey);
 
     if (currentCount && parseInt(String(currentCount), 10) >= 3) {
-      throw new BadRequestException(
-        'Too many verification requests. Please try again later.',
-      );
+      throw new BadRequestException('Too many verification requests. Please try again later.');
     }
 
-    // Generate new verification token (using UUID for consistency with remote)
-    const verificationToken = crypto.randomUUID();
-    const expiryTime = new Date();
-    expiryTime.setHours(expiryTime.getHours() + 24); // 24-hour expiry
-
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpiry = expiryTime;
-
-    await this.usersService.save(user);
+  // Create a new email verification record and send email
+  await this.emailVerificationService.createForUser(user.id);
 
     // Increment rate limit counter
     if (!currentCount) {
@@ -321,10 +315,7 @@ export class AuthService {
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
     // Audit log for password reset
-    await this.auditService.logAction(
-      user.id,
-      `Password reset completed for: ${user.email}`,
-    );
+    await this.auditService.logAction(user.id, `Password reset completed for: ${user.email}`);
 
     return { message: 'Password reset successful' };
   }
