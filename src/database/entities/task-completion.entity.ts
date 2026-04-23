@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../entities/user.entity';
-import { HealthTask } from '../../entities/health-task.entity';
+import { HealthTask } from '../../tasks/entities/health-task.entity';
 
 @Entity('task_completions')
 @Index(['userId', 'taskId'])
