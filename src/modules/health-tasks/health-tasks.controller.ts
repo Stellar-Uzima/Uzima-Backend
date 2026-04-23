@@ -15,6 +15,7 @@ import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
 import { ArchiveService } from './services/archive.service';
 import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
+import { AnalyticsService } from './services/analytics.service';
 
 // Minimal auth types/guard
 interface AuthenticatedRequest extends Request {
