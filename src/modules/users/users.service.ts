@@ -5,7 +5,7 @@ import {
   BadRequestException,
   Inject,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm'; 
 import { Repository, Between, Like, Not, IsNull } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -22,13 +22,131 @@ import {
 import { Role } from '../../auth/enums/role.enum';
 import { UserStatus } from '../../auth/enums/user-status.enum';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
+import {
+  UpdateUserSettingsDto,
+  UserSettingsResponseDto,
+} from './dto/user-settings.dto';
 
 @Injectable()
 export class UsersService {
+  private readonly defaultLanguage = 'en';
+  private readonly defaultCountry = 'ZZ';
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserStatusLog)
+    private readonly userStatusLogRepository: Repository<UserStatusLog>
+  ) { }
+
+  async getSettings (userId: string): Promise<UserSettingsResponseDto> {
+    const user = await this.findUserOrFail(userId);
+    return this.toSettingsResponse(user);
+  }
+
+  async updateSettings (
+    userId: string,
+    dto: UpdateUserSettingsDto,
+  ): Promise<UserSettingsResponseDto> {
+    const user = await this.findUserOrFail(userId);
+
+    if (dto.fullName !== undefined) {
+      user.fullName = dto.fullName;
+      const splitName = this.splitFullName(dto.fullName);
+      user.firstName = splitName.firstName;
+      user.lastName = splitName.lastName;
+    }
+
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
+    }
+
+    if (dto.firstName !== undefined || dto.lastName !== undefined) {
+      user.fullName = this.composeFullName(user.firstName, user.lastName);
+    }
+
+    if (dto.preferredLanguage !== undefined) {
+      user.preferredLanguage = dto.preferredLanguage;
+    }
+
+    if (dto.country !== undefined) {
+      user.country = dto.country;
+    }
+
+    if (dto.phoneNumber !== undefined) {
+      user.phoneNumber = dto.phoneNumber as unknown as string;
+    }
+
+    const updatedUser = await this.userRepository.save(user);
+    return this.toSettingsResponse(updatedUser);
+  }
+
+  private async findUserOrFail (userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  private toSettingsResponse (user: User): UserSettingsResponseDto {
+    const firstName = this.normalizeNamePart(user.firstName);
+    const lastName = this.normalizeNamePart(user.lastName);
+    const fullName =
+      this.normalizeFullName(user.fullName) ||
+      this.composeFullName(firstName, lastName) ||
+      this.fallbackName(user);
+
+    return {
+      fullName,
+      firstName: firstName || this.splitFullName(fullName).firstName,
+      lastName: lastName || this.splitFullName(fullName).lastName,
+      preferredLanguage:
+        user.preferredLanguage?.trim().toLowerCase() || this.defaultLanguage,
+      country: user.country?.trim().toUpperCase() || this.defaultCountry,
+      phoneNumber: user.phoneNumber?.trim() || null,
+    };
+  }
+
+  private normalizeNamePart (value?: string | null): string {
+    return value?.trim() || '';
+  }
+
+  private normalizeFullName (value?: string | null): string {
+    return value?.trim() || '';
+  }
+
+  private composeFullName (firstName?: string | null, lastName?: string | null) {
+    return [firstName?.trim(), lastName?.trim()].filter(Boolean).join(' ');
+  }
+
+  private splitFullName (fullName: string): {
+    firstName: string;
+    lastName: string;
+  } {
+    const normalized = fullName.trim().replace(/\s+/g, ' ');
+    const [firstName, ...rest] = normalized.split(' ');
+
+    return {
+      firstName,
+      lastName: rest.join(' '),
+    };
+  }
+
+  private fallbackName (user: User): string {
+    const emailName = user.email?.split('@')[0]?.trim();
+    const phoneName = user.phoneNumber?.trim();
+
+    return emailName || phoneName || 'User';
+  }
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
@@ -56,7 +174,7 @@ export class UsersService {
    * @param filterDto - Filter and pagination options
    * @returns Paginated list of users
    */
-  async listUsers(filterDto: UserFilterDto): Promise<PaginatedResponseDto<User>> {
+  async listUsers (filterDto: UserFilterDto): Promise<PaginatedResponseDto<User>> {
     const {
       page = 1,
       limit = 10,
@@ -264,14 +382,14 @@ export class UsersService {
   /**
    * Find user by phone number
    */
-  async findByPhone(phoneNumber: string): Promise<User> {
+  async findByPhone (phoneNumber: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { phoneNumber } });
   }
 
   /**
    * Get user statistics
    */
-  async getUserStats(id: string): Promise<any> {
+  async getUserStats (id: string): Promise<any> {
     const user = await this.findOne(id);
     if (!user) {
       throw new ForbiddenException('User not found');
@@ -291,7 +409,7 @@ export class UsersService {
   /**
    * Check if user has admin role
    */
-  async isAdmin(userId: string): Promise<boolean> {
+  async isAdmin (userId: string): Promise<boolean> {
     const user = await this.findOne(userId);
     return user?.role === Role.ADMIN;
   }
@@ -305,7 +423,7 @@ export class UsersService {
    * @param userAgent - User agent string
    * @returns Status change response
    */
-  async changeUserStatus(
+  async changeUserStatus (
     userId: string,
     statusChangeDto: UserStatusChangeDto,
     changedBy: string,
@@ -384,7 +502,7 @@ export class UsersService {
    * @param limit - Items per page (default: 20)
    * @returns Paginated status history
    */
-  async getUserStatusHistory(
+  async getUserStatusHistory (
     userId: string,
     page: number = 1,
     limit: number = 20
@@ -428,7 +546,7 @@ export class UsersService {
    * @param userId - User ID to check
    * @returns Login eligibility
    */
-  async canUserLogin(userId: string): Promise<{ canLogin: boolean; reason?: string }> {
+  async canUserLogin (userId: string): Promise<{ canLogin: boolean; reason?: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       return { canLogin: false, reason: 'User not found' };
@@ -453,7 +571,7 @@ export class UsersService {
    * @param limit - Items per page (default: 20)
    * @returns Paginated users with specified status
    */
-  async getUsersByStatus(
+  async getUsersByStatus (
     status: UserStatus,
     page: number = 1,
     limit: number = 20
@@ -493,7 +611,7 @@ export class UsersService {
    * @param userAgent - User agent string
    * @returns Updated user profile
    */
-  async updateProfile(
+  async updateProfile (
     userId: string,
     updateProfileDto: UpdateProfileDto,
     ipAddress?: string,
@@ -593,8 +711,15 @@ export class UsersService {
     });
 
     // Log profile changes (you might want to create a separate audit log table for this)
-    const changedFields = Object.keys(updates).filter(
-      (key) => updates[key] !== undefined && updates[key] !== originalValues[key]
+    const trackedFields: Array<keyof typeof originalValues> = [
+      'firstName',
+      'lastName',
+      'phoneNumber',
+      'country',
+      'preferredLanguage',
+    ];
+    const changedFields = trackedFields.filter(
+      (key) => updates[key] !== undefined && updates[key] !== originalValues[key],
     );
     if (changedFields.length > 0) {
       // This is a simplified logging - in production, you'd want a proper audit log
@@ -618,14 +743,14 @@ export class UsersService {
       lastName: updatedUser.lastName,
       fullName: updatedUser.fullName,
       phoneNumber: updatedUser.phoneNumber,
-      avatar: updatedUser.walletAddress, // Assuming avatar is stored in walletAddress
+      avatar: updatedUser.walletAddress ?? undefined, // Assuming avatar is stored in walletAddress
       bio: updatedUser.referralCode, // Assuming bio is stored in referralCode
       preferredLanguage: updatedUser.preferredLanguage,
       country: updatedUser.country,
       role: updatedUser.role,
       status: updatedUser.status,
       isVerified: updatedUser.isVerified,
-      lastActiveAt: updatedUser.lastActiveAt,
+      lastActiveAt: updatedUser.lastActiveAt ?? undefined,
       createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
     };
@@ -658,14 +783,14 @@ export class UsersService {
       lastName: user.lastName,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
-      avatar: user.walletAddress, // Assuming avatar is stored in walletAddress
+      avatar: user.walletAddress ?? undefined, // Assuming avatar is stored in walletAddress
       bio: user.referralCode, // Assuming bio is stored in referralCode
       preferredLanguage: user.preferredLanguage,
       country: user.country,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
-      lastActiveAt: user.lastActiveAt,
+      lastActiveAt: user.lastActiveAt ?? undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
