@@ -1,4 +1,4 @@
-import * as Joi from 'joi';
+import Joi from 'joi';
 
 /**
  * Environment variable validation schema.
@@ -20,6 +20,11 @@ export const envValidationSchema = Joi.object({
   // ── JWT ─────────────────────────────────────────────────────────────────────
   JWT_SECRET: Joi.string().min(32).required(),
 
+  // ── Twilio SMS (optional until SMS is used) ────────────────────────────────
+  TWILIO_ACCOUNT_SID: Joi.string().optional(),
+  TWILIO_AUTH_TOKEN: Joi.string().optional(),
+  TWILIO_PHONE_NUMBER: Joi.string().optional(),
+
   // ── Stellar ─────────────────────────────────────────────────────────────────
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').required(),
   STELLAR_TREASURY_SECRET_KEY: Joi.string().required(),
@@ -33,11 +38,14 @@ export interface ValidatedEnv {
   DATABASE_NAME: string;
   REDIS_URL: string;
   JWT_SECRET: string;
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+  TWILIO_PHONE_NUMBER?: string;
   STELLAR_NETWORK: 'testnet' | 'mainnet';
   STELLAR_TREASURY_SECRET_KEY: string;
 }
 
-export function validateEnv(): ValidatedEnv {
+export function validateEnv (): ValidatedEnv {
   const result = envValidationSchema.validate(process.env, {
     stripUnknown: false,
     convert: true,
@@ -49,8 +57,8 @@ export function validateEnv(): ValidatedEnv {
       .join('; ');
     throw new Error(
       `Environment validation failed: ${missingVar}\n` +
-        `Missing or invalid environment variables detected. ` +
-        `Please set all required variables in your .env file.`,
+      `Missing or invalid environment variables detected. ` +
+      `Please set all required variables in your .env file.`,
     );
   }
 
