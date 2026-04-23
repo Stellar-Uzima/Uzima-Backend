@@ -7,16 +7,23 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '@modules/users/users.module';
 import { EmailVerification } from '../../database/entities/email-verification.entity';
-import { EmailVerificationService } from './services/email-verification.service';
 import { Session } from '../../database/entities/session.entity';
+import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
+import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
 import { NotificationsModule } from '@/notifications/notifications.module';
+import { JwtStrategy } from '../../auth/strategies/jwt.strategy';
+import { JwtRefreshStrategy } from '../../auth/strategies/jwt-refresh.strategy';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtRefreshGuard } from '../../auth/guards/jwt-refresh.guard';
+
+import { RolesGuard } from '../common/guards/roles.guard';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
-  TypeOrmModule.forFeature([EmailVerification, Session]),
+    TypeOrmModule.forFeature([EmailVerification, Session, TokenBlacklist]),
     NotificationsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -29,7 +36,16 @@ import { NotificationsModule } from '@/notifications/notifications.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, EmailVerificationService, SessionService],
-  exports: [AuthService, EmailVerificationService, SessionService],
+  providers: [
+    AuthService,
+    EmailVerificationService,
+    SessionService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    JwtAuthGuard,
+    JwtRefreshGuard,
+    RolesGuard,
+  ],
+  exports: [AuthService, EmailVerificationService, SessionService, RolesGuard],
 })
 export class AuthModule {}

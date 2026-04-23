@@ -17,7 +17,7 @@ export class Session {
   @Column({ type: 'varchar', unique: true })
   tokenId: string;
 
-  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.sessions, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
