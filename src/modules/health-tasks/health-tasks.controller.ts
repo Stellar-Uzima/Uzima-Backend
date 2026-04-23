@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
 import { ArchiveService } from './services/archive.service';
+import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
 
 // Minimal auth types/guard
 interface AuthenticatedRequest extends Request {
@@ -40,6 +41,7 @@ export class HealthTasksController {
   constructor(
     private readonly healthTasksService: HealthTasksService,
     private readonly archiveService: ArchiveService,
+    private readonly completionService: CompletionService,
   ) {}
 
   @Get()
@@ -111,12 +113,45 @@ export class HealthTasksController {
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Mark task as completed by user' })
-  async completeTask(@Param('id') id: string, @Body() body: any) {
-    // TODO: Implement task completion
-    // - Verify task is valid
-    // - Award XLM to user
-    // - Update user stats
-    return { message: 'Complete task logic to be implemented' };
+  async completeTask(
+    @Param('id') id: string,
+    @Body() dto: MarkCompleteDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    dto.taskId = id;
+    return this.completionService.markTaskComplete(req.user.userId, dto);
+  }
+
+  @Post(':id/incomplete')
+  @ApiOperation({ summary: 'Mark task as incomplete by user' })
+  async markTaskIncomplete(
+    @Param('id') id: string,
+    @Body() dto: MarkIncompleteDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    dto.taskId = id;
+    return this.completionService.markTaskIncomplete(req.user.userId, dto);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({ summary: 'Get completion history for a task' })
+  async getCompletionHistory(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.completionService.getCompletionHistory(req.user.userId, id);
+  }
+
+  @Get('user/:userId/metrics')
+  @ApiOperation({ summary: 'Get completion metrics for a user' })
+  async getCompletionMetrics(@Param('userId') userId: string) {
+    return this.completionService.getCompletionMetrics(userId);
+  }
+
+  @Get(':id/stats')
+  @ApiOperation({ summary: 'Get completion statistics for a task' })
+  async getTaskCompletionStats(@Param('id') id: string) {
+    return this.completionService.getTaskCompletionStats(id);
   }
 
   @Get('user/:userId')
