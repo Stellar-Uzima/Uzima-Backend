@@ -26,6 +26,8 @@ import {
   UpdateUserSettingsDto,
   UserSettingsResponseDto,
 } from './dto/user-settings.dto';
+import { PreferencesService } from './services/preferences.service';
+import { PreferencesResponseDto } from './dto/preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -36,8 +38,10 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserStatusLog)
-    private readonly userStatusLogRepository: Repository<UserStatusLog>
-  ) { }
+    private readonly userStatusLogRepository: Repository<UserStatusLog>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly preferencesService: PreferencesService,
+  ) {}
 
   async getSettings (userId: string): Promise<UserSettingsResponseDto> {
     const user = await this.findUserOrFail(userId);
@@ -142,14 +146,11 @@ export class UsersService {
   }
 
   private fallbackName (user: User): string {
-    const emailName = user.email?.split('@')[0]?.trim();
+    const emailName = user.email?.split('@')[0];
     const phoneName = user.phoneNumber?.trim();
 
     return emailName || phoneName || 'User';
   }
-    private readonly userStatusLogRepository: Repository<UserStatusLog>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
 
   /**
    * Create a new user
@@ -799,5 +800,64 @@ export class UsersService {
     await this.cacheManager.set(cacheKey, profile, 300000);
 
     return profile;
+  }
+
+  /**
+   * Get user preferences
+   */
+  async getUserPreferences(userId: string): Promise<PreferencesResponseDto> {
+    const preferences = await this.preferencesService.getPreferences(userId);
+    
+    return {
+      id: preferences.id,
+      theme: preferences.theme,
+      language: preferences.language,
+      emailNotifications: preferences.notifications.email,
+      pushNotifications: preferences.notifications.push,
+      smsNotifications: preferences.notifications.sms,
+      privacy: preferences.privacy,
+      accessibility: preferences.accessibility,
+      app: preferences.app,
+      createdAt: preferences.createdAt,
+      updatedAt: preferences.updatedAt,
+    };
+  }
+
+  /**
+   * Update user preferences
+   */
+  async updateUserPreferences(
+    userId: string,
+    updateData: any,
+  ): Promise<PreferencesResponseDto> {
+    const preferences = await this.preferencesService.updatePreferences(userId, updateData);
+    
+    return {
+      id: preferences.id,
+      theme: preferences.theme,
+      language: preferences.language,
+      emailNotifications: preferences.notifications.email,
+      pushNotifications: preferences.notifications.push,
+      smsNotifications: preferences.notifications.sms,
+      privacy: preferences.privacy,
+      accessibility: preferences.accessibility,
+      app: preferences.app,
+      createdAt: preferences.createdAt,
+      updatedAt: preferences.updatedAt,
+    };
+  }
+
+  /**
+   * Create default preferences for new user
+   */
+  async createDefaultPreferences(userId: string): Promise<void> {
+    await this.preferencesService.createDefaultPreferences(userId);
+  }
+
+  /**
+   * Delete user preferences (called when user is deleted)
+   */
+  async deletePreferences(userId: string): Promise<void> {
+    await this.preferencesService.deletePreferences(userId);
   }
 }
