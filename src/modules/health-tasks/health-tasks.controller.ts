@@ -22,6 +22,7 @@ import { ArchiveService } from './services/archive.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
+import { AnalyticsService } from './services/analytics.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 
 // Minimal auth types/guard
@@ -52,6 +53,7 @@ export class HealthTasksController {
     private readonly searchService: TaskSearchService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   @Get()
@@ -224,5 +226,23 @@ export class HealthTasksController {
   async deleteAttachment(@Param('id') id: string) {
     await this.attachmentsService.deleteAttachment(id);
     return { success: true };
+  }
+
+  @Get('analytics/user')
+  @ApiOperation({ summary: 'Get task analytics for the current user' })
+  async getUserStats(@Req() req: AuthenticatedRequest) {
+    return this.analyticsService.getUserTaskStats(req.user.userId);
+  }
+
+  @Get('analytics/global')
+  @ApiOperation({ summary: 'Get global task analytics' })
+  async getGlobalStats() {
+    return this.analyticsService.getGlobalStats();
+  }
+
+  @Get('analytics/trends')
+  @ApiOperation({ summary: 'Get task completion trends' })
+  async getTrends(@Query('days') days: number = 7) {
+    return this.analyticsService.getTrends(days);
   }
 }

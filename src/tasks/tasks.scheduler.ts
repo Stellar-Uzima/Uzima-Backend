@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { TaskAssignmentService } from './assignment/task-assignment.service';
+import { ReminderService } from '../modules/health-tasks/services/reminder.service';
 
 @Injectable()
 export class TasksScheduler {
@@ -14,6 +15,7 @@ export class TasksScheduler {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly taskAssignmentService: TaskAssignmentService,
+    private readonly reminderService: ReminderService,
   ) {}
 
   /**
@@ -51,6 +53,21 @@ export class TasksScheduler {
       );
     } catch (error) {
       this.logger.error(`Daily task assignment cron job failed: ${error.message}`, error.stack);
+    }
+  }
+  /**
+   * Cron job: Process due task reminders every minute
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async processReminders(): Promise<void> {
+    this.logger.debug('Starting task reminder processing cron job');
+    try {
+      const count = await this.reminderService.processDueReminders();
+      if (count > 0) {
+        this.logger.log(`Processed ${count} task reminders`);
+      }
+    } catch (error) {
+      this.logger.error(`Task reminder processing failed: ${error.message}`, error.stack);
     }
   }
 
