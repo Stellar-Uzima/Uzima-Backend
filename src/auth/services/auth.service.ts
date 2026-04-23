@@ -10,7 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { MoreThan, Repository } from 'typeorm';
+import { MoreThan, LessThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { LoginDto } from '../dto/login.dto';
@@ -25,11 +25,14 @@ import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
 import { SessionService } from '@/modules/auth/services/session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
+import { TransactionService } from '@/database/services/transaction.service';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private redisClient: RedisClientType;
+  private readonly blacklistCache = new Map<string, { blacklisted: boolean; expiresAt: number }>();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(
     private usersService: UsersService,
@@ -39,6 +42,7 @@ export class AuthService {
     private auditService: AuditService,
     private emailVerificationService: EmailVerificationService,
     private sessionService: SessionService,
+    private transactionService: TransactionService,
     @InjectRepository(TokenBlacklist)
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
   ) {
@@ -172,44 +176,168 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  // Logout
-  async logout(userId: string, refreshToken: string) {
+  // Logout with optimized transaction handling
+  async logout(userId: string, refreshToken: string): Promise<void> {
+    const startTime = Date.now();
+    const contextId = `logout-${userId}-${Date.now()}`;
+
     try {
+      this.logger.debug(`Starting logout for user ${userId}`);
+
+      // Pre-validate token structure and ownership
       const payload = this.jwtService.verify(refreshToken);
       const { sub: tokenUserId, tokenId, exp } = payload;
 
-      // Verify the refresh token belongs to the authenticated user
+      // Verify token ownership early
       if (tokenUserId !== userId) {
-        throw new UnauthorizedException('Invalid refresh token');
+        this.logger.warn(`Token ownership mismatch for user ${userId}`);
+        throw new UnauthorizedException('Refresh token does not belong to authenticated user');
       }
 
-      // Blacklist the refresh token
-      await this.tokenBlacklistRepo.save({
-        token: refreshToken,
-        tokenType: 'refresh',
+      // Check if token is already blacklisted (fast check)
+      const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
+      if (isAlreadyBlacklisted) {
+        this.logger.warn(`Attempted logout with already blacklisted token for user ${userId}`);
+        // Still proceed with session cleanup for consistency
+      }
+
+      // Execute logout operations within a transaction
+      await this.transactionService.execute(
+        contextId,
+        async (queryRunner) => {
+          // Blacklist the refresh token (only if not already blacklisted)
+          if (!isAlreadyBlacklisted) {
+            await queryRunner.manager.save(TokenBlacklist, {
+              token: refreshToken,
+              tokenType: 'refresh',
+              userId,
+              expiresAt: new Date(exp * 1000),
+            });
+
+            // Update cache immediately
+            this.blacklistCache.set(refreshToken, {
+              blacklisted: true,
+              expiresAt: Date.now() + this.CACHE_TTL,
+            });
+
+            this.logger.debug(`Refresh token blacklisted for user ${userId}`);
+          }
+
+          // Clear the session
+          const sessionRevoked = await this.sessionService.revokeSession(tokenId);
+          if (sessionRevoked) {
+            this.logger.debug(`Session revoked for user ${userId}, tokenId: ${tokenId}`);
+          } else {
+            this.logger.warn(`No active session found for tokenId: ${tokenId}`);
+          }
+        },
+        {
+          isolationLevel: 'READ COMMITTED',
+          timeout: 5000, // 5 second timeout
+        }
+      );
+
+      // Clean up Redis (outside transaction for performance)
+      try {
+        const redisKey = `refresh:${userId}:${tokenId}`;
+        const redisDeleted = await this.redisClient.del(redisKey);
+        if (redisDeleted > 0) {
+          this.logger.debug(`Redis token cleaned up for user ${userId}`);
+        }
+      } catch (redisError) {
+        // Redis failure shouldn't fail the logout
+        this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
+      }
+
+      // Log successful logout with performance metrics
+      const duration = Date.now() - startTime;
+      this.logger.log(`User ${userId} logged out successfully in ${duration}ms`);
+
+      // Emit logout event for audit/logging
+      this.eventEmitter.emit('user.logged_out', {
         userId,
-        expiresAt: new Date(exp * 1000), // Convert exp to milliseconds
+        tokenId,
+        timestamp: new Date(),
+        duration,
       });
 
-      // Clear the session
-      await this.sessionService.revokeSession(tokenId);
-
-      // Also delete from Redis as backup
-      const key = `refresh:${userId}:${tokenId}`;
-      await this.redisClient.del(key);
-
-      this.logger.log(`User ${userId} logged out successfully`);
     } catch (error) {
-      this.logger.warn('Logout failed', error);
-      throw error;
+      const duration = Date.now() - startTime;
+      this.logger.error(`Logout failed for user ${userId} after ${duration}ms: ${error.message}`, error.stack);
+
+      // Re-throw with appropriate error type
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException('Logout operation failed');
     }
   }
 
   private async isTokenBlacklisted(token: string): Promise<boolean> {
-    const blacklistedToken = await this.tokenBlacklistRepo.findOne({
-      where: { token },
-    });
-    return !!blacklistedToken;
+    const now = Date.now();
+
+    // Check cache first
+    const cached = this.blacklistCache.get(token);
+    if (cached && cached.expiresAt > now) {
+      return cached.blacklisted;
+    }
+
+    try {
+      const blacklistedToken = await this.tokenBlacklistRepo.findOne({
+        where: { token },
+      });
+
+      const isBlacklisted = !!blacklistedToken;
+
+      // Cache the result
+      this.blacklistCache.set(token, {
+        blacklisted: isBlacklisted,
+        expiresAt: now + this.CACHE_TTL,
+      });
+
+      // Clean up expired cache entries periodically
+      if (this.blacklistCache.size > 1000) {
+        this.cleanupExpiredCache();
+      }
+
+      return isBlacklisted;
+    } catch (error) {
+      this.logger.error(`Error checking token blacklist: ${error.message}`);
+      // On database error, assume token is not blacklisted for safety
+      return false;
+    }
+  }
+
+  private cleanupExpiredCache(): void {
+    const now = Date.now();
+    for (const [token, data] of this.blacklistCache.entries()) {
+      if (data.expiresAt <= now) {
+        this.blacklistCache.delete(token);
+      }
+    }
+  }
+
+  /**
+   * Clean up expired blacklisted tokens
+   * Should be called periodically (e.g., via cron job)
+   */
+  async cleanupExpiredBlacklistedTokens(): Promise<number> {
+    try {
+      const result = await this.tokenBlacklistRepo.delete({
+        expiresAt: LessThan(new Date()),
+      });
+      const deletedCount = result.affected || 0;
+
+      if (deletedCount > 0) {
+        this.logger.log(`Cleaned up ${deletedCount} expired blacklisted tokens`);
+      }
+
+      return deletedCount;
+    } catch (error) {
+      this.logger.error(`Failed to cleanup expired tokens: ${error.message}`);
+      return 0;
+    }
   }
 
   private async clearAllUserRefreshTokens(userId: string) {
