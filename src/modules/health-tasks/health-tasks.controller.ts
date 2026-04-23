@@ -186,4 +186,45 @@ export class HealthTasksController {
     const updated = await this.healthTasksService.update(id, body);
     return updated;
   }
+
+  @Get('analytics/dashboard')
+  @ApiOperation({ summary: 'Get analytics dashboard with completion rates, trends, and statistics' })
+  async getAnalyticsDashboard() {
+    return this.analyticsService.getDashboard();
+  }
+
+  @Get('analytics/completion-rate')
+  @ApiOperation({ summary: 'Get completion rate statistics' })
+  async getCompletionRate() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.completionRate;
+  }
+
+  @Get('analytics/trends/:period')
+  @ApiOperation({ summary: 'Get completion trends over time (daily/weekly/monthly)' })
+  async getTrends(@Param('period') period: 'daily' | 'weekly' | 'monthly') {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.trends[period];
+  }
+
+  @Get('analytics/categories')
+  @ApiOperation({ summary: 'Get category breakdown statistics' })
+  async getCategoryBreakdown() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.categoryBreakdown;
+  }
+
+  @Get('analytics/statistics')
+  @ApiOperation({ summary: 'Get task statistics' })
+  async getTaskStatistics() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.taskStatistics;
+  }
+
+  @Post('analytics/refresh')
+  @ApiOperation({ summary: 'Refresh analytics cache' })
+  async refreshAnalytics() {
+    this.analyticsService.clearCache();
+    return { message: 'Analytics cache cleared' };
+  }
 }
