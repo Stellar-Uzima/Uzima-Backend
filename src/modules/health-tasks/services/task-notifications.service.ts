@@ -31,8 +31,8 @@ export class TaskNotificationsService {
     private readonly preferenceRepo: Repository<NotificationPreference>,
   ) {}
 
-  async notifyDueSoon(task: HealthTask, userId: string): Promise<void> {
-    if (!await this.isEnabled(userId, 'due_soon')) return;
+  async notifyDueSoon(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
+    if (!await this.isPrefEnabled(userId, 'due_soon', pref)) return;
 
     await this.send(userId, task.id, 'due_soon', {
       title: `Task due soon: ${task.title}`,
@@ -40,8 +40,8 @@ export class TaskNotificationsService {
     });
   }
 
-  async notifyCompleted(task: HealthTask, userId: string): Promise<void> {
-    if (!await this.isEnabled(userId, 'completed')) return;
+  async notifyCompleted(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
+    if (!await this.isPrefEnabled(userId, 'completed', pref)) return;
 
     await this.send(userId, task.id, 'completed', {
       title: `Task completed: ${task.title}`,
@@ -58,8 +58,8 @@ export class TaskNotificationsService {
     });
   }
 
-  async notifyOverdue(task: HealthTask, userId: string): Promise<void> {
-    if (!await this.isEnabled(userId, 'overdue')) return;
+  async notifyOverdue(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
+    if (!await this.isPrefEnabled(userId, 'overdue', pref)) return;
 
     await this.send(userId, task.id, 'overdue', {
       title: `Overdue task: ${task.title}`,
@@ -69,6 +69,7 @@ export class TaskNotificationsService {
 
   async checkAndNotifyDueSoon(tasks: HealthTask[], userId: string): Promise<void> {
     const now = Date.now();
+    const pref = await this.preferenceRepo.findOne({ where: { userId } } as any);
 
     for (const task of tasks) {
       const dueDate = (task.targetProfile as any)?.dueDate;
@@ -78,9 +79,9 @@ export class TaskNotificationsService {
       const diff = due - now;
 
       if (diff > 0 && diff <= DUE_SOON_THRESHOLD_MS) {
-        await this.notifyDueSoon(task, userId);
+        await this.notifyDueSoon(task, userId, pref);
       } else if (diff < 0) {
-        await this.notifyOverdue(task, userId);
+        await this.notifyOverdue(task, userId, pref);
       }
     }
   }
@@ -90,12 +91,16 @@ export class TaskNotificationsService {
     return [...this.deliveryLog];
   }
 
-  private async isEnabled(userId: string, event: TaskNotificationEvent): Promise<boolean> {
-    const pref = await this.preferenceRepo.findOne({ where: { userId } } as any);
-    if (!pref) return true;
+  private async isPrefEnabled(
+    userId: string,
+    event: TaskNotificationEvent,
+    pref?: NotificationPreference,
+  ): Promise<boolean> {
+    const userPref = pref || await this.preferenceRepo.findOne({ where: { userId } } as any);
+    if (!userPref) return true;
 
-    const key = `task_${event}` as keyof typeof pref;
-    return pref[key] !== false;
+    const key = `task_${event}` as keyof typeof userPref;
+    return userPref[key] !== false;
   }
 
   private async send(
