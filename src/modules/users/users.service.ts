@@ -3,9 +3,12 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like, Not, IsNull } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
 import { UserFilterDto } from './dto/user-filter.dto';
@@ -26,7 +29,8 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserStatusLog)
-    private readonly userStatusLogRepository: Repository<UserStatusLog>
+    private readonly userStatusLogRepository: Repository<UserStatusLog>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   /**
@@ -584,6 +588,10 @@ export class UsersService {
       });
     }
 
+    // Invalidate cached profile
+    const cacheKey = `user:profile:${userId}`;
+    await this.cacheManager.del(cacheKey);
+
     // Return profile response
     return {
       id: updatedUser.id,
@@ -606,17 +614,26 @@ export class UsersService {
   }
 
   /**
-   * Get user profile for response
+   * Get user profile for response (cached for 5 minutes)
    * @param userId - User ID
    * @returns User profile data
    */
   async getProfile(userId: string): Promise<ProfileResponseDto> {
+    const cacheKey = `user:profile:${userId}`;
+
+    // Try to get from cache first
+    const cachedProfile = await this.cacheManager.get<ProfileResponseDto>(cacheKey);
+    if (cachedProfile) {
+      return cachedProfile;
+    }
+
+    // Fetch from database if not cached
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return {
+    const profile: ProfileResponseDto = {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
@@ -634,5 +651,10 @@ export class UsersService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+
+    // Cache the profile for 5 minutes (300 seconds)
+    await this.cacheManager.set(cacheKey, profile, 300000);
+
+    return profile;
   }
 }
