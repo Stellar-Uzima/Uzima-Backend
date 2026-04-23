@@ -9,6 +9,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { User } from '../../entities/user.entity'; 
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { QueueModule } from '../../queue/queue.module';
 
 @Module({ 
   controllers: [UsersController, SettingsController],  
@@ -17,6 +18,7 @@ import { UsersService } from './users.service';
     CacheModule.register({
       ttl: 300, // 5 minutes default TTL
     }),
+    QueueModule,
   ], 
   exports: [UsersService, UserSearchService, PhoneVerificationService],
   providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService],
