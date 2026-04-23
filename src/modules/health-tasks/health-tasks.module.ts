@@ -4,11 +4,12 @@ import { HealthTasksController } from './health-tasks.controller';
 import { HealthTasksService } from './health-tasks.service';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
 import { PriorityService } from './services/priority.service';
+import { ArchiveService } from './services/archive.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([HealthTask])],
   controllers: [HealthTasksController],
-  providers: [HealthTasksService, PriorityService],
+  providers: [HealthTasksService, PriorityService, ArchiveService],
   exports: [HealthTasksService],
 })
 export class HealthTasksModule {}

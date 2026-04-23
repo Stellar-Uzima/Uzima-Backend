@@ -13,6 +13,7 @@ import {
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
+import { ArchiveService } from './services/archive.service';
 
 // Minimal auth types/guard
 interface AuthenticatedRequest extends Request {
@@ -36,13 +37,55 @@ class JwtAuthGuard implements CanActivate {
 @UseGuards(JwtAuthGuard)
 @Controller('tasks')
 export class HealthTasksController {
-  constructor(private readonly healthTasksService: HealthTasksService) {}
+  constructor(
+    private readonly healthTasksService: HealthTasksService,
+    private readonly archiveService: ArchiveService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get all available health tasks' })
   async findAll() {
     // TODO: Implement get all tasks with filters (category, difficulty, reward)
     return { message: 'Get all tasks logic to be implemented' };
+  }
+
+  @Get('archived')
+  @ApiOperation({ summary: 'Get archived completed tasks' })
+  async getArchivedTasks() {
+    return this.archiveService.getArchivedTasks();
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Archive a completed task' })
+  async archiveTask(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return this.archiveService.archiveTask(id, req.user.userId);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore task from archive' })
+  async restoreTask(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return this.archiveService.restoreTask(id, req.user.userId);
+  }
+
+  @Get('archive/config')
+  @ApiOperation({ summary: 'Get auto-archive configuration' })
+  getAutoArchiveConfig() {
+    return this.archiveService.getAutoArchiveConfig();
+  }
+
+  @Put('archive/config')
+  @ApiOperation({ summary: 'Update auto-archive configuration' })
+  updateAutoArchiveConfig(
+    @Body() body: { enabled?: boolean; olderThanDays?: number },
+  ) {
+    return this.archiveService.updateAutoArchiveConfig(body);
+  }
+
+  @Post('archive/run')
+  @ApiOperation({ summary: 'Run auto-archive for old completed tasks' })
+  async runAutoArchive() {
+    const archivedCount = await this.archiveService.autoArchiveOldCompletedTasks();
+    return { archivedCount };
   }
 
   @Get('categories')
