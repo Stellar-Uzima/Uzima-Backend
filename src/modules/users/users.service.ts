@@ -30,6 +30,24 @@ export class UsersService {
   ) {}
 
   /**
+   * Create a new user
+   */
+  async create(userData: Partial<User>): Promise<User> {
+    const user = this.userRepository.create(userData);
+    if (user.firstName && user.lastName) {
+      user.fullName = `${user.firstName} ${user.lastName}`.trim();
+    }
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * Save/Update user
+   */
+  async save(user: User): Promise<User> {
+    return this.userRepository.save(user);
+  }
+
+  /**
    * List users with pagination, filtering, and sorting
    * @param filterDto - Filter and pagination options
    * @returns Paginated list of users
@@ -228,15 +246,15 @@ export class UsersService {
   /**
    * Get user by ID
    */
-  async findOne(id: string): Promise<User> {
-    return this.userRepository.findOne({ where: { id } });
+  async findOne(id: string, relations: string[] = []): Promise<User> {
+    return this.userRepository.findOne({ where: { id }, relations });
   }
 
   /**
    * Find user by email
    */
-  async findByEmail(email: string): Promise<User> {
-    return this.userRepository.findOne({ where: { email } });
+  async findByEmail(email: string, relations: string[] = []): Promise<User> {
+    return this.userRepository.findOne({ where: { email }, relations });
   }
 
   /**

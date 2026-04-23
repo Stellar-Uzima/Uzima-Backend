@@ -3,13 +3,22 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { User } from './user.entity';
 
 @Entity('health_tasks')
 export class HealthTask {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => User, (user) => user.healthTasks, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  @Column({ nullable: true })
+  userId: string;
 
   @Column()
   title: string;

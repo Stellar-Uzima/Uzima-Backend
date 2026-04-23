@@ -55,7 +55,13 @@ export class AuthService {
       throw new ConflictException('An account with this email already exists');
     }
 
-    const user = await this.usersService.create(dto);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
+
+    const user = await this.usersService.create({
+      ...dto,
+      password: hashedPassword,
+    });
 
     this.eventEmitter.emit('user.registered', {
       userId: user.id,
@@ -67,8 +73,13 @@ export class AuthService {
       await this.emailVerificationService.createForUser(user.id);
     }
 
-    const token = this.jwtService.sign({ sub: user.id, email: user.email });
-    return { token };
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const profile = await this.usersService.getProfile(user.id);
+
+    return {
+      ...tokens,
+      user: profile,
+    };
   }
 
   // Login user
@@ -90,7 +101,13 @@ export class AuthService {
       throw new UnauthorizedException('Email not verified');
     }
 
-    return this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const profile = await this.usersService.getProfile(user.id);
+
+    return {
+      ...tokens,
+      user: profile,
+    };
   }
 
   // Refresh access token

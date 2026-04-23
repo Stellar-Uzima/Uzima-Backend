@@ -17,11 +17,13 @@ import { JwtRefreshStrategy } from '../../auth/strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../../auth/guards/jwt-refresh.guard';
 
+import { RolesGuard } from '../common/guards/roles.guard';
+
 @Module({
   imports: [
     UsersModule,
     PassportModule,
-  TypeOrmModule.forFeature([EmailVerification, Session, TokenBlacklist]),
+    TypeOrmModule.forFeature([EmailVerification, Session, TokenBlacklist]),
     NotificationsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -42,7 +44,8 @@ import { JwtRefreshGuard } from '../../auth/guards/jwt-refresh.guard';
     JwtRefreshStrategy,
     JwtAuthGuard,
     JwtRefreshGuard,
+    RolesGuard,
   ],
-  exports: [AuthService, EmailVerificationService, SessionService],
+  exports: [AuthService, EmailVerificationService, SessionService, RolesGuard],
 })
 export class AuthModule {}

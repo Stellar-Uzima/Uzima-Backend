@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { AuthService } from './auth.service';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../../auth/dto/verify-email.dto';
 import { RefreshTokenDto } from '../../auth/dto/refresh-token.dto';
+import { LoginDto } from '../../auth/dto/login.dto';
+import { RegisterDto } from '../../auth/dto/register.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('auth')
@@ -14,13 +16,8 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
-  async register(@Body() body: any) {
-    // TODO: Implement user registration
-    // - Validate input (email, phone, password)
-    // - Hash password
-    // - Create user in database
-    // - Generate JWT token
-    return { message: 'Registration logic to be implemented' };
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('verify-email')
@@ -39,12 +36,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
-  async login(@Body() body: any) {
-    // TODO: Implement user login
-    // - Validate credentials
-    // - Generate JWT token
-    // - Return token
-    return { message: 'Login logic to be implemented' };
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   @Post('refresh')
