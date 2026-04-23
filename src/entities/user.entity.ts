@@ -6,10 +6,15 @@ import {
   UpdateDateColumn,
   OneToMany,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
   Unique,
 } from 'typeorm';
 import { Role } from '../auth/enums/role.enum';
 import { UserStatus } from '../auth/enums/user-status.enum';
+import { HealthTask } from './health-task.entity';
+import { Session } from '../database/entities/session.entity';
+import { Organization } from '../database/entities/organization.entity';
 
 @Entity('users')
 @Unique(['email'])
@@ -89,6 +94,20 @@ export class User {
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
+
+  @OneToMany(() => HealthTask, (healthTask) => healthTask.user)
+  healthTasks: HealthTask[];
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions: Session[];
+
+  @ManyToMany(() => Organization, (organization) => organization.users)
+  @JoinTable({
+    name: 'user_organizations',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
+  })
+  organizations: Organization[];
 
   @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];
