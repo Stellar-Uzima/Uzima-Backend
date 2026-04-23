@@ -26,4 +26,9 @@ export const validationSchema = Joi.object({
   MAIL_PORT: Joi.number().optional(),
   MAIL_USER: Joi.string().optional(),
   MAIL_PASSWORD: Joi.string().optional(),
+
+  // Twilio SMS (optional until SMS is used)
+  TWILIO_ACCOUNT_SID: Joi.string().optional(),
+  TWILIO_AUTH_TOKEN: Joi.string().optional(),
+  TWILIO_PHONE_NUMBER: Joi.string().optional(),
 });
