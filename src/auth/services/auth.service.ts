@@ -10,7 +10,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { MoreThan } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
@@ -23,6 +24,7 @@ import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
 import { SessionService } from '@/modules/auth/services/session.service';
+import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +39,8 @@ export class AuthService {
     private auditService: AuditService,
     private emailVerificationService: EmailVerificationService,
     private sessionService: SessionService,
+    @InjectRepository(TokenBlacklist)
+    private tokenBlacklistRepo: Repository<TokenBlacklist>,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -95,6 +99,12 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken);
       const { sub: userId, tokenId } = payload;
 
+      // Check if token is blacklisted
+      const isBlacklisted = await this.isTokenBlacklisted(refreshToken);
+      if (isBlacklisted) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+
       const key = `refresh:${userId}:${tokenId}`;
       const storedToken = await this.redisClient.get(key);
 
@@ -146,15 +156,43 @@ export class AuthService {
   }
 
   // Logout
-  async logout(refreshToken: string) {
+  async logout(userId: string, refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const { sub: userId, tokenId } = payload;
+      const { sub: tokenUserId, tokenId, exp } = payload;
+
+      // Verify the refresh token belongs to the authenticated user
+      if (tokenUserId !== userId) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Blacklist the refresh token
+      await this.tokenBlacklistRepo.save({
+        token: refreshToken,
+        tokenType: 'refresh',
+        userId,
+        expiresAt: new Date(exp * 1000), // Convert exp to milliseconds
+      });
+
+      // Clear the session
+      await this.sessionService.revokeSession(tokenId);
+
+      // Also delete from Redis as backup
       const key = `refresh:${userId}:${tokenId}`;
       await this.redisClient.del(key);
+
+      this.logger.log(`User ${userId} logged out successfully`);
     } catch (error) {
-      // If token is invalid, do nothing (already logged out)
+      this.logger.warn('Logout failed', error);
+      throw error;
     }
+  }
+
+  private async isTokenBlacklisted(token: string): Promise<boolean> {
+    const blacklistedToken = await this.tokenBlacklistRepo.findOne({
+      where: { token },
+    });
+    return !!blacklistedToken;
   }
 
   private async clearAllUserRefreshTokens(userId: string) {

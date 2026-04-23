@@ -1,7 +1,9 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../../auth/dto/verify-email.dto';
+import { RefreshTokenDto } from '../../auth/dto/refresh-token.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -48,16 +50,21 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh authentication token' })
-  async refresh(@Body() body: any) {
-    // TODO: Implement token refresh
-    return { message: 'Refresh logic to be implemented' };
+  @ApiResponse({ status: 200, description: 'New access and refresh tokens returned' })
+  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refreshToken);
   }
 
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User logout' })
-  async logout() {
-    // TODO: Implement logout
-    return { message: 'Logout logic to be implemented' };
+  @ApiResponse({ status: 200, description: 'User logged out successfully' })
+  async logout(@Req() req: any, @Body() dto: RefreshTokenDto) {
+    const userId = req.user.sub;
+    await this.authService.logout(userId, dto.refreshToken);
+    return { message: 'User logged out successfully' };
   }
 }
