@@ -43,6 +43,7 @@ export class HealthTasksController {
     private readonly healthTasksService: HealthTasksService,
     private readonly archiveService: ArchiveService,
     private readonly completionService: CompletionService,
+    private readonly analyticsService: AnalyticsService,
   ) {}
 
   @Get()
