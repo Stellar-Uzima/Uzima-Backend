@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
+import { CreateHealthTaskDto } from '../../common/dtos/create-health-task.dto';
 import {
   PriorityService,
   PrioritizableTask,
@@ -18,6 +19,107 @@ export class HealthTasksService {
 
   async findOne(id: string): Promise<HealthTask | null> {
     return this.taskRepository.findOne({ where: { id } });
+  }
+
+  async createTask(createTaskDto: CreateHealthTaskDto, userId: string): Promise<HealthTask> {
+    const task = this.taskRepository.create({
+      ...createTaskDto,
+      createdBy: userId,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return this.taskRepository.save(task);
+  }
+
+  async getUserTasks(userId: string, options: {
+    status?: string;
+    category?: string;
+    priority?: string;
+    startDate?: Date;
+    endDate?: Date;
+    page: number;
+    limit: number;
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+  }): Promise<{
+    tasks: HealthTask[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    stats: {
+      total: number;
+      completed: number;
+      pending: number;
+      inProgress: number;
+    };
+  }> {
+    const queryBuilder = this.taskRepository
+      .createQueryBuilder('task')
+      .where('task.createdBy = :userId', { userId });
+
+    // Apply filters
+    if (options.status) {
+      queryBuilder.andWhere('task.status = :status', { status: options.status });
+    }
+
+    if (options.category) {
+      queryBuilder.andWhere('task.category = :category', { category: options.category });
+    }
+
+    if (options.priority) {
+      queryBuilder.andWhere('task.priority = :priority', { priority: options.priority });
+    }
+
+    if (options.startDate) {
+      queryBuilder.andWhere('task.createdAt >= :startDate', { startDate: options.startDate });
+    }
+
+    if (options.endDate) {
+      queryBuilder.andWhere('task.createdAt <= :endDate', { endDate: options.endDate });
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount();
+
+    // Apply sorting
+    const sortField = options.sortBy === 'createdAt' ? 'task.createdAt' : 
+                     options.sortBy === 'dueDate' ? 'task.dueDate' :
+                     options.sortBy === 'title' ? 'task.title' : 'task.createdAt';
+    
+    queryBuilder.orderBy(sortField, options.sortOrder);
+
+    // Apply pagination
+    const offset = (options.page - 1) * options.limit;
+    queryBuilder.skip(offset).take(options.limit);
+
+    const tasks = await queryBuilder.getMany();
+
+    // Get completion stats
+    const statsQuery = this.taskRepository
+      .createQueryBuilder('task')
+      .select('task.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('task.createdBy = :userId', { userId });
+
+    const statsResult = await statsQuery.groupBy('task.status').getRawMany();
+    const stats = statsResult.reduce((acc: any, item: any) => {
+      acc[item.status] = parseInt(item.count, 10);
+      return acc;
+    }, { total: 0, completed: 0, pending: 0, inProgress: 0 });
+
+    stats.total = total;
+
+    return {
+      tasks,
+      total,
+      page: options.page,
+      limit: options.limit,
+      totalPages: Math.ceil(total / options.limit),
+      stats,
+    };
   }
 
   async update(id: string, dto: UpdateHealthTaskDto): Promise<HealthTask> {

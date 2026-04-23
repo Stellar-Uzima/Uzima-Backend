@@ -18,6 +18,7 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
+import { CreateHealthTaskDto } from '../../common/dtos/create-health-task.dto';
 import { ArchiveService } from './services/archive.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
@@ -55,9 +56,30 @@ export class HealthTasksController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get and search health tasks with filters and pagination' })
-  async findAll(@Query() query: SearchTasksDto, @Req() req: AuthenticatedRequest) {
-    return this.searchService.searchTasks(query, req.user.userId);
+  @ApiOperation({ summary: 'Get user health tasks with filters and pagination' })
+  async findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('priority') priority?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+  ) {
+    return this.healthTasksService.getUserTasks(req.user.userId, {
+      status,
+      category,
+      priority,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      page: page || 1,
+      limit: limit || 10,
+      sortBy: sortBy || 'createdAt',
+      sortOrder: sortOrder || 'desc',
+    });
   }
 
   @Get('search/history')
@@ -116,10 +138,9 @@ export class HealthTasksController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create new health task (admin only)' })
-  async create(@Body() body: any) {
-    // TODO: Implement create task
-    return { message: 'Create task logic to be implemented' };
+  @ApiOperation({ summary: 'Create new health task' })
+  async create(@Body() createTaskDto: CreateHealthTaskDto, @Req() req: AuthenticatedRequest) {
+    return this.healthTasksService.createTask(createTaskDto, req.user.userId);
   }
 
   @Get(':id')

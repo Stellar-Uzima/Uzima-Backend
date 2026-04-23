@@ -9,16 +9,20 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { User } from '../../entities/user.entity'; 
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { ActivityTrackerService } from './services/activity-tracker.service';
+import { AvatarService } from './services/avatar.service';
+import { UserActivity } from '../../database/entities/user-activity.entity';
+import { StorageService } from '../../shared/storage/storage.service';
 
 @Module({ 
   controllers: [UsersController, SettingsController],  
   imports: [
-    TypeOrmModule.forFeature([User, UserStatusLog]),
+    TypeOrmModule.forFeature([User, UserStatusLog, UserActivity]),
     CacheModule.register({
       ttl: 300, // 5 minutes default TTL
     }),
   ], 
-  exports: [UsersService, UserSearchService, PhoneVerificationService],
-  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService],
+  exports: [UsersService, UserSearchService, PhoneVerificationService, ActivityTrackerService, AvatarService],
+  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService, ActivityTrackerService, AvatarService, StorageService],
 })
 export class UsersModule { }
