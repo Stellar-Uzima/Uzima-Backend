@@ -1,5 +1,15 @@
-import { IsOptional, IsString, IsEnum, IsBoolean, IsNumber, IsObject } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsBoolean,
+  IsNumber,
+  IsObject,
+  IsIn,
+  IsDateString,
+} from 'class-validator';
 import { TaskCategory } from '../../tasks/entities/health-task.entity';
+import { TaskPriority } from '../../modules/health-tasks/services/priority.service';
 
 export class UpdateHealthTaskDto {
   @IsOptional()
@@ -29,4 +39,17 @@ export class UpdateHealthTaskDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsIn([
+    TaskPriority.URGENT,
+    TaskPriority.HIGH,
+    TaskPriority.MEDIUM,
+    TaskPriority.LOW,
+  ])
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
 }
