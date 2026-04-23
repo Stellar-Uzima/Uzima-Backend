@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../../auth/dto/verify-email.dto';
 import { RefreshTokenDto } from '../../auth/dto/refresh-token.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -57,11 +58,13 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RateLimitGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async logout(@Req() req: any, @Body() dto: RefreshTokenDto) {
     const userId = req.user.sub;
     await this.authService.logout(userId, dto.refreshToken);
