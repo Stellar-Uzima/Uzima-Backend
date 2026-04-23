@@ -22,6 +22,7 @@ import { ArchiveService } from './services/archive.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
+import { ActivityLogService } from './services/activity-log.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 
 // Minimal auth types/guard
@@ -52,6 +53,7 @@ export class HealthTasksController {
     private readonly searchService: TaskSearchService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   @Get()
@@ -122,6 +124,12 @@ export class HealthTasksController {
     return { message: 'Create task logic to be implemented' };
   }
 
+  @Get(':id/activity')
+  @ApiOperation({ summary: 'Get task activity history' })
+  async getActivityHistory(@Param('id') id: string) {
+    return this.activityLogService.getActivityHistory(id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get task details' })
   async findOne(@Param('id') id: string) {
@@ -166,7 +174,11 @@ export class HealthTasksController {
       throw new ForbiddenException('Forbidden');
     }
 
-    const updated = await this.healthTasksService.update(id, body);
+    const updated = await this.healthTasksService.update(
+      id,
+      body,
+      req.user.userId,
+    );
     return updated;
   }
 
