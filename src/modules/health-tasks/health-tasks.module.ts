@@ -15,5 +15,25 @@ import { AnalyticsService } from './services/analytics.service';
   controllers: [HealthTasksController],
   providers: [HealthTasksService, PriorityService, ArchiveService, CompletionService, AnalyticsService],
   exports: [HealthTasksService, CompletionService, AnalyticsService],
+import { TaskSearchService } from './services/task-search.service';
+import { AttachmentsService } from './services/attachments.service';
+import { DuplicationService } from './services/duplication.service';
+import { TaskAttachment } from '../../database/entities/task-attachment.entity';
+import { SearchHistory } from '../../database/entities/search-history.entity';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([HealthTask, TaskAttachment, SearchHistory]),
+  ],
+  controllers: [HealthTasksController],
+  providers: [
+    HealthTasksService,
+    PriorityService,
+    ArchiveService,
+    TaskSearchService,
+    AttachmentsService,
+    DuplicationService,
+  ],
+  exports: [HealthTasksService],
 })
 export class HealthTasksModule {}

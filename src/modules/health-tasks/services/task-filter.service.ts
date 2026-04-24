@@ -30,7 +30,7 @@ export class TaskFilterService {
     private readonly taskRepo: Repository<HealthTask>,
   ) {}
 
-  async filter(options: TaskFilterOptions): Promise<HealthTask[]> {
+  async filter(options: TaskFilterOptions, page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
     const where: FindOptionsWhere<HealthTask> = {};
 
     if (options.status) where.status = options.status;
@@ -51,7 +51,22 @@ export class TaskFilterService {
       qb.andWhere('task.createdAt <= :to', { to: options.dateTo });
     }
 
-    return qb.orderBy('task.createdAt', 'DESC').getMany();
+    // Optimization (#512): Field projection
+    qb.select([
+      'task.id',
+      'task.title',
+      'task.category',
+      'task.status',
+      'task.xlmReward',
+      'task.createdAt',
+    ]);
+
+    // Pagination (#512)
+    qb.skip((page - 1) * limit);
+    qb.take(limit);
+
+    const [data, total] = await qb.orderBy('task.createdAt', 'DESC').getManyAndCount();
+    return { data, total };
   }
 
   savePreset(name: string, ownerId: string, filters: TaskFilterOptions): FilterPreset {
@@ -73,9 +88,9 @@ export class TaskFilterService {
     return this.presets.delete(`${ownerId}:${name}`);
   }
 
-  async filterWithPreset(presetName: string, ownerId: string): Promise<HealthTask[]> {
+  async filterWithPreset(presetName: string, ownerId: string, page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
     const preset = this.getPreset(presetName, ownerId);
-    if (!preset) return [];
-    return this.filter(preset.filters);
+    if (!preset) return { data: [], total: 0 };
+    return this.filter(preset.filters, page, limit);
   }
 }

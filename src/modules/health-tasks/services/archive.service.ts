@@ -51,13 +51,22 @@ export class ArchiveService {
     return this.taskRepository.save(task);
   }
 
-  async getArchivedTasks(): Promise<HealthTask[]> {
-    const completedTasks = await this.taskRepository.find({
-      where: { status: 'completed' },
-      order: { createdAt: 'DESC' },
-    });
+  async getArchivedTasks(page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
+    const qb = this.taskRepository
+      .createQueryBuilder('task')
+      .where("task.status = 'completed'")
+      // Query inside JSONB targetProfile
+      .andWhere("task.targetProfile->'archive'->>'isArchived' = 'true'");
 
-    return completedTasks.filter((task) => this.getArchiveInfo(task).isArchived);
+    qb.orderBy('task.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    // Optimization (#512): select projection
+    qb.select(['task.id', 'task.title', 'task.createdAt', 'task.targetProfile']);
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total };
   }
 
   async restoreTask(taskId: string, restoredBy?: string): Promise<HealthTask> {
@@ -109,23 +118,18 @@ export class ArchiveService {
       return 0;
     }
 
-    const completedTasks = await this.taskRepository.find({
-      where: { status: 'completed' },
-      order: { createdAt: 'ASC' },
-    });
+    const thresholdTime = new Date(
+      now.getTime() - this.autoArchiveConfig.olderThanDays * 24 * 60 * 60 * 1000,
+    );
 
-    const thresholdTime =
-      now.getTime() - this.autoArchiveConfig.olderThanDays * 24 * 60 * 60 * 1000;
-
-    const candidates = completedTasks.filter((task) => {
-      const archiveInfo = this.getArchiveInfo(task);
-      if (archiveInfo.isArchived) {
-        return false;
-      }
-
-      const completedAt = this.getCompletedTimestamp(task);
-      return completedAt !== null && completedAt <= thresholdTime;
-    });
+    const candidates = await this.taskRepository
+      .createQueryBuilder('task')
+      .where("task.status = 'completed'")
+      // Not already archived
+      .andWhere("(task.targetProfile->'archive'->>'isArchived' IS NULL OR task.targetProfile->'archive'->>'isArchived' = 'false')")
+      // Older than threshold
+      .andWhere('task.createdAt <= :threshold', { threshold: thresholdTime })
+      .getMany();
 
     for (const task of candidates) {
       task.targetProfile = {
