@@ -3,8 +3,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HealthTasksController } from './health-tasks.controller';
 import { HealthTasksService } from './health-tasks.service';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
+import { TaskCompletion } from '../../database/entities/task-completion.entity';
+import { User } from '../../entities/user.entity';
 import { PriorityService } from './services/priority.service';
 import { ArchiveService } from './services/archive.service';
+import { CompletionService } from './services/completion.service';
+import { AnalyticsService } from './services/analytics.service';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([HealthTask, TaskCompletion, User])],
+  controllers: [HealthTasksController],
+  providers: [HealthTasksService, PriorityService, ArchiveService, CompletionService, AnalyticsService],
+  exports: [HealthTasksService, CompletionService, AnalyticsService],
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';

@@ -19,6 +19,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
 import { ArchiveService } from './services/archive.service';
+import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
+import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
@@ -49,6 +51,8 @@ export class HealthTasksController {
   constructor(
     private readonly healthTasksService: HealthTasksService,
     private readonly archiveService: ArchiveService,
+    private readonly completionService: CompletionService,
+    private readonly analyticsService: AnalyticsService,
     private readonly searchService: TaskSearchService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
@@ -131,6 +135,45 @@ export class HealthTasksController {
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Mark task as completed by user' })
+  async completeTask(
+    @Param('id') id: string,
+    @Body() dto: MarkCompleteDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    dto.taskId = id;
+    return this.completionService.markTaskComplete(req.user.userId, dto);
+  }
+
+  @Post(':id/incomplete')
+  @ApiOperation({ summary: 'Mark task as incomplete by user' })
+  async markTaskIncomplete(
+    @Param('id') id: string,
+    @Body() dto: MarkIncompleteDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    dto.taskId = id;
+    return this.completionService.markTaskIncomplete(req.user.userId, dto);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({ summary: 'Get completion history for a task' })
+  async getCompletionHistory(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.completionService.getCompletionHistory(req.user.userId, id);
+  }
+
+  @Get('user/:userId/metrics')
+  @ApiOperation({ summary: 'Get completion metrics for a user' })
+  async getCompletionMetrics(@Param('userId') userId: string) {
+    return this.completionService.getCompletionMetrics(userId);
+  }
+
+  @Get(':id/stats')
+  @ApiOperation({ summary: 'Get completion statistics for a task' })
+  async getTaskCompletionStats(@Param('id') id: string) {
+    return this.completionService.getTaskCompletionStats(id);
   async completeTask(@Param('id') id: string, @Body() body: any) {
     return { message: 'Complete task logic to be implemented' };
   }
@@ -236,5 +279,46 @@ export class HealthTasksController {
   async deleteAttachment(@Param('id') id: string) {
     await this.attachmentsService.deleteAttachment(id);
     return { success: true };
+  }
+
+  @Get('analytics/dashboard')
+  @ApiOperation({ summary: 'Get analytics dashboard with completion rates, trends, and statistics' })
+  async getAnalyticsDashboard() {
+    return this.analyticsService.getDashboard();
+  }
+
+  @Get('analytics/completion-rate')
+  @ApiOperation({ summary: 'Get completion rate statistics' })
+  async getCompletionRate() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.completionRate;
+  }
+
+  @Get('analytics/trends/:period')
+  @ApiOperation({ summary: 'Get completion trends over time (daily/weekly/monthly)' })
+  async getTrends(@Param('period') period: 'daily' | 'weekly' | 'monthly') {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.trends[period];
+  }
+
+  @Get('analytics/categories')
+  @ApiOperation({ summary: 'Get category breakdown statistics' })
+  async getCategoryBreakdown() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.categoryBreakdown;
+  }
+
+  @Get('analytics/statistics')
+  @ApiOperation({ summary: 'Get task statistics' })
+  async getTaskStatistics() {
+    const dashboard = await this.analyticsService.getDashboard();
+    return dashboard.taskStatistics;
+  }
+
+  @Post('analytics/refresh')
+  @ApiOperation({ summary: 'Refresh analytics cache' })
+  async refreshAnalytics() {
+    this.analyticsService.clearCache();
+    return { message: 'Analytics cache cleared' };
   }
 }
