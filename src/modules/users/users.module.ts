@@ -14,13 +14,13 @@ import { QueueModule } from '../../queue/queue.module';
 @Module({ 
   controllers: [UsersController, SettingsController],  
   imports: [
-    TypeOrmModule.forFeature([User, UserStatusLog]),
+    TypeOrmModule.forFeature([User, UserStatusLog, UserActivity]),
     CacheModule.register({
       ttl: 300, // 5 minutes default TTL
     }),
     QueueModule,
   ], 
-  exports: [UsersService, UserSearchService, PhoneVerificationService],
-  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService],
+  exports: [UsersService, UserSearchService, PhoneVerificationService, ActivityTrackerService, AvatarService],
+  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService, ActivityTrackerService, AvatarService, StorageService],
 })
 export class UsersModule { }
