@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { 
+  Injectable, 
+  NotFoundException, 
+  ForbiddenException 
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
@@ -33,6 +37,41 @@ export class HealthTasksService {
     const originalTask = { ...task, targetProfile: { ...(task.targetProfile ?? {}) } };
 
     // Apply allowed updates (exclude id and createdAt)
+  /**
+   * Implementation for Issue #505: DELETE /api/health-tasks/:id
+   * Includes permission check, reminder cleanup, and soft delete.
+   */
+  async remove(id: string, userId: string): Promise<void> {
+    // 1. Fetch task to check existence and ownership
+    const task = await this.taskRepository.findOne({ where: { id } });
+
+    // Acceptance Criteria: Returns 404 if not found
+    if (!task) {
+      throw new NotFoundException(`Health task with ID ${id} not found`);
+    }
+
+    // Acceptance Criteria: Returns 403 if not authorized (Permission check)
+    if (task.createdBy !== userId) {
+      throw new ForbiddenException('You do not have permission to delete this task');
+    }
+
+    // Implementation Requirement: Clean up related reminders
+    await this.taskRepository.manager
+      .createQueryBuilder()
+      .delete()
+      .from('reminders') 
+      .where('healthTaskId = :id', { id })
+      .execute();
+
+    // Implementation Requirement: Soft delete successfully
+    // This utilizes the @DeleteDateColumn in your HealthTask entity
+    await this.taskRepository.softDelete(id);
+  }
+
+  async update(id: string, dto: UpdateHealthTaskDto): Promise<HealthTask> {
+    const task = await this.findOne(id);
+    if (!task) throw new NotFoundException('Task not found');
+
     const allowed = [
       'title',
       'description',
