@@ -11,16 +11,18 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { User } from '../../entities/user.entity'; 
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { QueueModule } from '../../queue/queue.module';
 
 @Module({ 
   controllers: [UsersController, SettingsController],  
   imports: [
-    TypeOrmModule.forFeature([User, UserStatusLog, UserPreferences]),
+    TypeOrmModule.forFeature([User, UserStatusLog, UserPreferences, UserActivity]),
     CacheModule.register({
       ttl: 300, // 5 minutes default TTL
     }),
+    QueueModule,
   ], 
-  exports: [UsersService, UserSearchService, PhoneVerificationService, PreferencesService],
-  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService, PreferencesService],
+  exports: [UsersService, UserSearchService, PhoneVerificationService, ActivityTrackerService, AvatarService],
+  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService, ActivityTrackerService, AvatarService, StorageService],
 })
 export class UsersModule { }
