@@ -12,9 +12,14 @@ import {
   NotFoundException,
   HttpCode,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import { AvatarService } from './services/avatar.service';
 import { UserResponseDto } from '../../../users/dto/user-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -48,7 +53,8 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
-    private readonly userSearchService: UserSearchService
+    private readonly userSearchService: UserSearchService,
+    private readonly avatarService: AvatarService
   ) {}
 
   @Get()
@@ -513,5 +519,51 @@ export class UsersController {
   @Roles(Role.ADMIN)
   async getSearchStats() {
     return this.userSearchService.getSearchStats();
+  }
+
+  @Post('avatar')
+  @ApiOperation({ summary: 'Upload user avatar' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @UploadedFile() file: any,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return this.avatarService.uploadAvatar(
+      req.user.userId,
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      req,
+    );
+  }
+
+  @Delete('avatar')
+  @ApiOperation({ summary: 'Delete user avatar' })
+  async deleteAvatar(@Req() req: AuthenticatedRequest) {
+    await this.avatarService.deleteAvatar(req.user.userId, req);
+    return { success: true };
+  }
+
+  @Get('avatar')
+  @ApiOperation({ summary: 'Get user avatar URL' })
+  async getAvatar(@Req() req: AuthenticatedRequest) {
+    const avatarUrl = await this.avatarService.getAvatarUrl(req.user.userId);
+    return { avatarUrl };
   }
 }

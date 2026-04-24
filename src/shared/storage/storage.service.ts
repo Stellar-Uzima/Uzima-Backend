@@ -1,88 +1,104 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { 
-  S3Client, 
-  PutObjectCommand, 
-  DeleteObjectCommand, 
-  GetObjectCommand 
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface UploadResult {
+  filename: string;
+  originalName: string;
+  mimetype: string;
+  size: number;
+  url: string;
+  path: string;
+}
 
 @Injectable()
 export class StorageService {
-  private readonly s3Client: S3Client;
-  private readonly bucketName: string;
-  private readonly logger = new Logger(StorageService.name);
+  private readonly uploadDir = join(process.cwd(), 'uploads');
 
-  constructor(private configService: ConfigService) {
-    this.bucketName = this.configService.getOrThrow<string>('STORAGE_BUCKET_NAME');
+  constructor() {
+    this.ensureUploadDir();
+  }
+
+  private async ensureUploadDir(): Promise<void> {
+    try {
+      await fs.access(this.uploadDir);
+    } catch {
+      await fs.mkdir(this.uploadDir, { recursive: true });
+    }
+  }
+
+  async saveFile(
+    file: Buffer,
+    originalName: string,
+    mimetype: string,
+    subfolder?: string,
+  ): Promise<UploadResult> {
+    const filename = `${uuidv4()}-${originalName}`;
+    const targetDir = subfolder ? join(this.uploadDir, subfolder) : this.uploadDir;
     
-    this.s3Client = new S3Client({
-      region: this.configService.getOrThrow<string>('STORAGE_REGION'),
-      credentials: {
-        accessKeyId: this.configService.getOrThrow<string>('STORAGE_ACCESS_KEY'),
-        secretAccessKey: this.configService.getOrThrow<string>('STORAGE_SECRET_KEY'),
-      },
-      endpoint: this.configService.get<string>('STORAGE_ENDPOINT'),
-      forcePathStyle: true,
-    });
+    await this.ensureDirectoryExists(targetDir);
+    
+    const filePath = join(targetDir, filename);
+    await fs.writeFile(filePath, file);
+
+    const relativePath = subfolder ? `${subfolder}/${filename}` : filename;
+    const url = `/uploads/${relativePath}`;
+
+    return {
+      filename,
+      originalName,
+      mimetype,
+      size: file.length,
+      url,
+      path: filePath,
+    };
   }
 
-  /**
-   * 1. Upload files
-   */
-  async uploadFile(file: Express.Multer.File, folder: string = 'uploads'): Promise<string> {
-    const key = `${folder}/${Date.now()}-${file.originalname}`;
-
+  async deleteFile(filePath: string): Promise<void> {
     try {
-      await this.s3Client.send(
-        new PutObjectCommand({
-          Bucket: this.bucketName,
-          Key: key,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-        }),
-      );
-      return key;
+      await fs.unlink(filePath);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Upload failed: ${message}`);
-      throw error;
+      console.error('Failed to delete file:', error);
     }
   }
 
-  /**
-   * 2. Generate download URLs
-   */
-  async getDownloadUrl(key: string): Promise<string> {
+  async deleteFileByUrl(url: string): Promise<void> {
+    const relativePath = url.replace('/uploads/', '');
+    const filePath = join(this.uploadDir, relativePath);
+    await this.deleteFile(filePath);
+  }
+
+  async fileExists(filePath: string): Promise<boolean> {
     try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-      return await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`URL generation failed: ${message}`);
-      throw error;
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  /**
-   * 3. Delete files
-   */
-  async deleteFile(key: string): Promise<void> {
+  async getFileStats(filePath: string): Promise<{ size: number; modified: Date } | null> {
     try {
-      await this.s3Client.send(
-        new DeleteObjectCommand({
-          Bucket: this.bucketName,
-          Key: key,
-        }),
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Deletion failed: ${message}`);
-      throw error;
+      const stats = await fs.stat(filePath);
+      return {
+        size: stats.size,
+        modified: stats.mtime,
+      };
+    } catch {
+      return null;
     }
+  }
+
+  private async ensureDirectoryExists(dirPath: string): Promise<void> {
+    try {
+      await fs.access(dirPath);
+    } catch {
+      await fs.mkdir(dirPath, { recursive: true });
+    }
+  }
+
+  getUploadDir(): string {
+    return this.uploadDir;
   }
 }
