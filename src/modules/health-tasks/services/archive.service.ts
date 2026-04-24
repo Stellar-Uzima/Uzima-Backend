@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
+import { ActivityLogService } from './activity-log.service';
 
 export type AutoArchiveConfig = {
   enabled: boolean;
@@ -22,6 +23,7 @@ export class ArchiveService {
   constructor(
     @InjectRepository(HealthTask)
     private readonly taskRepository: Repository<HealthTask>,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   async archiveTask(taskId: string, archivedBy?: string): Promise<HealthTask> {
@@ -48,7 +50,13 @@ export class ArchiveService {
       },
     };
 
-    return this.taskRepository.save(task);
+    const savedTask = await this.taskRepository.save(task);
+    await this.activityLogService.logTaskChange(taskId, archivedBy ?? 'system', 'task.archived', {
+      archivedAt: (task.targetProfile as any).archive.archivedAt,
+      archivedBy: archivedBy ?? 'system',
+    });
+
+    return savedTask;
   }
 
   async getArchivedTasks(page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
@@ -90,7 +98,13 @@ export class ArchiveService {
       },
     };
 
-    return this.taskRepository.save(task);
+    const savedTask = await this.taskRepository.save(task);
+    await this.activityLogService.logTaskChange(taskId, restoredBy ?? 'system', 'task.restored', {
+      restoredAt: (task.targetProfile as any).archive.restoredAt,
+      restoredBy: restoredBy ?? 'system',
+    });
+
+    return savedTask;
   }
 
   getAutoArchiveConfig(): AutoArchiveConfig {

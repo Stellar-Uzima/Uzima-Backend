@@ -11,6 +11,7 @@ import {
   PriorityService,
   PrioritizableTask,
 } from './services/priority.service';
+import { ActivityLogService } from './services/activity-log.service';
 
 @Injectable()
 export class HealthTasksService {
@@ -18,12 +19,24 @@ export class HealthTasksService {
     @InjectRepository(HealthTask)
     private readonly taskRepository: Repository<HealthTask>,
     private readonly priorityService: PriorityService,
+    private readonly activityLogService: ActivityLogService,
   ) {}
 
   async findOne(id: string): Promise<HealthTask | null> {
     return this.taskRepository.findOne({ where: { id } });
   }
 
+  async update(
+    id: string,
+    dto: UpdateHealthTaskDto,
+    userId: string = 'system',
+  ): Promise<HealthTask> {
+    const task = await this.findOne(id);
+    if (!task) throw new NotFoundException('Task not found');
+
+    const originalTask = { ...task, targetProfile: { ...(task.targetProfile ?? {}) } };
+
+    // Apply allowed updates (exclude id and createdAt)
   /**
    * Implementation for Issue #505: DELETE /api/health-tasks/:id
    * Includes permission check, reminder cleanup, and soft delete.
@@ -107,7 +120,72 @@ export class HealthTasksService {
       };
     }
 
-    return this.taskRepository.save(task);
+    const savedTask = await this.taskRepository.save(task);
+    const changeDetails = this.buildTaskChangeDetails(originalTask, dto, resolvedPriority, normalizedDueDate);
+
+    if (changeDetails.length > 0) {
+      await this.activityLogService.logTaskChange(id, userId, 'task.updated', {
+        changes: changeDetails,
+      });
+    }
+
+    return savedTask;
+  }
+
+  async getTaskActivity(taskId: string): Promise<import('../../../database/entities/task-activity.entity').TaskActivity[]> {
+    return this.activityLogService.getActivityHistory(taskId);
+  }
+
+  private buildTaskChangeDetails(
+    task: HealthTask,
+    dto: UpdateHealthTaskDto,
+    resolvedPriority: string,
+    normalizedDueDate: string | null,
+  ): Array<{ field: string; before: unknown; after: unknown }> {
+    const changeDetails: Array<{ field: string; before: unknown; after: unknown }> = [];
+    const fields = [
+      'title',
+      'description',
+      'category',
+      'status',
+      'xlmReward',
+      'isActive',
+    ];
+
+    for (const field of fields) {
+      const before = (task as any)[field];
+      const after = (dto as any)[field];
+      if (after !== undefined && !this.valuesAreEqual(before, after)) {
+        changeDetails.push({ field, before, after });
+      }
+    }
+
+    const oldPriority = (task.targetProfile ?? {}).priority;
+    const oldDueDate = (task.targetProfile ?? {}).dueDate ?? null;
+    if (!this.valuesAreEqual(oldPriority, resolvedPriority)) {
+      changeDetails.push({ field: 'priority', before: oldPriority, after: resolvedPriority });
+    }
+    if (!this.valuesAreEqual(oldDueDate, normalizedDueDate)) {
+      changeDetails.push({ field: 'dueDate', before: oldDueDate, after: normalizedDueDate });
+    }
+
+    return changeDetails;
+  }
+
+  private valuesAreEqual(a: unknown, b: unknown): boolean {
+    if (a === b) {
+      return true;
+    }
+
+    if (typeof a === 'object' && typeof b === 'object') {
+      try {
+        return JSON.stringify(a) === JSON.stringify(b);
+      } catch {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   sortTasksByPriority(tasks: HealthTask[]): HealthTask[] {
