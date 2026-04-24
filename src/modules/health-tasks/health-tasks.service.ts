@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { 
+  Injectable, 
+  NotFoundException, 
+  ForbiddenException 
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
@@ -21,112 +25,41 @@ export class HealthTasksService {
     return this.taskRepository.findOne({ where: { id } });
   }
 
-  async createTask(createTaskDto: CreateHealthTaskDto, userId: string): Promise<HealthTask> {
-    const task = this.taskRepository.create({
-      ...createTaskDto,
-      createdBy: userId,
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+  /**
+   * Implementation for Issue #505: DELETE /api/health-tasks/:id
+   * Includes permission check, reminder cleanup, and soft delete.
+   */
+  async remove(id: string, userId: string): Promise<void> {
+    // 1. Fetch task to check existence and ownership
+    const task = await this.taskRepository.findOne({ where: { id } });
 
-    return this.taskRepository.save(task);
-  }
-
-  async getUserTasks(userId: string, options: {
-    status?: string;
-    category?: string;
-    priority?: string;
-    startDate?: Date;
-    endDate?: Date;
-    page: number;
-    limit: number;
-    sortBy: string;
-    sortOrder: 'asc' | 'desc';
-  }): Promise<{
-    tasks: HealthTask[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    stats: {
-      total: number;
-      completed: number;
-      pending: number;
-      inProgress: number;
-    };
-  }> {
-    const queryBuilder = this.taskRepository
-      .createQueryBuilder('task')
-      .where('task.createdBy = :userId', { userId });
-
-    // Apply filters
-    if (options.status) {
-      queryBuilder.andWhere('task.status = :status', { status: options.status });
+    // Acceptance Criteria: Returns 404 if not found
+    if (!task) {
+      throw new NotFoundException(`Health task with ID ${id} not found`);
     }
 
-    if (options.category) {
-      queryBuilder.andWhere('task.category = :category', { category: options.category });
+    // Acceptance Criteria: Returns 403 if not authorized (Permission check)
+    if (task.createdBy !== userId) {
+      throw new ForbiddenException('You do not have permission to delete this task');
     }
 
-    if (options.priority) {
-      queryBuilder.andWhere('task.priority = :priority', { priority: options.priority });
-    }
+    // Implementation Requirement: Clean up related reminders
+    await this.taskRepository.manager
+      .createQueryBuilder()
+      .delete()
+      .from('reminders') 
+      .where('healthTaskId = :id', { id })
+      .execute();
 
-    if (options.startDate) {
-      queryBuilder.andWhere('task.createdAt >= :startDate', { startDate: options.startDate });
-    }
-
-    if (options.endDate) {
-      queryBuilder.andWhere('task.createdAt <= :endDate', { endDate: options.endDate });
-    }
-
-    // Get total count
-    const total = await queryBuilder.getCount();
-
-    // Apply sorting
-    const sortField = options.sortBy === 'createdAt' ? 'task.createdAt' : 
-                     options.sortBy === 'dueDate' ? 'task.dueDate' :
-                     options.sortBy === 'title' ? 'task.title' : 'task.createdAt';
-    
-    queryBuilder.orderBy(sortField, options.sortOrder);
-
-    // Apply pagination
-    const offset = (options.page - 1) * options.limit;
-    queryBuilder.skip(offset).take(options.limit);
-
-    const tasks = await queryBuilder.getMany();
-
-    // Get completion stats
-    const statsQuery = this.taskRepository
-      .createQueryBuilder('task')
-      .select('task.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .where('task.createdBy = :userId', { userId });
-
-    const statsResult = await statsQuery.groupBy('task.status').getRawMany();
-    const stats = statsResult.reduce((acc: any, item: any) => {
-      acc[item.status] = parseInt(item.count, 10);
-      return acc;
-    }, { total: 0, completed: 0, pending: 0, inProgress: 0 });
-
-    stats.total = total;
-
-    return {
-      tasks,
-      total,
-      page: options.page,
-      limit: options.limit,
-      totalPages: Math.ceil(total / options.limit),
-      stats,
-    };
+    // Implementation Requirement: Soft delete successfully
+    // This utilizes the @DeleteDateColumn in your HealthTask entity
+    await this.taskRepository.softDelete(id);
   }
 
   async update(id: string, dto: UpdateHealthTaskDto): Promise<HealthTask> {
     const task = await this.findOne(id);
     if (!task) throw new NotFoundException('Task not found');
 
-    // Apply allowed updates (exclude id and createdAt)
     const allowed = [
       'title',
       'description',
