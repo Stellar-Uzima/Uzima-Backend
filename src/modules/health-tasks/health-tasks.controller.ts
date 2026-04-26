@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
 import { CreateHealthTaskDto } from '../../common/dtos/create-health-task.dto';
@@ -58,7 +59,6 @@ export class HealthTasksController {
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
     private readonly activityLogService: ActivityLogService,
-    private readonly duplicationService: DuplicationService
   ) {}
 
   @Get()
@@ -139,8 +139,8 @@ export class HealthTasksController {
 
   @Post()
   @ApiOperation({ summary: 'Create new health task (admin only)' })
-  async create(@Body() body: any) {
-    return { message: 'Create task logic to be implemented' };
+  async create(@Body() body: CreateHealthTaskDto) {
+    return this.healthTasksService.create(body);
   }
 
   @Get(':id/activity')
@@ -196,8 +196,6 @@ export class HealthTasksController {
   @ApiOperation({ summary: 'Get completion statistics for a task' })
   async getTaskCompletionStats(@Param('id') id: string) {
     return this.completionService.getTaskCompletionStats(id);
-  async completeTask(@Param('id') id: string, @Body() body: any) {
-    return { message: 'Complete task logic to be implemented' };
   }
 
   @Get('user/:userId')
@@ -230,7 +228,6 @@ export class HealthTasksController {
       req.user.userId,
     );
     return updated;
-    return this.healthTasksService.update(id, body);
   }
 
   /**
