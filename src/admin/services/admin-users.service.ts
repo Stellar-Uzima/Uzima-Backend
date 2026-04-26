@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User } from 'src/entities/user.entity';
 import { ListUsersDto } from '../dto/list-users.dto';
 import { CreateAdminDto } from '../dto/create-admin.dto';

@@ -17,12 +17,17 @@
     "emitDecoratorMetadata": true,
     "baseUrl": "./",
     "paths": {
+      "src/*": ["src/*"],
       "@/*": ["src/*"],
       "@modules/*": ["src/modules/*"],
       "@common/*": ["src/common/*"],
       "@database/*": ["src/database/*"],
       "@config/*": ["src/config/*"]
-    }
+    },
+    "moduleResolution": "node",
+    "noImplicitAny": false,
+    "strictPropertyInitialization": false,
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]

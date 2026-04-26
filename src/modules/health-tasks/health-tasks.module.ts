@@ -9,6 +9,8 @@ import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { DailyTaskAssignment } from '../../tasks/entities/daily-task-assignment.entity';
 import { PriorityService } from './services/priority.service';
 import { ArchiveService } from './services/archive.service';
+import { CompletionService } from './services/completion.service';
+import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
@@ -43,6 +45,8 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     HealthTasksService,
     PriorityService,
     ArchiveService,
+    CompletionService,
+    AnalyticsService,
     TaskSearchService,
     AttachmentsService,
     DuplicationService,

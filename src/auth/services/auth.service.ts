@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { MoreThan, LessThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
