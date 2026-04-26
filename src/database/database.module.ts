@@ -16,7 +16,11 @@ import { TransactionService } from './services/transaction.service';
         database: configService.get<string>('DB_NAME', 'stellar_uzima'),
         entities: [__dirname + '/../**/entities/*.entity{.ts,.js}'],
         migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-        synchronize: configService.get<boolean>('DB_SYNCHRONIZE', true),
+        // Never auto-sync in production — rely solely on migrations
+        synchronize:
+          configService.get<string>('NODE_ENV') !== 'production' &&
+          configService.get<boolean>('DB_SYNCHRONIZE', false),
+        migrationsRun: configService.get<string>('NODE_ENV') === 'production',
         logging: configService.get<boolean>('DB_LOGGING', false),
       }),
     }),

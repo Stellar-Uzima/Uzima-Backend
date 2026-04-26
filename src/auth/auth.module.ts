@@ -6,6 +6,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
+import { PasswordService } from './services/password.service';
+import { JwtTokenService } from './services/jwt.service';
 import { OtpModule } from '../otp/otp.module';
 import { User } from '../entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -24,8 +26,9 @@ import { AuditModule } from '../audit/audit.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
+        // Kept for Passport compatibility; JwtTokenService uses RS256 directly.
         secret: configService.get<string>('JWT_SECRET', 'secretKey'),
-        signOptions: { expiresIn: '1h' },
+        signOptions: { expiresIn: '15m' },
       }),
     }),
     AuditModule,
@@ -34,11 +37,13 @@ import { AuditModule } from '../audit/audit.module';
   providers: [
     AuthService,
     UsersService,
+    PasswordService,
+    JwtTokenService,
     JwtStrategy,
     JwtRefreshStrategy,
     JwtAuthGuard,
     JwtRefreshGuard,
   ],
-  exports: [AuthService, UsersService],
+  exports: [AuthService, UsersService, PasswordService, JwtTokenService],
 })
 export class AuthModule {}
