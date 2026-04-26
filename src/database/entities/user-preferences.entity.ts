@@ -7,6 +7,7 @@ import {
   OneToOne,
   JoinColumn,
 } from 'typeorm';
+import { IsString, IsEnum, IsUUID, IsOptional, IsObject, Min, Max, Length } from 'class-validator';
 import { User } from './user.entity';
 
 export enum Theme {
@@ -31,6 +32,7 @@ export class UserPreferences {
   user: User;
 
   @Column({ unique: true })
+  @IsUUID()
   userId: string;
 
   @Column({
@@ -40,10 +42,13 @@ export class UserPreferences {
   })
   theme: Theme;
 
-  @Column({ default: 'en' })
+  @Column({ default: 'en', length: 10 })
+  @IsString()
+  @Length(2, 10)
   language: string;
 
   @Column({ type: 'jsonb', default: {} })
+  @IsObject()
   notifications: {
     [key in NotificationType]: {
       enabled: boolean;
@@ -56,6 +61,7 @@ export class UserPreferences {
   };
 
   @Column({ type: 'jsonb', default: {} })
+  @IsObject()
   privacy: {
     profileVisibility: 'public' | 'private' | 'friends';
     showStats: boolean;
@@ -64,6 +70,7 @@ export class UserPreferences {
   };
 
   @Column({ type: 'jsonb', default: {} })
+  @IsObject()
   accessibility: {
     fontSize: 'small' | 'medium' | 'large' | 'extra-large';
     highContrast: boolean;
@@ -72,6 +79,7 @@ export class UserPreferences {
   };
 
   @Column({ type: 'jsonb', default: {} })
+  @IsObject()
   app: {
     autoStartTasks: boolean;
     dailyReminderTime: string; // HH:mm format
