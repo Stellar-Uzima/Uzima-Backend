@@ -19,7 +19,10 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate": "typeorm migration:run -d src/database/data-source.ts",
-    "migrate:create": "typeorm migration:create"
+    "migrate:create": "typeorm migration:create",
+    "seed": "ts-node src/database/seeders/run-seeders.ts",
+    "seed:refresh": "npm run migrate:rollback && npm run migrate && npm run seed",
+    "migrate:rollback": "typeorm migration:revert -d src/database/data-source.ts"
   },
   "dependencies": {
     "@aws-sdk/s3-request-presigner": "^3.1035.0",
