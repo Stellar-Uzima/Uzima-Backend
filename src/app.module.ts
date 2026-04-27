@@ -12,6 +12,9 @@ import { ConsultationsModule } from '@modules/consultations/consultations.module
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 // 1. Import the new StorageModule
 import { StorageModule } from './shared/storage/storage.module'; 
+import { MetricsModule } from './shared/metrics/metrics.module';
+import { UsageModule } from './modules/usage/usage.module';
+import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -29,6 +32,9 @@ import { LoggingModule } from '@common/interceptors/logging.module';
     LoggingModule,
     // 2. Add it to the imports list
     StorageModule, 
+    MetricsModule,
+    UsageModule,
+    MonitoringModule,
     AuthModule,
     UsersModule,
     HealthTasksModule,
