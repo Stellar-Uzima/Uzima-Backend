@@ -17,12 +17,12 @@ import { DuplicationService } from './services/duplication.service';
 import { ReminderService } from './services/reminder.service';
 import { NotesService } from './services/notes.service';
 import { SharingService } from './services/sharing.service';
-import { AnalyticsService } from './services/analytics.service';
 import { TaskAttachment } from '../../database/entities/task-attachment.entity';
 import { SearchHistory } from '../../database/entities/search-history.entity';
 import { TaskReminder } from '../../database/entities/task-reminder.entity';
 import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
+import { TaskCategory } from '../../database/entities/task-category.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
@@ -36,6 +36,7 @@ import { NotificationsModule } from '../../notifications/notifications.module';
       TaskShare,
       TaskCompletion,
       DailyTaskAssignment,
+      TaskCategory,
     ]),
     CacheModule.register(),
     NotificationsModule,

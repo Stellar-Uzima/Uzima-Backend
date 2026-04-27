@@ -6,17 +6,21 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../entities/user.entity';
+import { IsString, IsUUID, IsOptional, IsDateString, Length } from 'class-validator';
+import { User } from './user.entity';
 
 @Entity('email_verifications')
 export class EmailVerification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar', unique: true, length: 255 })
+  @IsString()
+  @Length(32, 255)
   token: string;
 
   @Column({ type: 'timestamp' })
+  @IsDateString()
   expiresAt!: Date;
 
   @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
@@ -27,5 +31,7 @@ export class EmailVerification {
   createdAt: Date;
 
   @Column({ type: 'timestamp', nullable: true })
+  @IsOptional()
+  @IsDateString()
   consumedAt?: Date | null;
 }
