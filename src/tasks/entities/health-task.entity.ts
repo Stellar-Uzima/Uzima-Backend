@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
+  Index,
 } from 'typeorm';
 
 export enum TaskCategory {
@@ -15,6 +16,8 @@ export enum TaskCategory {
 }
 
 @Entity('health_tasks')
+@Index(['status'])
+@Index(['createdAt'])
 export class HealthTask {
   @PrimaryGeneratedColumn('uuid')
   id!: string; // Added ! to satisfy strictPropertyInitialization

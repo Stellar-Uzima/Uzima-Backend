@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { HealthTask } from '../../entities/health-task.entity';
 import { User } from '../../entities/user.entity';
@@ -24,6 +25,9 @@ export enum ReminderStatus {
 }
 
 @Entity('task_reminders')
+@Index(['userId', 'remindAt'])
+@Index(['status'])
+@Index(['createdAt'])
 export class TaskReminder {
   @PrimaryGeneratedColumn('uuid')
   id: string;
