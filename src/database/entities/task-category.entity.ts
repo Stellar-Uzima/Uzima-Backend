@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToMany,
   ManyToOne,
   Index,
@@ -85,6 +86,9 @@ export class TaskCategory {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt?: Date;
 
   // Static method to get predefined categories
   static getPredefinedCategories(): Omit<TaskCategory, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'user'>[] {

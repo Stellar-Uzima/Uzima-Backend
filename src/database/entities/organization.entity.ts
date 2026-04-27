@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToMany,
 } from 'typeorm';
 import { IsString, IsOptional, IsUrl, Length } from 'class-validator';
@@ -38,4 +39,7 @@ export class Organization {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }
