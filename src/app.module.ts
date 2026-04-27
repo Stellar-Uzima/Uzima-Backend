@@ -15,6 +15,9 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
 // Database
 import { DatabaseModule } from '@database/database.module';
 
+// Common
+import { LoggingModule } from '@common/interceptors/logging.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +25,7 @@ import { DatabaseModule } from '@database/database.module';
       envFilePath: '.env',
     }),
     DatabaseModule,
+    LoggingModule,
     AuthModule,
     UsersModule,
     HealthTasksModule,

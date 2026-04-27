@@ -54,6 +54,7 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^5.0.0",
     "rxjs": "^7.8.0",
+    "sharp": "^0.34.5",
     "stellar-sdk": "^11.0.0",
     "twilio": "^6.0.0",
     "typeorm": "^0.3.0"
