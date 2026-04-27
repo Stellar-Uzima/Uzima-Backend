@@ -15,8 +15,15 @@
     "sourceMap": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "baseUrl": "./",
+    "types": ["node", "multer"],
+    "ignoreDeprecations": "6.0",
     "paths": {
+      "@/*": ["./src/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@common/*": ["./src/common/*"],
+      "@database/*": ["./src/database/*"],
+      "@config/*": ["./src/config/*"]
+    }
       "src/*": ["src/*"],
       "@/*": ["src/*"],
       "@modules/*": ["src/modules/*"],
