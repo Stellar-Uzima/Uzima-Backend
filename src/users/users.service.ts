@@ -87,7 +87,6 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Soft delete user account
-   * Sets isActive to false and anonymizes email
    */
   async softDelete(userId: string): Promise<void> {
     const user = await this.findById(userId);
@@ -96,21 +95,16 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('User not found');
     }
 
-    // Soft delete: set isActive to false
-    user.isActive = false;
-
-    // Anonymize email to allow re-registration with same email
-    const anonymizedEmail = `deleted_${userId}_${Date.now()}@deleted.user`;
-    user.email = anonymizedEmail;
-
-    // Also anonymize phone number if exists
-    if (user.phoneNumber) {
-      user.phoneNumber = `deleted_${userId}_${Date.now()}`;
-    }
-
-    await this.userRepository.save(user);
-
+    await this.userRepository.softDelete(userId);
     this.logger.log(`User account soft deleted: ${userId}`);
+  }
+
+  /**
+   * Restore a soft-deleted user account
+   */
+  async restore(userId: string): Promise<void> {
+    await this.userRepository.restore(userId);
+    this.logger.log(`User account restored: ${userId}`);
   }
 
   /**
