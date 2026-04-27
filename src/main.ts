@@ -47,12 +47,17 @@ async function bootstrap() {
 
   // Global validation pipe
   app.useGlobalPipes(
+    new CustomValidationPipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
     }),
   );
+
+  // Global logging interceptor
+  const loggingInterceptor = app.get(LoggingInterceptor);
+  app.useGlobalInterceptors(loggingInterceptor);
 
   // Enable CORS
   app.enableCors({
