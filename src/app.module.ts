@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import secretsConfig from './config/secrets';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -10,6 +11,8 @@ import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { ConsultationsModule } from '@modules/consultations/consultations.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { AdminModule } from '@modules/admin/admin.module';
+import { ReportsModule } from '@modules/reports/reports.module';
 // 1. Import the new StorageModule
 import { StorageModule } from './shared/storage/storage.module'; 
 import { MetricsModule } from './shared/metrics/metrics.module';
@@ -27,6 +30,7 @@ import { LoggingModule } from '@common/interceptors/logging.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      load: [secretsConfig],
     }),
     DatabaseModule,
     LoggingModule,
@@ -41,6 +45,8 @@ import { LoggingModule } from '@common/interceptors/logging.module';
     WalletModule,
     ConsultationsModule,
     NotificationsModule,
+    AdminModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
