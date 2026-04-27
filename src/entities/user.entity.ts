@@ -90,16 +90,16 @@ export class User {
   updatedAt: Date;
 
   @Column({ nullable: true, unique: true })
-  referralCode?: string;
+  referralCode?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
 
   @OneToMany(() => HealthTask, (healthTask) => healthTask.user)
-  healthTasks: HealthTask[];
+  healthTasks?: HealthTask[];
 
   @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
+  sessions?: Session[];
 
   @ManyToMany(() => Organization, (organization) => organization.users)
   @JoinTable({
@@ -107,7 +107,7 @@ export class User {
     joinColumn: { name: 'userId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
   })
-  organizations: Organization[];
+  organizations?: Organization[];
 
   @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];

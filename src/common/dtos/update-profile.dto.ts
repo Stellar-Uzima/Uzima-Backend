@@ -142,14 +142,16 @@ export class ProfileResponseDto {
   @ApiProperty({
     description: 'Avatar URL',
     example: 'https://example.com/avatar.jpg',
+    nullable: true,
   })
-  avatar?: string;
+  avatar?: string | null;
 
   @ApiProperty({
     description: 'User bio',
     example: 'Software developer passionate about blockchain',
+    nullable: true,
   })
-  bio?: string;
+  bio?: string | null;
 
   @ApiProperty({
     description: 'Preferred language',
@@ -186,8 +188,9 @@ export class ProfileResponseDto {
   @ApiProperty({
     description: 'Last active timestamp',
     example: '2024-01-01T12:00:00.000Z',
+    nullable: true,
   })
-  lastActiveAt?: Date;
+  lastActiveAt?: Date | null;
 
   @ApiProperty({
     description: 'Account creation timestamp',

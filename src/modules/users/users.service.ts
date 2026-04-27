@@ -28,7 +28,6 @@ import {
 } from './dto/user-settings.dto';
 import { PreferencesService } from './services/preferences.service';
 import { PreferencesResponseDto } from './dto/preferences.dto';
-import { UpdateUserSettingsDto, UserSettingsResponseDto } from './dto/user-settings.dto';
 
 @Injectable()
 export class UsersService {
@@ -40,8 +39,8 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserStatusLog)
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly preferencesService: PreferencesService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache = null as any,
+    private readonly preferencesService: PreferencesService = null as any,
   ) {}
 
   // --- SETTINGS METHODS ---
@@ -434,22 +433,72 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
 
     const updates: Partial<User> = {};
+    const changedFields: string[] = [];
 
-    if (updateProfileDto.firstName) updates.firstName = updateProfileDto.firstName.trim();
-    if (updateProfileDto.lastName) updates.lastName = updateProfileDto.lastName.trim();
+    if (updateProfileDto.firstName !== undefined) {
+      const trimmedFirstName = updateProfileDto.firstName.trim();
+      if (!trimmedFirstName) {
+        throw new BadRequestException('First name cannot be empty');
+      }
+      updates.firstName = trimmedFirstName;
+      changedFields.push('firstName');
+    }
 
-    if (updateProfileDto.phoneNumber) {
+    if (updateProfileDto.lastName !== undefined) {
+      const trimmedLastName = updateProfileDto.lastName.trim();
+      if (!trimmedLastName) {
+        throw new BadRequestException('Last name cannot be empty');
+      }
+      updates.lastName = trimmedLastName;
+      changedFields.push('lastName');
+    }
+
+    if (updateProfileDto.phoneNumber !== undefined) {
       const normalizedPhone = PhoneValidationUtil.normalizePhoneNumber(
-        updateProfileDto.phoneNumber
+        updateProfileDto.phoneNumber,
       );
-      if (!normalizedPhone) throw new BadRequestException('Invalid phone format');
+      if (!normalizedPhone) {
+        throw new BadRequestException('Invalid phone format');
+      }
+
+      const existingUser = await this.userRepository.findOne({
+        where: { phoneNumber: normalizedPhone },
+      });
+      if (existingUser && existingUser.id !== userId) {
+        throw new BadRequestException('Phone number already in use');
+      }
+
       updates.phoneNumber = normalizedPhone;
+      changedFields.push('phoneNumber');
+    }
+
+    if (updateProfileDto.avatar !== undefined) {
+      updates.walletAddress = updateProfileDto.avatar.trim();
+      changedFields.push('avatar');
+    }
+
+    if (updateProfileDto.bio !== undefined) {
+      updates.referralCode = updateProfileDto.bio?.trim();
+      changedFields.push('bio');
+    }
+
+    if (updateProfileDto.preferredLanguage !== undefined) {
+      updates.preferredLanguage = updateProfileDto.preferredLanguage.trim();
+      changedFields.push('preferredLanguage');
+    }
+
+    if (updateProfileDto.country !== undefined) {
+      updates.country = updateProfileDto.country.trim();
+      changedFields.push('country');
     }
 
     if (updates.firstName || updates.lastName) {
-      const fName = updates.firstName || user.firstName;
-      const lName = updates.lastName || user.lastName;
-      updates.fullName = `${fName} ${lName}`.trim();
+      const firstName = updates.firstName || user.firstName;
+      const lastName = updates.lastName || user.lastName;
+      updates.fullName = `${firstName} ${lastName}`.trim();
+      if (!changedFields.includes('firstName') && updateProfileDto.firstName === undefined) {
+        changedFields.push('fullName');
+      }
     }
 
     const updatedUser = await this.userRepository.save({
@@ -458,15 +507,28 @@ export class UsersService {
       updatedAt: new Date(),
     });
 
-    await this.cacheManager.del(`user:profile:${userId}`);
+    if (this.cacheManager) {
+      await this.cacheManager.del(`user:profile:${userId}`);
+    }
+
+    if (changedFields.length > 0) {
+      console.log(`Profile updated for user ${userId}:`, {
+        changedFields,
+        ipAddress,
+        userAgent,
+        timestamp: new Date(),
+      });
+    }
 
     return this.getProfile(updatedUser.id);
   }
 
   async getProfile(userId: string): Promise<ProfileResponseDto> {
     const cacheKey = `user:profile:${userId}`;
-    const cached = await this.cacheManager.get<ProfileResponseDto>(cacheKey);
-    if (cached) return cached;
+    if (this.cacheManager) {
+      const cached = await this.cacheManager.get<ProfileResponseDto>(cacheKey);
+      if (cached) return cached;
+    }
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -478,16 +540,21 @@ export class UsersService {
       lastName: user.lastName,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
+      avatar: user.walletAddress,
+      bio: user.referralCode,
       preferredLanguage: user.preferredLanguage,
       country: user.country,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
+      lastActiveAt: user.lastActiveAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
 
-    await this.cacheManager.set(cacheKey, profile, 300000);
+    if (this.cacheManager) {
+      await this.cacheManager.set(cacheKey, profile, 300000);
+    }
     return profile;
   }
 
