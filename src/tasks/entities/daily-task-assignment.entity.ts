@@ -8,12 +8,15 @@ import {
   Column,
   Unique,
   CreateDateColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../entities/user.entity';
 import { HealthTask } from './health-task.entity';
 
 @Entity('daily_task_assignments')
 @Unique(['user', 'assignedDate'])
+@Index(['user', 'assignedDate'])
+@Index(['createdAt'])
 export class DailyTaskAssignment {
   @PrimaryGeneratedColumn('uuid')
   id: string;

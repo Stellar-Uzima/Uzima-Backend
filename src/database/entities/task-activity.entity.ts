@@ -4,8 +4,12 @@ import {
   Column,
   CreateDateColumn,
 } from 'typeorm';
+import { Index } from 'typeorm';
 
 @Entity('task_activity')
+@Index(['taskId'])
+@Index(['changedBy', 'createdAt'])
+@Index(['createdAt'])
 export class TaskActivity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
