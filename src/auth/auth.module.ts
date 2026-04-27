@@ -8,8 +8,10 @@ import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
 import { PasswordService } from './services/password.service';
 import { JwtTokenService } from './services/jwt.service';
+import { ApiKeyService } from './services/api-key.service';
 import { OtpModule } from '../otp/otp.module';
 import { User } from '../entities/user.entity';
+import { ApiKey } from '../database/entities/api-key.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -18,7 +20,7 @@ import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, ApiKey]),
     OtpModule,
     ConfigModule,
     PassportModule,
@@ -39,11 +41,12 @@ import { AuditModule } from '../audit/audit.module';
     UsersService,
     PasswordService,
     JwtTokenService,
+    ApiKeyService,
     JwtStrategy,
     JwtRefreshStrategy,
     JwtAuthGuard,
     JwtRefreshGuard,
   ],
-  exports: [AuthService, UsersService, PasswordService, JwtTokenService],
+  exports: [AuthService, UsersService, PasswordService, JwtTokenService, ApiKeyService],
 })
 export class AuthModule {}
