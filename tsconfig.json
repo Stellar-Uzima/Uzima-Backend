@@ -11,11 +11,15 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+
+    /* --- THE FIX FOR YOUR SPECIFIC ERROR --- */
+    "ignoreDeprecations": "6.0", 
+    "moduleResolution": "node",
     "baseUrl": "./",
+    /* --------------------------------------- */
+
     "paths": {
       "src/*": ["src/*"],
       "@/*": ["src/*"],
@@ -24,10 +28,8 @@
       "@database/*": ["src/database/*"],
       "@config/*": ["src/config/*"]
     },
-    "moduleResolution": "node",
     "noImplicitAny": false,
-    "strictPropertyInitialization": false,
-    "skipLibCheck": true
+    "strictPropertyInitialization": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
