@@ -24,6 +24,9 @@ export const envValidationSchema = Joi.object({
   TWILIO_ACCOUNT_SID: Joi.string().optional(),
   TWILIO_AUTH_TOKEN: Joi.string().optional(),
   TWILIO_PHONE_NUMBER: Joi.string().optional(),
+  SECRETS_VAULT_KEY: Joi.string().min(32).optional(),
+  SECRETS_VAULT_FILE: Joi.string().optional(),
+  SECRETS_AUDIT_LOG: Joi.string().optional(),
 
   // ── Stellar ─────────────────────────────────────────────────────────────────
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').required(),
