@@ -26,7 +26,6 @@ import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
-import { AnalyticsService } from './services/analytics.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
@@ -58,7 +57,6 @@ export class HealthTasksController {
     private readonly searchService: TaskSearchService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
-    private readonly analyticsService: AnalyticsService,
   ) {}
 
   @Get()

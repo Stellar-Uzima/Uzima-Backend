@@ -24,6 +24,12 @@ import { DatabaseModule } from '@database/database.module';
 
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
+import { SigningModule } from './common/signing/signing.module';
+
+// Shared
+import { SearchModule } from './shared/search/search.module';
+import { SchedulerModule } from './shared/scheduler/scheduler.module';
+import { PushModule } from './shared/notifications/push.module';
 
 @Module({
   imports: [
@@ -39,6 +45,10 @@ import { LoggingModule } from '@common/interceptors/logging.module';
     MetricsModule,
     UsageModule,
     MonitoringModule,
+    SigningModule,
+    SearchModule,
+    SchedulerModule,
+    PushModule,
     AuthModule,
     UsersModule,
     HealthTasksModule,
