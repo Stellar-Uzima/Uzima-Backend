@@ -54,7 +54,7 @@ export class WalletService {
     let liveBalance = 'unavailable';
     try {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(
         `Failed to fetch balance for ${walletAddress}: ${error.message}`,
       );
