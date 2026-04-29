@@ -1,0 +1,84 @@
+/* EmptyState Component Styles */
+/* Light Mode (default) */
+.empty-state-container {
+  --empty-state-bg: #fef3e2;
+  --empty-state-accent: #e68a00;
+  --empty-state-muted: #d4a574;
+  --empty-state-container-bg: #ffffff;
+  --empty-state-border: #e5e7eb;
+  --empty-state-title-color: #1f2937;
+  --empty-state-description-color: #6b7280;
+  --empty-state-button-bg: #e68a00;
+  --empty-state-button-hover: #cc7a00;
+  --empty-state-button-color: #ffffff;
+  --empty-state-focus: #e68a00;
+  --empty-state-padding: 2rem;
+  --empty-state-spacing: 1.5rem;
+  --empty-state-border-radius: 12px;
+  --empty-state-title-size: 1.25rem;
+  --empty-state-title-weight: 600;
+  --empty-state-description-size: 0.875rem;
+  --empty-state-button-padding: 0.625rem 1.25rem;
+  --empty-state-button-size: 0.875rem;
+  --empty-state-button-weight: 500;
+  --empty-state-button-radius: 8px;
+}
+
+/* Dark Mode */
+[data-theme='dark'] .empty-state-container,
+.dark .empty-state-container {
+  --empty-state-bg: #3d2a1a;
+  --empty-state-accent: #f59e0b;
+  --empty-state-muted: #a67c52;
+  --empty-state-container-bg: #1f2937;
+  --empty-state-border: #374151;
+  --empty-state-title-color: #f9fafb;
+  --empty-state-description-color: #9ca3af;
+  --empty-state-button-bg: #f59e0b;
+  --empty-state-button-hover: #d97706;
+  --empty-state-button-color: #1f2937;
+  --empty-state-focus: #f59e0b;
+}
+
+/* Additional dark mode class support */
+@media (prefers-color-scheme: dark) {
+  .empty-state-container {
+    --empty-state-bg: #3d2a1a;
+    --empty-state-accent: #f59e0b;
+    --empty-state-muted: #a67c52;
+    --empty-state-container-bg: #1f2937;
+    --empty-state-border: #374151;
+    --empty-state-title-color: #f9fafb;
+    --empty-state-description-color: #9ca3af;
+    --empty-state-button-bg: #f59e0b;
+    --empty-state-button-hover: #d97706;
+    --empty-state-button-color: #1f2937;
+    --empty-state-focus: #f59e0b;
+  }
+}
+
+/* Animation for illustrations */
+.empty-state-illustration {
+  animation: emptyStateFadeIn 0.5s ease-out;
+}
+
+@keyframes emptyStateFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Button hover state */
+.empty-state-container button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.empty-state-container button:active {
+  transform: translateY(0);
+}

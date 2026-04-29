@@ -1,0 +1,163 @@
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
+import { createClient, RedisClientType } from 'redis';
+import { User } from '../entities/user.entity';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserResponseDto } from './dto/user-response.dto';
+import { UserStatsDto } from './dto/user-stats.dto';
+import { TaskCompletion } from './entities/task-completion.entity';
+import { Coupon, CouponStatus } from './entities/coupon.entity';
+import { HealthProfile } from './entities/health-profile.entity';
+
+@Injectable()
+export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+  private redisClient: RedisClientType;
+  private readonly CACHE_TTL = 300; // 5 minutes in seconds
+
+  constructor(
+    @InjectRepository(User)
+    public readonly userRepository: Repository<User>,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  onModuleInit(): void {
+    // Optional: initialize Redis client for caching if needed
+  }
+
+  /**
+   * Find user by ID
+   */
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+    });
+  }
+
+  /**
+   * Get user profile by ID
+   * Returns serialized UserResponseDto with password excluded
+   */
+  async getProfile(userId: string): Promise<UserResponseDto> {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Use plainToInstance to serialize user data with @Exclude/@Expose decorators
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  /**
+   * Update user profile
+   * Uses whitelist: true to strip undefined properties
+   */
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Update only provided fields (whitelist behavior is handled by DTO validation)
+    Object.assign(user, updateProfileDto);
+
+    const updatedUser = await this.userRepository.save(user);
+
+    this.logger.log(`User profile updated: ${userId}`);
+
+    // Return serialized response
+    return plainToInstance(UserResponseDto, updatedUser, {
+      excludeExtraneousValues: true,
+    });
+  }
+
+  /**
+   * Soft delete user account
+   */
+  async softDelete(userId: string): Promise<void> {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.softDelete(userId);
+    this.logger.log(`User account soft deleted: ${userId}`);
+  }
+
+  /**
+   * Restore a soft-deleted user account
+   */
+  async restore(userId: string): Promise<void> {
+    await this.userRepository.restore(userId);
+    this.logger.log(`User account restored: ${userId}`);
+  }
+
+  /**
+   * Find user by email
+   */
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email },
+    });
+  }
+
+  /**
+   * Find user by phone number
+   */
+  async findByPhoneNumber(phoneNumber: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { phoneNumber },
+    });
+  }
+
+  /**
+   * Create a new user
+   */
+  async create(userData: Partial<User>): Promise<User> {
+    const user = this.userRepository.create(userData);
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * Update last active timestamp
+   */
+  async updateLastActiveAt(userId: string): Promise<void> {
+    await this.userRepository.update(userId, {
+      lastActiveAt: new Date(),
+    } as Partial<User>);
+  }
+
+  /**
+   * Get user stats (tasks completed, XLM earned, streaks, coupons, rank)
+   */
+  async getStats(userId: string): Promise<UserStatsDto> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    // TODO: aggregate from TaskCompletion, rewards, coupons when available
+    return {
+      tasksCompleted: 0,
+      totalXlmEarned: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      activeCoupons: 0,
+      rank: 0,
+    };
+  }
+}

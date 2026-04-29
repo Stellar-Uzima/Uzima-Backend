@@ -1,124 +1,368 @@
-# Uzima Backend
+# Stellar Uzima Backend
 
-This is the backend service for Uzima, built with Express and MongoDB.
+A robust, scalable NestJS backend for the Stellar Uzima health and wellness platform. This repository contains the core API and services that power the Uzima ecosystem.
 
-## Features
-- RESTful API for user authentication, records, appointments, and Stellar integration
-- Swagger UI documentation at `/docs`
-- Cron jobs for scheduled reminders
-- **Sentry integration** for real-time error monitoring and performance tracing
-- **Rate limiting** with Redis to prevent abuse and brute force attacks
-- **Inventory**: real-time stock tracking with FIFO and low-stock alerts
+## 📋 Table of Contents
 
-## Prerequisites
-- Node.js v16 or higher
-- npm v8 or higher
-- MongoDB database
-- Redis server (for rate limiting)
-- A Sentry project and DSN (Data Source Name)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Development](#development)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Installation
-1. Clone the repo:
+## 🎯 Overview
+
+Stellar Uzima is a comprehensive health and wellness platform designed to help users manage their health goals, track progress, and receive personalized recommendations. The backend provides:
+
+- **Authentication & Authorization**: Secure user authentication with JWT tokens
+- **User Management**: Complete user profile and account management
+- **Health Tasks**: Track and manage health-related tasks and habits
+- **Data Persistence**: Robust database operations with TypeORM
+- **Error Handling**: Comprehensive error handling and logging
+- **API Documentation**: Auto-generated API documentation with Swagger
+
+## 🛠 Tech Stack
+
+- **Runtime**: Node.js (v18+)
+- **Framework**: NestJS 10+
+- **Language**: TypeScript
+- **Database**: PostgreSQL with TypeORM
+- **Authentication**: JWT (JSON Web Tokens)
+- **Validation**: class-validator, class-transformer
+- **Testing**: Jest
+- **API Documentation**: Swagger/OpenAPI
+- **Linting & Formatting**: ESLint, Prettier
+
+## 📁 Project Structure
+
+```
+backend/
+├── src/
+│   ├── main.ts                 # Application entry point
+│   ├── app.module.ts           # Root module
+│   ├── app.controller.ts       # Root controller
+│   ├── app.service.ts          # Root service
+│   │
+│   ├── common/                 # Shared utilities and components
+│   │   ├── decorators/         # Custom decorators (auth, roles, etc.)
+│   │   ├── filters/            # Exception filters
+│   │   ├── guards/             # Authentication & authorization guards
+│   │   ├── interceptors/       # Request/response interceptors
+│   │   ├── pipes/              # Validation and transformation pipes
+│   │   ├── dtos/               # Common DTOs (pagination, responses)
+│   │   └── utils/              # Utility functions and helpers
+│   │
+│   ├── config/                 # Configuration management
+│   │   ├── database.config.ts
+│   │   ├── app.config.ts
+│   │   └── validation.schema.ts
+│   │
+│   ├── database/               # Database setup and migrations
+│   │   ├── migrations/
+│   │   ├── seeds/
+│   │   └── entities/           # Database entities
+│   │
+│   ├── modules/                # Feature modules
+│   │   ├── auth/               # Authentication module
+│   │   │   ├── auth.module.ts
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── strategies/     # Passport strategies
+│   │   │   ├── guards/
+│   │   │   └── dtos/
+│   │   │
+│   │   ├── users/              # User management module
+│   │   │   ├── users.module.ts
+│   │   │   ├── users.controller.ts
+│   │   │   ├── users.service.ts
+│   │   │   ├── entities/
+│   │   │   └── dtos/
+│   │   │
+│   │   └── health-tasks/       # Health tasks module
+│   │       ├── health-tasks.module.ts
+│   │       ├── health-tasks.controller.ts
+│   │       ├── health-tasks.service.ts
+│   │       ├── entities/
+│   │       └── dtos/
+│   │
+│   └── shared/                 # Shared services (mail, notifications, etc.)
+│       ├── mail/
+│       ├── notifications/
+│       └── logger/
+│
+├── test/                       # End-to-end tests
+│   └── app.e2e.spec.ts
+│
+├── package.json
+├── tsconfig.json
+├── nest-cli.json
+├── jest.config.js
+├── .env.example
+├── .eslintrc.js
+├── .prettierrc
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js >= 18.x
+- npm, yarn, or pnpm
+- PostgreSQL 12+
+
+### Installation
+
+1. **Clone the repository**
    ```bash
    git clone https://github.com/Stellar-Uzima/Uzima-Backend.git
-   cd Uzima-Backend
+   cd backend
    ```
-2. Install dependencies:
+
+2. **Install dependencies**
    ```bash
    npm install
+   # or
+   yarn install
+   # or
+   pnpm install
    ```
 
-## Environment Variables
-Create a `.env` file in the project root (you can copy from `.env.example`) and set:
-
-```dotenv
-MONGO_URI=<your MongoDB URI>
-PORT=5000
-JWT_SECRET=<your JWT secret>
-SMTP_HOST=<smtp host>
-SMTP_PORT=<smtp port>
-SMTP_USER=<smtp user>
-SMTP_PASS=<smtp password>
-MAIL_FROM="Telemed Support <support@yourdomain.com>"
-SENTRY_DSN=<your Sentry DSN>
-REDIS_URL=redis://localhost:6379
-```
-
-## Running the App
-Start in development mode (with nodemon):
-```bash
-npm run dev
-```
-Start in production mode:
-```bash
-npm start
-```
-The API is now available at `http://localhost:<PORT>` and Swagger UI at `http://localhost:<PORT>/docs`.
-
-### Inventory System
-
-REST endpoints (under `/api/inventory`):
-
-- `POST /` create item `{ sku, name, threshold, lots? }`
-- `GET /` list items
-- `GET /:sku` fetch one item
-- `PATCH /:sku` update name/category/unit/threshold/metadata
-- `POST /:sku/lots` add stock to lot `{ lotNumber, quantity, expiryDate }`
-- `POST /:sku/consume` consume stock FIFO `{ quantity }`
-
-WebSocket events (Socket.IO, connect to the same host):
-
-- `inventory:update` payload `{ type, item, lotsConsumed? }`
-- `inventory:lowStock` payload `{ sku, name, totalQuantity, threshold, lots }`
-
-Behavior:
-
-- FIFO consumption prioritizes earliest `expiryDate` lots
-- Low-stock alerts emit when `totalQuantity <= threshold`
-- All changes are audit-logged in `InventoryAuditLog`
-
-## Sentry Integration
-Uzima Backend is configured to report runtime errors and performance traces to Sentry.
-
-### Testing Error Reporting
-1. Ensure `SENTRY_DSN` is set in `.env`.
-2. Run the app.
-3. Open your browser and visit:
+3. **Setup environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
    ```
-   http://localhost:<PORT>/debug-sentry
+
+4. **Run database migrations**
+   ```bash
+   npm run migrate
    ```
-   This will throw a test error.
-4. Verify the error appears in your Sentry project under **Issues**.
 
-### Viewing Performance Metrics
-Sentry captures performance traces for all incoming requests (sampling rate = 100%).
-1. Call any endpoint (e.g., `/api`).
-2. In Sentry Dashboard, go to **Performance → Transactions** to inspect traces and response times.
+5. **Seed the database (optional)**
+   ```bash
+   npm run seed
+   ```
 
-## Rate Limiting
+6. **Start the development server**
+   ```bash
+   npm run start:dev
+   ```
 
-The API implements comprehensive rate limiting to prevent abuse and brute force attacks:
+The application will be available at `http://localhost:3000`
 
-- **General API**: 100 requests per 15 minutes
-- **Authentication**: 5 requests per 15 minutes  
-- **2FA Operations**: 10 requests per 15 minutes
-- **File Uploads**: 20 requests per hour
-- **Admin Operations**: 200 requests per 15 minutes
+## 💻 Development
 
-Rate limits are enforced per-IP for anonymous users and per-user for authenticated users. When limits are exceeded, the API returns HTTP 429 with retry information.
-
-For detailed information, see [RATE_LIMITING.md](./RATE_LIMITING.md).
-
-### Testing Rate Limits
+### Available Scripts
 
 ```bash
-# Test rate limiting functionality
-node test-rate-limit.js
+# Development
+npm run start          # Start the application
+npm run start:dev     # Start with hot reload
+npm run start:debug   # Start with debug mode
+
+# Building
+npm run build         # Build for production
+npm run build:watch  # Build with watch mode
+
+# Testing
+npm run test          # Run unit tests
+npm run test:watch   # Run tests with watch mode
+npm run test:cov     # Run tests with coverage
+npm run test:e2e     # Run e2e tests
+
+# Database
+npm run migrate       # Run migrations
+npm run migrate:revert # Revert last migration
+npm run seed         # Seed the database
+
+# Linting & Formatting
+npm run lint         # Run ESLint
+npm run lint:fix    # Fix linting errors
+npm run format      # Format with Prettier
 ```
 
-## Monitoring and Alerts
-- Configure alerts and dashboards in Sentry for proactive notifications.
-- Monitor rate limit violations in Redis and application logs.
+### Code Style
 
-## License
-ISC
+This project uses ESLint and Prettier for code consistency:
+
+- **ESLint**: Enforces code quality rules
+- **Prettier**: Handles automatic code formatting
+
+```bash
+# Format all files
+npm run format
+
+# Check and fix linting issues
+npm run lint:fix
+```
+
+### Environment Variables
+
+See `.env.example` for all available environment variables:
+
+```env
+# App
+NODE_ENV=development
+PORT=3000
+API_PREFIX=api
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=password
+DB_DATABASE=uzima_dev
+
+# JWT
+JWT_SECRET=your-secret-key
+JWT_EXPIRATION=7d
+
+# CORS
+CORS_ORIGIN=http://localhost:3000
+
+# Mail (optional)
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USER=your-email@example.com
+MAIL_PASSWORD=your-password
+```
+
+## 📚 API Documentation
+
+API documentation is available via Swagger at:
+
+```
+http://localhost:3000/api/docs
+```
+
+To regenerate OpenAPI documentation:
+
+```bash
+npm run swagger
+```
+
+## 🧪 Testing
+
+The project uses Jest for unit and integration testing.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm run test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:cov
+```
+
+### Writing Tests
+
+Create test files next to the modules with `.spec.ts` suffix:
+
+```typescript
+// Example: users.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { UsersService } from './users.service';
+
+describe('UsersService', () => {
+  let service: UsersService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [UsersService],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+```
+
+## 🐳 Docker
+
+### Build Docker Image
+
+```bash
+docker build -t uzima-backend .
+```
+
+### Run with Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+## 📖 Module Guides
+
+Detailed documentation for each module is available in their respective README files:
+
+- [Auth Module](./src/modules/auth/README.md) - Authentication and authorization
+- [Users Module](./src/modules/users/README.md) - User management
+- [Health Tasks Module](./src/modules/health-tasks/README.md) - Health task tracking
+- [Database Module](./src/database/README.md) - Database setup and migrations
+
+## 🤝 Contributing
+
+We welcome contributions! Please read our [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) for detailed guidelines on:
+
+- Setting up your development environment
+- Making code changes
+- Creating pull requests
+- Code review process
+- Commit message conventions
+
+## 📝 Commit Convention
+
+We follow conventional commits:
+
+```
+feat: Add new feature
+fix: Fix a bug
+docs: Update documentation
+style: Code style changes
+refactor: Refactor code
+perf: Performance improvements
+test: Add or update tests
+chore: Maintenance tasks
+```
+
+## 🔒 Security
+
+- Never commit `.env` files with sensitive data
+- Always use environment variables for secrets
+- Validate all user inputs
+- Follow OWASP security guidelines
+- Report security issues to the maintainers
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For issues, questions, or suggestions:
+
+1. Check existing [GitHub Issues](https://github.com/Stellar-Uzima/Uzima-Backend/issues)
+2. Create a new issue with a clear description
+3. Contact the maintainers
+
+## 🚀 Deployment
+
+For production deployment guidelines, see [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+---
+
+**Happy coding! 🎉**

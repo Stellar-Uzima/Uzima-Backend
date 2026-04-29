@@ -1,0 +1,14 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ReferralRecord } from './referral-record.entity';
+import { ReferralService } from './referral.service';
+import { ReferralController } from './referral.controller';
+import { User } from '../../entities/user.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([ReferralRecord, User])],
+  providers: [ReferralService],
+  controllers: [ReferralController],
+  exports: [ReferralService],
+})
+export class ReferralModule {}
