@@ -12,6 +12,48 @@ import 'dotenv/config';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from '@nestjs/common';
 
+import { DataSource } from "typeorm";
+import { userFactory, taskFactory } from "./fixtures/factories";
+
+// Adjust entity imports
+import { User } from "@/src/entities/user.entity";
+import { Task } from "@/src/entities/task.entity";
+
+let dataSource: DataSource;
+
+
+export async function setupTestDB() {
+  dataSource = new DataSource({
+    type: "postgres",
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+
+    entities: [User, Task],
+    synchronize: true, // safe ONLY for test
+    dropSchema: true,  // ensures clean DB
+  });
+
+  await dataSource.initialize();
+}
+
+export async function teardownTestDB() {
+  if (dataSource) {
+    await dataSource.destroy();
+  }
+}
+
+export async function clearTestDB() {
+  const entities = dataSource.entityMetadatas;
+
+  for (const entity of entities) {
+    const repository = dataSource.getRepository(entity.name);
+    await repository.query(`TRUNCATE TABLE "${entity.tableName}" CASCADE;`);
+  }
+}
+
 // Test database configuration - separate from production
 export const testDatabaseConfig = {
   type: 'postgres' as const,
@@ -353,3 +395,4 @@ export class TestFixtureManager {
     this.fixtures.clear();
   }
 }
+
