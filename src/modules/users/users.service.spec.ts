@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+
+import { UsersService } from "./users.service";
+import { User } from "./entities/user.entity";
+
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -218,3 +223,30 @@ describe('UsersService', () => {
     });
   });
 });
+
+
+describe("UsersService", () => {
+  let service: UsersService;
+  let repo: jest.Mocked<Repository<User>>;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        {
+          provide: getRepositoryToken(User),
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<UsersService>(UsersService);
+    repo = module.get(getRepositoryToken(User));
+  });
