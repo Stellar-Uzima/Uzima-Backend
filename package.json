@@ -29,6 +29,7 @@
     "@apollo/server": "^4.11.2",
     "@aws-sdk/client-s3": "^3.705.0",
     "@aws-sdk/s3-request-presigner": "^3.705.0",
+    "@nestjs/common": "^11.1.19",
     "@sentry/node": "^9.25.1",
     "@sentry/tracing": "^7.120.3",
     "@socket.io/redis-adapter": "^8.3.0",
@@ -69,7 +70,7 @@
   "devDependencies": {
     "@babel/core": "^7.27.4",
     "@babel/preset-env": "^7.27.2",
-    "@eslint/js": "^8.57.0",
+    "@eslint/js": "^8.57.1",
     "@types/express": "^5.0.2",
     "@vitest/ui": "^3.2.4",
     "babel-jest": "^30.0.0-beta.3",
