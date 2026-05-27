@@ -298,6 +298,68 @@ export class AuditService {
   }
 
   /**
+   * Clean up expired audit logs based on retention policy
+   * Deletes logs older than the specified number of days
+   * 
+   * @param retentionDays Number of days to retain logs (e.g., 30 for 30-day retention)
+   * @returns Object containing deleted count and potentially failed deletes
+   */
+  async cleanupExpiredLogs(retentionDays: number): Promise<{ deletedCount: number; deletedIds: string[] }> {
+    if (retentionDays <= 0) {
+      throw new Error('Retention days must be greater than 0');
+    }
+
+    // Calculate the expiration date
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() - retentionDays);
+
+    this.logger.log(
+      `Starting cleanup of audit logs older than ${retentionDays} days (before ${expirationDate.toISOString()})`,
+    );
+
+    try {
+      // Find logs that are older than the retention period and exclude compliance events
+      const logsToDelete = await this.auditRepo.find({
+        where: {
+          createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
+          isComplianceEvent: false,
+        } as any,
+        select: ['id'],
+      });
+
+      if (logsToDelete.length === 0) {
+        this.logger.log('No logs to clean up');
+        return { deletedCount: 0, deletedIds: [] };
+      }
+
+      const deletedIds = logsToDelete.map(log => log.id);
+
+      // Delete the logs
+      await this.auditRepo.delete({
+        createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
+        isComplianceEvent: false,
+      } as any);
+
+      this.logger.log(
+        `Successfully deleted ${logsToDelete.length} expired audit logs`,
+      );
+
+      return {
+        deletedCount: logsToDelete.length,
+        deletedIds,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `Error cleaning up expired audit logs: ${errorMessage}`,
+        errorStack,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Generate SHA-256 hash for audit log immutability
    */
   private generateHash(auditLog: AuditLog): string {

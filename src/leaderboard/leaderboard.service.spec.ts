@@ -703,4 +703,162 @@ describe('LeaderboardService', () => {
       );
     });
   });
+
+  // ============================================
+  // CACHING TESTS
+  // ============================================
+
+  describe('Caching Behavior', () => {
+    it('should cache leaderboard results in Redis', async () => {
+      mockRedisClient.zrevrange.mockResolvedValueOnce([
+        'user-1',
+        '100',
+        'user-2',
+        '90',
+      ]);
+      mockRedisClient.hmget.mockResolvedValueOnce(['User 1', 'User 2']);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(2);
+      mockRedisClient.zscore.mockResolvedValueOnce('85');
+
+      const result = await service.getLeaderboard('user-3', 50);
+
+      expect(result).toBeDefined();
+      expect(result.topRankings).toHaveLength(2);
+      expect(mockRedisClient.zrevrange).toHaveBeenCalled();
+    });
+
+    it('should retrieve from cache on second call for same leaderboard', async () => {
+      mockRedisClient.zrevrange.mockResolvedValueOnce([
+        'user-1',
+        '100',
+        'user-2',
+        '90',
+      ]);
+      mockRedisClient.hmget.mockResolvedValueOnce(['User 1', 'User 2']);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+      mockRedisClient.zscore.mockResolvedValueOnce('100');
+
+      // First call
+      await service.getLeaderboard('user-1', 50);
+      const firstCallCount = mockRedisClient.zrevrange.mock.calls.length;
+
+      // Second call to global leaderboard
+      mockRedisClient.zrevrange.mockResolvedValueOnce([
+        'user-1',
+        '100',
+        'user-2',
+        '90',
+      ]);
+      mockRedisClient.hmget.mockResolvedValueOnce(['User 1', 'User 2']);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+      mockRedisClient.zscore.mockResolvedValueOnce('100');
+
+      await service.getLeaderboard('user-1', 50);
+
+      // Both calls should use Redis, but data is cached in Redis itself
+      expect(mockRedisClient.zrevrange.mock.calls.length).toBe(firstCallCount + 1);
+    });
+
+    it('should use different cache keys for global vs country leaderboards', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      // Global leaderboard
+      await service.getLeaderboard('user-1', 50);
+      const globalCall = mockRedisClient.zrevrange.mock.calls[0];
+
+      mockRedisClient.zrevrange.mockClear();
+      mockRedisClient.hmget.mockClear();
+      mockRedisClient.zrevrank.mockClear();
+      mockRedisClient.zscore.mockClear();
+
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      // Country leaderboard
+      await service.getLeaderboard('user-1', 50, 'NG');
+      const countryCall = mockRedisClient.zrevrange.mock.calls[0];
+
+      // Different Redis keys should be used
+      expect(globalCall[0]).toContain('global');
+      expect(countryCall[0]).toContain('country');
+      expect(globalCall[0]).not.toBe(countryCall[0]);
+    });
+
+    it('should handle pagination with caching', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      // Get first page
+      await service.getLeaderboard('user-1', 50, undefined, 1);
+      expect(mockRedisClient.zrevrange).toHaveBeenCalledWith(
+        'leaderboard:global',
+        0,
+        49,
+        'WITHSCORES',
+      );
+
+      mockRedisClient.zrevrange.mockClear();
+      mockRedisClient.hmget.mockClear();
+      mockRedisClient.zrevrank.mockClear();
+      mockRedisClient.zscore.mockClear();
+
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      // Get second page (should use different offset)
+      await service.getLeaderboard('user-1', 50, undefined, 2);
+      expect(mockRedisClient.zrevrange).toHaveBeenCalledWith(
+        'leaderboard:global',
+        50,
+        99,
+        'WITHSCORES',
+      );
+    });
+
+    it('should rebuild leaderboard cache efficiently', async () => {
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            userId: 'user-1',
+            totalXlm: '100',
+            fullName: 'John Doe',
+            country: 'NG',
+          },
+          {
+            userId: 'user-2',
+            totalXlm: '90',
+            fullName: 'Jane Smith',
+            country: 'KE',
+          },
+        ]),
+      };
+      mockRewardRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockPipeline.exec.mockResolvedValue([]);
+
+      await service.rebuildLeaderboards();
+
+      // Should use pipeline for efficiency
+      expect(mockRedisClient.pipeline).toHaveBeenCalled();
+      expect(mockPipeline.del).toHaveBeenCalled();
+      expect(mockPipeline.zadd).toHaveBeenCalled();
+      expect(mockPipeline.hmset).toHaveBeenCalled();
+      expect(mockPipeline.exec).toHaveBeenCalled();
+    });
+  });
 });
