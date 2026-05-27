@@ -5,14 +5,13 @@ module.exports = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  collectCoverageFrom: [
-    '**/*.(t|j)s',
-  ],
+  collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
-  roots: ['<rootDir>', '<rootDir>/../test'],
-  setupFilesAfterEnv: ['<rootDir>/../test/jest.setup.ts'],
-  setupFiles: ['<rootDir>/../test/jest.env.ts'],
+  roots: ['<rootDir>'],
+  // Do NOT run global test setup (avoids DB initialization)
+  setupFilesAfterEnv: [],
+  setupFiles: [],
   testTimeout: 30000,
   globals: {
     'ts-jest': {
