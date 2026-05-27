@@ -9,15 +9,13 @@
  */
 
 import 'dotenv/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, ObjectLiteral } from 'typeorm';
 import { Logger } from '@nestjs/common';
-
-import { DataSource } from "typeorm";
-import { userFactory, taskFactory } from "./fixtures/factories";
+import { userFactory, taskFactory } from './fixtures/factories';
 
 // Adjust entity imports
-import { User } from "@/src/entities/user.entity";
-import { Task } from "@/src/entities/task.entity";
+import { User } from '../src/entities/user.entity';
+import { HealthTask } from '../src/entities/health-task.entity';
 
 let dataSource: DataSource;
 
@@ -31,7 +29,7 @@ export async function setupTestDB() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
 
-    entities: [User, Task],
+    entities: [User, HealthTask],
     synchronize: true, // safe ONLY for test
     dropSchema: true,  // ensures clean DB
   });
@@ -143,7 +141,7 @@ export class TestDatabaseManager {
   /**
    * Get repository instance
    */
-  getRepository<Entity>(entityClass: new () => Entity): Repository<Entity> {
+  getRepository<Entity extends ObjectLiteral>(entityClass: new () => Entity): Repository<Entity> {
     return this.getDataSource().getRepository(entityClass);
   }
 
@@ -325,7 +323,7 @@ export class IsolatedTestRunner {
   async runTests<T>(
     tests: Array<{ name: string; fn: () => Promise<T> }>,
   ): Promise<Array<{ name: string; result?: T; error?: Error }>> {
-    const results = [];
+    const results: Array<{ name: string; result?: T; error?: Error }> = [];
     for (const test of tests) {
       try {
         const result = await this.runTest(test.fn);
@@ -366,7 +364,7 @@ export class TestFixtureManager {
   /**
    * Load fixtures into database
    */
-  async loadFixture<Entity>(
+  async loadFixture<Entity extends ObjectLiteral>(
     name: string,
     repository: Repository<Entity>,
   ): Promise<Entity[]> {
