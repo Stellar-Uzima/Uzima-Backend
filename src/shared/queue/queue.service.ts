@@ -28,6 +28,13 @@ export interface JobStatus {
   timestamp: number;
 }
 
+export interface QueueJobOptions extends JobOptions {
+  /** Maximum retry attempts for the job (overrides attempts) */
+  maxRetries?: number;
+  /** Base backoff delay in milliseconds for exponential backoff */
+  backoffMs?: number;
+}
+
 export interface QueueStats {
   waiting: number;
   active: number;
@@ -69,7 +76,7 @@ export class QueueService {
     queueName: QueueName,
     jobName: string,
     data: T,
-    options?: JobOptions,
+    options?: QueueJobOptions,
   ): Promise<Job<T>> {
     const queue = this.queues.get(queueName);
     if (!queue) {
@@ -77,11 +84,15 @@ export class QueueService {
     }
 
     try {
+      // Map our friendly options to bull JobOptions
+      const attempts = options?.maxRetries ?? options?.attempts ?? 3;
+      const backoffDelay = options?.backoffMs ?? (options?.backoff as any)?.delay ?? 1000;
+
       const job = await queue.add(jobName, data, {
-        attempts: 3,
+        attempts,
         backoff: {
           type: 'exponential',
-          delay: 1000,
+          delay: backoffDelay,
         },
         removeOnComplete: 100,
         removeOnFail: 50,
