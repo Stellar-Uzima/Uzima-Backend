@@ -107,6 +107,8 @@ export class UserSearchService {
       role?: Role;
       status?: UserStatus;
       isVerified?: boolean;
+      createdAtFrom?: string | Date;
+      createdAtTo?: string | Date;
       country?: string;
       preferredLanguage?: string;
       hasPhone?: boolean;
@@ -117,6 +119,8 @@ export class UserSearchService {
       role,
       status,
       isVerified,
+      createdAtFrom,
+      createdAtTo,
       country,
       preferredLanguage,
       hasPhone,
@@ -133,6 +137,18 @@ export class UserSearchService {
 
     if (isVerified !== undefined) {
       queryBuilder.andWhere('user.isVerified = :isVerified', { isVerified });
+    }
+
+    if (createdAtFrom) {
+      queryBuilder.andWhere('user.createdAt >= :createdAtFrom', {
+        createdAtFrom: createdAtFrom instanceof Date ? createdAtFrom : new Date(createdAtFrom),
+      });
+    }
+
+    if (createdAtTo) {
+      queryBuilder.andWhere('user.createdAt <= :createdAtTo', {
+        createdAtTo: createdAtTo instanceof Date ? createdAtTo : new Date(createdAtTo),
+      });
     }
 
     if (country) {
@@ -381,13 +397,13 @@ export class UserSearchService {
       lastName: user.lastName,
       fullName: user.fullName,
       phoneNumber: user.phoneNumber,
-      avatar: user.walletAddress, // Assuming avatar is stored in walletAddress
+      avatar: user.walletAddress ?? undefined,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
       country: user.country,
       preferredLanguage: user.preferredLanguage,
-      lastActiveAt: user.lastActiveAt,
+      lastActiveAt: user.lastActiveAt ?? undefined,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Index } from 'typeorm';
-import { User } from '../../entities/user.entity';
+import { IsString, IsEnum, IsUUID, IsOptional, IsObject, IsDateString, Length, Matches } from 'class-validator';
+import { User } from './user.entity';
 
 export enum ActivityType {
   LOGIN = 'LOGIN',
@@ -18,6 +19,7 @@ export class UserActivity {
   id: string;
 
   @Column({ name: 'user_id' })
+  @IsUUID()
   userId: string;
 
   @Column({
@@ -27,15 +29,26 @@ export class UserActivity {
   activityType: ActivityType;
 
   @Column({ type: 'text', nullable: true })
+  @IsOptional()
+  @IsString()
+  @Length(1, 1000)
   description: string;
 
   @Column({ type: 'json', nullable: true })
+  @IsOptional()
+  @IsObject()
   metadata: Record<string, any>;
 
   @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
+  @IsOptional()
+  @IsString()
+  @Matches(/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/, { message: 'Invalid IP address format' })
   ipAddress: string;
 
   @Column({ name: 'user_agent', type: 'text', nullable: true })
+  @IsOptional()
+  @IsString()
+  @Length(1, 1000)
   userAgent: string;
 
   @CreateDateColumn({ name: 'created_at' })

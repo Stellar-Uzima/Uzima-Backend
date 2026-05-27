@@ -3,9 +3,15 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
+import { Index } from 'typeorm';
 
 @Entity('task_activity')
+@Index(['taskId'])
+@Index(['changedBy', 'createdAt'])
+@Index(['createdAt'])
 export class TaskActivity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,4 +30,10 @@ export class TaskActivity {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }

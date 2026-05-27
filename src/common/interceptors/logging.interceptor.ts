@@ -80,7 +80,7 @@ export class LoggingInterceptor implements NestInterceptor {
           ip,
           userId: this.extractUserId(request),
           statusCode,
-          response: null,
+          response: undefined,
           responseTime,
           error: error.message,
         });

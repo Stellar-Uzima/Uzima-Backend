@@ -14,7 +14,7 @@ import { User } from './user.entity';
 const AES_KEY = process.env.AES_KEY || '32charslongsecretkeymustbesecure!'; // 32 chars for AES-256
 const IV_LENGTH = 16;
 
-function encrypt(text: string): string {
+function encrypt(text: string): string | null {
   if (!text) return null;
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(AES_KEY), iv);
@@ -36,7 +36,7 @@ export class HealthProfile {
   healthGoals: string[];
 
   @Column({ nullable: true })
-  chronicConditions: string; // AES encrypted
+  chronicConditions: string | null; // AES encrypted
 
   @Column({ default: 'BOTH' })
   preferredHealerType: string;

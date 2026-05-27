@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
@@ -144,7 +145,7 @@ export class AuthService {
 
       const user = await this.usersService.findById(userId);
       return this.generateTokens(user.id, user.email, user.role);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -177,22 +178,24 @@ export class AuthService {
   }
 
   // Logout with optimized transaction handling
-  async logout(userId: string, refreshToken: string): Promise<void> {
+  async logout(refreshToken: string): Promise<void> {
     const startTime = Date.now();
-    const contextId = `logout-${userId}-${Date.now()}`;
+    let userId: string | undefined;
+    let tokenId: string;
+    let expiresAt = 0;
 
     try {
-      this.logger.debug(`Starting logout for user ${userId}`);
+      const payload = this.jwtService.verify(refreshToken) as { sub: string; tokenId: string; exp: number };
+      userId = payload.sub;
+      tokenId = payload.tokenId;
+      expiresAt = payload.exp;
 
-      // Pre-validate token structure and ownership
-      const payload = this.jwtService.verify(refreshToken);
-      const { sub: tokenUserId, tokenId, exp } = payload;
-
-      // Verify token ownership early
-      if (tokenUserId !== userId) {
-        this.logger.warn(`Token ownership mismatch for user ${userId}`);
-        throw new UnauthorizedException('Refresh token does not belong to authenticated user');
+      if (!userId || !tokenId) {
+        throw new UnauthorizedException('Invalid refresh token');
       }
+
+      const contextId = `logout-${userId}-${Date.now()}`;
+      this.logger.debug(`Starting logout for user ${userId}`);
 
       // Check if token is already blacklisted (fast check)
       const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
@@ -211,7 +214,7 @@ export class AuthService {
               token: refreshToken,
               tokenType: 'refresh',
               userId,
-              expiresAt: new Date(exp * 1000),
+              expiresAt: new Date(expiresAt * 1000),
             });
 
             // Update cache immediately
@@ -244,7 +247,7 @@ export class AuthService {
         if (redisDeleted > 0) {
           this.logger.debug(`Redis token cleaned up for user ${userId}`);
         }
-      } catch (redisError) {
+      } catch (redisError: any) {
         // Redis failure shouldn't fail the logout
         this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
       }
@@ -261,7 +264,7 @@ export class AuthService {
         duration,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       const duration = Date.now() - startTime;
       this.logger.error(`Logout failed for user ${userId} after ${duration}ms: ${error.message}`, error.stack);
 
@@ -302,7 +305,7 @@ export class AuthService {
       }
 
       return isBlacklisted;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error checking token blacklist: ${error.message}`);
       // On database error, assume token is not blacklisted for safety
       return false;
@@ -334,7 +337,7 @@ export class AuthService {
       }
 
       return deletedCount;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to cleanup expired tokens: ${error.message}`);
       return 0;
     }
@@ -379,15 +382,15 @@ export class AuthService {
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
+    const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
       message: 'Authentication successful',
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: {
-        id: user.id,
-        phoneNumber: user.phoneNumber,
+        id: user!.id,
+        phoneNumber: user!.phoneNumber,
         isNewUser,
       },
     };
@@ -400,7 +403,7 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    const user = record.user;
+    const user: any = record.user;
     user.isVerified = true;
     // clear legacy fields if present
     user.emailVerificationToken = null;
