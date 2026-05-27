@@ -8,16 +8,15 @@
  * - Transaction-based isolation for test independence
  */
 
-import 'dotenv/config';
-import { DataSource, Repository } from 'typeorm';
+import { config } from 'dotenv';
+config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
+import { DataSource, Repository, ObjectLiteral } from 'typeorm';
 import { Logger } from '@nestjs/common';
 
-import { DataSource } from "typeorm";
-import { userFactory, taskFactory } from "./fixtures/factories";
+import { userFactory, taskFactory } from './fixtures/factories';
 
 // Adjust entity imports
-import { User } from "@/src/entities/user.entity";
-import { Task } from "@/src/entities/task.entity";
+import { User } from '../src/entities/user.entity';
 
 let dataSource: DataSource;
 
@@ -31,7 +30,7 @@ export async function setupTestDB() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
 
-    entities: [User, Task],
+    entities: [User],
     synchronize: true, // safe ONLY for test
     dropSchema: true,  // ensures clean DB
   });
@@ -57,11 +56,35 @@ export async function clearTestDB() {
 // Test database configuration - separate from production
 export const testDatabaseConfig = {
   type: 'postgres' as const,
-  host: process.env.TEST_DB_HOST || 'localhost',
-  port: parseInt(process.env.TEST_DB_PORT || '5432', 10),
-  username: process.env.TEST_DB_USERNAME || 'postgres',
-  password: process.env.TEST_DB_PASSWORD || 'postgres',
-  database: process.env.TEST_DB_NAME || 'uzima_test',
+  host:
+    process.env.TEST_DB_HOST ||
+    process.env.DB_HOST ||
+    process.env.DATABASE_HOST ||
+    'localhost',
+  port: parseInt(
+    process.env.TEST_DB_PORT ||
+      process.env.DB_PORT ||
+      process.env.DATABASE_PORT ||
+      '5432',
+    10,
+  ),
+  username:
+    process.env.TEST_DB_USERNAME ||
+    process.env.DB_USER ||
+    process.env.DB_USERNAME ||
+    process.env.DATABASE_USERNAME ||
+    process.env.DATABASE_USER ||
+    'postgres',
+  password:
+    process.env.TEST_DB_PASSWORD ||
+    process.env.DB_PASSWORD ||
+    process.env.DATABASE_PASSWORD ||
+    'password',
+  database:
+    process.env.TEST_DB_NAME ||
+    process.env.DB_DATABASE ||
+    process.env.DATABASE_NAME ||
+    'uzima_test',
   entities: [process.cwd() + '/src/**/*.entity.{ts,js}'],
   migrations: ['src/migrations/*{.ts,.js}'],
   migrationsTableName: 'migrations',
@@ -143,7 +166,7 @@ export class TestDatabaseManager {
   /**
    * Get repository instance
    */
-  getRepository<Entity>(entityClass: new () => Entity): Repository<Entity> {
+  getRepository<Entity extends ObjectLiteral>(entityClass: new () => Entity): Repository<Entity> {
     return this.getDataSource().getRepository(entityClass);
   }
 
@@ -325,7 +348,7 @@ export class IsolatedTestRunner {
   async runTests<T>(
     tests: Array<{ name: string; fn: () => Promise<T> }>,
   ): Promise<Array<{ name: string; result?: T; error?: Error }>> {
-    const results = [];
+    const results: Array<{ name: string; result?: T; error?: Error }> = [];
     for (const test of tests) {
       try {
         const result = await this.runTest(test.fn);
@@ -366,7 +389,7 @@ export class TestFixtureManager {
   /**
    * Load fixtures into database
    */
-  async loadFixture<Entity>(
+  async loadFixture<Entity extends ObjectLiteral>(
     name: string,
     repository: Repository<Entity>,
   ): Promise<Entity[]> {
