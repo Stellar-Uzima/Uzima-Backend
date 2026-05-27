@@ -33,11 +33,11 @@ export class SecretsService {
   constructor(private readonly configService: ConfigService) {
     this.vaultFilePath = path.resolve(
       process.cwd(),
-      this.configService.get<string>('secrets.vaultFilePath'),
+      this.configService.get<string>('secrets.vaultFilePath') ?? '.secrets-vault.json',
     );
     this.auditLogPath = path.resolve(
       process.cwd(),
-      this.configService.get<string>('secrets.auditLogPath'),
+      this.configService.get<string>('secrets.auditLogPath') ?? '.secrets-access.log',
     );
     const rawKey = this.configService.get<string>('secrets.vaultKey') ?? '';
     this.encryptionKey = crypto.createHash('sha256').update(rawKey).digest();

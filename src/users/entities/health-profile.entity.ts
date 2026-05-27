@@ -36,7 +36,7 @@ export class HealthProfile {
   healthGoals: string[];
 
   @Column({ nullable: true })
-  chronicConditions: string; // AES encrypted
+  chronicConditions: string | null; // AES encrypted
 
   @Column({ default: 'BOTH' })
   preferredHealerType: string;

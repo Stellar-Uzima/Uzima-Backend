@@ -382,15 +382,15 @@ export class AuthService {
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
+    const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
       message: 'Authentication successful',
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: {
-        id: user.id,
-        phoneNumber: user.phoneNumber,
+        id: user!.id,
+        phoneNumber: user!.phoneNumber,
         isNewUser,
       },
     };
