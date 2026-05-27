@@ -13,6 +13,8 @@ import {
 } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } from 'class-validator';
 import { Role } from '../../auth/enums/role.enum';
+import { Session } from './session.entity';
+import { Organization } from './organization.entity';
 
 export enum UserRole {
   USER = 'USER',
@@ -84,6 +86,17 @@ export class User {
   // Relationships
   @OneToMany(() => UserActivity, (activity) => activity.user)
   activities: UserActivity[];
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions?: Session[];
+
+  @ManyToMany(() => Organization, (organization) => organization.users)
+  @JoinTable({
+    name: 'user_organizations',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
+  })
+  organizations?: Organization[];
 
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];

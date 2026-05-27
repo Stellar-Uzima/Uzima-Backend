@@ -30,6 +30,7 @@ import { SigningModule } from './common/signing/signing.module';
 import { SearchModule } from './shared/search/search.module';
 import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
+import { AnalyticsModule } from './shared/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PushModule } from './shared/notifications/push.module';
     // 2. Add it to the imports list
     StorageModule, 
     MetricsModule,
+    AnalyticsModule,
     UsageModule,
     MonitoringModule,
     SigningModule,

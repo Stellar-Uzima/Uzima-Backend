@@ -55,11 +55,35 @@ export async function clearTestDB() {
 // Test database configuration - separate from production
 export const testDatabaseConfig = {
   type: 'postgres' as const,
-  host: process.env.TEST_DB_HOST || 'localhost',
-  port: parseInt(process.env.TEST_DB_PORT || '5432', 10),
-  username: process.env.TEST_DB_USERNAME || 'postgres',
-  password: process.env.TEST_DB_PASSWORD || 'postgres',
-  database: process.env.TEST_DB_NAME || 'uzima_test',
+  host:
+    process.env.TEST_DB_HOST ||
+    process.env.DB_HOST ||
+    process.env.DATABASE_HOST ||
+    'localhost',
+  port: parseInt(
+    process.env.TEST_DB_PORT ||
+      process.env.DB_PORT ||
+      process.env.DATABASE_PORT ||
+      '5432',
+    10,
+  ),
+  username:
+    process.env.TEST_DB_USERNAME ||
+    process.env.DB_USER ||
+    process.env.DB_USERNAME ||
+    process.env.DATABASE_USERNAME ||
+    process.env.DATABASE_USER ||
+    'postgres',
+  password:
+    process.env.TEST_DB_PASSWORD ||
+    process.env.DB_PASSWORD ||
+    process.env.DATABASE_PASSWORD ||
+    'password',
+  database:
+    process.env.TEST_DB_NAME ||
+    process.env.DB_DATABASE ||
+    process.env.DATABASE_NAME ||
+    'uzima_test',
   entities: [process.cwd() + '/src/**/*.entity.{ts,js}'],
   migrations: ['src/migrations/*{.ts,.js}'],
   migrationsTableName: 'migrations',

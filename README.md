@@ -148,6 +148,8 @@ backend/
 5. **Seed the database (optional)**
    ```bash
    npm run seed
+   # or
+   npm run seed:db
    ```
 
 6. **Start the development server**
@@ -181,6 +183,7 @@ npm run test:e2e     # Run e2e tests
 npm run migrate       # Run migrations
 npm run migrate:revert # Revert last migration
 npm run seed         # Seed the database
+npm run seed:db      # Run database seeders
 
 # Linting & Formatting
 npm run lint         # Run ESLint
