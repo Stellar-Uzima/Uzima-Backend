@@ -39,7 +39,7 @@ export class SecretsService {
       process.cwd(),
       this.configService.get<string>('secrets.auditLogPath'),
     );
-    const rawKey = this.configService.get<string>('secrets.vaultKey');
+    const rawKey = this.configService.get<string>('secrets.vaultKey') ?? '';
     this.encryptionKey = crypto.createHash('sha256').update(rawKey).digest();
   }
 

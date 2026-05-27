@@ -30,7 +30,7 @@ import { AuditModule } from '../audit/audit.module';
       useFactory: (configService: ConfigService) => ({
         // Kept for Passport compatibility; JwtTokenService uses RS256 directly.
         secret: configService.get<string>('JWT_SECRET', 'secretKey'),
-        signOptions: { expiresIn: '15m' },
+        signOptions: { expiresIn: '15m' as const },
       }),
     }),
     AuditModule,
