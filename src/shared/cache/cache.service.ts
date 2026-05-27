@@ -399,6 +399,51 @@ export class CacheService implements OnModuleInit {
   }
 
   /**
+   * Get or compute leaderboard with caching
+   * Returns cached result if available, otherwise computes and caches
+   */
+  async getOrComputeLeaderboard<T>(
+    cacheKey: string,
+    computeFn: () => Promise<T>,
+    ttl: number = 3600,
+  ): Promise<T> {
+    try {
+      // Try to get from cache
+      const cached = await this.get<T>(cacheKey);
+      if (cached !== null) {
+        this.logger.debug(`Leaderboard cache hit: ${cacheKey}`);
+        return cached;
+      }
+
+      // Compute if not cached
+      this.logger.debug(`Computing leaderboard: ${cacheKey}`);
+      const result = await computeFn();
+
+      // Cache the result
+      await this.set(cacheKey, result, { ttl });
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Invalidate leaderboard cache by pattern
+   */
+  async invalidateLeaderboardCache(pattern: string = 'leaderboard:*'): Promise<number> {
+    try {
+      const count = await this.clearPattern(pattern);
+      this.logger.log(`Invalidated ${count} leaderboard cache keys`);
+      return count;
+    } catch (error) {
+      this.logger.error(`Failed to invalidate leaderboard cache:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Close Redis connection
    */
   async onModuleDestroy() {

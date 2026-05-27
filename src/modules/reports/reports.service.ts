@@ -122,4 +122,108 @@ export class ReportsService {
         return {};
     }
   }
+
+  /**
+   * Generate CSV rows for users report
+   */
+  async getUserReportCsvRows(): Promise<string[]> {
+    const report = await this.getUserReport();
+    
+    const rows: string[] = [];
+    
+    // Header
+    rows.push('Metric,Value');
+    
+    // Summary metrics
+    rows.push(`Total Users,${report.totalUsers}`);
+    rows.push(`Active Users,${report.activeUsers}`);
+    rows.push(`Users (Last 30 Days),${report.usersLast30Days}`);
+    
+    // Role breakdown
+    rows.push(''); // Empty line for spacing
+    rows.push('Role Breakdown');
+    rows.push('Role,Count');
+    report.roleBreakdown.forEach(item => {
+      rows.push(`"${item.role}",${item.count}`);
+    });
+    
+    // Country breakdown
+    rows.push(''); // Empty line for spacing
+    rows.push('Top Countries');
+    rows.push('Country,Count');
+    report.topCountries.forEach(item => {
+      rows.push(`"${item.country}",${item.count}`);
+    });
+    
+    return rows;
+  }
+
+  /**
+   * Generate CSV rows for activity report
+   */
+  async getActivityReportCsvRows(): Promise<string[]> {
+    const report = await this.getActivityReport();
+    
+    const rows: string[] = [];
+    
+    // Header
+    rows.push('Metric,Value');
+    
+    // Summary
+    rows.push(`Total Rewards Distributed,${report.totalRewardsDistributed}`);
+    rows.push(`Tasks Completed (Last 7 Days),${report.completedLast7Days}`);
+    
+    // Status breakdown
+    rows.push(''); // Empty line for spacing
+    rows.push('Status Breakdown');
+    rows.push('Status,Count');
+    Object.entries(report.statusTotals).forEach(([status, count]) => {
+      rows.push(`"${status}",${count}`);
+    });
+    
+    return rows;
+  }
+
+  /**
+   * Generate CSV rows for health report
+   */
+  async getHealthReportCsvRows(): Promise<string[]> {
+    const report = await this.getHealthReport();
+    
+    const rows: string[] = [];
+    
+    // Header
+    rows.push('Metric,Value');
+    
+    // Health metrics
+    rows.push(`Active Users,${report.activeUsers}`);
+    rows.push(`Tasks Completed (Last 30 Days),${report.completedTasksLast30Days}`);
+    rows.push(`Unique Active Users,${report.uniqueUsersCompletingTasks}`);
+    rows.push(`Average Tasks Per User,${report.averageTasksPerActiveUser}`);
+    
+    return rows;
+  }
+
+  /**
+   * Generate CSV for a specific report type
+   */
+  async generateReportCsv(type: ReportType): Promise<string> {
+    let rows: string[];
+    
+    switch (type) {
+      case 'users':
+        rows = await this.getUserReportCsvRows();
+        break;
+      case 'activity':
+        rows = await this.getActivityReportCsvRows();
+        break;
+      case 'health':
+        rows = await this.getHealthReportCsvRows();
+        break;
+      default:
+        rows = [];
+    }
+    
+    return rows.join('\n');
+  }
 }
