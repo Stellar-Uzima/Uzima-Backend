@@ -7,6 +7,7 @@
   Param,
   Body,
   Req,
+  Query,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -18,6 +19,8 @@
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
+import { UserSearchService } from './services/user-search.service';
+import { UserSearchDto } from './dto/user-search.dto';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 
 type AuthenticatedRequest = {
@@ -45,7 +48,10 @@ type AuthenticatedRequest = {
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly userSearchService: UserSearchService,
+  ) {}
 
   @Get('profile')
   async getCurrentProfile(
@@ -81,8 +87,28 @@ export class UsersController {
   }
 
   @Get()
-  async findAll() {
-    return { data: [], meta: { total: 0, page: 1, limit: 20, totalPages: 0 } };
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  async findAll(
+    @Query() searchDto: UserSearchDto,
+    @Req() req?: AuthenticatedRequest,
+  ) {
+    const result = await this.userSearchService.searchUsers(searchDto);
+    return {
+      data: result.results,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      query: result.query,
+      executionTimeMs: result.executionTimeMs,
+      fuzzyUsed: result.fuzzyUsed,
+    };
   }
 
   @Get(':id')

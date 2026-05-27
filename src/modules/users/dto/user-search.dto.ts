@@ -1,6 +1,6 @@
-import { Type } from 'class-transformer';
-import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsBoolean } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type, Transform } from 'class-transformer';
+import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsBoolean, IsDateString } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { SortOrder } from '../../../common/dtos/pagination.dto';
 import { Role } from '../../../auth/enums/role.enum';
 import { UserStatus } from '../../../auth/enums/user-status.enum';
@@ -19,6 +19,7 @@ export class UserSearchDto {
     default: true,
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   fuzzy?: boolean = true;
 
@@ -45,8 +46,27 @@ export class UserSearchDto {
     example: true,
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   isVerified?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter users created from this date',
+    example: '2024-01-01T00:00:00.000Z',
+    type: String,
+  })
+  @IsOptional()
+  @IsDateString()
+  createdAtFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter users created up to this date',
+    example: '2024-12-31T23:59:59.999Z',
+    type: String,
+  })
+  @IsOptional()
+  @IsDateString()
+  createdAtTo?: string;
 
   @ApiPropertyOptional({
     description: 'Filter by country code',
@@ -69,6 +89,7 @@ export class UserSearchDto {
     example: false,
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   hasPhone?: boolean;
 
@@ -77,6 +98,7 @@ export class UserSearchDto {
     example: false,
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   hasAvatar?: boolean;
 
