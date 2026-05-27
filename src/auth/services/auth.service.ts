@@ -201,12 +201,6 @@ export class AuthService {
       const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
       if (isAlreadyBlacklisted) {
         this.logger.warn(`Attempted logout with already blacklisted token for user ${userId}`);
-      }
-
-      // Check if token is already blacklisted (fast check)
-      const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
-      if (isAlreadyBlacklisted) {
-        this.logger.warn(`Attempted logout with already blacklisted token for user ${userId}`);
         // Still proceed with session cleanup for consistency
       }
 
