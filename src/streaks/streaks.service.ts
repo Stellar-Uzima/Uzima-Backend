@@ -127,7 +127,7 @@ export class StreaksService {
       return;
     }
 
-    const todayDateStr = this.getLocalDateString(new Date());
+    const todayDateStr = this.getUtcDateString(new Date());
 
     // If no lastCompletedDate, this is the very first task ever
     if (!streak.lastCompletedDate) {
@@ -145,12 +145,13 @@ export class StreaksService {
       return;
     }
 
-    const lastDate = new Date(streak.lastCompletedDate);
-    const todayDate = new Date(todayDateStr);
+    const lastDateUtc = new Date(streak.lastCompletedDate + 'T00:00:00Z');
+    const todayDateUtc = new Date(todayDateStr + 'T00:00:00Z');
 
-    // Get difference in days (UTC based string output)
-    const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Difference in whole days using UTC midnight boundaries
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const diffMs = todayDateUtc.getTime() - lastDateUtc.getTime();
+    const diffDays = Math.round(diffMs / msPerDay);
 
     if (diffDays === 1) {
       // Completed yesterday, streak increments
@@ -192,12 +193,11 @@ export class StreaksService {
     });
   }
 
-  // Utility to convert Date to YYYY-MM-DD string according to local server timezone
-  // Note: Depending on requirements, explicit timezone manipulation library like dat-fns-tz or moment might be preferred
-  private getLocalDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+  // Utility to convert Date to YYYY-MM-DD string using UTC date parts
+  private getUtcDateString(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 }
