@@ -92,7 +92,7 @@ export class CouponService implements OnModuleInit {
     const coupon = this.couponRepository.create({
       userId,
       discount: payload?.discount ?? DEFAULT_DISCOUNT_PERCENT,
-      specialistType: payload?.specialistType ?? null,
+      specialistType: payload?.specialistType ?? undefined,
       expiresAt,
       status: CouponStatus.ACTIVE,
     });

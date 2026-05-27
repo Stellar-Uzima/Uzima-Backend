@@ -8,15 +8,14 @@
  * - Transaction-based isolation for test independence
  */
 
-import { config } from 'dotenv';
-config({ path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env' });
+import 'dotenv/config';
 import { DataSource, Repository, ObjectLiteral } from 'typeorm';
 import { Logger } from '@nestjs/common';
-
 import { userFactory, taskFactory } from './fixtures/factories';
 
 // Adjust entity imports
 import { User } from '../src/entities/user.entity';
+import { HealthTask } from '../src/entities/health-task.entity';
 
 let dataSource: DataSource;
 
@@ -30,7 +29,7 @@ export async function setupTestDB() {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
 
-    entities: [User],
+    entities: [User, HealthTask],
     synchronize: true, // safe ONLY for test
     dropSchema: true,  // ensures clean DB
   });

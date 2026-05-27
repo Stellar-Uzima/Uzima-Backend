@@ -5,7 +5,7 @@ import {
   TokenPayload,
   TokenPair,
   ValidatedToken,
-} from '../../../common/interfaces/token.interface';
+} from '../../common/interfaces/token.interface';
 
 @Injectable()
 export class JwtTokenService {
@@ -63,7 +63,7 @@ export class JwtTokenService {
       }) as TokenPayload;
 
       return { payload, expired: false };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof jwt.TokenExpiredError) {
         this.logger.warn('Token has expired');
         return { payload: null, expired: true, error: 'Token expired' };
