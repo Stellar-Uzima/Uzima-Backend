@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Between, LessThanOrEqual, MoreThanOrEqual, Repository, Like, FindOptionsWhere } from 'typeorm';
 import { AuditLog, AuditAction, AuditResource } from './entities/audit-log.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/update-audit.dto';
@@ -210,12 +210,12 @@ export class AuditService {
     }
 
     if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) {
-        (where.createdAt as any).gte = startDate;
-      }
-      if (endDate) {
-        (where.createdAt as any).lte = endDate;
+      if (startDate && endDate) {
+        where.createdAt = Between(startDate, endDate);
+      } else if (startDate) {
+        where.createdAt = MoreThanOrEqual(startDate);
+      } else {
+        where.createdAt = LessThanOrEqual(endDate as Date);
       }
     }
 
@@ -248,7 +248,7 @@ export class AuditService {
     const complianceLogs = await this.auditRepo.find({
       where: {
         isComplianceEvent: true,
-        createdAt: { gte: startDate, lte: endDate },
+        createdAt: Between(startDate, endDate),
       },
       order: { createdAt: 'DESC' },
     });

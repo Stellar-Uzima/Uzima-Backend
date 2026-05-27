@@ -37,7 +37,7 @@ export class CacheService implements OnModuleInit {
       retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-    });
+    } as any);
 
     this.redis.on('connect', () => {
       this.logger.log('Redis connected successfully');

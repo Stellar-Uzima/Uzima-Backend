@@ -140,7 +140,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'New access token returned' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refresh(@Req() req: Request) {
-    const refreshToken = req.headers.authorization?.replace('Bearer ', '');
+    const refreshToken = req.headers.authorization?.replace('Bearer ', '') || '';
     return this.authService.refresh(refreshToken);
   }
 
@@ -151,7 +151,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
   async logout(@Req() req: Request) {
-    const refreshToken = req.headers.authorization?.replace('Bearer ', '');
+    const refreshToken = req.headers.authorization?.replace('Bearer ', '') || '';
     return this.authService.logout(refreshToken);
   }
 }

@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../users/user.entity'; // Assuming User entity exists
+import { User } from './user.entity';
 
 @Entity('api_keys')
 export class ApiKey {
