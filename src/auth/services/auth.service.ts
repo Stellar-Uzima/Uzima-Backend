@@ -234,6 +234,11 @@ export class AuthService {
       if (!storedToken || storedToken !== refreshToken) {
         // Replay attack or invalid token: clear all user sessions
         await this.clearAllUserRefreshTokens(userId);
+        // Also clear persisted token on the user entity
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
         this.eventEmitter.emit('auth.suspicious_activity', {
           userId,
           reason: 'Invalid or reused refresh token',
@@ -241,10 +246,24 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      // Delete the used token
-      await this.redisClient.del(key);
-
+      // Validate against persisted hashed token on user entity
       const user = await this.usersService.findById(userId);
+      if (
+        !user.refreshToken ||
+        !user.refreshTokenExpiry ||
+        user.refreshTokenExpiry < new Date() ||
+        !(await bcrypt.compare(refreshToken, user.refreshToken))
+      ) {
+        await this.redisClient.del(key);
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Delete the used token (rotation: old token invalidated)
+      await this.redisClient.del(key);
+      user.refreshToken = null;
+      user.refreshTokenExpiry = null;
+      await this.usersService.save(user);
+
       return this.generateTokens(user.id, user.email, user.role);
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
@@ -256,6 +275,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
+    const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(
@@ -263,10 +283,16 @@ export class AuthService {
       { expiresIn: '7d' }
     );
 
+    // Store in Redis for fast lookup
     const key = `refresh:${userId}:${tokenId}`;
-    await this.redisClient.set(key, refreshToken, {
-      EX: 7 * 24 * 60 * 60,
-    });
+    await this.redisClient.set(key, refreshToken, { EX: 7 * 24 * 60 * 60 });
+
+    // Persist hashed refresh token to user entity for durable rotation
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const user = await this.usersService.findById(userId);
+    user.refreshToken = hashedRefreshToken;
+    user.refreshTokenExpiry = refreshExpiry;
+    await this.usersService.save(user);
 
     // Record session metadata in DB (device info can be passed later)
     try {
@@ -351,6 +377,16 @@ export class AuthService {
       } catch (redisError: any) {
         // Redis failure shouldn't fail the logout
         this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
+      }
+
+      // Clear persisted refresh token on user entity
+      try {
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
+      } catch (err: any) {
+        this.logger.warn(`Failed to clear user refresh token fields: ${err.message}`);
       }
 
       // Log successful logout with performance metrics

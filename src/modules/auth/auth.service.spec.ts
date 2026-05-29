@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -149,10 +150,13 @@ describe('AuthService', () => {
         ...baseUser,
         failedLoginAttempts: 2,
         lockedUntil: null,
+        refreshToken: null,
+        refreshTokenExpiry: null,
       };
       mockUsersService.findByEmail.mockResolvedValue(user);
       mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
       mockUsersService.getProfile.mockResolvedValue({ id: user.id, email: user.email });
+      mockUsersService.findById.mockResolvedValue(user);
       mockUsersService.save.mockImplementation(async (u) => u);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockJwtService.sign.mockReturnValue('token');
@@ -164,6 +168,94 @@ describe('AuthService', () => {
       expect(mockUsersService.save).toHaveBeenCalledWith(
         expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
       );
+    });
+  });
+
+  describe('refresh token rotation', () => {
+    const userId = 'user-1';
+    const tokenId = 'token-id-abc';
+    const refreshToken = 'valid-refresh-token';
+
+    it('returns new access and refresh tokens on valid refresh', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(refreshToken);
+      const user = {
+        ...baseUser,
+        refreshToken: 'hashed',
+        refreshTokenExpiry: new Date(Date.now() + 86400000),
+      };
+      mockUsersService.findById.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRedisClient.del.mockResolvedValue(1);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockJwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      const result = await authService.refresh(refreshToken);
+
+      expect(result).toEqual({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
+    });
+
+    it('invalidates old refresh token after use (rotation)', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(refreshToken);
+      const user = {
+        ...baseUser,
+        refreshToken: 'hashed',
+        refreshTokenExpiry: new Date(Date.now() + 86400000),
+      };
+      mockUsersService.findById.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRedisClient.del.mockResolvedValue(1);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockJwtService.sign.mockReturnValue('new-token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      await authService.refresh(refreshToken);
+
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`refresh:${userId}:${tokenId}`);
+      expect(mockUsersService.save).toHaveBeenCalledWith(
+        expect.objectContaining({ refreshToken: null, refreshTokenExpiry: null }),
+      );
+    });
+
+    it('returns 401 when reusing an old (already rotated) refresh token', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(null); // not in Redis → already rotated
+      mockRedisClient.keys.mockResolvedValue([]);
+      mockUsersService.findById.mockResolvedValue({ ...baseUser, refreshToken: null, refreshTokenExpiry: null });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('emits suspicious_activity event on replay attack', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(null);
+      mockRedisClient.keys.mockResolvedValue([]);
+      mockUsersService.findById.mockResolvedValue({ ...baseUser, refreshToken: null, refreshTokenExpiry: null });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'auth.suspicious_activity',
+        expect.objectContaining({ userId, reason: expect.stringContaining('reused') }),
+      );
+    });
+
+    it('returns 401 when refresh token is blacklisted', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue({ token: refreshToken });
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
     });
   });
 
