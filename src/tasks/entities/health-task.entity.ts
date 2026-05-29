@@ -5,7 +5,12 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Index,
+  ManyToOne,
+  ManyToMany,
+  JoinColumn,
+  JoinTable,
 } from 'typeorm';
+import { TaskCategory as TaskCategoryEntity } from '../../database/entities/task-category.entity';
 
 export enum TaskCategory {
   NUTRITION = 'nutrition',
@@ -28,8 +33,23 @@ export class HealthTask {
   @Column({ type: 'text', nullable: true })
   description!: string;
 
-  @Column({ type: 'enum', enum: TaskCategory })
+  @Column({ type: 'enum', enum: TaskCategory, nullable: true })
   category!: TaskCategory;
+
+  @Column({ type: 'uuid', nullable: true })
+  categoryId?: string;
+
+  @ManyToOne(() => TaskCategoryEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'categoryId' })
+  taskCategory?: TaskCategoryEntity;
+
+  @ManyToMany('TaskTag', 'healthTasks', { cascade: true })
+  @JoinTable({
+    name: 'health_task_tags',
+    joinColumn: { name: 'healthTaskId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
+  })
+  tags?: any[];
 
   @Column({ type: 'varchar', nullable: true })
   createdBy!: string | null;
@@ -42,7 +62,7 @@ export class HealthTask {
   xlmReward!: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  targetProfile!: Record<string, any>; 
+  targetProfile!: Record<string, any>;
 
   @Column({ default: true })
   isActive!: boolean;
