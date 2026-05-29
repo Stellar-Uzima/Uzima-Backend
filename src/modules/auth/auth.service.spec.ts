@@ -1,192 +1,259 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { AuthService } from "./auth.service";
-import { UsersService } from "../users/users.service";
-import { JwtService } from "@nestjs/jwt";
-import * as bcrypt from "bcrypt";
+import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { authenticator } from 'otplib';
 
-jest.mock("bcrypt");
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
 
-describe("AuthService", () => {
-  let service: AuthService;
-  let usersService: jest.Mocked<UsersService>;
-  let jwtService: jest.Mocked<JwtService>;
+import * as bcrypt from 'bcryptjs';
+import { AuthService } from '../../auth/services/auth.service';
+import { UsersService } from '../../auth/services/users.service';
+import { OtpService } from '../../otp/otp.service';
+import { AuditService } from '../../audit/audit.service';
+import { EmailVerificationService } from './services/email-verification.service';
+import { SessionService } from './services/session.service';
+import { TransactionService } from '../../database/services/transaction.service';
+import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
+import { AccountLockedException } from '../../auth/exceptions/account-locked.exception';
+import { Role } from '../../auth/enums/role.enum';
+
+const mockRedisClient = {
+  connect: jest.fn(),
+  get: jest.fn(),
+  set: jest.fn(),
+  del: jest.fn(),
+  keys: jest.fn(),
+  incr: jest.fn(),
+};
+
+jest.mock('redis', () => ({
+  createClient: () => mockRedisClient,
+}));
+
+jest.mock('qrcode', () => ({
+  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,qr'),
+}));
+
+describe('AuthService', () => {
+  let authService: AuthService;
+
+  const mockUsersService = {
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    create: jest.fn(),
+    getProfile: jest.fn(),
+    canUserLogin: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const mockJwtService = { sign: jest.fn(), verify: jest.fn() };
+  const mockOtpService = { requestOtp: jest.fn(), verifyOtp: jest.fn() };
+  const mockEventEmitter = { emit: jest.fn() };
+  const mockAuditService = { logAction: jest.fn() };
+  const mockEmailVerificationService = { createForUser: jest.fn(), consume: jest.fn() };
+  const mockSessionService = { createSession: jest.fn(), revokeSession: jest.fn() };
+  const mockTransactionService = { execute: jest.fn() };
+  const mockTokenBlacklistRepository = { save: jest.fn(), findOne: jest.fn(), delete: jest.fn() };
+
+  const baseUser = {
+    id: 'user-1',
+    email: 'user@example.com',
+    password: 'hashed-password',
+    role: Role.USER,
+    isVerified: true,
+    twoFactorEnabled: false,
+    twoFactorSecret: null,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    (bcrypt.compare as jest.Mock).mockReset();
+    process.env.MAX_FAILED_LOGIN_ATTEMPTS = '5';
+    process.env.ACCOUNT_LOCKOUT_DURATION_MS = '900000';
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        {
-          provide: UsersService,
-          useValue: {
-            findByEmail: jest.fn(),
-            create: jest.fn(),
-          },
-        },
-        {
-          provide: JwtService,
-          useValue: {
-            sign: jest.fn(),
-          },
-        },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: OtpService, useValue: mockOtpService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
+        { provide: AuditService, useValue: mockAuditService },
+        { provide: EmailVerificationService, useValue: mockEmailVerificationService },
+        { provide: SessionService, useValue: mockSessionService },
+        { provide: TransactionService, useValue: mockTransactionService },
+        { provide: getRepositoryToken(TokenBlacklist), useValue: mockTokenBlacklistRepository },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
-    usersService = module.get(UsersService);
-    jwtService = module.get(JwtService);
+    authService = module.get<AuthService>(AuthService);
   });
 
-    describe("register", () => {
-    it("should register a new user with hashed password", async () => {
-      const dto = {
-        email: "test@example.com",
-        password: "password123",
-      };
+  describe('account lockout', () => {
+    const loginDto = { email: 'user@example.com', password: 'WrongPassword1!' };
 
-      usersService.findByEmail.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue("hashed_pw");
-
-      usersService.create.mockResolvedValue({
-        id: "1",
-        ...dto,
-        password: "hashed_pw",
-      } as any);
-
-      const result = await service.register(dto);
-
-      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, expect.any(Number));
-      expect(usersService.create).toHaveBeenCalled();
-      expect(result.password).not.toBe(dto.password);
-    });
-
-    it("should throw if email already exists", async () => {
-      usersService.findByEmail.mockResolvedValue({ id: "1" } as any);
-
-      await expect(
-        service.register({
-          email: "test@example.com",
-          password: "123",
-        })
-      ).rejects.toThrow();
-    });
-  });
-
-
-  describe("login", () => {
-    it("should login with valid credentials", async () => {
-      const user = {
-        id: "1",
-        email: "test@example.com",
-        password: "hashed_pw",
-      };
-
-      usersService.findByEmail.mockResolvedValue(user as any);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      jwtService.sign.mockReturnValue("token");
-
-      const result = await service.login({
-        email: user.email,
-        password: "password123",
+    it('locks account after 5 failed login attempts', async () => {
+      let attempts = 0;
+      mockUsersService.findByEmail.mockImplementation(async () => ({
+        ...baseUser,
+        failedLoginAttempts: attempts,
+        lockedUntil: attempts >= 5 ? new Date(Date.now() + 900000) : null,
+      }));
+      mockUsersService.findById.mockImplementation(async () => mockUsersService.findByEmail());
+      mockUsersService.save.mockImplementation(async (user) => {
+        attempts = user.failedLoginAttempts;
+        return user;
       });
-
-      expect(result.accessToken).toBe("token");
-    });
-
-    it("should throw for invalid email", async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-
-      await expect(
-        service.login({
-          email: "wrong@test.com",
-          password: "123",
-        })
-      ).rejects.toThrow();
-    });
-
-    it("should throw for wrong password", async () => {
-      usersService.findByEmail.mockResolvedValue({
-        password: "hashed_pw",
-      } as any);
-
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(
-        service.login({
-          email: "test@test.com",
-          password: "wrong",
-        })
-      ).rejects.toThrow();
-    });
-  });
+      for (let i = 0; i < 4; i += 1) {
+        await expect(authService.login(loginDto)).rejects.toThrow(UnauthorizedException);
+      }
 
-    describe("generateToken", () => {
-    it("should generate JWT token", async () => {
-      jwtService.sign.mockReturnValue("jwt_token");
-
-      const result = service.generateToken({
-        id: "1",
-        email: "test@example.com",
-      } as any);
-
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sub: "1",
-        })
-      );
-
-      expect(result).toBe("jwt_token");
-    });
-  });
-
-    describe("password hashing", () => {
-    it("should hash password correctly", async () => {
-      (bcrypt.hash as jest.Mock).mockResolvedValue("hashed_pw");
-
-      const result = await service.hashPassword("plain");
-
-      expect(result).toBe("hashed_pw");
+      await expect(authService.login(loginDto)).rejects.toThrow(AccountLockedException);
     });
 
-    it("should compare passwords correctly", async () => {
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-
-      const result = await service.comparePasswords(
-        "plain",
-        "hashed"
-      );
-
-      expect(result).toBe(true);
-    });
-  });
-
-    describe("edge cases", () => {
-    it("should handle empty credentials", async () => {
-      await expect(
-        service.login({ email: "", password: "" })
-      ).rejects.toThrow();
-    });
-
-    it("should handle null inputs", async () => {
-      await expect(service.register(null as any)).rejects.toThrow();
-    });
-
-    it("should not expose password in response", async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-      (bcrypt.hash as jest.Mock).mockResolvedValue("hashed_pw");
-
-      usersService.create.mockResolvedValue({
-        id: "1",
-        email: "test@test.com",
-        password: "hashed_pw",
-      } as any);
-
-      const result = await service.register({
-        email: "test@test.com",
-        password: "123",
+    it('returns 423 with unlock time when account is locked', async () => {
+      const lockedUntil = new Date(Date.now() + 600000);
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...baseUser,
+        lockedUntil,
       });
 
-      expect(result.password).toBeUndefined();
+      try {
+        await authService.login({ email: baseUser.email, password: 'any' });
+        fail('Expected AccountLockedException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(AccountLockedException);
+        expect((error as AccountLockedException).getStatus()).toBe(423);
+        expect((error as AccountLockedException).getResponse()).toMatchObject({
+          statusCode: 423,
+          lockedUntil: lockedUntil.toISOString(),
+        });
+      }
+    });
+
+    it('resets failed attempt counter on successful login', async () => {
+      const user = {
+        ...baseUser,
+        failedLoginAttempts: 2,
+        lockedUntil: null,
+      };
+      mockUsersService.findByEmail.mockResolvedValue(user);
+      mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
+      mockUsersService.getProfile.mockResolvedValue({ id: user.id, email: user.email });
+      mockUsersService.save.mockImplementation(async (u) => u);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockJwtService.sign.mockReturnValue('token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      await authService.login({ email: user.email, password: 'ValidPass1!' });
+
+      expect(mockUsersService.save).toHaveBeenCalledWith(
+        expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
+      );
+    });
+  });
+
+  describe('two-factor authentication', () => {
+    it('enableTwoFactor returns QR code and secret', async () => {
+      mockUsersService.findById.mockResolvedValue({ ...baseUser });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      const result = await authService.enableTwoFactor(baseUser.id);
+
+      expect(result.secret).toBeDefined();
+      expect(result.qrCode).toContain('data:image');
+      expect(result.enabled).toBe(false);
+    });
+
+    it('disableTwoFactor disables 2FA after valid verification', async () => {
+      const secret = authenticator.generateSecret();
+      const code = authenticator.generate(secret);
+      mockUsersService.findById.mockResolvedValue({
+        ...baseUser,
+        twoFactorEnabled: true,
+        twoFactorSecret: secret,
+      });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      const result = await authService.disableTwoFactor(baseUser.id, code);
+
+      expect(result.message).toContain('disabled');
+      expect(mockUsersService.save).toHaveBeenCalledWith(
+        expect.objectContaining({ twoFactorEnabled: false, twoFactorSecret: null }),
+      );
+    });
+
+    it('login requires TOTP when 2FA is enabled', async () => {
+      const secret = authenticator.generateSecret();
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...baseUser,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        twoFactorEnabled: true,
+        twoFactorSecret: secret,
+      });
+      mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(
+        authService.login({ email: baseUser.email, password: 'ValidPass1!' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('login succeeds with valid TOTP when 2FA is enabled', async () => {
+      const secret = authenticator.generateSecret();
+      const totpCode = authenticator.generate(secret);
+      mockUsersService.findByEmail.mockResolvedValue({
+        ...baseUser,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        twoFactorEnabled: true,
+        twoFactorSecret: secret,
+      });
+      mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
+      mockUsersService.getProfile.mockResolvedValue({ id: baseUser.id });
+      mockUsersService.save.mockImplementation(async (u) => u);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockJwtService.sign.mockReturnValue('token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      const result = await authService.login({
+        email: baseUser.email,
+        password: 'ValidPass1!',
+        totpCode,
+      });
+
+      expect(result.accessToken).toBeDefined();
+    });
+  });
+
+  describe('register', () => {
+    it('throws ConflictException when email exists', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({ id: 'existing' });
+
+      await expect(
+        authService.register({
+          email: 'taken@example.com',
+          password: 'Password123!',
+          name: 'Test',
+          country: 'KE',
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });
-

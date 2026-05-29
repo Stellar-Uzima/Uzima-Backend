@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
@@ -31,6 +35,7 @@ import { SearchModule } from './shared/search/search.module';
 import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
+import { OtpModule } from './otp/otp.module';
 
 @Module({
   imports: [
@@ -39,7 +44,21 @@ import { AnalyticsModule } from './shared/analytics/analytics.module';
       envFilePath: '.env',
       load: [secretsConfig],
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: 'otp',
+        ttl: 3600000,
+        limit: 3,
+      },
+    ]),
+    EventEmitterModule.forRoot(),
     DatabaseModule,
+    OtpModule,
     LoggingModule,
     // 2. Add it to the imports list
     StorageModule, 
@@ -61,6 +80,12 @@ import { AnalyticsModule } from './shared/analytics/analytics.module';
     ReportsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+  ],
 })
 export class AppModule {}

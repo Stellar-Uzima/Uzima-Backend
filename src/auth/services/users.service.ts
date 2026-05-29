@@ -19,12 +19,18 @@ export class UsersService {
     const normalized = email.trim().toLowerCase();
     return this.usersRepository
       .createQueryBuilder('user')
+      .addSelect('user.password')
+      .addSelect('user.twoFactorSecret')
       .where('LOWER(user.email) = :normalized', { normalized })
       .getOne();
   }
 
   async findById(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.twoFactorSecret')
+      .where('user.id = :id', { id })
+      .getOne();
     if (!user) throw new Error('User not found');
     return user;
   }
