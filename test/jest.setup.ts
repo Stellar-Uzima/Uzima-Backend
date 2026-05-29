@@ -13,7 +13,7 @@ beforeAll(async () => {
     console.log('✅ Test database setup complete');
   } catch (error) {
     console.error('❌ Failed to setup test database', error);
-    process.exit(1);
+    throw error;
   }
 }, 60000); // 60 second timeout for setup
 
@@ -23,6 +23,7 @@ beforeEach(async () => {
     await beforeEachTest();
   } catch (error) {
     console.error('❌ Failed to setup before test', error);
+    throw error;
   }
 });
 
@@ -32,6 +33,7 @@ afterEach(async () => {
     await afterEachTest();
   } catch (error) {
     console.error('❌ Failed to cleanup after test', error);
+    throw error;
   }
 });
 
@@ -43,7 +45,7 @@ afterAll(async () => {
     console.log('✅ Test database teardown complete');
   } catch (error) {
     console.error('❌ Failed to teardown test database', error);
-    process.exit(1);
+    throw error;
   }
 }, 60000); // 60 second timeout for teardown
 
