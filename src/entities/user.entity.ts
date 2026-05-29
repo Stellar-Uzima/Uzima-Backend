@@ -92,6 +92,18 @@ export class User {
   @Column({ nullable: true, unique: true })
   referralCode?: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  twoFactorSecret: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil: Date | null;
+
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
 

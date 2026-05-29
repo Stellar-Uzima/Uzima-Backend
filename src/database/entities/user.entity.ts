@@ -74,6 +74,21 @@ export class User {
   @IsBoolean()
   emailVerified: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  @IsBoolean()
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  @IsOptional()
+  @IsString()
+  twoFactorSecret?: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
