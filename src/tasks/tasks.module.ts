@@ -14,6 +14,8 @@ import { ProofVerificationProcessor } from './completions/verification/proof-ver
 import { QueueModule } from '../queue/queue.module';
 import { StorageModule } from '../storage/storage.module';
 import { TaskAssignmentModule } from './assignment/task-assignment.module';
+import { ReminderService } from '../modules/health-tasks/services/reminder.service';
+import { RecurringTaskService } from './assignment/recurring-task.service';
 import { User } from '../entities/user.entity';
 
 @Module({
@@ -24,7 +26,6 @@ import { User } from '../entities/user.entity';
     StorageModule,
     TaskAssignmentModule,
   ],
-
   controllers: [TasksController, TaskCompletionController],
   providers: [
     TasksService,
@@ -32,6 +33,8 @@ import { User } from '../entities/user.entity';
     TaskCompletionService,
     ProofVerificationService,
     ProofVerificationProcessor,
+    ReminderService,
+    RecurringTaskService,
   ],
   exports: [TasksService],
 })
