@@ -5,6 +5,7 @@ import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
 import { TaskAssignmentModule } from '@/tasks/assignment/task-assignment.module';
 import { AuditModule } from '@/audit/audit.module';
 import { AuthModule } from '@modules/auth/auth.module';
+import { CacheModule } from '@/shared/cache/cache.module';
 import { AdminController } from './admin.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminService } from './services/admin.service';
@@ -23,6 +24,7 @@ import { RewardsScheduler } from '@/rewards/rewards.scheduler';
     HealthTasksModule,
     HealthModule,
     AuthModule,
+    CacheModule,
   ],
   controllers: [AdminController, AdminUsersController],
   providers: [AdminService, AdminUsersService, TasksScheduler, RewardsScheduler],

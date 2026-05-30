@@ -69,7 +69,38 @@ export class AdminService {
       status: statusGroups.reduce((map, row) => ({
         ...map,
         [row.status]: Number(row.count),
-      }), {} as Record<string, number>),
+    };
+  }
+
+  async getDashboardStats() {
+    const totalUsers = await this.userRepository.count();
+
+    const activeUsers = await this.userRepository
+      .createQueryBuilder('user')
+      .where("user.updatedAt >= NOW() - INTERVAL '30 days'")
+      .orWhere("user.lastLogin >= NOW() - INTERVAL '30 days'")
+      .getCount();
+
+    const totalTasks = await this.taskCompletionRepository.count();
+
+    const completedTasks = await this.taskCompletionRepository.count({
+      where: { status: TaskCompletionStatus.VERIFIED },
+    });
+
+    const totalRewardsResult = await this.taskCompletionRepository
+      .createQueryBuilder('tc')
+      .select('COALESCE(SUM(tc.xlmRewarded), 0)', 'total')
+      .where('tc.status = :status', { status: TaskCompletionStatus.VERIFIED })
+      .getRawOne();
+
+    const totalRewardsDistributed = Number(totalRewardsResult?.total || 0);
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalTasks,
+      completedTasks,
+      totalRewardsDistributed,
     };
   }
 
