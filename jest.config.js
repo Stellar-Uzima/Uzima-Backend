@@ -11,6 +11,19 @@ module.exports = {
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
   roots: ['<rootDir>', '<rootDir>/../test'],
+  setupFilesAfterEnv: ['<rootDir>/../test/jest.setup.ts'],
+  setupFiles: ['<rootDir>/../test/jest.env.ts'],
+  testTimeout: 30000,
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+      },
+      diagnostics: false,
+      isolatedModules: true,
+    },
+  },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@modules/(.*)$': '<rootDir>/modules/$1',

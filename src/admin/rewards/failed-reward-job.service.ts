@@ -79,7 +79,7 @@ export class FailedRewardJobService {
         message: `Failed job ${failedJobId} has been re-queued successfully.`,
         replayedJobId: jobId,
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Failed to replay job ${failedJobId}: ${error}`);
       return {
         success: false,

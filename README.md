@@ -148,6 +148,8 @@ backend/
 5. **Seed the database (optional)**
    ```bash
    npm run seed
+   # or
+   npm run seed:db
    ```
 
 6. **Start the development server**
@@ -181,6 +183,7 @@ npm run test:e2e     # Run e2e tests
 npm run migrate       # Run migrations
 npm run migrate:revert # Revert last migration
 npm run seed         # Seed the database
+npm run seed:db      # Run database seeders
 
 # Linting & Formatting
 npm run lint         # Run ESLint
@@ -293,16 +296,55 @@ describe('UsersService', () => {
 
 ## 🐳 Docker
 
-### Build Docker Image
+### Local development with Docker Compose
+
+Start PostgreSQL and Redis (recommended for local development):
+
+```bash
+docker compose up -d postgres redis
+```
+
+Wait until both services are healthy:
+
+```bash
+docker compose ps
+```
+
+Copy environment variables and ensure Redis/DB point at Docker:
+
+```bash
+cp .env.example .env
+# DB_HOST=localhost, DB_PORT=5432, REDIS_URL=redis://localhost:6379
+```
+
+Run migrations and start the API on your machine:
+
+```bash
+npm install
+npm run migrate
+npm run start:dev
+```
+
+The API runs at `http://localhost:3001` (see `APP_PORT` in `.env`).
+
+### Optional: run the full stack in Docker
+
+```bash
+docker compose --profile full up -d
+```
+
+### Build Docker image only
 
 ```bash
 docker build -t uzima-backend .
 ```
 
-### Run with Docker Compose
+### Useful commands
 
 ```bash
-docker-compose up -d
+docker compose logs -f postgres redis   # follow service logs
+docker compose down                   # stop services
+docker compose down -v                # stop and remove volumes
 ```
 
 ## 📖 Module Guides

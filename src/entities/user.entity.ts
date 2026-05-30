@@ -93,16 +93,28 @@ export class User {
   updatedAt: Date;
 
   @Column({ nullable: true, unique: true })
-  referralCode?: string;
+  referralCode?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  twoFactorSecret: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil: Date | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
 
   @OneToMany(() => HealthTask, (healthTask) => healthTask.user)
-  healthTasks: HealthTask[];
+  healthTasks?: HealthTask[];
 
   @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
+  sessions?: Session[];
 
   @ManyToMany(() => Organization, (organization) => organization.users)
   @JoinTable({
@@ -110,7 +122,7 @@ export class User {
     joinColumn: { name: 'userId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
   })
-  organizations: Organization[];
+  organizations?: Organization[];
 
   @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];

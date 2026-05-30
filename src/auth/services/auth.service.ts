@@ -2,11 +2,15 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { authenticator } from 'otplib';
+import * as qrcode from 'qrcode';
+import { AccountLockedException } from '../exceptions/account-locked.exception';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -34,6 +38,14 @@ export class AuthService {
   private redisClient: RedisClientType;
   private readonly blacklistCache = new Map<string, { blacklisted: boolean; expiresAt: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly maxFailedLoginAttempts = parseInt(
+    process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5',
+    10,
+  );
+  private readonly lockoutDurationMs = parseInt(
+    process.env.ACCOUNT_LOCKOUT_DURATION_MS || String(15 * 60 * 1000),
+    10,
+  );
 
   constructor(
     private usersService: UsersService,
@@ -92,8 +104,21 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new AccountLockedException(user.lockedUntil);
+    }
+
+    if (user.lockedUntil && user.lockedUntil <= new Date()) {
+      user.lockedUntil = null;
+      user.failedLoginAttempts = 0;
+      await this.usersService.save(user);
+    }
+
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
-    if (!passwordMatches) throw new UnauthorizedException('Invalid credentials');
+    if (!passwordMatches) {
+      await this.recordFailedLogin(user);
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     // Check user status - prevent login for inactive or suspended users
     const loginCheck = await this.usersService.canUserLogin(user.id);
@@ -108,6 +133,21 @@ export class AuthService {
 
     // Update last login timestamp tracking on successful email login
     await this.usersService.updateLastLogin(user.id);
+    if (user.twoFactorEnabled) {
+      if (!dto.totpCode) {
+        throw new UnauthorizedException('Two-factor authentication code is required');
+      }
+      if (!user.twoFactorSecret || !authenticator.check(dto.totpCode, user.twoFactorSecret)) {
+        await this.recordFailedLogin(user);
+        throw new UnauthorizedException('Invalid two-factor authentication code');
+      }
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+      await this.usersService.save(user);
+    }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const profile = await this.usersService.getProfile(user.id);
@@ -116,6 +156,67 @@ export class AuthService {
       ...tokens,
       user: profile,
     };
+  }
+
+  async enableTwoFactor(userId: string, code?: string) {
+    const user = await this.usersService.findById(userId);
+    const secret = authenticator.generateSecret();
+    user.twoFactorSecret = secret;
+
+    if (code) {
+      if (!authenticator.check(code, secret)) {
+        throw new BadRequestException('Invalid authentication code');
+      }
+      user.twoFactorEnabled = true;
+      await this.usersService.save(user);
+      return { message: 'Two-factor authentication enabled successfully', enabled: true };
+    }
+
+    await this.usersService.save(user);
+    const otpauthUrl = authenticator.keyuri(user.email || userId, 'Stellar Uzima', secret);
+    const qrCode = await qrcode.toDataURL(otpauthUrl);
+
+    return {
+      secret,
+      qrCode,
+      otpauthUrl,
+      enabled: false,
+      message: 'Scan the QR code with your authenticator app, then confirm with a TOTP code',
+    };
+  }
+
+  async disableTwoFactor(userId: string, code: string) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    if (!authenticator.check(code, user.twoFactorSecret)) {
+      throw new BadRequestException('Invalid authentication code');
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    await this.usersService.save(user);
+
+    return { message: 'Two-factor authentication disabled successfully' };
+  }
+
+  private async recordFailedLogin(user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null }) {
+    const fullUser = await this.usersService.findById(user.id);
+    fullUser.failedLoginAttempts = (fullUser.failedLoginAttempts || 0) + 1;
+
+    if (fullUser.failedLoginAttempts >= this.maxFailedLoginAttempts) {
+      fullUser.lockedUntil = new Date(Date.now() + this.lockoutDurationMs);
+      this.logger.warn(`Account locked for user ${fullUser.id} until ${fullUser.lockedUntil.toISOString()}`);
+    }
+
+    await this.usersService.save(fullUser);
+
+    if (fullUser.lockedUntil && fullUser.lockedUntil > new Date()) {
+      throw new AccountLockedException(fullUser.lockedUntil);
+    }
   }
 
   // Refresh access token
@@ -148,7 +249,7 @@ export class AuthService {
 
       const user = await this.usersService.findById(userId);
       return this.generateTokens(user.id, user.email, user.role);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -181,22 +282,24 @@ export class AuthService {
   }
 
   // Logout with optimized transaction handling
-  async logout(userId: string, refreshToken: string): Promise<void> {
+  async logout(refreshToken: string): Promise<void> {
     const startTime = Date.now();
-    const contextId = `logout-${userId}-${Date.now()}`;
+    let userId: string | undefined;
+    let tokenId: string;
+    let expiresAt = 0;
 
     try {
-      this.logger.debug(`Starting logout for user ${userId}`);
+      const payload = this.jwtService.verify(refreshToken) as { sub: string; tokenId: string; exp: number };
+      userId = payload.sub;
+      tokenId = payload.tokenId;
+      expiresAt = payload.exp;
 
-      // Pre-validate token structure and ownership
-      const payload = this.jwtService.verify(refreshToken);
-      const { sub: tokenUserId, tokenId, exp } = payload;
-
-      // Verify token ownership early
-      if (tokenUserId !== userId) {
-        this.logger.warn(`Token ownership mismatch for user ${userId}`);
-        throw new UnauthorizedException('Refresh token does not belong to authenticated user');
+      if (!userId || !tokenId) {
+        throw new UnauthorizedException('Invalid refresh token');
       }
+
+      const contextId = `logout-${userId}-${Date.now()}`;
+      this.logger.debug(`Starting logout for user ${userId}`);
 
       // Check if token is already blacklisted (fast check)
       const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
@@ -214,7 +317,7 @@ export class AuthService {
               token: refreshToken,
               tokenType: 'refresh',
               userId,
-              expiresAt: new Date(exp * 1000),
+              expiresAt: new Date(expiresAt * 1000),
             });
 
             // Update cache immediately
@@ -248,6 +351,7 @@ export class AuthService {
           this.logger.debug(`Redis token cleaned up for user ${userId}`);
         }
       } catch (redisError: any) {
+        // Redis failure shouldn't fail the logout
         this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
       }
 
@@ -384,14 +488,15 @@ export class AuthService {
     await this.usersService.updateLastLogin(user.id);
 
     const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
+    const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
       message: 'Authentication successful',
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: {
-        id: user.id,
-        phoneNumber: user.phoneNumber,
+        id: user!.id,
+        phoneNumber: user!.phoneNumber,
         isNewUser,
       },
     };
@@ -404,7 +509,7 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    const user = record.user;
+    const user: any = record.user;
     user.isVerified = true;
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;

@@ -54,7 +54,7 @@ export class WalletService {
     let liveBalance = 'unavailable';
     try {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(
         `Failed to fetch balance for ${walletAddress}: ${error.message}`,
       );
@@ -157,5 +157,53 @@ export class WalletService {
 
     this.logger.log(`Wallet linked: ${address} for user ${userId}`);
     return updatedUser;
+  }
+
+  /**
+   * Reconcile a user's wallet balances and return a summary object for accounting
+   */
+  async reconcile(userId: string): Promise<any> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
+      return { walletLinked: false } as any;
+    }
+
+    let liveBalance = '0.00';
+    try {
+      liveBalance = await this.stellarService.getAccountBalance(walletAddress);
+    } catch (error: any) {
+      this.logger.warn(`Failed to fetch balance for reconciliation: ${error.message}`);
+    }
+
+    const totalEarnedFromTasks = await this.rewardTransactionRepo
+      .createQueryBuilder('rt')
+      .select('SUM(rt.amount)', 'total')
+      .where('rt.userId = :userId', { userId })
+      .andWhere('rt.status = :status', { status: RewardStatus.SUCCESS })
+      .getRawOne();
+
+    const pendingRewards = await this.rewardTransactionRepo
+      .createQueryBuilder('rt')
+      .select('SUM(rt.amount)', 'total')
+      .where('rt.userId = :userId', { userId })
+      .andWhere('rt.status = :status', { status: RewardStatus.PENDING })
+      .getRawOne();
+
+    // Placeholder for consultations spent calculation - default 0.00
+    const totalSpentOnConsultations = '0.00';
+
+    return {
+      walletAddress,
+      liveBalance,
+      totalEarnedFromTasks: totalEarnedFromTasks?.total || '0.00',
+      totalSpentOnConsultations,
+      pendingRewards: pendingRewards?.total || '0.00',
+      walletLinked: true,
+    };
   }
 }

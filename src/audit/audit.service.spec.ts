@@ -479,4 +479,130 @@ describe('AuditService', () => {
       expect(mockRepository.delete).toHaveBeenCalledWith({ id: '1' });
     });
   });
+
+  // ============================================
+  // CLEANUP RETENTION TESTS
+  // ============================================
+
+  describe('cleanupExpiredLogs', () => {
+    it('should throw error if retentionDays is 0 or negative', async () => {
+      await expect(service.cleanupExpiredLogs(0)).rejects.toThrow(
+        'Retention days must be greater than 0',
+      );
+      await expect(service.cleanupExpiredLogs(-5)).rejects.toThrow(
+        'Retention days must be greater than 0',
+      );
+    });
+
+    it('should return 0 deleted count when no logs are expired', async () => {
+      mockRepository.find.mockResolvedValue([]);
+      mockRepository.delete.mockResolvedValue({ affected: 0 });
+
+      const result = await service.cleanupExpiredLogs(30);
+
+      expect(result.deletedCount).toBe(0);
+      expect(result.deletedIds).toEqual([]);
+      expect(mockRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('should delete logs older than 30 days and exclude compliance events', async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const oldLogs = [
+        {
+          id: 'log-1',
+          createdAt: new Date('2024-01-01'),
+          isComplianceEvent: false,
+        },
+        {
+          id: 'log-2',
+          createdAt: new Date('2024-01-02'),
+          isComplianceEvent: false,
+        },
+        {
+          id: 'log-3',
+          createdAt: new Date('2024-01-03'),
+          isComplianceEvent: false,
+        },
+      ];
+
+      mockRepository.find.mockResolvedValue(oldLogs);
+      mockRepository.delete.mockResolvedValue({ affected: 3 });
+
+      const result = await service.cleanupExpiredLogs(30);
+
+      expect(result.deletedCount).toBe(3);
+      expect(result.deletedIds).toEqual(['log-1', 'log-2', 'log-3']);
+      expect(mockRepository.find).toHaveBeenCalled();
+      expect(mockRepository.delete).toHaveBeenCalled();
+    });
+
+    it('should preserve compliance events during cleanup', async () => {
+      const oldLogsWithCompliance = [
+        {
+          id: 'log-1',
+          createdAt: new Date('2024-01-01'),
+          isComplianceEvent: false,
+        },
+        {
+          id: 'log-2',
+          createdAt: new Date('2024-01-02'),
+          isComplianceEvent: true, // Should not be deleted
+        },
+      ];
+
+      mockRepository.find.mockResolvedValue([oldLogsWithCompliance[0]]);
+      mockRepository.delete.mockResolvedValue({ affected: 1 });
+
+      const result = await service.cleanupExpiredLogs(30);
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedIds).toContain('log-1');
+      expect(result.deletedIds).not.toContain('log-2');
+    });
+
+    it('should handle cleanup with 7-day retention', async () => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const oldLogs = [
+        { id: 'log-old-1', createdAt: new Date('2024-01-01'), isComplianceEvent: false },
+        { id: 'log-old-2', createdAt: new Date('2024-01-02'), isComplianceEvent: false },
+      ];
+
+      mockRepository.find.mockResolvedValue(oldLogs);
+      mockRepository.delete.mockResolvedValue({ affected: 2 });
+
+      const result = await service.cleanupExpiredLogs(7);
+
+      expect(result.deletedCount).toBe(2);
+      expect(result.deletedIds).toHaveLength(2);
+    });
+
+    it('should handle cleanup with 90-day retention', async () => {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+      const oldLogs = [
+        { id: 'log-very-old', createdAt: new Date('2024-01-01'), isComplianceEvent: false },
+      ];
+
+      mockRepository.find.mockResolvedValue(oldLogs);
+      mockRepository.delete.mockResolvedValue({ affected: 1 });
+
+      const result = await service.cleanupExpiredLogs(90);
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedIds).toContain('log-very-old');
+    });
+
+    it('should handle database errors gracefully', async () => {
+      mockRepository.find.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(service.cleanupExpiredLogs(30)).rejects.toThrow(
+        'Database connection failed',
+      );
+    });
+  });
 });
