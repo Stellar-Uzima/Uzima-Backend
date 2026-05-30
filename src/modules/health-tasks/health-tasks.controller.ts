@@ -14,7 +14,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
@@ -61,6 +61,8 @@ export class HealthTasksController {
 
   @Get()
   @ApiOperation({ summary: 'Get user health tasks with filters and pagination' })
+  @ApiResponse({ status: 200, description: 'Paginated list of the caller\'s health tasks' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async findAll(
     @Req() req: AuthenticatedRequest,
     @Query('status') status?: string,
@@ -88,42 +90,61 @@ export class HealthTasksController {
 
   @Get('search/history')
   @ApiOperation({ summary: 'Get search history for the current user' })
+  @ApiResponse({ status: 200, description: 'Recent search history for the caller' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getSearchHistory(@Req() req: AuthenticatedRequest) {
     return this.searchService.getSearchHistory(req.user.userId);
   }
 
   @Get('archived')
   @ApiOperation({ summary: 'Get archived completed tasks' })
+  @ApiResponse({ status: 200, description: 'Paginated list of archived completed tasks' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getArchivedTasks(@Query('page') page: number = 1, @Query('limit') limit: number = 10) {
     return this.archiveService.getArchivedTasks(page, limit);
   }
 
   @Post(':id/archive')
   @ApiOperation({ summary: 'Archive a completed task' })
+  @ApiResponse({ status: 200, description: 'Task archived successfully' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Caller does not own this task' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async archiveTask(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.archiveService.archiveTask(id, req.user.userId);
   }
 
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore task from archive' })
+  @ApiResponse({ status: 200, description: 'Task restored from archive' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Caller does not own this task' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async restoreTask(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.archiveService.restoreTask(id, req.user.userId);
   }
 
   @Get('archive/config')
   @ApiOperation({ summary: 'Get auto-archive configuration' })
+  @ApiResponse({ status: 200, description: 'Current auto-archive configuration' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   getAutoArchiveConfig() {
     return this.archiveService.getAutoArchiveConfig();
   }
 
   @Put('archive/config')
   @ApiOperation({ summary: 'Update auto-archive configuration' })
+  @ApiResponse({ status: 200, description: 'Auto-archive configuration updated' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   updateAutoArchiveConfig(@Body() body: { enabled?: boolean; olderThanDays?: number }) {
     return this.archiveService.updateAutoArchiveConfig(body);
   }
 
   @Post('archive/run')
   @ApiOperation({ summary: 'Run auto-archive for old completed tasks' })
+  @ApiResponse({ status: 200, description: 'Auto-archive sweep completed; returns the count of archived tasks' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async runAutoArchive() {
     const archivedCount = await this.archiveService.autoArchiveOldCompletedTasks();
     return { archivedCount };
@@ -131,30 +152,46 @@ export class HealthTasksController {
 
   @Get('categories')
   @ApiOperation({ summary: 'Get all task categories' })
+  @ApiResponse({ status: 200, description: 'List of available task categories' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getCategories() {
     return { message: 'Get categories logic to be implemented' };
   }
 
   @Post()
   @ApiOperation({ summary: 'Create new health task (admin only)' })
+  @ApiResponse({ status: 201, description: 'Health task created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Only admins may create health tasks' })
   async create(@Body() body: CreateHealthTaskDto) {
     return this.healthTasksService.create(body);
   }
 
   @Get(':id/activity')
   @ApiOperation({ summary: 'Get task activity history' })
+  @ApiResponse({ status: 200, description: 'Chronological activity log for the task' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async getActivityHistory(@Param('id') id: string) {
     return this.activityLogService.getActivityHistory(id);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get task details' })
+  @ApiResponse({ status: 200, description: 'Task details' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async findOne(@Param('id') id: string) {
     return this.healthTasksService.findOne(id);
   }
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Mark task as completed by user' })
+  @ApiResponse({ status: 200, description: 'Task marked as complete' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async completeTask(
     @Param('id') id: string,
     @Body() dto: MarkCompleteDto,
@@ -166,6 +203,10 @@ export class HealthTasksController {
 
   @Post(':id/incomplete')
   @ApiOperation({ summary: 'Mark task as incomplete by user' })
+  @ApiResponse({ status: 200, description: 'Task marked as incomplete' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async markTaskIncomplete(
     @Param('id') id: string,
     @Body() dto: MarkIncompleteDto,
@@ -177,6 +218,9 @@ export class HealthTasksController {
 
   @Get(':id/history')
   @ApiOperation({ summary: 'Get completion history for a task' })
+  @ApiResponse({ status: 200, description: 'Completion history entries for the task' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async getCompletionHistory(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
@@ -186,24 +230,38 @@ export class HealthTasksController {
 
   @Get('user/:userId/metrics')
   @ApiOperation({ summary: 'Get completion metrics for a user' })
+  @ApiResponse({ status: 200, description: 'Completion metrics for the specified user' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getCompletionMetrics(@Param('userId') userId: string) {
     return this.completionService.getCompletionMetrics(userId);
   }
 
   @Get(':id/stats')
   @ApiOperation({ summary: 'Get completion statistics for a task' })
+  @ApiResponse({ status: 200, description: 'Completion statistics for the task' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async getTaskCompletionStats(@Param('id') id: string) {
     return this.completionService.getTaskCompletionStats(id);
   }
 
   @Get('user/:userId')
   @ApiOperation({ summary: 'Get tasks assigned to user' })
+  @ApiResponse({ status: 200, description: 'Tasks assigned to the specified user' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getUserTasks(@Param('userId') userId: string) {
     return { message: 'Get user tasks logic to be implemented' };
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update task (admin only)' })
+  @ApiResponse({ status: 200, description: 'Task updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Caller is neither the task creator nor an admin' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async update(
     @Param('id') id: string,
     @Body() body: UpdateHealthTaskDto,
@@ -234,6 +292,10 @@ export class HealthTasksController {
    */
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a health task' })
+  @ApiResponse({ status: 200, description: 'Task and its related reminders were deleted' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Caller is not allowed to delete this task' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     // We pass the userId from the authenticated request to the service
     // for the mandatory permission check.
@@ -247,12 +309,19 @@ export class HealthTasksController {
 
   @Post(':id/duplicate')
   @ApiOperation({ summary: 'Duplicate a task' })
+  @ApiResponse({ status: 201, description: 'Task duplicated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Source task not found' })
   async duplicate(@Param('id') id: string, @Body() body: any) {
     return this.duplicationService.duplicateTask(id, body);
   }
 
   @Post('bulk-duplicate')
   @ApiOperation({ summary: 'Bulk duplicate tasks' })
+  @ApiResponse({ status: 201, description: 'Tasks duplicated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async bulkDuplicate(@Body() body: { ids: string[]; commonOverrides?: any }) {
     return this.duplicationService.bulkDuplicate(body.ids, body.commonOverrides);
   }
@@ -269,6 +338,10 @@ export class HealthTasksController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
+  @ApiResponse({ status: 201, description: 'Attachment uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'No file provided or file rejected' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async uploadAttachment(
     @Param('id') id: string,
     @UploadedFile() file: any,
@@ -287,12 +360,18 @@ export class HealthTasksController {
 
   @Get(':id/attachments')
   @ApiOperation({ summary: 'List attachments for a task' })
+  @ApiResponse({ status: 200, description: 'List of attachments for the task' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
   async getAttachments(@Param('id') id: string) {
     return this.attachmentsService.getAttachmentsByTask(id);
   }
 
   @Delete('attachments/:id')
   @ApiOperation({ summary: 'Delete an attachment' })
+  @ApiResponse({ status: 200, description: 'Attachment deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Attachment not found' })
   async deleteAttachment(@Param('id') id: string) {
     await this.attachmentsService.deleteAttachment(id);
     return { success: true };
@@ -300,18 +379,25 @@ export class HealthTasksController {
 
   @Get('analytics/user')
   @ApiOperation({ summary: 'Get task analytics for the current user' })
+  @ApiResponse({ status: 200, description: 'Per-user task analytics for the caller' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getUserStats(@Req() req: AuthenticatedRequest) {
     return this.analyticsService.getUserTaskStats(req.user.userId);
   }
 
   @Get('analytics/global')
   @ApiOperation({ summary: 'Get global task analytics' })
+  @ApiResponse({ status: 200, description: 'Aggregate analytics across all users' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getGlobalStats() {
     return this.analyticsService.getGlobalStats();
   }
 
   @Get('analytics/trends')
   @ApiOperation({ summary: 'Get task completion trends' })
+  @ApiResponse({ status: 200, description: 'Daily task completion counts over the requested window' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async getTrends(@Query('days') days: number = 7) {
     return this.analyticsService.getTrends(days);
   }

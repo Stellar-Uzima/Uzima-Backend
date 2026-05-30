@@ -77,7 +77,14 @@ async function bootstrap() {
       'Healthcare & Financial Inclusion through Blockchain for African Communities',
     )
     .setVersion('1.0.0')
-    .addBearerAuth()
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      name: 'Authorization',
+      description: 'Enter your JWT access token (without the "Bearer " prefix).',
+      in: 'header',
+    })
     .addTag('health', 'Health monitoring endpoints')
     .addTag('auth', 'Authentication endpoints')
     .addTag('users', 'User management endpoints')
