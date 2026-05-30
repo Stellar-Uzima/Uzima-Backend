@@ -13,7 +13,11 @@ import { ListTasksDto } from './dto/list-tasks.dto';
 import { Role } from '../auth/enums/role.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { QueueService } from '../shared/queue/queue.service';
-import { NOTIFICATION_QUEUE, TASK_REMINDER_JOB } from '../queue/queue.constants';
+import {
+  NOTIFICATION_QUEUE,
+  TASK_REMINDER_JOB,
+  TASK_REMINDER_TEMPLATE,
+} from '../queue/queue.constants';
 
 @Injectable()
 export class TasksService {
@@ -43,6 +47,7 @@ export class TasksService {
       NOTIFICATION_QUEUE,
       TASK_REMINDER_JOB,
       {
+        template: TASK_REMINDER_TEMPLATE,
         taskId: task.id,
         userId: task.createdBy,
         taskTitle: task.title,
