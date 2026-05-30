@@ -92,4 +92,35 @@ export class AdminUsersController {
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.adminUsersService.deleteUser(req.user.sub, id);
   }
+   @Post(
+    "users/:id/roles",
+  )
+  async assignRole(
+    @Param("id")
+    userId: string,
+
+    @Body()
+    dto: AssignRoleDto,
+  ) {
+    return this.adminService.assignRole(
+      userId,
+      dto.role,
+    );
+  }
+
+  @Delete(
+    "users/:id/roles/:role",
+  )
+  async revokeRole(
+    @Param("id")
+    userId: string,
+
+    @Param("role")
+    role: string,
+  ) {
+    return this.adminService.revokeRole(
+      userId,
+      role,
+    );
+  }
 }
