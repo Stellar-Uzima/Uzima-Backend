@@ -99,6 +99,14 @@ export class UsersService {
     await this.usersRepository.update(userId, { lastActiveAt: new Date() });
   }
 
+  /**
+   * Track last login timestamp on successful authentication
+   * @param userId - User ID to update
+   */
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { lastLoginAt: new Date() });
+  }
+
   async findByPhoneNumber(phoneNumber: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { phoneNumber } });
   }
@@ -127,5 +135,13 @@ export class UsersService {
       default:
         return { canLogin: false, reason: 'Account status unknown' };
     }
+  }
+
+  /**
+   * Fetches the profile data for the authenticated user payload response
+   * @param id - User ID
+   */
+  async getProfile(id: string): Promise<User> {
+    return this.findById(id);
   }
 }
