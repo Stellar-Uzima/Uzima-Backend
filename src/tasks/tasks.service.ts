@@ -30,10 +30,14 @@ export class TasksService {
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
+   *
+   * Uses a deterministic Bull jobId derived from `taskId` and the
+   * reminder timestamp so repeated calls (e.g., service-side on create
+   * and scheduler-side from the backfill cron) collapse to a single
+   * queued job. If reminderTime changes, the jobId changes too, so the
+   * new schedule does not collide with the old one.
    */
-  private async scheduleReminderJob(
-    task: HealthTask,
-  ): Promise<void> {
+  async scheduleReminderJob(task: HealthTask): Promise<void> {
     if (!task.reminderTime) {
       return;
     }
@@ -43,6 +47,7 @@ export class TasksService {
       // Past reminder; don't enqueue
       return;
     }
+    const jobId = `task-reminder:${task.id}:${remindAt}`;
     await this.queueService.addDelayedJob(
       NOTIFICATION_QUEUE,
       TASK_REMINDER_JOB,
@@ -57,8 +62,10 @@ export class TasksService {
       // Use Bull's native JobOptions shape (attempts/backoff) so the
       // options reach the underlying queue. QueueService.addDelayedJob
       // passes options through unchanged, unlike addJob which translates
-      // maxRetries/backoffMs.
+      // maxRetries/backoffMs. The deterministic jobId makes Bull
+      // deduplicate when the same reminder is enqueued more than once.
       {
+        jobId,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
       },
