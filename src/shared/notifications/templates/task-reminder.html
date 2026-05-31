@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Your Daily Tasks Are Waiting — Stellar Uzima</title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+
+    .wrapper { width: 100%; background-color: #f4f7f6; padding: 40px 0; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    .header { background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); padding: 40px 40px 32px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .header p { margin: 8px 0 0; color: rgba(255,255,255,0.85); font-size: 15px; }
+
+    .body { padding: 40px; }
+    .greeting { font-size: 22px; font-weight: 600; color: #1a1a2e; margin: 0 0 16px; }
+    .text { font-size: 15px; line-height: 1.7; color: #4a5568; margin: 0 0 20px; }
+
+    /* Streak banner */
+    .streak-banner { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); border-radius: 10px; padding: 20px 24px; margin: 0 0 28px; text-align: center; }
+    .streak-banner .streak-number { font-size: 40px; font-weight: 800; color: #ffffff; line-height: 1; }
+    .streak-banner .streak-label { font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+    /* Task list */
+    .tasks-section { margin: 24px 0; }
+    .tasks-section h3 { font-size: 14px; font-weight: 700; color: #1a7a4a; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 14px; }
+    .task-card { background-color: #f9fafb; border: 1px solid #e8ecef; border-radius: 8px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; }
+    .task-card:last-child { margin-bottom: 0; }
+    .task-icon { font-size: 20px; margin-right: 14px; flex-shrink: 0; }
+    .task-info { flex: 1; }
+    .task-name { font-size: 14px; font-weight: 600; color: #1a1a2e; margin: 0 0 2px; }
+    .task-reward { font-size: 12px; color: #25a96a; font-weight: 500; }
+
+    .cta-wrapper { text-align: center; margin: 32px 0; }
+    .cta-button { display: inline-block; background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); color: #ffffff !important; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
+
+    .motivation { background-color: #f0faf5; border-radius: 8px; padding: 20px 24px; margin: 28px 0; text-align: center; }
+    .motivation p { margin: 0; font-size: 14px; color: #1a7a4a; font-style: italic; line-height: 1.6; }
+
+    .footer { background-color: #f9fafb; border-top: 1px solid #e8ecef; padding: 28px 40px; text-align: center; }
+    .footer p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; line-height: 1.6; }
+    .footer a { color: #25a96a; text-decoration: none; }
+
+    @media only screen and (max-width: 620px) {
+      .wrapper { padding: 20px 0; }
+      .header { padding: 32px 24px 28px; }
+      .header h1 { font-size: 22px; }
+      .body { padding: 28px 24px; }
+      .footer { padding: 24px; }
+      .cta-button { padding: 14px 28px; font-size: 15px; }
+      .streak-banner .streak-number { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h1>Stellar Uzima</h1>
+        <p>Daily health reminder</p>
+      </div>
+
+      <!-- Body -->
+      <div class="body">
+        <p class="greeting">Hey {{name}}, your tasks are waiting! 🌟</p>
+
+        {{#streakDays}}
+        <div class="streak-banner">
+          <div class="streak-number">🔥 {{streakDays}}</div>
+          <div class="streak-label">Day streak — keep it going!</div>
+        </div>
+        {{/streakDays}}
+
+        <p class="text">
+          You have <strong>{{pendingCount}} task{{#pluralTasks}}s{{/pluralTasks}}</strong> left to complete today. Finish them before midnight to keep your streak alive and earn your rewards.
+        </p>
+
+        {{#tasks.length}}
+        <div class="tasks-section">
+          <h3>Today's pending tasks</h3>
+          {{#tasks}}
+          <div class="task-card">
+            <div class="task-icon">{{icon}}</div>
+            <div class="task-info">
+              <div class="task-name">{{name}}</div>
+              <div class="task-reward">+{{reward}} XLM on completion</div>
+            </div>
+          </div>
+          {{/tasks}}
+        </div>
+        {{/tasks.length}}
+
+        <div class="cta-wrapper">
+          <a href="{{dashboardUrl}}" class="cta-button">Complete My Tasks</a>
+        </div>
+
+        <div class="motivation">
+          <p>"Small consistent actions lead to extraordinary results. You're doing great!"</p>
+        </div>
+
+        <p class="text" style="font-size: 13px; color: #9ca3af;">
+          You're receiving this because you have task reminders enabled. You can manage your notification preferences in your account settings.
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>© 2026 Stellar Uzima. All rights reserved.</p>
+        <p>
+          <a href="{{preferencesUrl}}">Manage Notifications</a> &nbsp;·&nbsp;
+          <a href="{{privacyUrl}}">Privacy Policy</a> &nbsp;·&nbsp;
+          <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+        </p>
+        <p>Built with ❤️ on the Stellar network</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

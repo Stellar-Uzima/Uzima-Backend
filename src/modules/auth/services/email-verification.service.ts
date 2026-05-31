@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { EmailVerification } from '../../../database/entities/email-verification.entity';
 import { UsersService } from '../../../auth/services/users.service';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { EmailTemplateService } from '../../../shared/notifications/services/email-template.service';
 
 @Injectable()
 export class EmailVerificationService {
@@ -14,7 +14,7 @@ export class EmailVerificationService {
     @InjectRepository(EmailVerification)
     private readonly repo: Repository<EmailVerification>,
     private readonly usersService: UsersService,
-    private readonly notifications: NotificationService,
+    private readonly emailTemplateService: EmailTemplateService,
   ) {}
 
   async createForUser(userId: string) {
@@ -26,11 +26,16 @@ export class EmailVerificationService {
     const ev = this.repo.create({ token, expiresAt, user });
     await this.repo.save(ev);
 
-    // Send email via notifications service (template can be adapted)
+    // Send HTML verification email via EmailTemplateService (issue #664)
     try {
-      const verificationLink = `${process.env.FRONTEND_URL || 'https://example.com'}/verify-email?token=${token}`;
-      await this.notifications.sendMultiChannel(user.id, {
-        email: { template: 'verify-email', data: { name: user.firstName || user.email, link: verificationLink } },
+      const frontendUrl = process.env.FRONTEND_URL || 'https://app.stellaruzima.com';
+      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+
+      await this.emailTemplateService.sendEmailVerification(user.email, {
+        name: user.firstName || user.email,
+        verificationLink,
+        privacyUrl: `${frontendUrl}/privacy`,
+        unsubscribeUrl: `${frontendUrl}/unsubscribe`,
       });
     } catch (err) {
       this.logger.error('Failed to send verification email', err as any);

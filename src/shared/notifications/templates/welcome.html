@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Welcome to Stellar Uzima</title>
+  <style>
+    /* Reset */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+
+    /* Layout */
+    .wrapper { width: 100%; background-color: #f4f7f6; padding: 40px 0; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); padding: 40px 40px 32px; text-align: center; }
+    .header img { width: 48px; height: 48px; margin-bottom: 16px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .header p { margin: 8px 0 0; color: rgba(255,255,255,0.85); font-size: 15px; }
+
+    /* Body */
+    .body { padding: 40px; }
+    .greeting { font-size: 22px; font-weight: 600; color: #1a1a2e; margin: 0 0 16px; }
+    .text { font-size: 15px; line-height: 1.7; color: #4a5568; margin: 0 0 20px; }
+
+    /* Feature list */
+    .features { background-color: #f0faf5; border-radius: 8px; padding: 24px; margin: 28px 0; }
+    .features h3 { margin: 0 0 16px; font-size: 14px; font-weight: 700; color: #1a7a4a; text-transform: uppercase; letter-spacing: 0.5px; }
+    .feature-item { display: flex; align-items: flex-start; margin-bottom: 12px; font-size: 14px; color: #4a5568; }
+    .feature-item:last-child { margin-bottom: 0; }
+    .feature-dot { color: #25a96a; font-size: 18px; line-height: 1.2; margin-right: 10px; flex-shrink: 0; }
+
+    /* CTA */
+    .cta-wrapper { text-align: center; margin: 32px 0; }
+    .cta-button { display: inline-block; background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); color: #ffffff !important; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
+
+    /* Footer */
+    .footer { background-color: #f9fafb; border-top: 1px solid #e8ecef; padding: 28px 40px; text-align: center; }
+    .footer p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; line-height: 1.6; }
+    .footer a { color: #25a96a; text-decoration: none; }
+
+    /* Responsive */
+    @media only screen and (max-width: 620px) {
+      .wrapper { padding: 20px 0; }
+      .header { padding: 32px 24px 28px; }
+      .header h1 { font-size: 22px; }
+      .body { padding: 28px 24px; }
+      .footer { padding: 24px; }
+      .cta-button { padding: 14px 28px; font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h1>Stellar Uzima</h1>
+        <p>Your health journey starts today</p>
+      </div>
+
+      <!-- Body -->
+      <div class="body">
+        <p class="greeting">Welcome, {{name}}! 👋</p>
+        <p class="text">
+          We're thrilled to have you join the Stellar Uzima community. You've taken the first step toward a healthier, more rewarding lifestyle — and we're here to support every step of the way.
+        </p>
+
+        <div class="features">
+          <h3>What you can do with Uzima</h3>
+          <div class="feature-item">
+            <span class="feature-dot">✦</span>
+            <span>Complete daily health tasks and build lasting habits</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-dot">✦</span>
+            <span>Earn XLM rewards for meeting your wellness goals</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-dot">✦</span>
+            <span>Track your streaks and compete on the leaderboard</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-dot">✦</span>
+            <span>Get personalized health insights and recommendations</span>
+          </div>
+        </div>
+
+        <p class="text">
+          Your account is all set. Head over to your dashboard to complete your profile and pick up your first daily tasks.
+        </p>
+
+        <div class="cta-wrapper">
+          <a href="{{dashboardUrl}}" class="cta-button">Go to My Dashboard</a>
+        </div>
+
+        <p class="text" style="font-size: 13px; color: #9ca3af;">
+          If you didn't create an account with Stellar Uzima, you can safely ignore this email.
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>© 2026 Stellar Uzima. All rights reserved.</p>
+        <p>
+          <a href="{{privacyUrl}}">Privacy Policy</a> &nbsp;·&nbsp;
+          <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+        </p>
+        <p>Built with ❤️ on the Stellar network</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

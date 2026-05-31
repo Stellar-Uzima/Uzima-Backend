@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Verify Your Email — Stellar Uzima</title>
+  <style>
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0; padding: 0; background-color: #f4f7f6; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+
+    .wrapper { width: 100%; background-color: #f4f7f6; padding: 40px 0; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    .header { background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); padding: 40px 40px 32px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    .header p { margin: 8px 0 0; color: rgba(255,255,255,0.85); font-size: 15px; }
+
+    .body { padding: 40px; }
+    .icon-wrapper { text-align: center; margin-bottom: 28px; }
+    .icon-circle { display: inline-block; width: 72px; height: 72px; background-color: #e6f7ef; border-radius: 50%; line-height: 72px; font-size: 32px; }
+    .greeting { font-size: 22px; font-weight: 600; color: #1a1a2e; margin: 0 0 16px; }
+    .text { font-size: 15px; line-height: 1.7; color: #4a5568; margin: 0 0 20px; }
+
+    .expiry-badge { display: inline-block; background-color: #e6f7ef; color: #1a7a4a; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 20px; margin-bottom: 24px; }
+
+    .cta-wrapper { text-align: center; margin: 32px 0; }
+    .cta-button { display: inline-block; background: linear-gradient(135deg, #1a7a4a 0%, #25a96a 100%); color: #ffffff !important; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
+
+    .link-fallback { background-color: #f9fafb; border-radius: 8px; padding: 16px 20px; margin: 20px 0; }
+    .link-fallback p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .link-fallback a { font-size: 13px; color: #25a96a; text-decoration: none; word-break: break-all; }
+
+    .why-box { border: 1px solid #e8ecef; border-radius: 8px; padding: 16px 20px; margin: 24px 0; }
+    .why-box p { margin: 0; font-size: 13px; color: #718096; line-height: 1.6; }
+
+    .footer { background-color: #f9fafb; border-top: 1px solid #e8ecef; padding: 28px 40px; text-align: center; }
+    .footer p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; line-height: 1.6; }
+    .footer a { color: #25a96a; text-decoration: none; }
+
+    @media only screen and (max-width: 620px) {
+      .wrapper { padding: 20px 0; }
+      .header { padding: 32px 24px 28px; }
+      .header h1 { font-size: 22px; }
+      .body { padding: 28px 24px; }
+      .footer { padding: 24px; }
+      .cta-button { padding: 14px 28px; font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h1>Stellar Uzima</h1>
+        <p>Confirm your email address</p>
+      </div>
+
+      <!-- Body -->
+      <div class="body">
+        <div class="icon-wrapper">
+          <div class="icon-circle">✉️</div>
+        </div>
+
+        <p class="greeting">Almost there, {{name}}!</p>
+        <p class="text">
+          Thanks for signing up for Stellar Uzima. To start earning rewards and tracking your health goals, please verify your email address by clicking the button below.
+        </p>
+
+        <p style="text-align:center; margin: 0 0 8px;">
+          <span class="expiry-badge">⏱ Link expires in 24 hours</span>
+        </p>
+
+        <div class="cta-wrapper">
+          <a href="{{verificationLink}}" class="cta-button">Verify My Email</a>
+        </div>
+
+        <div class="link-fallback">
+          <p>Button not working? Copy and paste this link:</p>
+          <a href="{{verificationLink}}">{{verificationLink}}</a>
+        </div>
+
+        <div class="why-box">
+          <p>
+            <strong>Why verify?</strong> Verifying your email keeps your account secure and ensures you receive important health task reminders and reward notifications.
+          </p>
+        </div>
+
+        <p class="text" style="font-size: 13px; color: #9ca3af;">
+          If you didn't create a Stellar Uzima account, you can safely ignore this email. No account will be activated without verification.
+        </p>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>© 2026 Stellar Uzima. All rights reserved.</p>
+        <p>
+          <a href="{{privacyUrl}}">Privacy Policy</a> &nbsp;·&nbsp;
+          <a href="{{unsubscribeUrl}}">Unsubscribe</a>
+        </p>
+        <p>Built with ❤️ on the Stellar network</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
