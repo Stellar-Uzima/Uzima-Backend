@@ -1,7 +1,9 @@
-import { Injectable, LoggerService, Inject } from '@nestjs/common';
+
+import { Injectable, LoggerService, Inject, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
+import { RequestContextService } from '../../common/middleware/request-context.service';
 
 export enum LogLevel {
   ERROR = 'error',
@@ -30,7 +32,10 @@ export class CustomLogger implements LoggerService {
   private currentLogFile: string;
   private logLevel: LogLevel;
 
-  constructor(@Inject(ConfigService) private configService: ConfigService) {
+  constructor(
+    @Inject(ConfigService) private configService: ConfigService,
+    @Optional() private readonly requestContextService?: RequestContextService,
+  ) {
     this.logDir = this.configService.get<string>('LOG_DIR', 'logs');
     this.maxFileSize = this.configService.get<number>('LOG_MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
     this.maxFiles = this.configService.get<number>('LOG_MAX_FILES', 5);
@@ -164,6 +169,9 @@ export class CustomLogger implements LoggerService {
     trace?: string,
     metadata?: Record<string, any>
   ): LogEntry {
+    // Issue #667: automatically pull requestId and userId from the active
+    // AsyncLocalStorage context so every log line is traceable.
+    const ctx = this.requestContextService?.getContext();
     return {
       timestamp: new Date().toISOString(),
       level,
@@ -171,6 +179,8 @@ export class CustomLogger implements LoggerService {
       context,
       trace,
       metadata,
+      requestId: ctx?.requestId,
+      userId: ctx?.userId,
     };
   }
 

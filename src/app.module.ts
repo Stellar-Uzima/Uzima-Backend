@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -17,11 +17,10 @@ import { ConsultationsModule } from '@modules/consultations/consultations.module
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
-// 1. Import the new StorageModule
-import { StorageModule } from './shared/storage/storage.module'; 
+import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
-import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { MonitoringModule } from './shared/monitoring/monitoring.module';
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -29,6 +28,10 @@ import { DatabaseModule } from '@database/database.module';
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
 import { SigningModule } from './common/signing/signing.module';
+
+// Middleware
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { RequestContextService } from './common/middleware/request-context.service';
 
 // Shared
 import { SearchModule } from './shared/search/search.module';
@@ -60,8 +63,7 @@ import { OtpModule } from './otp/otp.module';
     DatabaseModule,
     OtpModule,
     LoggingModule,
-    // 2. Add it to the imports list
-    StorageModule, 
+    StorageModule,
     MetricsModule,
     AnalyticsModule,
     UsageModule,
@@ -82,10 +84,19 @@ import { OtpModule } from './otp/otp.module';
   controllers: [AppController],
   providers: [
     AppService,
+    RequestContextService,
     {
       provide: APP_GUARD,
       useClass: RateLimitGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  /**
+   * Issue #667 — apply RequestIdMiddleware globally so every request gets a
+   * unique X-Request-ID header and a populated AsyncLocalStorage context.
+   */
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
