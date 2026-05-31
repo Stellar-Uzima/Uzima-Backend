@@ -165,9 +165,31 @@ export class AdminUsersService {
       throw new ForbiddenException('Admins cannot reactivate themselves');
     }
 
-    const user = await this.getUserById(userId);
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      withDeleted: true,
+      select: [
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'role',
+        'country',
+        'isActive',
+        'status',
+        'stellarWalletAddress',
+        'createdAt',
+        'updatedAt',
+        'deletedAt',
+      ],
+    });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
     user.isActive = true;
     user.status = UserStatus.ACTIVE;
+    user.deletedAt = null;
     const updatedUser = await this.usersRepository.save(user);
     await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
     return updatedUser;
@@ -179,7 +201,7 @@ export class AdminUsersService {
     }
 
     const user = await this.getUserById(userId);
-    await this.usersRepository.remove(user);
+    await this.usersRepository.softRemove(user);
     await this.redisClient.del(`refresh:${userId}`);
     await this.auditService.logAction(adminId, `Deleted user ${userId} (${user.email})`);
     return { message: 'User deleted successfully' };

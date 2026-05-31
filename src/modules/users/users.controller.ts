@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
@@ -135,6 +135,16 @@ export class UsersController {
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return { deleted: id };
+  }
+
+  @Post('deactivate')
+  @HttpCode(200)
+  async deactivate(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ message: string }> {
+    const userId = this.extractUserId(req);
+    await this.usersService.deactivateUser(userId);
+    return { message: 'Account successfully deactivated' };
   }
 
   private extractUserId(req: AuthenticatedRequest): string {

@@ -616,4 +616,22 @@ export class UsersService {
   async deletePreferences(userId: string): Promise<void> {
     await this.preferencesService.deletePreferences(userId);
   }
+
+  /**
+   * Deactivate a user (self-service deactivation)
+   */
+  async deactivateUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.userRepository.softRemove(user);
+
+    if (this.cacheManager) {
+      await this.cacheManager.del(`user:profile:${userId}`);
+    }
+  }
 }
