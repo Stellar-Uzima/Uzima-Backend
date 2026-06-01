@@ -5,6 +5,22 @@
 
 import { setupTestDatabase, teardownTestDatabase, beforeEachTest, afterEachTest } from './setup';
 
+// Allow skipping DB setup for isolated unit tests
+if (process.env.SKIP_DB_SETUP === 'true') {
+  console.log('⚠️ SKIP_DB_SETUP enabled - skipping global DB setup');
+} else {
+  // Global setup - runs once before all tests
+  beforeAll(async () => {
+    console.log('🚀 Starting test suite setup...');
+    try {
+      await setupTestDatabase();
+      console.log('✅ Test database setup complete');
+    } catch (error) {
+      console.error('❌ Failed to setup test database', error);
+      process.exit(1);
+    }
+  }, 60000); // 60 second timeout for setup
+}
 // Global setup - runs once before all tests
 beforeAll(async () => {
   console.log('🚀 Starting test suite setup...');
