@@ -492,6 +492,21 @@ export class UsersService {
       changedFields.push('country');
     }
 
+    if (updateProfileDto.address !== undefined) {
+      updates.address = updateProfileDto.address.trim();
+      changedFields.push('address');
+    }
+
+    if (updateProfileDto.city !== undefined) {
+      updates.city = updateProfileDto.city.trim();
+      changedFields.push('city');
+    }
+
+    if (updateProfileDto.postalCode !== undefined) {
+      updates.postalCode = updateProfileDto.postalCode.trim();
+      changedFields.push('postalCode');
+    }
+
     if (updates.firstName || updates.lastName) {
       const firstName = updates.firstName || user.firstName;
       const lastName = updates.lastName || user.lastName;
@@ -544,6 +559,9 @@ export class UsersService {
       bio: user.referralCode,
       preferredLanguage: user.preferredLanguage,
       country: user.country,
+      address: user.address,
+      city: user.city,
+      postalCode: user.postalCode,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,

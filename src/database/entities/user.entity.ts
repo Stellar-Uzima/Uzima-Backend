@@ -58,6 +58,26 @@ export class User {
   @IsOptional()
   avatar?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  @IsString()
+  @IsOptional()
+  postalCode?: string;
+
   @Column({
     type: 'enum',
     enum: UserRole,
