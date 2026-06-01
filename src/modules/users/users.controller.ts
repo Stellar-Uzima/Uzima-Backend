@@ -1,4 +1,4 @@
-﻿import {
+import {
   Controller,
   Get,
   Post,
@@ -22,6 +22,13 @@ import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class RegisterDeviceTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
 
 type AuthenticatedRequest = {
   user?: {
@@ -52,6 +59,23 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
   ) {}
+
+  @Post('device-token')
+  @HttpCode(200)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  )
+  async registerDeviceToken(
+    @Body() registerDeviceTokenDto: RegisterDeviceTokenDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.extractUserId(req);
+    await this.usersService.registerDeviceToken(userId, registerDeviceTokenDto.token);
+    return { success: true, message: 'Device token registered successfully' };
+  }
 
   @Get('profile')
   async getCurrentProfile(

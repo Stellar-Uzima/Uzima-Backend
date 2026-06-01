@@ -1,5 +1,7 @@
 // src/shared/analytics/analytics.service.ts
 
+// ── Standalone in-memory analytics (issue #549 / PR #647 original) ──────────
+
 /**
  * Interface representing logged user interactions across the application platform.
  */
@@ -35,7 +37,7 @@ export interface AnalyticsReport {
   averageSystemMetrics: Record<string, number>;
 }
 
-export class AnalyticsService {
+export class AnalyticsTracker {
   // In-memory operational vectors (can be mapped directly to database collections later)
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
@@ -73,7 +75,6 @@ export class AnalyticsService {
   /**
    * Requirement: Analyze patterns
    * Acceptance Criteria: Patterns identifiable
-   * Examines historical actions to calculate occurrence counts per specific action name.
    */
   public analyzeActionPatterns(start: Date, end: Date): Record<string, number> {
     const targetActions = this.queryUserActions({ start, end });
@@ -89,19 +90,16 @@ export class AnalyticsService {
   /**
    * Requirement: Generate reports
    * Acceptance Criteria: Reports generated
-   * Compiles actions frequency data and handles averaged metrics reductions over a timeframe.
    */
   public generateAnalyticsReport(start: Date, end: Date): AnalyticsReport {
     const actionsInPeriod = this.queryUserActions({ start, end });
     const metricsInPeriod = this.querySystemMetrics({ start, end });
 
-    // Identify pattern frequency mappings
     const patternMap = this.analyzeActionPatterns(start, end);
     const topActionPatterns = Object.entries(patternMap)
       .map(([action, count]) => ({ action, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Aggregate values for averaged calculations
     const metricAveragesAccumulator: Record<string, { total: number; count: number }> = {};
     metricsInPeriod.forEach((metric) => {
       if (!metricAveragesAccumulator[metric.metricName]) {
@@ -128,7 +126,6 @@ export class AnalyticsService {
 
   /**
    * Acceptance Criteria: Data queryable
-   * Dynamic lookup query handler for specific user actions filtering lists.
    */
   public queryUserActions(filters: {
     start?: Date;
@@ -147,7 +144,6 @@ export class AnalyticsService {
 
   /**
    * Acceptance Criteria: Data queryable
-   * Dynamic lookup query handler for checking performance metrics logs.
    */
   public querySystemMetrics(filters: {
     start?: Date;
@@ -162,13 +158,14 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Testing Utility (Optional)
-   * Wipes internal tracking frames back to a clean state.
-   */
   public clearLogs(): void {
     this.userActionsLog = [];
     this.systemMetricsLog = [];
+  }
+}
+
+// ── Provider-based analytics (used by AnalyticsModule) ──────────────────────
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 export const ANALYTICS_PROVIDERS = 'ANALYTICS_PROVIDERS';
@@ -198,7 +195,6 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
     }
 
     try {
-      // Placeholder for real external analytics integration.
       console.log(`[ExternalAnalytics] sending event ${eventName} to ${this.endpoint}`);
       console.log({ apiKey: this.apiKey, eventName, payload });
     } catch (error) {

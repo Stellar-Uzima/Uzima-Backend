@@ -13,8 +13,7 @@ import {
 } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } from 'class-validator';
 import { Role } from '../../auth/enums/role.enum';
-import { Session } from './session.entity';
-import { Organization } from './organization.entity';
+
 
 export enum UserRole {
   USER = 'USER',
@@ -83,6 +82,11 @@ export class User {
   @IsString()
   twoFactorSecret?: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsOptional()
+  @IsString()
+  fcmToken?: string | null;
+
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 
@@ -116,12 +120,6 @@ export class User {
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];
 
-  @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
-
-  @ManyToMany(() => Organization, (org) => org.users)
-  @JoinTable({ name: 'user_organizations' })
-  organizations: Organization[];
 }
 
 // Import related entities to avoid circular dependencies

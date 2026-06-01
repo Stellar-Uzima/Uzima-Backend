@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Body,
@@ -22,6 +23,13 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserStatsDto } from './dto/user-stats.dto';
 import { ErrorResponseDto } from './dto/error-response.dto';
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class RegisterDeviceTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+}
 
 // JWT Auth Guard - will be implemented when JWT is added
 // For now, we'll use a mock guard interface
@@ -57,6 +65,30 @@ class JwtAuthGuard implements CanActivate {
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post('device-token')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  )
+  @ApiOperation({
+    summary: 'Register FCM device token',
+    description: 'Registers or updates a device token for Firebase Cloud Messaging push notifications.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Device token registered successfully',
+  })
+  async registerDeviceToken(
+    @Body() registerDeviceTokenDto: RegisterDeviceTokenDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.usersService.registerDeviceToken(req.user.userId, registerDeviceTokenDto.token);
+    return { success: true, message: 'Device token registered successfully' };
+  }
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
