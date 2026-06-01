@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
+import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
@@ -66,9 +67,15 @@ async function bootstrap() {
   const monitoringInterceptor = app.get(MonitoringInterceptor);
   app.useGlobalInterceptors(monitoringInterceptor);
 
-  // Enable CORS
+  const corsOrigins = parseCorsOrigins(process.env);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS origin not allowed: ${origin}`), false);
+    },
     credentials: true,
   });
 
