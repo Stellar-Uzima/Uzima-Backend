@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MonitoringInterceptor }
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter'; from './common/interceptors/monitoring.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor'; from './common/interceptors/monitoring.interceptor';
 import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
 import { parseCorsOrigins } from './config/app.config';
@@ -60,6 +61,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Global exception filter
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Global logging interceptor
   const loggingInterceptor = app.get(LoggingInterceptor);
