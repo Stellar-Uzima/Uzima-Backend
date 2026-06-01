@@ -1,11 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MonitoringInterceptor }
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter'; from './common/interceptors/monitoring.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor'; from './common/interceptors/monitoring.interceptor';
+import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
+import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
@@ -40,6 +43,8 @@ function addSecurityHeaders(req, res, next) {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
+  app.enableVersioning({ type: VersioningType.URI }); 
 
   // Apply security headers middleware
   app.use(addSecurityHeaders);
@@ -64,13 +69,22 @@ async function bootstrap() {
   const loggingInterceptor = app.get(LoggingInterceptor);
   app.useGlobalInterceptors(loggingInterceptor);
 
+  // Global transform interceptor (response envelope)
+  app.useGlobalInterceptors(new TransformInterceptor());
+
   // Global monitoring interceptor
   const monitoringInterceptor = app.get(MonitoringInterceptor);
   app.useGlobalInterceptors(monitoringInterceptor);
 
-  // Enable CORS
+  const corsOrigins = parseCorsOrigins(process.env);
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS origin not allowed: ${origin}`), false);
+    },
     credentials: true,
   });
 

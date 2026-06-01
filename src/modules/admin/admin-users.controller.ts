@@ -79,7 +79,7 @@ export class AdminUsersController {
     return this.adminUsersService.suspendUser(req.user.sub, id);
   }
 
-  @Patch(':id/reactivate')
+  @Post(':id/reactivate')
   @ApiOperation({ summary: 'Reactivate a user account' })
   @ApiResponse({ status: 200, description: 'User reactivated successfully' })
   async reactivate(@Req() req: any, @Param('id') id: string) {
@@ -91,5 +91,36 @@ export class AdminUsersController {
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.adminUsersService.deleteUser(req.user.sub, id);
+  }
+   @Post(
+    "users/:id/roles",
+  )
+  async assignRole(
+    @Param("id")
+    userId: string,
+
+    @Body()
+    dto: AssignRoleDto,
+  ) {
+    return this.adminService.assignRole(
+      userId,
+      dto.role,
+    );
+  }
+
+  @Delete(
+    "users/:id/roles/:role",
+  )
+  async revokeRole(
+    @Param("id")
+    userId: string,
+
+    @Param("role")
+    role: string,
+  ) {
+    return this.adminService.revokeRole(
+      userId,
+      role,
+    );
   }
 }

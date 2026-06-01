@@ -309,6 +309,19 @@ describe('RewardService', () => {
       );
     });
 
+    it('should apply status filter when provided', async () => {
+      mockCacheManager.get.mockResolvedValue(null);
+      mockQueryBuilder.getCount.mockResolvedValue(0);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.getRewardHistory(userId, { status: RewardStatus.SUCCESS });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'reward_transaction.status = :status',
+        { status: RewardStatus.SUCCESS },
+      );
+    });
+
     it('should apply category filter when provided', async () => {
       mockCacheManager.get.mockResolvedValue(null);
       mockQueryBuilder.getCount.mockResolvedValue(0);
