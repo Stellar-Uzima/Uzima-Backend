@@ -1,6 +1,7 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, Response } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { Response as ExpressResponse } from 'express';
 import { OtpService } from './otp.service';
 import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 
@@ -24,9 +25,23 @@ export class OtpController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request OTP (strict rate limit)' })
   @ApiResponse({ status: 200, description: 'OTP sent' })
-  @ApiResponse({ status: 429, description: 'Too many OTP requests' })
-  async requestOtp(@Body() body: OtpRequestDto) {
-    return this.otpService.requestOtp(body.phoneNumber);
+  @ApiResponse({ status: 429, description: 'Too many OTP requests or cooldown active' })
+  async requestOtp(@Body() body: OtpRequestDto, @Response() res: ExpressResponse) {
+    const result = await this.otpService.requestOtp(body.phoneNumber);
+
+    // Handle resend cooldown with 429 status and Retry-After header
+    if (!result.success && result.retryAfter) {
+      return res
+        .status(HttpStatus.TOO_MANY_REQUESTS)
+        .set('Retry-After', result.retryAfter.toString())
+        .json({
+          success: false,
+          message: result.message,
+          retryAfter: result.retryAfter,
+        });
+    }
+
+    return res.json(result);
   }
 
   @Post('verify')
