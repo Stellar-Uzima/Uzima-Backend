@@ -1,7 +1,7 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  ForbiddenException 
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,22 +13,53 @@ import {
   PrioritizableTask,
 } from './services/priority.service';
 import { ActivityLogService } from './services/activity-log.service';
+import { TaskCategory } from '../../database/entities/task-category.entity';
+import { TaskTag } from '../../database/entities/task-tag.entity';
 
 @Injectable()
 export class HealthTasksService {
   constructor(
     @InjectRepository(HealthTask)
     private readonly taskRepository: Repository<HealthTask>,
+    @InjectRepository(TaskCategory)
+    private readonly categoryRepository: Repository<TaskCategory>,
+    @InjectRepository(TaskTag)
+    private readonly tagRepository: Repository<TaskTag>,
     private readonly priorityService: PriorityService,
     private readonly activityLogService: ActivityLogService,
   ) {}
 
   async findOne(id: string): Promise<HealthTask | null> {
-    return this.taskRepository.findOne({ where: { id } });
+    return this.taskRepository.findOne({
+      where: { id },
+      relations: ['category', 'tags'],
+    });
   }
 
   async create(dto: CreateHealthTaskDto): Promise<HealthTask> {
-    const task = this.taskRepository.create(dto as unknown as HealthTask);
+    const task = this.taskRepository.create({
+      title: dto.title,
+      description: dto.description,
+      dueDate: dto.dueDate,
+      priority: dto.priority,
+      frequency: dto.frequency,
+    } as unknown as HealthTask);
+
+    if (dto.categoryId) {
+      const category = await this.categoryRepository.findOne({
+        where: { id: dto.categoryId },
+      });
+      if (category) {
+        task.categoryId = dto.categoryId;
+        task.category = category;
+      }
+    }
+
+    if (dto.tagIds && dto.tagIds.length > 0) {
+      const tags = await this.tagRepository.findByIds(dto.tagIds);
+      task.tags = tags;
+    }
+
     return this.taskRepository.save(task);
   }
 
@@ -45,7 +76,7 @@ export class HealthTasksService {
     const allowed = [
       'title',
       'description',
-      'category',
+      'categoryId',
       'status',
       'xlmReward',
       'targetProfile',
@@ -54,6 +85,35 @@ export class HealthTasksService {
     for (const key of Object.keys(dto)) {
       if (allowed.includes(key)) {
         (task as any)[key] = (dto as any)[key];
+      }
+    }
+
+    // Handle category update
+    if (dto.categoryId !== undefined) {
+      if (dto.categoryId) {
+        const category = await this.categoryRepository.findOne({
+          where: { id: dto.categoryId },
+        });
+        if (category) {
+          task.categoryId = dto.categoryId;
+          task.category = category;
+        } else {
+          task.categoryId = null;
+          task.category = null;
+        }
+      } else {
+        task.categoryId = null;
+        task.category = null;
+      }
+    }
+
+    // Handle tags update
+    if (dto.tagIds !== undefined) {
+      if (dto.tagIds && dto.tagIds.length > 0) {
+        const tags = await this.tagRepository.findByIds(dto.tagIds);
+        task.tags = tags;
+      } else {
+        task.tags = [];
       }
     }
 
