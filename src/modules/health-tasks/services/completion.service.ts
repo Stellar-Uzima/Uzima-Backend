@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { TaskCompletion } from '../../../database/entities/task-completion.entity';
@@ -38,6 +39,7 @@ export class CompletionService {
     private readonly taskRepo: Repository<HealthTask>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async markTaskComplete(
@@ -75,7 +77,17 @@ export class CompletionService {
       notes,
     });
 
-    return await this.completionRepo.save(completion);
+    const saved = await this.completionRepo.save(completion);
+
+    if (saved.isCompleted) {
+      this.eventEmitter.emit('task.completed', {
+        userId,
+        completionId: saved.id,
+        taskId,
+      });
+    }
+
+    return saved;
   }
 
   async markTaskIncomplete(

@@ -38,4 +38,9 @@ export class RegisterDto {
   })
   // optional phone field (E.164). Keep optional to avoid breaking existing call sites.
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(6, 12)
+  referralCode?: string;
 }

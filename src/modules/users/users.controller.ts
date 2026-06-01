@@ -18,7 +18,12 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
@@ -28,6 +33,7 @@ import { ActivityFeedService } from './services/activity-feed.service';
 import { QueueService } from '../../shared/queue/queue.service';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { DataExportService } from './services/data-export.service';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 export class RegisterDeviceTokenDto {
@@ -64,6 +70,20 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
+    private readonly dataExportService: DataExportService,
+  ) {}
+
+  @Post('data-export')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request GDPR data export',
+    description:
+      'Queues a job to export all personal data. An email with a download link is sent when ready (link expires in 24 hours).',
+  })
+  @ApiResponse({ status: 202, description: 'Export job queued' })
+  async requestDataExport(@Req() req: AuthenticatedRequest) {
+    const userId = this.extractUserId(req);
+    return this.dataExportService.queueExport(userId);
     private readonly activityFeedService: ActivityFeedService,
     private readonly queueService: QueueService,
   ) {}

@@ -373,6 +373,14 @@ Detailed documentation for each module is available in their respective README f
 - [Health Tasks Module](./src/modules/health-tasks/README.md) - Health task tracking
 - [Database Module](./src/database/README.md) - Database setup and migrations
 
+## 📦 Dependency updates
+
+This repository uses [Dependabot](https://docs.github.com/en/code-security/dependabot) (see [`.github/dependabot.yml`](./.github/dependabot.yml)):
+
+- **Weekly** pull requests for routine npm dependency updates (non-breaking, reviewed before merge).
+- **Daily** monitoring with prioritized PRs for **security patches** (labeled `security`).
+- Maintainers should merge security updates promptly; routine updates can follow the normal PR review process.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please read our [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) for detailed guidelines on:

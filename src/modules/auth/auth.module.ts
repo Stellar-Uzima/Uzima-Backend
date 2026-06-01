@@ -24,6 +24,7 @@ import { OtpModule } from '../../otp/otp.module';
 import { AuditModule } from '../../audit/audit.module';
 import { UsersService } from '../../auth/services/users.service';
 import { DatabaseModule } from '../../database/database.module';
+import { ReferralModule } from '../../referral/referral.module';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 
 @Module({
@@ -31,6 +32,7 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     OtpModule,
     AuditModule,
     DatabaseModule,
+    ReferralModule,
     PassportModule,
     TypeOrmModule.forFeature([User, EmailVerification, Session, TokenBlacklist, TwoFactor]),
     NotificationsModule,

@@ -10,22 +10,27 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { User } from '../../entities/user.entity';
 import { UsersController } from './users.controller';
+import { DataExportDownloadController } from './controllers/data-export-download.controller';
 import { UsersService } from './users.service';
 import { QueueModule } from '../../queue/queue.module';
+import { UserActivity } from '../../database/entities/user-activity.entity';
 import { ActivityTrackerService } from './services/activity-tracker.service';
-import { ActivityFeedService } from './services/activity-feed.service';
 import { AvatarService } from './services/avatar.service';
-import { StorageService } from '../../storage/storage.service';
-import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
+import { DataExportService } from './services/data-export.service';
+import { DataExportProcessor } from './processors/data-export.processor';
+import { TaskCompletion } from '../../database/entities/task-completion.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
-import { Coupon } from '../../coupons/entities/coupon.entity';
-import { HealthTask } from '../../tasks/entities/health-task.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
-import { DataExportProcessor } from './queues/data-export.processor';
+import { ReferralRecord } from '../../referral/entities/referral-record.entity';
+import { QueueService } from '../../shared/queue/queue.service';
 import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
-  controllers: [UsersController, SettingsController],
+  controllers: [
+    UsersController,
+    SettingsController,
+    DataExportDownloadController,
+  ],
   imports: [
     TypeOrmModule.forFeature([
       User,
@@ -34,6 +39,8 @@ import { NotificationsModule } from '../../notifications/notifications.module';
       UserActivity,
       TaskCompletion,
       RewardTransaction,
+      Notification,
+      ReferralRecord,
       Coupon,
       HealthTask,
       Notification,
@@ -44,12 +51,25 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     QueueModule,
     NotificationsModule,
   ],
+  exports: [
+    UsersService,
+    UserSearchService,
+    PhoneVerificationService,
+    ActivityTrackerService,
+    AvatarService,
+    DataExportService,
+  ],
   providers: [
     UsersService,
     UserSearchService,
     PhoneVerificationService,
     SmsService,
     ActivityTrackerService,
+    AvatarService,
+    DataExportService,
+    DataExportProcessor,
+    QueueService,
+  ],
     ActivityFeedService,
     AvatarService,
     StorageService,

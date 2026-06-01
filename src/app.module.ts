@@ -39,6 +39,9 @@ import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
+import { AppCacheModule } from './shared/cache/cache.module';
+import { RewardModule } from './rewards/reward.module';
+import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
@@ -48,6 +51,7 @@ import { HealthProfileModule } from './users/health-profile/health-profile.modul
       envFilePath: '.env',
       load: [secretsConfig, passwordConfig],
     }),
+    AppCacheModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -83,6 +87,8 @@ import { HealthProfileModule } from './users/health-profile/health-profile.modul
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    RewardModule,
+    ReferralModule,
     HealthProfileModule,
   ],
   controllers: [AppController],

@@ -367,6 +367,38 @@ export class CacheService implements OnModuleInit {
   }
 
   /**
+   * Fetch with cache; on fetch failure return last cached value if present (stale-while-error).
+   */
+  async rememberWithStaleFallback<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    ttl: number = 3600,
+  ): Promise<T> {
+    const cached = await this.get<T>(key);
+    if (cached !== null) {
+      const remainingTtl = await this.ttl(key);
+      if (remainingTtl > 0) {
+        return cached;
+      }
+    }
+
+    try {
+      const data = await fetcher();
+      await this.set(key, data, { ttl });
+      return data;
+    } catch (error) {
+      if (cached !== null) {
+        this.logger.warn(
+          `Fetcher failed for ${key}; returning stale cached value`,
+        );
+        return cached;
+      }
+      this.logger.error(`Failed to remember cache key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get multiple keys at once
    */
   async mget<T>(keys: string[]): Promise<(T | null)[]> {
