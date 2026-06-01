@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
+import { ActivityFeedService } from './services/activity-feed.service';
 import { UserSearchDto, UserSearchResponseDto } from './dto/user-search.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { User } from '../../entities/user.entity';
@@ -68,10 +69,15 @@ describe('UsersController', () => {
       listUsers: jest.fn(),
       findOne: jest.fn(),
       getUserStats: jest.fn(),
+      registerDeviceToken: jest.fn(),
     };
 
     const mockUserSearchService = {
       searchUsers: jest.fn(),
+    };
+
+    const mockActivityFeedService = {
+      getActivityFeed: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -84,6 +90,10 @@ describe('UsersController', () => {
         {
           provide: UserSearchService,
           useValue: mockUserSearchService,
+        },
+        {
+          provide: ActivityFeedService,
+          useValue: mockActivityFeedService,
         },
       ],
     }).compile();
@@ -295,6 +305,20 @@ describe('UsersController', () => {
       await expect(controller.getProfile('test-id', mockRequest)).rejects.toThrow(
         ForbiddenException
       );
+    });
+  });
+
+  describe('registerDeviceToken', () => {
+    it('should register a device token successfully', async () => {
+      const dto = { token: 'fcm-token-123' };
+      mockRequest.user = mockRegularUser;
+
+      jest.spyOn(service, 'registerDeviceToken').mockResolvedValue(mockUser);
+
+      const result = await controller.registerDeviceToken(dto, mockRequest);
+
+      expect(service.registerDeviceToken).toHaveBeenCalledWith('user-id', 'fcm-token-123');
+      expect(result).toEqual({ success: true, message: 'Device token registered successfully' });
     });
   });
 

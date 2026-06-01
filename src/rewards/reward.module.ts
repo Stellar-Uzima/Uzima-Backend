@@ -13,6 +13,7 @@ import { User } from '../entities/user.entity';
 import { RewardsScheduler } from './rewards.scheduler';
 import { DeadLetterProcessor } from './queues/dead-letter.processor';
 import { REWARD_QUEUE, REWARD_DEAD_LETTER_QUEUE } from '../queue/queue.constants';
+import { BadgeModule } from './badges/badge.module';
 
 @Module({
   imports: [
@@ -40,19 +41,10 @@ import { REWARD_QUEUE, REWARD_DEAD_LETTER_QUEUE } from '../queue/queue.constants
     BullModule.registerQueue({
       name: REWARD_DEAD_LETTER_QUEUE,
     }),
+    BadgeModule,
   ],
   controllers: [RewardController],
-  providers: [
-    RewardService,
-    RewardProcessor,
-    DeadLetterProcessor,
-    RewardsScheduler,
-  ],
-  exports: [
-    RewardService,
-    DeadLetterProcessor,
-    RewardsScheduler,
-    TypeOrmModule,
-  ],
+  providers: [RewardService, RewardProcessor, DeadLetterProcessor, RewardsScheduler],
+  exports: [RewardService, DeadLetterProcessor, RewardsScheduler, TypeOrmModule],
 })
 export class RewardModule {}

@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { LeaderboardService } from './leaderboard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LeaderboardResponseDto } from './dto/leaderboard.dto';
+import { parseLeaderboardPeriod } from './leaderboard-period.enum';
 
 @Controller('leaderboard')
 @ApiTags('leaderboard')
@@ -21,6 +22,12 @@ export class LeaderboardController {
   })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['daily', 'weekly', 'monthly', 'all-time'],
+    example: 'weekly',
+  })
   @ApiResponse({
     status: 200,
     description: 'Successfully retrieved leaderboard',
@@ -30,12 +37,14 @@ export class LeaderboardController {
     @Req() req,
     @Query('limit') limit?: number,
     @Query('page') page?: number,
+    @Query('period') period?: string,
   ): Promise<LeaderboardResponseDto> {
     return this.leaderboardService.getLeaderboard(
       req.user.id,
       limit || 10,
       undefined,
       page || 1,
+      parseLeaderboardPeriod(period),
     );
   }
 

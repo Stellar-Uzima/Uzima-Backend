@@ -1,11 +1,18 @@
 import { Module } from '@nestjs/common';
-import { PrometheusModule, makeCounterProvider, makeHistogramProvider, makeGaugeProvider } from '@willsoto/nestjs-prometheus';
+import {
+  PrometheusModule,
+  makeCounterProvider,
+  makeHistogramProvider,
+  makeGaugeProvider,
+} from '@willsoto/nestjs-prometheus';
 import { MetricsService } from './metrics.service';
+import { MonitoringController } from '../monitoring/monitoring.controller';
 
 @Module({
   imports: [
     PrometheusModule.register({
       path: '/metrics',
+      controller: MonitoringController,
       defaultMetrics: {
         enabled: true,
       },
@@ -16,6 +23,16 @@ import { MetricsService } from './metrics.service';
     makeCounterProvider({
       name: 'http_requests_total',
       help: 'Total number of HTTP requests',
+      labelNames: ['method', 'route', 'status_code'],
+    }),
+    makeCounterProvider({
+      name: 'http_requests_success_total',
+      help: 'Total number of successful HTTP requests',
+      labelNames: ['method', 'route'],
+    }),
+    makeCounterProvider({
+      name: 'http_requests_failed_total',
+      help: 'Total number of failed HTTP requests (4xx/5xx)',
       labelNames: ['method', 'route', 'status_code'],
     }),
     makeHistogramProvider({

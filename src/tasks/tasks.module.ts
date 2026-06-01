@@ -12,6 +12,7 @@ import { TaskCompletionController } from './completions/task-completion.controll
 import { ProofVerificationService } from './completions/verification/proof-verification.service';
 import { ProofVerificationProcessor } from './completions/verification/proof-verification.processor';
 import { QueueModule } from '../queue/queue.module';
+import { QueueService } from '../shared/queue/queue.service';
 import { StorageModule } from '../storage/storage.module';
 import { TaskAssignmentModule } from './assignment/task-assignment.module';
 import { ReminderService } from '../modules/health-tasks/services/reminder.service';
@@ -33,8 +34,7 @@ import { User } from '../entities/user.entity';
     TaskCompletionService,
     ProofVerificationService,
     ProofVerificationProcessor,
-    ReminderService,
-    RecurringTaskService,
+    QueueService,
   ],
   exports: [TasksService],
 })
