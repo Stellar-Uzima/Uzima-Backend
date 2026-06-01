@@ -29,6 +29,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
     '^@modules/(.*)$': '<rootDir>/modules/$1',
     '^@common/(.*)$': '<rootDir>/common/$1',
+    '^src/(.*)$': '<rootDir>/$1',
   },
   moduleDirectories: ['node_modules', '<rootDir>'],
 };

@@ -47,6 +47,9 @@ export class HealthTask {
   @Column({ default: true })
   isActive!: boolean;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  reminderTime?: Date;
+
   @CreateDateColumn()
   createdAt!: Date;
 

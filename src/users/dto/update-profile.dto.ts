@@ -69,4 +69,14 @@ export class UpdateProfileDto {
       'Please provide a valid phone number with country code (e.g., +2348012345678)',
   })
   phoneNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'User address',
+    example: '123 Main St, City, Country',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString({ message: 'Address must be a string' })
+  @Length(1, 255, { message: 'Address must be between 1 and 255 characters' })
+  address?: string;
 }

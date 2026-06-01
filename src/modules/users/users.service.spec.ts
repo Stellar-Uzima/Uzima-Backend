@@ -250,3 +250,77 @@ describe("UsersService", () => {
     service = module.get<UsersService>(UsersService);
     repo = module.get(getRepositoryToken(User));
   });
+
+  describe(
+  'UsersService',
+  () => {
+
+    describe(
+      'updateProfile',
+      () => {
+
+        it(
+          'updates user profile fields',
+          async () => {
+
+            const user = {
+              id: 'user-1',
+              name:
+                'Old Name',
+              phone:
+                '111111111',
+              address:
+                'Old Address',
+            };
+
+            repository.findOne.mockResolvedValue(
+              user,
+            );
+
+            repository.save.mockResolvedValue(
+              {
+                ...user,
+                name:
+                  'New Name',
+              },
+            );
+
+            const result =
+              await service.updateProfile(
+                'user-1',
+                {
+                  name:
+                    'New Name',
+                },
+              );
+
+            expect(
+              result.name,
+            ).toBe(
+              'New Name',
+            );
+          },
+        );
+
+        it(
+          'throws when user does not exist',
+          async () => {
+
+            repository.findOne.mockResolvedValue(
+              null,
+            );
+
+            await expect(
+              service.updateProfile(
+                'missing-user',
+                {},
+              ),
+            ).rejects.toThrow(
+              NotFoundException,
+            );
+          },
+        );
+      },
+    );
+  },
+);

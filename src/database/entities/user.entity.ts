@@ -15,6 +15,8 @@ import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } fro
 import { Role } from '../../auth/enums/role.enum';
 import { Session } from './session.entity';
 import { Organization } from './organization.entity';
+import { UserActivity } from './user-activity.entity';
+import { UserPreferences } from './user-preferences.entity';
 
 export enum UserRole {
   USER = 'USER',
