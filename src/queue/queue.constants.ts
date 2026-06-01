@@ -30,6 +30,9 @@ export const TASK_COMPLETION_VERIFICATION_JOB =
 export const TASK_QUALITY_CHECK_JOB = 'task-quality-check' as const;
 export const TASK_APPROVAL_JOB = 'task-approval' as const;
 
+// Queue Job Types for Data Processing Queue
+export const USER_DATA_EXPORT_JOB = 'user-data-export' as const;
+
 // Type definitions for better type safety
 export type QueueName =
   | typeof REWARD_QUEUE

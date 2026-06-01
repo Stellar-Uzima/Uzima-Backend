@@ -36,6 +36,9 @@ import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
+import { AppCacheModule } from './shared/cache/cache.module';
+import { RewardModule } from './rewards/reward.module';
+import { ReferralModule } from './referral/referral.module';
 
 @Module({
   imports: [
@@ -44,6 +47,7 @@ import { OtpModule } from './otp/otp.module';
       envFilePath: '.env',
       load: [secretsConfig],
     }),
+    AppCacheModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -78,6 +82,8 @@ import { OtpModule } from './otp/otp.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    RewardModule,
+    ReferralModule,
   ],
   controllers: [AppController],
   providers: [

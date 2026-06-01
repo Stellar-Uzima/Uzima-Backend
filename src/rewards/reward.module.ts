@@ -13,9 +13,11 @@ import { User } from '../entities/user.entity';
 import { RewardsScheduler } from './rewards.scheduler';
 import { DeadLetterProcessor } from './queues/dead-letter.processor';
 import { REWARD_QUEUE, REWARD_DEAD_LETTER_QUEUE } from '../queue/queue.constants';
+import { StellarModule } from '../stellar/stellar.module';
 
 @Module({
   imports: [
+    StellarModule,
     TypeOrmModule.forFeature([
       RewardTransaction,
       FailedRewardJob,

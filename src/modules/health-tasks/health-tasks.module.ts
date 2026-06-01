@@ -24,6 +24,7 @@ import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
 import { TaskCategory } from '../../database/entities/task-category.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
+import { User } from '../../entities/user.entity';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { NotificationsModule } from '../../notifications/notifications.module';
       TaskCompletion,
       DailyTaskAssignment,
       TaskCategory,
+      User,
     ]),
     CacheModule.register(),
     NotificationsModule,

@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { authenticator } from 'otplib';
@@ -30,6 +31,7 @@ import { EmailVerificationService } from '@/modules/auth/services/email-verifica
 import { SessionService } from '@/modules/auth/services/session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
+import { ReferralService } from '../../referral/referral.service';
 
 @Injectable()
 export class AuthService {
@@ -57,6 +59,7 @@ export class AuthService {
     private transactionService: TransactionService,
     @InjectRepository(TokenBlacklist)
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
+    @Optional() private readonly referralService?: ReferralService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -83,6 +86,16 @@ export class AuthService {
       userId: user.id,
       email: user.email,
     });
+
+    if (dto.referralCode && this.referralService) {
+      try {
+        await this.referralService.redeemReferralCode(user.id, dto.referralCode);
+      } catch (error) {
+        this.logger.warn(
+          `Referral code not applied for user ${user.id}: ${(error as Error).message}`,
+        );
+      }
+    }
 
     // Create email verification token and send email
     if (user.email) {

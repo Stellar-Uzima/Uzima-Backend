@@ -12,16 +12,23 @@
   UsePipes,
   ValidationPipe,
   HttpCode,
+  HttpStatus,
   ForbiddenException,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { DataExportService } from './services/data-export.service';
 
 type AuthenticatedRequest = {
   user?: {
@@ -51,7 +58,21 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
+    private readonly dataExportService: DataExportService,
   ) {}
+
+  @Post('data-export')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request GDPR data export',
+    description:
+      'Queues a job to export all personal data. An email with a download link is sent when ready (link expires in 24 hours).',
+  })
+  @ApiResponse({ status: 202, description: 'Export job queued' })
+  async requestDataExport(@Req() req: AuthenticatedRequest) {
+    const userId = this.extractUserId(req);
+    return this.dataExportService.queueExport(userId);
+  }
 
   @Get('profile')
   async getCurrentProfile(

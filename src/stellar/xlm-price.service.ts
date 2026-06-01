@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { PriceFeedService } from './price-feed.service';
 
 @Injectable()
 export class XlmPriceService {
+  constructor(private readonly priceFeedService: PriceFeedService) {}
+
   async getXlmUsdRate(): Promise<number> {
-    // Mock implementation - in real app, fetch from API like CoinGecko
-    return 0.12;
+    const snapshot = await this.priceFeedService.getXlmUsdPrice();
+    return snapshot.priceUsd;
   }
 }
