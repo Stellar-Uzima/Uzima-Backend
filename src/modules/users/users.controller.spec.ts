@@ -80,6 +80,10 @@ describe('UsersController', () => {
       getActivityFeed: jest.fn(),
     };
 
+    const mockQueueService = {
+      addJob: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
       providers: [
@@ -95,6 +99,10 @@ describe('UsersController', () => {
           provide: ActivityFeedService,
           useValue: mockActivityFeedService,
         },
+        {
+          provide: require('../../shared/queue/queue.service').QueueService,
+          useValue: mockQueueService,
+        },
       ],
     }).compile();
 
@@ -105,6 +113,18 @@ describe('UsersController', () => {
     mockRequest = {
       user: mockAdminUser,
     };
+  });
+
+  describe('data export endpoint', () => {
+    it('should enqueue an export job and return 202 message', async () => {
+      const localQueue = (controller as any).queueService;
+      localQueue.addJob = jest.fn().mockResolvedValue({ id: 'job-1' });
+
+      const res = await controller.requestDataExport(mockRequest);
+
+      expect(localQueue.addJob).toHaveBeenCalled();
+      expect(res).toEqual({ message: 'Export job queued' });
+    });
   });
 
   it('should be defined', () => {

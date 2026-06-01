@@ -19,6 +19,10 @@ import { StorageService } from '../../storage/storage.service';
 import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { Coupon } from '../../coupons/entities/coupon.entity';
+import { HealthTask } from '../../tasks/entities/health-task.entity';
+import { Notification } from '../../notifications/entities/notification.entity';
+import { DataExportProcessor } from './queues/data-export.processor';
+import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
   controllers: [UsersController, SettingsController],
@@ -31,19 +35,14 @@ import { Coupon } from '../../coupons/entities/coupon.entity';
       TaskCompletion,
       RewardTransaction,
       Coupon,
+      HealthTask,
+      Notification,
     ]),
     CacheModule.register({
       ttl: 300,
     }),
     QueueModule,
-  ],
-  exports: [
-    UsersService,
-    UserSearchService,
-    PhoneVerificationService,
-    ActivityTrackerService,
-    ActivityFeedService,
-    AvatarService,
+    NotificationsModule,
   ],
   providers: [
     UsersService,
@@ -54,9 +53,8 @@ import { Coupon } from '../../coupons/entities/coupon.entity';
     ActivityFeedService,
     AvatarService,
     StorageService,
+    DataExportProcessor,
   ],
-  ], 
   exports: [UsersService, UserSearchService, PhoneVerificationService],
-  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService],
 })
 export class UsersModule {}
