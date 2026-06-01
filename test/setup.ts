@@ -53,42 +53,54 @@ export async function clearTestDB() {
 }
 
 // Test database configuration - separate from production
+const testDatabaseType =
+  (process.env.TEST_DATABASE_TYPE as any) ||
+  'postgres';
+
+const isSqliteTest = testDatabaseType === 'sqlite';
+
 export const testDatabaseConfig = {
-  type: 'postgres' as const,
-  host:
-    process.env.TEST_DB_HOST ||
-    process.env.DB_HOST ||
-    process.env.DATABASE_HOST ||
-    'localhost',
-  port: parseInt(
-    process.env.TEST_DB_PORT ||
-      process.env.DB_PORT ||
-      process.env.DATABASE_PORT ||
-      '5432',
-    10,
-  ),
-  username:
-    process.env.TEST_DB_USERNAME ||
-    process.env.DB_USER ||
-    process.env.DB_USERNAME ||
-    process.env.DATABASE_USERNAME ||
-    process.env.DATABASE_USER ||
-    'postgres',
-  password:
-    process.env.TEST_DB_PASSWORD ||
-    process.env.DB_PASSWORD ||
-    process.env.DATABASE_PASSWORD ||
-    'password',
-  database:
-    process.env.TEST_DB_NAME ||
-    process.env.DB_DATABASE ||
-    process.env.DATABASE_NAME ||
-    'uzima_test',
+  type: testDatabaseType,
+  host: isSqliteTest
+    ? undefined
+    : process.env.TEST_DB_HOST ||
+      process.env.DB_HOST ||
+      process.env.DATABASE_HOST ||
+      'localhost',
+  port: isSqliteTest
+    ? undefined
+    : parseInt(
+        process.env.TEST_DB_PORT ||
+          process.env.DB_PORT ||
+          process.env.DATABASE_PORT ||
+          '5432',
+        10,
+      ),
+  username: isSqliteTest
+    ? undefined
+    : process.env.TEST_DB_USERNAME ||
+      process.env.DB_USER ||
+      process.env.DB_USERNAME ||
+      process.env.DATABASE_USERNAME ||
+      process.env.DATABASE_USER ||
+      'postgres',
+  password: isSqliteTest
+    ? undefined
+    : process.env.TEST_DB_PASSWORD ||
+      process.env.DB_PASSWORD ||
+      process.env.DATABASE_PASSWORD ||
+      'password',
+  database: isSqliteTest
+    ? ':memory:'
+    : process.env.TEST_DB_NAME ||
+      process.env.DB_DATABASE ||
+      process.env.DATABASE_NAME ||
+      'uzima_test',
   entities: [process.cwd() + '/src/**/*.entity.{ts,js}'],
-  migrations: ['src/migrations/*{.ts,.js}'],
+  migrations: isSqliteTest ? [] : ['src/migrations/*{.ts,.js}'],
   migrationsTableName: 'migrations',
-  synchronize: true, // Auto-sync schema for tests
-  dropSchema: false,
+  synchronize: isSqliteTest,
+  dropSchema: isSqliteTest,
   logging: process.env.TEST_DB_LOGGING === 'true',
   ssl: false,
   extra: {
@@ -276,14 +288,17 @@ export class TestDatabaseManager {
   async close(): Promise<void> {
     if (this.dataSource) {
       try {
-        this.logger.log('Closing test database connection...');
-        await this.dataSource.destroy();
-        this.dataSource = null;
-        this.isInitialized = false;
-        this.logger.log('Test database connection closed');
+        if (this.dataSource.isInitialized) {
+          this.logger.log('Closing test database connection...');
+          await this.dataSource.destroy();
+          this.logger.log('Test database connection closed');
+        }
       } catch (error) {
         this.logger.error('Failed to close database connection', error);
         throw error;
+      } finally {
+        this.dataSource = null;
+        this.isInitialized = false;
       }
     }
   }

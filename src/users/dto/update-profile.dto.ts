@@ -1,4 +1,4 @@
-import { IsString, IsOptional, Length, Matches, IsIn } from 'class-validator';
+import { IsString, IsOptional, Length, Matches, IsIn, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 // List of supported language codes
@@ -42,20 +42,13 @@ export class UpdateProfileDto {
   preferredLanguage?: string;
 
   @ApiPropertyOptional({
-    description: 'User country code (ISO 3166-1 alpha-2)',
-    example: 'US',
-    minLength: 2,
-    maxLength: 2,
+    description: 'User country',
+    example: 'United States',
+    maxLength: 100,
   })
   @IsOptional()
-  @IsString({ message: 'Country code must be a string' })
-  @Length(2, 2, {
-    message: 'Country code must be exactly 2 characters (ISO 3166-1 alpha-2)',
-  })
-  @Matches(/^[A-Z]{2}$/i, {
-    message:
-      'Country code must be a valid 2-letter ISO code (e.g., US, GB, NG)',
-  })
+  @IsString({ message: 'Country must be a string' })
+  @MaxLength(100, { message: 'Country must be less than 100 characters' })
   country?: string;
 
   @ApiPropertyOptional({
@@ -72,11 +65,31 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({
     description: 'User address',
-    example: '123 Main St, City, Country',
+    example: '123 Main St',
     maxLength: 255,
   })
   @IsOptional()
   @IsString({ message: 'Address must be a string' })
-  @Length(1, 255, { message: 'Address must be between 1 and 255 characters' })
+  @MaxLength(255, { message: 'Address must be less than 255 characters' })
   address?: string;
+
+  @ApiPropertyOptional({
+    description: 'User city',
+    example: 'New York',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString({ message: 'City must be a string' })
+  @MaxLength(100, { message: 'City must be less than 100 characters' })
+  city?: string;
+
+  @ApiPropertyOptional({
+    description: 'Postal Code',
+    example: '10001',
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString({ message: 'Postal code must be a string' })
+  @MaxLength(20, { message: 'Postal code must be less than 20 characters' })
+  postalCode?: string;
 }

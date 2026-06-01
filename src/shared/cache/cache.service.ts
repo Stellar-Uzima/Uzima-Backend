@@ -80,6 +80,29 @@ export class CacheService implements OnModuleInit {
   }
 
   /**
+   * Atomically set a value only if the key does not already exist (NX) with TTL (seconds).
+   * Returns true if the key was set, false if it already existed.
+   */
+  async setIfNotExists(
+    key: string,
+    value: any,
+    ttl: number,
+  ): Promise<boolean> {
+    try {
+      const serializedValue = JSON.stringify(value);
+      // Use Redis SET with NX and EX for atomic set-if-not-exists with expiry
+      const result = await this.redis.set(key, serializedValue, 'EX', ttl, 'NX');
+      const wasSet = result === 'OK';
+      this.logger.debug(`Cache setIfNotExists: ${key} (TTL: ${ttl}s) -> ${wasSet}`);
+      return wasSet;
+    } catch (error) {
+      this.logger.error(`Failed to setIfNotExists cache key ${key}:`, error);
+      // In case of error, be conservative and allow sending (return true)
+      return true;
+    }
+  }
+
+  /**
    * Get a value from cache
    */
   async get<T>(key: string): Promise<T | null> {

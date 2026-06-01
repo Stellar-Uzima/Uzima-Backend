@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/auth/guards/roles.guard';
 import { Roles } from '@/auth/decorators/roles.decorator';
 import { Role } from '@/auth/enums/role.enum';
+import { CacheService } from '@/shared/cache/cache.service';
 
 @ApiTags('Admin - Dashboard')
 @ApiBearerAuth()
@@ -25,6 +26,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly tasksScheduler: TasksScheduler,
     private readonly rewardsScheduler: RewardsScheduler,
+    private readonly cacheService: CacheService,
   ) {}
 
   @Get('dashboard/system')
@@ -32,6 +34,15 @@ export class AdminController {
   @ApiResponse({ status: 200, description: 'System statistics retrieved successfully' })
   async getSystemStatistics() {
     return this.adminService.getSystemStatistics();
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get overall dashboard statistics' })
+  @ApiResponse({ status: 200, description: 'Dashboard statistics retrieved successfully' })
+  async getStats() {
+    return this.cacheService.remember('admin_dashboard_stats', async () => {
+      return this.adminService.getDashboardStats();
+    }, 300);
   }
 
   @Get('dashboard/tasks')
