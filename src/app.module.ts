@@ -23,6 +23,7 @@ import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { CacheModule } from './shared/cache/cache.module';
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -62,7 +63,8 @@ import { OtpModule } from './otp/otp.module';
     OtpModule,
     LoggingModule,
     // 2. Add it to the imports list
-    StorageModule, 
+    StorageModule,
+    CacheModule,
     MetricsModule,
     AnalyticsModule,
     UsageModule,
