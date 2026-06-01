@@ -113,6 +113,12 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   lockedUntil: Date | null;
 
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpiry: Date | null;
+
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
 
