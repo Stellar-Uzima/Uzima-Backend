@@ -4,7 +4,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
+import { MonitoringInterceptor }
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter'; from './common/interceptors/monitoring.interceptor';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
@@ -55,6 +56,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Global exception filter
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   // Global logging interceptor
   const loggingInterceptor = app.get(LoggingInterceptor);
