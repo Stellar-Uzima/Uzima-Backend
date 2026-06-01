@@ -14,7 +14,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
@@ -29,6 +29,10 @@ import { DuplicationService } from './services/duplication.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import {
+  TaskAnalyticsService,
+  AnalyticsPeriod,
+} from '../../shared/analytics/task-analytics.service';
 
 // Interface to ensure type safety for the request user
 interface AuthenticatedRequest extends Request {
@@ -57,6 +61,7 @@ export class HealthTasksController {
     private readonly searchService: TaskSearchService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
+    private readonly taskAnalyticsService: TaskAnalyticsService,
   ) {}
 
   @Get()
@@ -314,5 +319,48 @@ export class HealthTasksController {
   @ApiOperation({ summary: 'Get task completion trends' })
   async getTrends(@Query('days') days: number = 7) {
     return this.analyticsService.getTrends(days);
+  }
+
+  /**
+   * ISSUE FIX: Task completion analytics endpoint.
+   *
+   * GET /tasks/analytics?period=weekly[&startDate=...&endDate=...]
+   *
+   * Returns:
+   *   - completion rate percentage
+   *   - total completed
+   *   - total attempted
+   *   - per-category breakdown
+   *   - date range used for the aggregation
+   *
+   * Supports period values: 'daily' | 'weekly' | 'monthly' | 'custom'
+   * (defaults to 'weekly' when omitted).
+   */
+  @Get('analytics')
+  @ApiOperation({
+    summary:
+      'Get task completion analytics (completion rate, totals, category breakdown) for a period',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['daily', 'weekly', 'monthly', 'custom'],
+  })
+  @ApiQuery({ name: 'startDate', required: false, type: String })
+  @ApiQuery({ name: 'endDate', required: false, type: String })
+  async getTaskAnalytics(
+    @Req() req: AuthenticatedRequest,
+    @Query('period') period?: AnalyticsPeriod,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('scope') scope?: 'me' | 'global',
+  ) {
+    const userId = scope === 'global' && req.user.role === 'ADMIN' ? undefined : req.user.userId;
+    return this.taskAnalyticsService.getStats({
+      period: period ?? 'weekly',
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      userId,
+    });
   }
 }

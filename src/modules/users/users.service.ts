@@ -22,10 +22,7 @@ import {
 import { Role } from '../../auth/enums/role.enum';
 import { UserStatus } from '../../auth/enums/user-status.enum';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
-import {
-  UpdateUserSettingsDto,
-  UserSettingsResponseDto,
-} from './dto/user-settings.dto';
+import { UpdateUserSettingsDto, UserSettingsResponseDto } from './dto/user-settings.dto';
 import { PreferencesService } from './services/preferences.service';
 import { PreferencesResponseDto } from './dto/preferences.dto';
 
@@ -39,6 +36,8 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(UserStatusLog)
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly preferencesService: PreferencesService
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache = null as any,
     private readonly preferencesService: PreferencesService = null as any,
   ) {}
@@ -492,6 +491,21 @@ export class UsersService {
       changedFields.push('country');
     }
 
+    if (updateProfileDto.address !== undefined) {
+      updates.address = updateProfileDto.address.trim();
+      changedFields.push('address');
+    }
+
+    if (updateProfileDto.city !== undefined) {
+      updates.city = updateProfileDto.city.trim();
+      changedFields.push('city');
+    }
+
+    if (updateProfileDto.postalCode !== undefined) {
+      updates.postalCode = updateProfileDto.postalCode.trim();
+      changedFields.push('postalCode');
+    }
+
     if (updates.firstName || updates.lastName) {
       const firstName = updates.firstName || user.firstName;
       const lastName = updates.lastName || user.lastName;
@@ -544,6 +558,9 @@ export class UsersService {
       bio: user.referralCode,
       preferredLanguage: user.preferredLanguage,
       country: user.country,
+      address: user.address,
+      city: user.city,
+      postalCode: user.postalCode,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
@@ -563,7 +580,7 @@ export class UsersService {
    */
   async getUserPreferences(userId: string): Promise<PreferencesResponseDto> {
     const preferences = await this.preferencesService.getPreferences(userId);
-    
+
     return {
       id: preferences.id,
       theme: preferences.theme,
@@ -582,12 +599,9 @@ export class UsersService {
   /**
    * Update user preferences
    */
-  async updateUserPreferences(
-    userId: string,
-    updateData: any,
-  ): Promise<PreferencesResponseDto> {
+  async updateUserPreferences(userId: string, updateData: any): Promise<PreferencesResponseDto> {
     const preferences = await this.preferencesService.updatePreferences(userId, updateData);
-    
+
     return {
       id: preferences.id,
       theme: preferences.theme,
@@ -615,5 +629,60 @@ export class UsersService {
    */
   async deletePreferences(userId: string): Promise<void> {
     await this.preferencesService.deletePreferences(userId);
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ) {
+
+    const user =
+      await this.userRepository.findOne({
+        where: {
+          id: userId,
+        },
+      });
+
+    if (!user) {
+      throw new NotFoundException(
+        'User not found',
+      );
+    }
+
+    Object.assign(
+      user,
+      {
+        name:
+          dto.name ??
+          user.name,
+
+        phone:
+          dto.phone ??
+          user.phone,
+
+        address:
+          dto.address ??
+          user.address,
+      },
+    );
+
+    const updatedUser =
+      await this.userRepository.save(
+        user,
+      );
+
+    return {
+      id:
+        updatedUser.id,
+
+      name:
+        updatedUser.name,
+
+      phone:
+        updatedUser.phone,
+
+      address:
+        updatedUser.address,
+    };
   }
 }

@@ -55,5 +55,8 @@ import { Coupon } from '../../coupons/entities/coupon.entity';
     AvatarService,
     StorageService,
   ],
+  ], 
+  exports: [UsersService, UserSearchService, PhoneVerificationService],
+  providers: [UsersService, UserSearchService, PhoneVerificationService, SmsService],
 })
 export class UsersModule {}

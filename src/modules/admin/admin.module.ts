@@ -5,6 +5,7 @@ import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
 import { TaskAssignmentModule } from '@/tasks/assignment/task-assignment.module';
 import { AuditModule } from '@/audit/audit.module';
 import { AuthModule } from '@modules/auth/auth.module';
+import { CacheModule } from '@/shared/cache/cache.module';
 import { AdminController } from './admin.controller';
 import { AdminTasksController } from './admin-tasks.controller';
 import { AdminUsersController } from './admin-users.controller';
@@ -35,6 +36,7 @@ import { RewardsScheduler } from '@/rewards/rewards.scheduler';
     TasksScheduler,
     RewardsScheduler,
     QueueService,
+    CacheModule,
   ],
 })
 export class AdminModule {}

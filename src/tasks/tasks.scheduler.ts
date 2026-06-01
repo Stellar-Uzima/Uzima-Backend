@@ -2,10 +2,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { TaskAssignmentService } from './assignment/task-assignment.service';
 import { ReminderService } from '../modules/health-tasks/services/reminder.service';
+import { HealthTask } from './entities/health-task.entity';
+import { TasksService } from './tasks.service';
 
 @Injectable()
 export class TasksScheduler {
@@ -14,8 +16,11 @@ export class TasksScheduler {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(HealthTask)
+    private readonly healthTaskRepository: Repository<HealthTask>,
     private readonly taskAssignmentService: TaskAssignmentService,
     private readonly reminderService: ReminderService,
+    private readonly tasksService: TasksService,
   ) {}
 
   /**
@@ -68,6 +73,60 @@ export class TasksScheduler {
       }
     } catch (error) {
       this.logger.error(`Task reminder processing failed: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Cron job: every 5 minutes, query tasks with a reminderTime in the
+   * next 10 minutes and enqueue notification jobs for any that aren't
+   * already queued. The 10-minute window overlaps the 5-minute cron
+   * interval so reminders are not missed if a cron tick runs late.
+   *
+   * Deduplication is handled at the queue layer: TasksService uses a
+   * deterministic Bull jobId, so repeated enqueues for the same task +
+   * reminderTime collapse to a single delayed job.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async enqueueUpcomingReminders(): Promise<void> {
+    this.logger.debug('Starting upcoming-reminder enqueue cron job');
+    try {
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + 10 * 60 * 1000);
+
+      const upcoming = await this.healthTaskRepository.find({
+        where: {
+          reminderTime: Between(now, windowEnd),
+        },
+      });
+
+      if (upcoming.length === 0) {
+        return;
+      }
+
+      this.logger.log(`Found ${upcoming.length} upcoming reminders to enqueue`);
+
+      let enqueuedCount = 0;
+      let errorCount = 0;
+      for (const task of upcoming) {
+        try {
+          await this.tasksService.scheduleReminderJob(task);
+          enqueuedCount++;
+        } catch (error) {
+          this.logger.error(
+            `Failed to enqueue reminder for task ${task.id}: ${error.message}`,
+          );
+          errorCount++;
+        }
+      }
+
+      this.logger.log(
+        `Upcoming reminders processed. Enqueued: ${enqueuedCount}, Errors: ${errorCount}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Upcoming reminders cron job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
