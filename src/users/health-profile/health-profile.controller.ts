@@ -13,6 +13,9 @@ export class HealthProfileController {
   constructor(private readonly profileService: HealthProfileService) {}
 
   @Patch('me/health-profile')
+  @ApiOperation({ summary: 'Update current user health profile' })
+  @ApiResponse({ status: 200, description: 'Health profile updated successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async updateProfile(@Req() req, @Body() dto: UpdateHealthProfileDto) {
     const userId = req.user.id;
     return this.profileService.updateProfile(userId, dto);
