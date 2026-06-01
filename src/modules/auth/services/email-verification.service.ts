@@ -23,7 +23,7 @@ export class EmailVerificationService {
 
     const user = await this.usersService.findById(userId);
 
-    const ev = this.repo.create({ token, expiresAt, user });
+    const ev = this.repo.create({ token, expiresAt, user } as any);
     await this.repo.save(ev);
 
     // Send email via notifications service (template can be adapted)
