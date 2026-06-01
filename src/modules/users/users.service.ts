@@ -612,4 +612,59 @@ export class UsersService {
   async deletePreferences(userId: string): Promise<void> {
     await this.preferencesService.deletePreferences(userId);
   }
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ) {
+
+    const user =
+      await this.userRepository.findOne({
+        where: {
+          id: userId,
+        },
+      });
+
+    if (!user) {
+      throw new NotFoundException(
+        'User not found',
+      );
+    }
+
+    Object.assign(
+      user,
+      {
+        name:
+          dto.name ??
+          user.name,
+
+        phone:
+          dto.phone ??
+          user.phone,
+
+        address:
+          dto.address ??
+          user.address,
+      },
+    );
+
+    const updatedUser =
+      await this.userRepository.save(
+        user,
+      );
+
+    return {
+      id:
+        updatedUser.id,
+
+      name:
+        updatedUser.name,
+
+      phone:
+        updatedUser.phone,
+
+      address:
+        updatedUser.address,
+    };
+  }
 }

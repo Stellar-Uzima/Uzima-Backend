@@ -8,6 +8,7 @@
   Body,
   Req,
   Query,
+   Patch,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -147,5 +148,17 @@ export class UsersController {
 
   private extractIpAddress(req: AuthenticatedRequest): string | undefined {
     return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
+  }
+
+    @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Req() req,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(
+      req.user.id,
+      dto,
+    );
   }
 }
