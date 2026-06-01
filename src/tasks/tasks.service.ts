@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HealthTask } from './entities/health-task.entity';
+import { HealthTask, TaskCategory } from './entities/health-task.entity';
 import { TaskStatus } from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -27,6 +27,11 @@ export class TasksService {
     private readonly queueService: QueueService,
   ) {}
 
+  getCategories(): Array<{ value: string; label: string }> {
+    return Object.values(TaskCategory).map((value) => ({
+      value,
+      label: value.charAt(0).toUpperCase() + value.slice(1),
+    }));
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
