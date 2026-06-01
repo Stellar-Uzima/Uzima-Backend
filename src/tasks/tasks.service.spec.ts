@@ -2,6 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { TasksService } from './tasks.service';
 import { HealthTask } from './entities/health-task.entity';
+import { QueueService } from '../shared/queue/queue.service';
+import {
+  NOTIFICATION_QUEUE,
+  TASK_REMINDER_JOB,
+} from '../queue/queue.constants';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Role } from '../auth/enums/role.enum';
 import { TaskStatus } from './enums/task-status.enum';
@@ -14,6 +19,12 @@ describe('TasksService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     createQueryBuilder: jest.fn(),
+    softDelete: jest.fn(),
+  };
+
+  const mockQueueService = {
+    addDelayedJob: jest.fn(),
+    addJob: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -23,6 +34,10 @@ describe('TasksService', () => {
         {
           provide: getRepositoryToken(HealthTask),
           useValue: mockRepository,
+        },
+        {
+          provide: QueueService,
+          useValue: mockQueueService,
         },
       ],
     }).compile();
@@ -209,26 +224,162 @@ describe('TasksService', () => {
   });
 
   describe('remove', () => {
-    it('should archive task by setting status to ARCHIVED', async () => {
+    it('should soft-delete the task', async () => {
       const mockTask = { id: '1', title: 'Task', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
-      mockRepository.save.mockResolvedValue({
-        ...mockTask,
-        status: TaskStatus.ARCHIVED,
-      });
+      mockRepository.softDelete.mockResolvedValue({ affected: 1 });
 
       await service.remove('1');
 
-      expect(mockRepository.save).toHaveBeenCalledWith({
-        ...mockTask,
-        status: TaskStatus.ARCHIVED,
-      });
+      expect(mockRepository.softDelete).toHaveBeenCalledWith('1');
     });
 
     it('should throw NotFoundException if task does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
       await expect(service.remove('999')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('scheduleReminderJob', () => {
+    it('should be a no-op when reminderTime is undefined', async () => {
+      const task = {
+        id: 'task-1',
+        title: 'Task',
+        createdBy: 'user-1',
+      } as unknown as HealthTask;
+
+      await service.scheduleReminderJob(task);
+
+      expect(mockQueueService.addDelayedJob).not.toHaveBeenCalled();
+    });
+
+    it('should be a no-op when reminderTime is in the past', async () => {
+      const past = new Date(Date.now() - 60_000); // 1 minute ago
+      const task = {
+        id: 'task-1',
+        title: 'Task',
+        createdBy: 'user-1',
+        reminderTime: past,
+      } as unknown as HealthTask;
+
+      await service.scheduleReminderJob(task);
+
+      expect(mockQueueService.addDelayedJob).not.toHaveBeenCalled();
+    });
+
+    it('should enqueue a delayed job with deterministic jobId for a future reminder', async () => {
+      const future = new Date(Date.now() + 60 * 60_000); // 1 hour from now
+      const task = {
+        id: 'task-1',
+        title: 'Task',
+        createdBy: 'user-1',
+        reminderTime: future,
+      } as unknown as HealthTask;
+
+      await service.scheduleReminderJob(task);
+
+      expect(mockQueueService.addDelayedJob).toHaveBeenCalledTimes(1);
+      const [queueName, jobName, payload, delayMs, options] =
+        mockQueueService.addDelayedJob.mock.calls[0];
+      expect(queueName).toBe(NOTIFICATION_QUEUE);
+      expect(jobName).toBe(TASK_REMINDER_JOB);
+      expect(payload).toMatchObject({
+        taskId: 'task-1',
+        userId: 'user-1',
+        taskTitle: 'Task',
+      });
+      expect(payload.remindAt).toBe(future);
+      expect(delayMs).toBeGreaterThan(0);
+      expect(options.jobId).toBe(`task-reminder:task-1:${future.getTime()}`);
+      expect(options.attempts).toBe(3);
+    });
+  });
+
+  describe('create with reminderTime', () => {
+    it('should call scheduleReminderJob after saving when reminderTime is set', async () => {
+      const future = new Date(Date.now() + 60 * 60_000);
+      const createTaskDto = {
+        title: 'Task',
+        description: 'd',
+        categoryId: 1,
+        xlmReward: 1,
+        reminderTime: future.toISOString(),
+      };
+      const savedTask = {
+        id: 'task-1',
+        title: 'Task',
+        createdBy: 'user-1',
+        reminderTime: future,
+        status: TaskStatus.DRAFT,
+      };
+
+      mockRepository.create.mockReturnValue(savedTask);
+      mockRepository.save.mockResolvedValue(savedTask);
+
+      await service.create(createTaskDto as any, 'user-1');
+
+      expect(mockQueueService.addDelayedJob).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not enqueue when reminderTime is not set', async () => {
+      const createTaskDto = {
+        title: 'Task',
+        description: 'd',
+        categoryId: 1,
+        xlmReward: 1,
+      };
+      const savedTask = {
+        id: 'task-1',
+        title: 'Task',
+        createdBy: 'user-1',
+        status: TaskStatus.DRAFT,
+      };
+
+      mockRepository.create.mockReturnValue(savedTask);
+      mockRepository.save.mockResolvedValue(savedTask);
+
+      await service.create(createTaskDto, 'user-1');
+
+      expect(mockQueueService.addDelayedJob).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update with reminderTime', () => {
+    it('should call scheduleReminderJob when reminderTime is in the patch', async () => {
+      const future = new Date(Date.now() + 60 * 60_000);
+      const existingTask = {
+        id: '1',
+        title: 'Task',
+        createdBy: '1',
+      };
+      const updateDto = { reminderTime: future.toISOString() };
+
+      mockRepository.findOne.mockResolvedValue(existingTask);
+      mockRepository.save.mockResolvedValue({
+        ...existingTask,
+        reminderTime: future,
+      });
+
+      await service.update('1', updateDto as any, '1', Role.HEALER);
+
+      expect(mockQueueService.addDelayedJob).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT call scheduleReminderJob when reminderTime is not in the patch', async () => {
+      const existingTask = {
+        id: '1',
+        title: 'Old',
+        createdBy: '1',
+      };
+      const updateDto = { title: 'New' };
+
+      mockRepository.findOne.mockResolvedValue(existingTask);
+      mockRepository.save.mockResolvedValue({ ...existingTask, ...updateDto });
+
+      await service.update('1', updateDto, '1', Role.HEALER);
+
+      expect(mockQueueService.addDelayedJob).not.toHaveBeenCalled();
     });
   });
 });
