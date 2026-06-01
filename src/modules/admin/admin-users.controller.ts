@@ -79,7 +79,7 @@ export class AdminUsersController {
     return this.adminUsersService.suspendUser(req.user.sub, id);
   }
 
-  @Patch(':id/reactivate')
+  @Post(':id/reactivate')
   @ApiOperation({ summary: 'Reactivate a user account' })
   @ApiResponse({ status: 200, description: 'User reactivated successfully' })
   async reactivate(@Req() req: any, @Param('id') id: string) {
