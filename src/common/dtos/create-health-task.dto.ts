@@ -1,15 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty } from 'class-validator';
-
-export enum TaskCategory {
-  HYDRATION = 'hydration',
-  EXERCISE = 'exercise',
-  NUTRITION = 'nutrition',
-  MATERNAL_HEALTH = 'maternal_health',
-  SLEEP = 'sleep',
-  MENTAL_HEALTH = 'mental_health',
-  MEDICATION = 'medication',
-  OTHER = 'other',
-}
+import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty, IsUUID, IsArray } from 'class-validator';
 
 export enum TaskPriority {
   LOW = 'low',
@@ -30,13 +19,19 @@ export class CreateHealthTaskDto {
   @IsNotEmpty()
   title: string;
 
-  @IsEnum(TaskCategory)
-  @IsNotEmpty()
-  category: TaskCategory;
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  tagIds?: string[];
 
   @IsDate()
-  @IsNotEmpty()
-  dueDate: Date;
+  @IsOptional()
+  dueDate?: Date;
 
   @IsString()
   @IsOptional()

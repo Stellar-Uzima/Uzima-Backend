@@ -15,7 +15,11 @@ const mockRewardTransactionRepo = {
   select: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   andWhere: jest.fn().mockReturnThis(),
+  orderBy: jest.fn().mockReturnThis(),
+  skip: jest.fn().mockReturnThis(),
+  take: jest.fn().mockReturnThis(),
   getRawOne: jest.fn(),
+  getManyAndCount: jest.fn(),
 };
 
 const mockUserRepo = {
@@ -168,6 +172,83 @@ describe('WalletService', () => {
       expect(mockCacheManager.del).toHaveBeenCalledWith(
         'wallet_summary:user-id',
       );
+    });
+  });
+
+  describe('getTransactionHistory', () => {
+    it('should fetch paginated transactions', async () => {
+      const mockData = [{ id: 'tx1' }];
+      mockRewardTransactionRepo.getManyAndCount = jest.fn().mockResolvedValue([mockData, 1]);
+      
+      const result = await service.getTransactionHistory('user-id', 1, 10);
+      
+      expect(mockRewardTransactionRepo.createQueryBuilder).toHaveBeenCalledWith('rt');
+      expect(mockRewardTransactionRepo.where).toHaveBeenCalledWith('rt.userId = :userId', { userId: 'user-id' });
+      expect(mockRewardTransactionRepo.skip).toHaveBeenCalledWith(0);
+      expect(mockRewardTransactionRepo.take).toHaveBeenCalledWith(10);
+      
+      expect(result).toEqual({
+        data: mockData,
+        metadata: {
+          totalCount: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        },
+      });
+    });
+
+    it('should apply filters if provided', async () => {
+      mockRewardTransactionRepo.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      
+      await service.getTransactionHistory('user-id', 1, 10, '2023-01-01', '2023-12-31', 'SUCCESS');
+      
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.createdAt >= :startDate', { startDate: '2023-01-01' });
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.createdAt <= :endDate', { endDate: '2023-12-31' });
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.status = :type', { type: 'SUCCESS' });
+    });
+  });
+
+  describe('syncBalance', () => {
+    it('should successfully sync and update balance', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        id: 'user-id',
+        walletAddress: 'GABCDE...',
+        walletBalance: 0,
+      });
+      mockStellarService.getAccountBalance.mockResolvedValue('100.50');
+      
+      const result = await service.syncBalance('user-id');
+      
+      expect(mockStellarService.getAccountBalance).toHaveBeenCalledWith('GABCDE...');
+      expect(mockUserRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ walletBalance: 100.5 })
+      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith('wallet_summary:user-id');
+      expect(result).toEqual({ liveBalance: '100.50' });
+    });
+
+    it('should throw BadRequestException if user not found', async () => {
+      mockUserRepo.findOne.mockResolvedValue(null);
+      await expect(service.syncBalance('unknown-id')).rejects.toThrow('User not found');
+    });
+
+    it('should throw BadRequestException if no wallet linked', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        id: 'user-id',
+        walletAddress: null,
+        stellarWalletAddress: null,
+      });
+      await expect(service.syncBalance('user-id')).rejects.toThrow('No wallet linked to this account');
+    });
+
+    it('should throw BadRequestException on stellar network error', async () => {
+      mockUserRepo.findOne.mockResolvedValue({
+        id: 'user-id',
+        walletAddress: 'GABCDE...',
+      });
+      mockStellarService.getAccountBalance.mockRejectedValue(new Error('Network error'));
+      await expect(service.syncBalance('user-id')).rejects.toThrow('Unable to sync wallet balance from Stellar network');
     });
   });
 });

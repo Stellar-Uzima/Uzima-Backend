@@ -23,6 +23,7 @@ import { TaskReminder } from '../../database/entities/task-reminder.entity';
 import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
 import { TaskCategory } from '../../database/entities/task-category.entity';
+import { TaskTag } from '../../database/entities/task-tag.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { AnalyticsModule } from '../../shared/analytics/analytics.module';
 
@@ -38,6 +39,7 @@ import { AnalyticsModule } from '../../shared/analytics/analytics.module';
       TaskCompletion,
       DailyTaskAssignment,
       TaskCategory,
+      TaskTag,
     ]),
     CacheModule.register(),
     NotificationsModule,

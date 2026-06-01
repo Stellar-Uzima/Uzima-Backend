@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, Logger } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { plainToInstance } from 'class-transformer';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
@@ -45,6 +45,12 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: mockUserRepository,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            getRepository: jest.fn(),
+          },
         },
       ],
     }).compile();
@@ -385,6 +391,40 @@ describe('UsersService', () => {
       await expect(service.softDelete(mockUser.id)).rejects.toThrow(
         'Delete failed',
       );
+    });
+  });
+
+  describe('cleanupOldStatusLogs', () => {
+    it('should delete status logs older than retention period', async () => {
+      const mockQueryBuilder = {
+        delete: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 5 }),
+      };
+      
+      const mockRepo = {
+        createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      };
+
+      const mockDataSource = {
+        getRepository: jest.fn().mockReturnValue(mockRepo),
+      };
+      
+      // Override the service's injected dataSource for this test
+      (service as any).dataSource = mockDataSource;
+
+      const deletedCount = await service.cleanupOldStatusLogs(30);
+
+      expect(mockDataSource.getRepository).toHaveBeenCalled();
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockQueryBuilder.from).toHaveBeenCalled();
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'createdAt < :cutoffDate',
+        expect.any(Object),
+      );
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+      expect(deletedCount).toBe(5);
     });
   });
 });

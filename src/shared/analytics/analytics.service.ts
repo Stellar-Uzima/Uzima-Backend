@@ -37,6 +37,8 @@ export interface AnalyticsReport {
   averageSystemMetrics: Record<string, number>;
 }
 
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
 export const ANALYTICS_PROVIDERS = 'ANALYTICS_PROVIDERS';
 
 export interface AnalyticsProvider {
@@ -85,6 +87,8 @@ export class AnalyticsService {
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
 
+@Injectable()
+export class AnalyticsService {
   constructor(
     @Inject(ANALYTICS_PROVIDERS)
     private readonly providers: AnalyticsProvider[],

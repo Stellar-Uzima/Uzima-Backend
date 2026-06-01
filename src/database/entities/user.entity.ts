@@ -15,6 +15,8 @@ import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } fro
 import { Role } from '../../auth/enums/role.enum';
 import { Session } from './session.entity';
 import { Organization } from './organization.entity';
+import { UserActivity } from './user-activity.entity';
+import { UserPreferences } from './user-preferences.entity';
 
 export enum UserRole {
   USER = 'USER',
@@ -115,17 +117,8 @@ export class User {
 
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];
-
-  @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
-
-  @ManyToMany(() => Organization, (org) => org.users)
-  @JoinTable({ name: 'user_organizations' })
-  organizations: Organization[];
 }
 
 // Import related entities to avoid circular dependencies
 import { UserActivity } from './user-activity.entity';
 import { UserPreferences } from './user-preferences.entity';
-import { Session } from './session.entity';
-import { Organization } from './organization.entity';
