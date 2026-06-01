@@ -18,7 +18,7 @@
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
@@ -59,6 +59,9 @@ export class UsersController {
   ) {}
 
   @Get('profile')
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile retrieved successfully', type: ProfileResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentProfile(
     @Req() req: AuthenticatedRequest,
   ): Promise<ProfileResponseDto> {
@@ -68,6 +71,9 @@ export class UsersController {
 
   @Put('profile')
   @HttpCode(200)
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
   @UsePipes(
     new ValidationPipe({
       whitelist: true,
@@ -117,6 +123,8 @@ export class UsersController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Search and list users' })
+  @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   @UsePipes(
     new ValidationPipe({
       whitelist: true,
@@ -142,6 +150,10 @@ export class UsersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'User found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async findOne(@Param('id') id: string) {
     if (!id) {
       throw new NotFoundException('User not found');
@@ -163,6 +175,9 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete user by ID' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'User deleted' })
   async remove(@Param('id') id: string) {
     return { deleted: id };
   }
