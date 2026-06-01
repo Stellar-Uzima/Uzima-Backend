@@ -38,6 +38,7 @@ export const TASK_APPROVAL_JOB = 'task-approval' as const;
 
 // Queue Job Types for Data Processing Queue
 export const BULK_TASK_ASSIGNMENT_JOB = 'bulk-task-assignment' as const;
+export const DATA_EXPORT_JOB = 'data-export' as const;
 
 // Type definitions for better type safety
 export type QueueName =
@@ -65,7 +66,9 @@ export type TaskVerificationJobType =
   | typeof TASK_QUALITY_CHECK_JOB
   | typeof TASK_APPROVAL_JOB;
 
-export type DataProcessingJobType = typeof BULK_TASK_ASSIGNMENT_JOB;
+export type DataProcessingJobType =
+  | typeof BULK_TASK_ASSIGNMENT_JOB
+  | typeof DATA_EXPORT_JOB;
 
 // All job types combined
 export type JobType =

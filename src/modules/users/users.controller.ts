@@ -25,6 +25,8 @@ import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
 import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
 import { ActivityFeedService } from './services/activity-feed.service';
+import { QueueService } from '../../shared/queue/queue.service';
+import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 
 type AuthenticatedRequest = {
@@ -56,6 +58,7 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
     private readonly activityFeedService: ActivityFeedService,
+    private readonly queueService: QueueService,
   ) {}
 
   @Get('profile')
@@ -177,6 +180,20 @@ export class UsersController {
 
   private extractIpAddress(req: AuthenticatedRequest): string | undefined {
     return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
+  }
+
+  @Post('data-export')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async requestDataExport(@Req() req: AuthenticatedRequest) {
+    const userId = this.extractUserId(req);
+    await this.queueService.addJob(
+      DATA_PROCESSING_QUEUE,
+      DATA_EXPORT_JOB,
+      { userId },
+      { maxRetries: 3 },
+    );
+
+    return { message: 'Export job queued' };
   }
 
     @Patch('profile')
