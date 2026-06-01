@@ -12,6 +12,7 @@
   UsePipes,
   ValidationPipe,
   HttpCode,
+  HttpStatus,
   ForbiddenException,
   NotFoundException,
   BadRequestException,
@@ -84,6 +85,13 @@ export class UsersController {
       ipAddress,
       finalUserAgent,
     );
+  }
+
+  @Post('deactivate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(@Req() req: AuthenticatedRequest): Promise<void> {
+    const userId = this.extractUserId(req);
+    await this.usersService.deactivateUser(userId);
   }
 
   @Get()

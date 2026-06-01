@@ -193,6 +193,7 @@ export class UsersService {
     } = filterDto;
 
     const queryBuilder = this.userRepository.createQueryBuilder('user');
+    queryBuilder.andWhere('user.deletedAt IS NULL');
 
     if (role) queryBuilder.andWhere('user.role = :role', { role });
     if (isActive !== undefined) queryBuilder.andWhere('user.isActive = :isActive', { isActive });
@@ -273,6 +274,18 @@ export class UsersService {
 
   async findByPhone(phoneNumber: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { phoneNumber } });
+  }
+
+  async deactivateUser(userId: string): Promise<void> {
+    const user = await this.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.userRepository.save(user);
+    await this.userRepository.softDelete(userId);
   }
 
   async getUserStats(id: string): Promise<any> {
