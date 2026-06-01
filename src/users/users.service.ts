@@ -163,18 +163,6 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Register FCM device token for push notifications (#669)
-   */
-  async registerDeviceToken(userId: string, token: string): Promise<User> {
-    const user = await this.findById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    user.fcmToken = token;
-    return this.userRepository.save(user);
-  }
-
-  /**
    * Cleanup user status logs older than the given retention period.
    * Returns the number of affected rows.
    */
