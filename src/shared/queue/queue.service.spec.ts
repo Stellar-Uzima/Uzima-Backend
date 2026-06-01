@@ -1,5 +1,5 @@
 import { QueueService } from './queue.service';
-import { REWARD_QUEUE, NOTIFICATION_QUEUE, TASK_VERIFICATION_QUEUE, PROOF_VERIFICATION_QUEUE, USER_ACTIVITY_QUEUE, DATA_PROCESSING_QUEUE, REWARD_DEAD_LETTER_QUEUE } from '../../queue/queue.constants';
+import { REWARD_QUEUE, NOTIFICATION_QUEUE, TASK_VERIFICATION_QUEUE, PROOF_VERIFICATION_QUEUE, USER_ACTIVITY_QUEUE, DATA_PROCESSING_QUEUE, REWARD_DEAD_LETTER_QUEUE, BULK_TASK_ASSIGNMENT_JOB } from '../../queue/queue.constants';
 
 describe('QueueService', () => {
   let queueService: QueueService;
@@ -24,6 +24,28 @@ describe('QueueService', () => {
       dataProcessingQueue,
       deadLetterQueue,
     );
+  });
+
+  it('enqueues bulk task assignment on the data processing queue', async () => {
+    const mockQueue = (queueService as any).queues.get(DATA_PROCESSING_QUEUE);
+    mockQueue.add.mockResolvedValue({ id: 'bulk-1' });
+
+    const job = await queueService.enqueueBulkTaskAssignment({
+      userIds: ['user-1'],
+      taskIds: ['task-1'],
+      assignedDate: '2026-06-01',
+    });
+
+    expect(mockQueue.add).toHaveBeenCalledWith(
+      BULK_TASK_ASSIGNMENT_JOB,
+      {
+        userIds: ['user-1'],
+        taskIds: ['task-1'],
+        assignedDate: '2026-06-01',
+      },
+      expect.any(Object),
+    );
+    expect(job).toEqual({ id: 'bulk-1' });
   });
 
   it('passes maxRetries and backoffMs through to bull add', async () => {

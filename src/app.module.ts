@@ -7,6 +7,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
+import passwordConfig from './config/password.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -22,6 +23,7 @@ import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { CacheModule } from './shared/cache/cache.module';
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -36,13 +38,14 @@ import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
+import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig],
+      load: [secretsConfig, passwordConfig],
     }),
     ThrottlerModule.forRoot([
       {
@@ -61,7 +64,8 @@ import { OtpModule } from './otp/otp.module';
     OtpModule,
     LoggingModule,
     // 2. Add it to the imports list
-    StorageModule, 
+    StorageModule,
+    CacheModule,
     MetricsModule,
     AnalyticsModule,
     UsageModule,
@@ -78,6 +82,7 @@ import { OtpModule } from './otp/otp.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    HealthProfileModule,
   ],
   controllers: [AppController],
   providers: [

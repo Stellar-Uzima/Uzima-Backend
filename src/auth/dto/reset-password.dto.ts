@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ForgotPasswordDto {
@@ -17,6 +17,5 @@ export class ResetPasswordDto {
   @ApiProperty({ minLength: 8 })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
   password: string;
 }

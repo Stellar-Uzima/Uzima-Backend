@@ -87,6 +87,9 @@ export class User {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   dailyXlmEarned: number;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt: Date | null;
+
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date | null;
 
@@ -113,6 +116,12 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   lockedUntil: Date | null;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpiry: Date | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
