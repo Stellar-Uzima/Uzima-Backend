@@ -9,6 +9,7 @@ export interface OtpRequestResult {
   message: string;
   remainingAttempts?: number;
   lockoutMinutes?: number;
+  retryAfter?: number; // Seconds to wait before retrying (for cooldown)
 }
 
 export interface OtpVerificationResult {
@@ -28,6 +29,7 @@ export class OtpService {
   private readonly REQUEST_WINDOW = 3600; // 1 hour in seconds
   private readonly MAX_FAILED_ATTEMPTS = 3;
   private readonly LOCKOUT_DURATION = 1800; // 30 minutes in seconds
+  private readonly RESEND_COOLDOWN = 60; // 60 seconds between resends
 
   // Redis key prefixes
   private readonly OTP_KEY_PREFIX = 'otp:';
@@ -35,7 +37,6 @@ export class OtpService {
   private readonly OTP_FAILED_ATTEMPTS_PREFIX = 'otp_failed:';
   private readonly OTP_LOCK_PREFIX = 'otp_lock:';
   private readonly OTP_RESEND_COOLDOWN_PREFIX = 'otp_resend_cooldown:';
-  private readonly RESEND_COOLDOWN = 60; // 60 seconds between resends
 
   constructor(
     private readonly configService: ConfigService,
@@ -48,11 +49,13 @@ export class OtpService {
   /**
    * Generate and store OTP for a phone number
    * Rate limited: max 3 requests per phone per hour
+   * Resend cooldown: 60 seconds between resends
    */
   async requestOtp(phoneNumber: string): Promise<OtpRequestResult> {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
     const lockKey = `${this.OTP_LOCK_PREFIX}${normalizedPhone}`;
     const requestCountKey = `${this.OTP_REQUEST_COUNT_PREFIX}${normalizedPhone}`;
+    const resendCooldownKey = `${this.OTP_RESEND_COOLDOWN_PREFIX}${normalizedPhone}`;
 
     // Check if phone is locked due to failed attempts
     const isLocked = await this.redis.exists(lockKey);
@@ -67,14 +70,12 @@ export class OtpService {
     }
 
     // Check resend cooldown (60 seconds between requests)
-    const cooldownKey = ${this.OTP_RESEND_COOLDOWN_PREFIX}${normalizedPhone};
-    const cooldownTtl = await this.redis.ttl(cooldownKey);
+    const cooldownTtl = await this.redis.ttl(resendCooldownKey);
     if (cooldownTtl > 0) {
       return {
         success: false,
-        message: Please wait ${cooldownTtl} second(s) before requesting a new OTP.,
-        remainingAttempts: 0,
-        lockoutMinutes: Math.ceil(cooldownTtl / 60),
+        message: 'Please wait before requesting a new OTP',
+        retryAfter: cooldownTtl,
       };
     }
 
@@ -99,10 +100,11 @@ export class OtpService {
     // Store OTP in Redis with 10-minute TTL
     await this.redis.setex(otpKey, this.OTP_TTL, otp);
 
-    // Increment request count
+    // Increment request count and set resend cooldown
     const pipeline = this.redis.pipeline();
     pipeline.incr(requestCountKey);
     pipeline.expire(requestCountKey, this.REQUEST_WINDOW);
+    pipeline.setex(resendCooldownKey, this.RESEND_COOLDOWN, 'cooldown');
     await pipeline.exec();
 
     // Set resend cooldown
