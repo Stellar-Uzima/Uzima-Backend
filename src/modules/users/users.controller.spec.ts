@@ -69,6 +69,7 @@ describe('UsersController', () => {
       listUsers: jest.fn(),
       findOne: jest.fn(),
       getUserStats: jest.fn(),
+      registerDeviceToken: jest.fn(),
     };
 
     const mockUserSearchService = {
@@ -304,6 +305,20 @@ describe('UsersController', () => {
       await expect(controller.getProfile('test-id', mockRequest)).rejects.toThrow(
         ForbiddenException
       );
+    });
+  });
+
+  describe('registerDeviceToken', () => {
+    it('should register a device token successfully', async () => {
+      const dto = { token: 'fcm-token-123' };
+      mockRequest.user = mockRegularUser;
+
+      jest.spyOn(service, 'registerDeviceToken').mockResolvedValue(mockUser);
+
+      const result = await controller.registerDeviceToken(dto, mockRequest);
+
+      expect(service.registerDeviceToken).toHaveBeenCalledWith('user-id', 'fcm-token-123');
+      expect(result).toEqual({ success: true, message: 'Device token registered successfully' });
     });
   });
 

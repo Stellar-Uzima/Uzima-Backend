@@ -105,6 +105,11 @@ export class User {
   @IsString()
   twoFactorSecret?: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsOptional()
+  @IsString()
+  fcmToken?: string | null;
+
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 
@@ -138,7 +143,3 @@ export class User {
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];
 }
-
-// Import related entities to avoid circular dependencies
-import { UserActivity } from './user-activity.entity';
-import { UserPreferences } from './user-preferences.entity';

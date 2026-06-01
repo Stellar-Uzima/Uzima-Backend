@@ -111,6 +111,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   twoFactorSecret: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  fcmToken?: string | null;
+
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 

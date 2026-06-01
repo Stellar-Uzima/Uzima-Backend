@@ -42,6 +42,15 @@ export class UsersService {
     private readonly preferencesService: PreferencesService = null as any,
   ) {}
 
+  async registerDeviceToken(userId: string, token: string): Promise<User> {
+    if (!token) {
+      throw new BadRequestException('Device token is required');
+    }
+    const user = await this.findUserOrFail(userId);
+    user.fcmToken = token;
+    return this.userRepository.save(user);
+  }
+
   // --- SETTINGS METHODS ---
 
   async getSettings(userId: string): Promise<UserSettingsResponseDto> {

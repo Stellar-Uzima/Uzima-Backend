@@ -230,12 +230,12 @@ describe('UsersService', () => {
     });
 
     it('should handle user without phone number', async () => {
-      const userWithoutPhone = { ...mockUser, phoneNumber: null };
+      const userWithoutPhone = { ...mockUser, phoneNumber: null as any } as User;
       const deletedUser = {
         ...userWithoutPhone,
         isActive: false,
         email: expect.stringMatching(/^deleted_.*@deleted\.user$/),
-      };
+      } as any;
       userRepository.findOne.mockResolvedValue(userWithoutPhone);
       userRepository.save.mockResolvedValue(deletedUser);
 
