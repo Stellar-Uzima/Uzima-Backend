@@ -24,6 +24,7 @@ import { OtpModule } from '../../otp/otp.module';
 import { AuditModule } from '../../audit/audit.module';
 import { UsersService } from '../../auth/services/users.service';
 import { DatabaseModule } from '../../database/database.module';
+import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { DatabaseModule } from '../../database/database.module';
     JwtAuthGuard,
     JwtRefreshGuard,
     RolesGuard,
+    PasswordValidationPipe,
   ],
   exports: [
     AuthService,
