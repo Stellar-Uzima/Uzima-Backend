@@ -6,6 +6,10 @@ import {
   LeaderboardService,
 } from './leaderboard.service';
 import { RewardTransaction } from '../rewards/entities/reward-transaction.entity';
+import {
+  LeaderboardPeriod,
+  buildLeaderboardSetKey,
+} from './leaderboard-period.enum';
 
 const mockRedisClient = {
   zrevrange: jest.fn(),
@@ -495,6 +499,44 @@ describe('LeaderboardService', () => {
       );
     });
 
+    it('should use weekly period cache key when period is weekly', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      await service.getLeaderboard(
+        userId,
+        10,
+        undefined,
+        1,
+        LeaderboardPeriod.WEEKLY,
+      );
+
+      expect(mockRedisClient.zrevrange).toHaveBeenCalledWith(
+        buildLeaderboardSetKey(LeaderboardPeriod.WEEKLY),
+        0,
+        9,
+        'WITHSCORES',
+      );
+    });
+
+    it('defaults to all-time global leaderboard key', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue([]);
+      mockRedisClient.hmget.mockResolvedValue([]);
+      mockRedisClient.zrevrank.mockResolvedValue(null);
+      mockRedisClient.zscore.mockResolvedValue(null);
+
+      await service.getLeaderboard(userId, 10);
+
+      expect(mockRedisClient.zrevrange).toHaveBeenCalledWith(
+        'leaderboard:global',
+        0,
+        9,
+        'WITHSCORES',
+      );
+    });
+
     it('uses redis zrevrange to fetch only the requested top-N page', async () => {
       mockRedisClient.zrevrange.mockResolvedValue([
         'user-11',
@@ -585,6 +627,9 @@ describe('LeaderboardService', () => {
       await service.rebuildLeaderboards();
 
       expect(mockPipeline.del).toHaveBeenCalledWith('leaderboard:global');
+      expect(mockPipeline.del).toHaveBeenCalledWith('leaderboard:global:daily');
+      expect(mockPipeline.del).toHaveBeenCalledWith('leaderboard:global:weekly');
+      expect(mockPipeline.del).toHaveBeenCalledWith('leaderboard:global:monthly');
       expect(mockPipeline.exec).toHaveBeenCalled();
     });
 
@@ -699,7 +744,7 @@ describe('LeaderboardService', () => {
       await service.rebuildLeaderboards();
 
       expect(logSpy).toHaveBeenCalledWith(
-        'Leaderboard rebuild complete. Processed 1 users.',
+        'Leaderboard rebuild complete. Processed up to 1 users per period.',
       );
     });
   });

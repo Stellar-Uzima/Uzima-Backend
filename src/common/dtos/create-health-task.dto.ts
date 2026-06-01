@@ -11,6 +11,7 @@ export enum TaskCategory {
   MEDICATION = 'medication',
   OTHER = 'other',
 }
+import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty, IsUUID, IsArray } from 'class-validator';
 
 export enum TaskPriority {
   LOW = 'low',
@@ -40,6 +41,15 @@ export class CreateHealthTaskDto {
   @IsEnum(TaskCategory)
   @IsNotEmpty()
   category: TaskCategory;
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  tagIds?: string[];
 
   @ApiProperty({
     description: 'When the task should be completed by (ISO 8601 timestamp)',
@@ -48,8 +58,8 @@ export class CreateHealthTaskDto {
     format: 'date-time',
   })
   @IsDate()
-  @IsNotEmpty()
-  dueDate: Date;
+  @IsOptional()
+  dueDate?: Date;
 
   @ApiPropertyOptional({
     description: 'Longer free-form description of the task',

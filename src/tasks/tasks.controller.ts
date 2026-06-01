@@ -35,6 +35,13 @@ import { HealthTask } from './entities/health-task.entity';
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all available task categories' })
+  @ApiResponse({ status: 200, description: 'List of task categories' })
+  getCategories() {
+    return this.tasksService.getCategories();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.HEALER)

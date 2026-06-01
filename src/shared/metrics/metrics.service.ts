@@ -7,6 +7,10 @@ export class MetricsService {
   constructor(
     @InjectMetric('http_requests_total')
     private readonly httpRequestsTotal: Counter<string>,
+    @InjectMetric('http_requests_success_total')
+    private readonly httpRequestsSuccessTotal: Counter<string>,
+    @InjectMetric('http_requests_failed_total')
+    private readonly httpRequestsFailedTotal: Counter<string>,
     @InjectMetric('http_request_duration_seconds')
     private readonly httpRequestDuration: Histogram<string>,
     @InjectMetric('database_queries_total')
@@ -23,16 +27,31 @@ export class MetricsService {
     private readonly cpuUsage: Gauge<string>,
   ) {}
 
-  // Request metrics
   incrementHttpRequests(method: string, route: string, statusCode: number) {
     this.httpRequestsTotal.inc({ method, route, status_code: statusCode.toString() });
+    if (statusCode >= 400) {
+      this.incrementHttpFailedRequests(method, route, statusCode);
+    } else {
+      this.incrementHttpSuccessRequests(method, route);
+    }
   }
 
-  recordHttpRequestDuration(method: string, route: string, duration: number) {
-    this.httpRequestDuration.observe({ method, route }, duration);
+  incrementHttpSuccessRequests(method: string, route: string) {
+    this.httpRequestsSuccessTotal.inc({ method, route });
   }
 
-  // Database metrics
+  incrementHttpFailedRequests(method: string, route: string, statusCode: number) {
+    this.httpRequestsFailedTotal.inc({
+      method,
+      route,
+      status_code: statusCode.toString(),
+    });
+  }
+
+  recordHttpRequestDuration(method: string, route: string, durationSeconds: number) {
+    this.httpRequestDuration.observe({ method, route }, durationSeconds);
+  }
+
   incrementDbQueries(operation: string) {
     this.dbQueriesTotal.inc({ operation });
   }
@@ -41,7 +60,6 @@ export class MetricsService {
     this.dbQueryDuration.observe({ operation }, duration);
   }
 
-  // Cache metrics
   incrementCacheHits() {
     this.cacheHitsTotal.inc();
   }
@@ -50,7 +68,6 @@ export class MetricsService {
     this.cacheMissesTotal.inc();
   }
 
-  // System metrics
   setMemoryUsage(bytes: number) {
     this.memoryUsage.set(bytes);
   }

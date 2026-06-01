@@ -7,6 +7,8 @@ import {
   IsObject,
   IsIn,
   IsDateString,
+  IsUUID,
+  IsArray,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskCategory } from '../../tasks/entities/health-task.entity';
@@ -28,8 +30,14 @@ export class UpdateHealthTaskDto {
 
   @ApiPropertyOptional({ description: 'Updated category', enum: TaskCategory })
   @IsOptional()
-  @IsEnum(TaskCategory)
-  category?: TaskCategory;
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  tagIds?: string[];
 
   @ApiPropertyOptional({
     description: 'Workflow status of the task',
