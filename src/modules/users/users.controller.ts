@@ -21,6 +21,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
+import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
+import { ActivityFeedService } from './services/activity-feed.service';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 
 type AuthenticatedRequest = {
@@ -51,6 +53,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
+    private readonly activityFeedService: ActivityFeedService,
   ) {}
 
   @Get('profile')
@@ -83,6 +86,26 @@ export class UsersController {
       updateProfileDto,
       ipAddress,
       finalUserAgent,
+    );
+  }
+
+  @Get('activity-feed')
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  async getActivityFeed(
+    @Query() query: ActivityFeedQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.extractUserId(req);
+    return this.activityFeedService.getActivityFeed(
+      userId,
+      query.page,
+      query.limit,
     );
   }
 

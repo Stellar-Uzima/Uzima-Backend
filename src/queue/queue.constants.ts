@@ -30,6 +30,9 @@ export const TASK_COMPLETION_VERIFICATION_JOB =
 export const TASK_QUALITY_CHECK_JOB = 'task-quality-check' as const;
 export const TASK_APPROVAL_JOB = 'task-approval' as const;
 
+// Queue Job Types for Data Processing Queue
+export const BULK_TASK_ASSIGNMENT_JOB = 'bulk-task-assignment' as const;
+
 // Type definitions for better type safety
 export type QueueName =
   | typeof REWARD_QUEUE
@@ -55,11 +58,20 @@ export type TaskVerificationJobType =
   | typeof TASK_QUALITY_CHECK_JOB
   | typeof TASK_APPROVAL_JOB;
 
+export type DataProcessingJobType = typeof BULK_TASK_ASSIGNMENT_JOB;
+
 // All job types combined
 export type JobType =
   | RewardJobType
   | NotificationJobType
-  | TaskVerificationJobType;
+  | TaskVerificationJobType
+  | DataProcessingJobType;
+
+export interface BulkTaskAssignmentJobData {
+  userIds: string[];
+  taskIds: string[];
+  assignedDate: string;
+}
 
 // Queue configuration interface
 export interface QueueConfig {
