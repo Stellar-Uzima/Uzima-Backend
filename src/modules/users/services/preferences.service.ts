@@ -88,7 +88,9 @@ export class PreferencesService {
 
     if (!preferences) {
       // Verify user exists
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
       if (!user) {
         throw new NotFoundException('User not found');
       }
