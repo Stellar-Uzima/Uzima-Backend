@@ -38,6 +38,7 @@ import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
+import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { OtpModule } from './otp/otp.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    HealthProfileModule,
   ],
   controllers: [AppController],
   providers: [

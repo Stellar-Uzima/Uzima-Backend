@@ -7,7 +7,10 @@ import { AuditModule } from '@/audit/audit.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { CacheModule } from '@/shared/cache/cache.module';
 import { AdminController } from './admin.controller';
+import { AdminTasksController } from './admin-tasks.controller';
 import { AdminUsersController } from './admin-users.controller';
+import { QueueModule } from '@/queue/queue.module';
+import { QueueService } from '@/shared/queue/queue.service';
 import { AdminService } from './services/admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { User } from '@/entities/user.entity';
@@ -24,9 +27,16 @@ import { RewardsScheduler } from '@/rewards/rewards.scheduler';
     HealthTasksModule,
     HealthModule,
     AuthModule,
+    QueueModule,
+  ],
+  controllers: [AdminController, AdminUsersController, AdminTasksController],
+  providers: [
+    AdminService,
+    AdminUsersService,
+    TasksScheduler,
+    RewardsScheduler,
+    QueueService,
     CacheModule,
   ],
-  controllers: [AdminController, AdminUsersController],
-  providers: [AdminService, AdminUsersService, TasksScheduler, RewardsScheduler],
 })
 export class AdminModule {}
