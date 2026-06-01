@@ -70,7 +70,7 @@
     "typeorm": "^0.3.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.2.0",
+    "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.4.22",
     "@types/express": "^4.17.0",
