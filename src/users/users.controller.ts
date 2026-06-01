@@ -185,6 +185,30 @@ export class UsersController {
     return this.usersService.updateProfile(req.user.userId, updateProfileDto);
   }
 
+  @Patch('profile')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  @ApiOperation({
+    summary: 'Update current user profile (alias)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile updated successfully',
+    type: UserResponseDto,
+  })
+  async updateProfileAlias(
+    @Req() req: AuthenticatedRequest,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateProfile(req.user.userId, updateProfileDto);
+  }
+
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

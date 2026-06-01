@@ -21,6 +21,17 @@ if (process.env.SKIP_DB_SETUP === 'true') {
     }
   }, 60000); // 60 second timeout for setup
 }
+// Global setup - runs once before all tests
+beforeAll(async () => {
+  console.log('🚀 Starting test suite setup...');
+  try {
+    await setupTestDatabase();
+    console.log('✅ Test database setup complete');
+  } catch (error) {
+    console.error('❌ Failed to setup test database', error);
+    throw error;
+  }
+}, 60000); // 60 second timeout for setup
 
 // Per-test setup - clean database before each test
 beforeEach(async () => {
@@ -28,6 +39,7 @@ beforeEach(async () => {
     await beforeEachTest();
   } catch (error) {
     console.error('❌ Failed to setup before test', error);
+    throw error;
   }
 });
 
@@ -37,6 +49,7 @@ afterEach(async () => {
     await afterEachTest();
   } catch (error) {
     console.error('❌ Failed to cleanup after test', error);
+    throw error;
   }
 });
 
@@ -48,7 +61,7 @@ afterAll(async () => {
     console.log('✅ Test database teardown complete');
   } catch (error) {
     console.error('❌ Failed to teardown test database', error);
-    process.exit(1);
+    throw error;
   }
 }, 60000); // 60 second timeout for teardown
 

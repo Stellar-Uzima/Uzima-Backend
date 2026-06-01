@@ -7,6 +7,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
+import passwordConfig from './config/password.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -42,7 +43,7 @@ import { OtpModule } from './otp/otp.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig],
+      load: [secretsConfig, passwordConfig],
     }),
     ThrottlerModule.forRoot([
       {

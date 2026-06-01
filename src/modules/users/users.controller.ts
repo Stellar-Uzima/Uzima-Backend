@@ -8,6 +8,7 @@
   Body,
   Req,
   Query,
+   Patch,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -46,7 +47,7 @@ type AuthenticatedRequest = {
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('users')
+@Controller({ path: 'users', version: '1' })
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -147,5 +148,17 @@ export class UsersController {
 
   private extractIpAddress(req: AuthenticatedRequest): string | undefined {
     return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
+  }
+
+    @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Req() req,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(
+      req.user.id,
+      dto,
+    );
   }
 }
