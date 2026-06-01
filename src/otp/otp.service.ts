@@ -107,6 +107,9 @@ export class OtpService {
     pipeline.setex(resendCooldownKey, this.RESEND_COOLDOWN, 'cooldown');
     await pipeline.exec();
 
+    // Set resend cooldown
+    await this.redis.setex(cooldownKey, this.RESEND_COOLDOWN, '1');
+
     const newCount = currentCount + 1;
     const remainingAttempts = this.MAX_REQUESTS_PER_HOUR - newCount;
 
