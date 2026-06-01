@@ -119,3 +119,6 @@ export class User {
   preferences: UserPreferences[];
 }
 
+// Import related entities to avoid circular dependencies
+import { UserActivity } from './user-activity.entity';
+import { UserPreferences } from './user-preferences.entity';
