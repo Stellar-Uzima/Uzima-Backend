@@ -293,6 +293,23 @@ describe('UsersService', () => {
   });
 });
 ```
+## 🔄 API Versioning
+
+This API uses URI-based versioning. All endpoints are available under `/api/v1/`.
+
+### Current Version
+
+| Version | Status | Base URL |
+|---------|--------|----------|
+| v1 | Active | `/api/v1/` |
+
+### Examples
+GET /api/v1/auth/login
+GET /api/v1/users/profile
+### Versioning Strategy
+
+When breaking changes are introduced, a new version (e.g., `/api/v2/`) will be added.
+Existing versions remain available to allow gradual client migration.
 
 ## 🐳 Docker
 

@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Optional,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
@@ -143,6 +144,8 @@ export class AuthService {
       throw new UnauthorizedException('Email not verified');
     }
 
+    // Update last login timestamp tracking on successful email login
+    await this.usersService.updateLastLogin(user.id);
     if (user.twoFactorEnabled) {
       if (!dto.totpCode) {
         throw new UnauthorizedException('Two-factor authentication code is required');
@@ -247,6 +250,11 @@ export class AuthService {
       if (!storedToken || storedToken !== refreshToken) {
         // Replay attack or invalid token: clear all user sessions
         await this.clearAllUserRefreshTokens(userId);
+        // Also clear persisted token on the user entity
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
         this.eventEmitter.emit('auth.suspicious_activity', {
           userId,
           reason: 'Invalid or reused refresh token',
@@ -254,10 +262,24 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      // Delete the used token
-      await this.redisClient.del(key);
-
+      // Validate against persisted hashed token on user entity
       const user = await this.usersService.findById(userId);
+      if (
+        !user.refreshToken ||
+        !user.refreshTokenExpiry ||
+        user.refreshTokenExpiry < new Date() ||
+        !(await bcrypt.compare(refreshToken, user.refreshToken))
+      ) {
+        await this.redisClient.del(key);
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Delete the used token (rotation: old token invalidated)
+      await this.redisClient.del(key);
+      user.refreshToken = null;
+      user.refreshTokenExpiry = null;
+      await this.usersService.save(user);
+
       return this.generateTokens(user.id, user.email, user.role);
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
@@ -269,6 +291,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
+    const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(
@@ -276,10 +299,16 @@ export class AuthService {
       { expiresIn: '7d' }
     );
 
+    // Store in Redis for fast lookup
     const key = `refresh:${userId}:${tokenId}`;
-    await this.redisClient.set(key, refreshToken, {
-      EX: 7 * 24 * 60 * 60,
-    });
+    await this.redisClient.set(key, refreshToken, { EX: 7 * 24 * 60 * 60 });
+
+    // Persist hashed refresh token to user entity for durable rotation
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const user = await this.usersService.findById(userId);
+    user.refreshToken = hashedRefreshToken;
+    user.refreshTokenExpiry = refreshExpiry;
+    await this.usersService.save(user);
 
     // Record session metadata in DB (device info can be passed later)
     try {
@@ -315,7 +344,6 @@ export class AuthService {
       const isAlreadyBlacklisted = await this.isTokenBlacklisted(refreshToken);
       if (isAlreadyBlacklisted) {
         this.logger.warn(`Attempted logout with already blacklisted token for user ${userId}`);
-        // Still proceed with session cleanup for consistency
       }
 
       // Execute logout operations within a transaction
@@ -350,7 +378,7 @@ export class AuthService {
         },
         {
           isolationLevel: 'READ COMMITTED',
-          timeout: 5000, // 5 second timeout
+          timeout: 5000,
         }
       );
 
@@ -364,6 +392,16 @@ export class AuthService {
       } catch (redisError: any) {
         // Redis failure shouldn't fail the logout
         this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
+      }
+
+      // Clear persisted refresh token on user entity
+      try {
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
+      } catch (err: any) {
+        this.logger.warn(`Failed to clear user refresh token fields: ${err.message}`);
       }
 
       // Log successful logout with performance metrics
@@ -382,7 +420,6 @@ export class AuthService {
       const duration = Date.now() - startTime;
       this.logger.error(`Logout failed for user ${userId} after ${duration}ms: ${error.message}`, error.stack);
 
-      // Re-throw with appropriate error type
       if (error instanceof UnauthorizedException) {
         throw error;
       }
@@ -421,7 +458,6 @@ export class AuthService {
       return isBlacklisted;
     } catch (error: any) {
       this.logger.error(`Error checking token blacklist: ${error.message}`);
-      // On database error, assume token is not blacklisted for safety
       return false;
     }
   }
@@ -435,10 +471,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Clean up expired blacklisted tokens
-   * Should be called periodically (e.g., via cron job)
-   */
   async cleanupExpiredBlacklistedTokens(): Promise<number> {
     try {
       const result = await this.tokenBlacklistRepo.delete({
@@ -490,12 +522,21 @@ export class AuthService {
         phoneNumber: verifyOtpDto.phoneNumber,
         firstName: 'Phone',
         lastName: 'User',
-        email: undefined, // No email for phone users
-        password: undefined, // No password
+        email: undefined,
+        password: undefined,
       });
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
     }
 
+    // Type Guard to reassure TypeScript compiler that 'user' is guaranteed to exist
+    if (!user) {
+      throw new UnauthorizedException('Authentication failed: User profile mapping failed.');
+    }
+
+    // Update last login timestamp tracking on successful phone OTP validation
+    await this.usersService.updateLastLogin(user.id);
+
+    const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
     const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
@@ -519,18 +560,15 @@ export class AuthService {
 
     const user: any = record.user;
     user.isVerified = true;
-    // clear legacy fields if present
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;
     await this.usersService.save(user);
 
-    // Emit email verified event
     this.eventEmitter.emit('user.email.verified', {
       userId: user.id,
       email: user.email,
     });
 
-    // Audit log for email verification
     await this.auditService.logAction(user.id, `Email verified: ${user.email}`);
 
     return { message: 'Email verified successfully' };
@@ -548,7 +586,6 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Check rate limit (3 per hour)
     const rateLimitKey = `email_verify:${user.email}`;
     const currentCount = await this.redisClient.get(rateLimitKey);
 
@@ -556,10 +593,8 @@ export class AuthService {
       throw new BadRequestException('Too many verification requests. Please try again later.');
     }
 
-  // Create a new email verification record and send email
-  await this.emailVerificationService.createForUser(user.id);
+    await this.emailVerificationService.createForUser(user.id);
 
-    // Increment rate limit counter
     if (!currentCount) {
       await this.redisClient.set(rateLimitKey, '1', { EX: 3600 });
     } else {
@@ -577,7 +612,6 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      // Success for security
       return { message: 'If an account exists, a reset link has been sent' };
     }
 
@@ -585,7 +619,7 @@ export class AuthService {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
     user.passwordResetToken = hash;
-    user.passwordResetExpiry = new Date(Date.now() + 3600 * 1000); // 1 hour
+    user.passwordResetExpiry = new Date(Date.now() + 3600 * 1000);
 
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${email}`);
@@ -614,7 +648,6 @@ export class AuthService {
     await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
-    // Audit log for password reset
     await this.auditService.logAction(user.id, `Password reset completed for: ${user.email}`);
 
     return { message: 'Password reset successful' };

@@ -23,8 +23,10 @@ import { TaskReminder } from '../../database/entities/task-reminder.entity';
 import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
 import { TaskCategory } from '../../database/entities/task-category.entity';
+import { TaskTag } from '../../database/entities/task-tag.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { User } from '../../entities/user.entity';
+import { AnalyticsModule } from '../../shared/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -39,9 +41,11 @@ import { User } from '../../entities/user.entity';
       DailyTaskAssignment,
       TaskCategory,
       User,
+      TaskTag,
     ]),
     CacheModule.register(),
     NotificationsModule,
+    AnalyticsModule,
   ],
   controllers: [HealthTasksController, NotesController],
   providers: [

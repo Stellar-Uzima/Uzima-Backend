@@ -25,6 +25,7 @@ import { AuditModule } from '../../audit/audit.module';
 import { UsersService } from '../../auth/services/users.service';
 import { DatabaseModule } from '../../database/database.module';
 import { ReferralModule } from '../../referral/referral.module';
+import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 
 @Module({
   imports: [
@@ -40,7 +41,7 @@ import { ReferralModule } from '../../referral/referral.module';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '3600s'),
+          expiresIn: configService.get<string>('JWT_EXPIRATION', '3600s') as any,
         },
       }),
     }),
@@ -57,6 +58,7 @@ import { ReferralModule } from '../../referral/referral.module';
     JwtAuthGuard,
     JwtRefreshGuard,
     RolesGuard,
+    PasswordValidationPipe,
   ],
   exports: [
     AuthService,

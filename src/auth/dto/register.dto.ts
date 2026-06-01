@@ -12,11 +12,7 @@ export class RegisterDto {
   email: string;
 
   @IsString({ message: 'Password must be a string' })
-  @Length(8, 32, { message: 'Password must be between 8 and 32 characters' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,32}$/, {
-    message:
-      'Password must be 8-32 characters and include uppercase, lowercase, number and special character',
-  })
+  @IsNotEmpty({ message: 'Password is required' })
   password: string;
 
   @IsString({ message: 'First name must be a string' })

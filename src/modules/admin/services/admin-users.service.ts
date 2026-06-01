@@ -76,6 +76,8 @@ export class AdminUsersService {
       qb.andWhere('user.isActive = :active', { active: dto.isActive });
     }
 
+    qb.andWhere('user.deletedAt IS NULL');
+
     if (dto.search) {
       qb.andWhere(
         '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
@@ -165,7 +167,19 @@ export class AdminUsersService {
       throw new ForbiddenException('Admins cannot reactivate themselves');
     }
 
-    const user = await this.getUserById(userId);
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      withDeleted: true,
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.deletedAt) {
+      await this.usersRepository.restore(userId);
+    }
+
     user.isActive = true;
     user.status = UserStatus.ACTIVE;
     const updatedUser = await this.usersRepository.save(user);
@@ -179,9 +193,12 @@ export class AdminUsersService {
     }
 
     const user = await this.getUserById(userId);
-    await this.usersRepository.remove(user);
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.usersRepository.save(user);
+    await this.usersRepository.softDelete(userId);
     await this.redisClient.del(`refresh:${userId}`);
-    await this.auditService.logAction(adminId, `Deleted user ${userId} (${user.email})`);
+    await this.auditService.logAction(adminId, `Soft deleted user ${userId} (${user.email})`);
     return { message: 'User deleted successfully' };
   }
 }

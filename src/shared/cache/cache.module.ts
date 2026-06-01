@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { CacheService } from './cache.service';
 
 @Global()
@@ -7,3 +7,4 @@ import { CacheService } from './cache.service';
   exports: [CacheService],
 })
 export class AppCacheModule {}
+export class CacheModule {}

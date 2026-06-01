@@ -7,8 +7,9 @@ import {
   IsObject,
   IsIn,
   IsDateString,
+  IsUUID,
+  IsArray,
 } from 'class-validator';
-import { TaskCategory } from '../../tasks/entities/health-task.entity';
 import { TaskPriority } from '../../modules/health-tasks/services/priority.service';
 
 export class UpdateHealthTaskDto {
@@ -21,8 +22,14 @@ export class UpdateHealthTaskDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(TaskCategory)
-  category?: TaskCategory;
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUUID('4', { each: true })
+  tagIds?: string[];
 
   @IsOptional()
   @IsString()

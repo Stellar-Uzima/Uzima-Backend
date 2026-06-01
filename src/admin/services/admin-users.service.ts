@@ -157,8 +157,13 @@ export class AdminUsersService {
     if (adminId === userId)
       throw new ForbiddenException('Admins cannot reactivate themselves');
 
-    const user = await this.getUserById(userId);
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      withDeleted: true,
+    });
+    if (!user) throw new ForbiddenException('User not found');
     user.isActive = true;
+    user.deletedAt = null;
     const updatedUser = await this.usersRepository.save(user);
 
     await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
