@@ -13,7 +13,10 @@ import {
 } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } from 'class-validator';
 import { Role } from '../../auth/enums/role.enum';
-
+import { Session } from './session.entity';
+import { Organization } from './organization.entity';
+import { UserActivity } from './user-activity.entity';
+import { UserPreferences } from './user-preferences.entity';
 
 export enum UserRole {
   USER = 'USER',
@@ -56,6 +59,26 @@ export class User {
   @IsString()
   @IsOptional()
   avatar?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  @IsString()
+  @IsOptional()
+  postalCode?: string;
 
   @Column({
     type: 'enum',
@@ -119,11 +142,4 @@ export class User {
 
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];
-
 }
-
-// Import related entities to avoid circular dependencies
-import { UserActivity } from './user-activity.entity';
-import { UserPreferences } from './user-preferences.entity';
-import { Session } from './session.entity';
-import { Organization } from './organization.entity';

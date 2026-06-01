@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CacheService } from '../../shared/cache/cache.service';
 import { NotificationPreference } from '../entities/notification-preference.entity';
 import { Notification } from '../entities/notification.entity';
 import { User } from '../../entities/user.entity';
@@ -17,6 +19,8 @@ export interface NotificationOptions {
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
+  private cooldowns: Record<string, number> = {};
+
   constructor(
     @InjectRepository(NotificationPreference)
     private readonly preferenceRepository: Repository<NotificationPreference>,
@@ -25,7 +29,16 @@ export class NotificationService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly pushNotificationService: PushNotificationService,
-  ) {}
+    private readonly cacheService: CacheService,
+    private readonly configService: ConfigService,
+  ) {
+    // Initialize cooldowns from config or use sensible defaults (seconds)
+    this.cooldowns = {
+      email: this.configService.get<number>('NOTIF_COOLDOWN_EMAIL', 60),
+      sms: this.configService.get<number>('NOTIF_COOLDOWN_SMS', 30),
+      push: this.configService.get<number>('NOTIF_COOLDOWN_PUSH', 10),
+    };
+  }
 
   async getNotifications(userId: string): Promise<Notification[]> {
     return this.notificationRepository.find({
@@ -107,16 +120,23 @@ export class NotificationService {
       return false;
     }
 
+    // Deduplication / rate-limiting per user + channel
+    const cooldown = this.cooldowns.email ?? 60;
+    const dedupeKey = `notification:dedupe:${userId}:email`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
+      this.logger.debug(
+        `Duplicate email suppressed for user ${userId} within ${cooldown}s`,
+      );
+      return false;
+    }
+
     // TODO: Implement actual email sending logic here or emit event
     // For now, log and return success
     this.logger.log(
       `Sending email to user ${userId} with template: ${template}`,
     );
-
-    // Example implementation:
-    // - Use a queue job (EMAIL_NOTIFICATION_JOB)
-    // - Or call an email service (e.g., SendGrid, AWS SES)
-    // - Or emit an event for another service to handle
 
     return true;
   }
@@ -134,14 +154,20 @@ export class NotificationService {
       return false;
     }
 
+    const cooldown = this.cooldowns.sms ?? 30;
+    const dedupeKey = `notification:dedupe:${userId}:sms`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
+      this.logger.debug(
+        `Duplicate SMS suppressed for user ${userId} within ${cooldown}s`,
+      );
+      return false;
+    }
+
     // TODO: Implement actual SMS sending logic here or emit event
     // For now, log and return success
     this.logger.log(`Sending SMS to user ${userId}: ${message}`);
-
-    // Example implementation:
-    // - Use a queue job (SMS_NOTIFICATION_JOB)
-    // - Or call an SMS service (e.g., Twilio)
-    // - Or emit an event for another service to handle
 
     return true;
   }
@@ -159,6 +185,17 @@ export class NotificationService {
     if (!canSend) {
       this.logger.debug(
         `Push notifications disabled for user ${userId}. Skipping.`,
+      );
+      return false;
+    }
+
+    const cooldown = this.cooldowns.push ?? 10;
+    const dedupeKey = `notification:dedupe:${userId}:push`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
+      this.logger.debug(
+        `Duplicate push suppressed for user ${userId} within ${cooldown}s`,
       );
       return false;
     }

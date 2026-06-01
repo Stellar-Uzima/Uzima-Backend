@@ -34,6 +34,8 @@ export class OtpService {
   private readonly OTP_REQUEST_COUNT_PREFIX = 'otp_requests:';
   private readonly OTP_FAILED_ATTEMPTS_PREFIX = 'otp_failed:';
   private readonly OTP_LOCK_PREFIX = 'otp_lock:';
+  private readonly OTP_RESEND_COOLDOWN_PREFIX = 'otp_resend_cooldown:';
+  private readonly RESEND_COOLDOWN = 60; // 60 seconds between resends
 
   constructor(
     private readonly configService: ConfigService,
@@ -64,6 +66,18 @@ export class OtpService {
       };
     }
 
+    // Check resend cooldown (60 seconds between requests)
+    const cooldownKey = ${this.OTP_RESEND_COOLDOWN_PREFIX}${normalizedPhone};
+    const cooldownTtl = await this.redis.ttl(cooldownKey);
+    if (cooldownTtl > 0) {
+      return {
+        success: false,
+        message: Please wait ${cooldownTtl} second(s) before requesting a new OTP.,
+        remainingAttempts: 0,
+        lockoutMinutes: Math.ceil(cooldownTtl / 60),
+      };
+    }
+
     // Check rate limit (max 3 requests per hour)
     const requestCount = await this.redis.get(requestCountKey);
     const currentCount = requestCount ? parseInt(requestCount, 10) : 0;
@@ -90,6 +104,9 @@ export class OtpService {
     pipeline.incr(requestCountKey);
     pipeline.expire(requestCountKey, this.REQUEST_WINDOW);
     await pipeline.exec();
+
+    // Set resend cooldown
+    await this.redis.setex(cooldownKey, this.RESEND_COOLDOWN, '1');
 
     const newCount = currentCount + 1;
     const remainingAttempts = this.MAX_REQUESTS_PER_HOUR - newCount;

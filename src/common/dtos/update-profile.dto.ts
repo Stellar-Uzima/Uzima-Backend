@@ -89,17 +89,56 @@ export class UpdateProfileDto {
   preferredLanguage?: string;
 
   @ApiPropertyOptional({
-    description: 'Country code (ISO 3166-1 alpha-2)',
-    example: 'US',
-    maxLength: 2,
+    description: 'Country',
+    example: 'United States',
+    maxLength: 100,
   })
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Z]{2}$/, {
-    message: 'Country code must be 2 uppercase letters (e.g., US, GB, FR)',
+  @MaxLength(100, {
+    message: 'Country must be less than 100 characters',
   })
-  @Transform(({ value }) => value?.toUpperCase())
+  @Transform(({ value }) => value?.trim())
   country?: string;
+
+  @ApiPropertyOptional({
+    description: 'User address',
+    example: '123 Main St',
+    maxLength: 255,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255, {
+    message: 'Address must be less than 255 characters',
+  })
+  @Transform(({ value }) => value?.trim())
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'User city',
+    example: 'New York',
+    maxLength: 100,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, {
+    message: 'City must be less than 100 characters',
+  })
+  @Transform(({ value }) => value?.trim())
+  city?: string;
+
+  @ApiPropertyOptional({
+    description: 'Postal code',
+    example: '10001',
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20, {
+    message: 'Postal code must be less than 20 characters',
+  })
+  @Transform(({ value }) => value?.trim())
+  postalCode?: string;
 }
 
 export class ProfileResponseDto {
@@ -160,10 +199,28 @@ export class ProfileResponseDto {
   preferredLanguage?: string;
 
   @ApiProperty({
-    description: 'Country code',
-    example: 'US',
+    description: 'Country',
+    example: 'United States',
   })
   country?: string;
+
+  @ApiProperty({
+    description: 'User address',
+    example: '123 Main St',
+  })
+  address?: string;
+
+  @ApiProperty({
+    description: 'User city',
+    example: 'New York',
+  })
+  city?: string;
+
+  @ApiProperty({
+    description: 'Postal code',
+    example: '10001',
+  })
+  postalCode?: string;
 
   @ApiProperty({
     description: 'User role',

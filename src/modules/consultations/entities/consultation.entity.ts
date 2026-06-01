@@ -8,6 +8,9 @@ export class Consultation {
   @Column()
   userId: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  healerId: string | null;
+
   @Column({ type: 'timestamp' })
   scheduledAt: Date;
 

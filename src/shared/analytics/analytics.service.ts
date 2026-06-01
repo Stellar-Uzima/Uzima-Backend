@@ -1,6 +1,6 @@
 // src/shared/analytics/analytics.service.ts
 
-// ── Standalone in-memory analytics (issue #549 / PR #647 original) ──────────
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 /**
  * Interface representing logged user interactions across the application platform.
@@ -37,24 +37,88 @@ export interface AnalyticsReport {
   averageSystemMetrics: Record<string, number>;
 }
 
-export class AnalyticsTracker {
-  // In-memory operational vectors (can be mapped directly to database collections later)
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
+export const ANALYTICS_PROVIDERS = 'ANALYTICS_PROVIDERS';
+
+export interface AnalyticsProvider {
+  trackEvent(eventName: string, payload?: Record<string, unknown>): Promise<void>;
+}
+
+export class ConsoleAnalyticsProvider implements AnalyticsProvider {
+  private readonly logger = new Logger(ConsoleAnalyticsProvider.name);
+
+  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
+    this.logger.log(`Analytics event tracked: ${eventName}`);
+    console.log(`[Analytics] ${eventName}`, payload);
+  }
+}
+
+export class ExternalAnalyticsProvider implements AnalyticsProvider {
+  constructor(
+    private readonly apiKey?: string,
+    private readonly endpoint: string = 'https://analytics.example.com/track',
+  ) {}
+
+  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
+    if (!this.apiKey) {
+      return;
+    }
+
+    try {
+      // Placeholder for real external analytics integration.
+      console.log(`[ExternalAnalytics] sending event ${eventName} to ${this.endpoint}`);
+      console.log({ apiKey: this.apiKey, eventName, payload });
+    } catch (error) {
+      console.error('[ExternalAnalytics] failed to track event', error);
+    }
+  }
+}
+
+/**
+ * Application-wide analytics service.
+ *
+ * Combines a NestJS DI-friendly multi-provider dispatcher (`trackEvent`) with the
+ * legacy in-memory user-action / system-metric trackers used by older code paths.
+ */
+@Injectable()
+export class AnalyticsService {
+  // In-memory operational vectors (kept for backward compatibility with legacy callers)
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
+
+@Injectable()
+export class AnalyticsService {
+  constructor(
+    @Inject(ANALYTICS_PROVIDERS)
+    private readonly providers: AnalyticsProvider[],
+  ) {}
+
+  /**
+   * Dispatches a single event to every configured analytics provider.
+   * Provider failures are logged and swallowed so analytics never break business flows.
+   */
+  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
+    await Promise.all(
+      this.providers.map((provider) =>
+        provider.trackEvent(eventName, payload).catch((error) => {
+          console.error(`[AnalyticsService] provider failed to track ${eventName}`, error);
+        }),
+      ),
+    );
+  }
 
   /**
    * Requirement: Track user actions
    * Acceptance Criteria: Analytics tracked
    */
   public trackUserAction(userId: string, action: string, metadata?: Record<string, any>): void {
-    const logEntry: UserActionPayload = {
+    this.userActionsLog.push({
       userId,
       action,
       timestamp: new Date(),
       metadata,
-    };
-
-    this.userActionsLog.push(logEntry);
+    });
   }
 
   /**
@@ -62,19 +126,17 @@ export class AnalyticsTracker {
    * Acceptance Criteria: Analytics tracked
    */
   public trackSystemMetric(metricName: string, value: number, context?: string): void {
-    const metricEntry: SystemMetricPayload = {
+    this.systemMetricsLog.push({
       metricName,
       value,
       timestamp: new Date(),
       context,
-    };
-
-    this.systemMetricsLog.push(metricEntry);
+    });
   }
 
   /**
    * Requirement: Analyze patterns
-   * Acceptance Criteria: Patterns identifiable
+   * Examines historical actions to calculate occurrence counts per specific action name.
    */
   public analyzeActionPatterns(start: Date, end: Date): Record<string, number> {
     const targetActions = this.queryUserActions({ start, end });
@@ -89,7 +151,7 @@ export class AnalyticsTracker {
 
   /**
    * Requirement: Generate reports
-   * Acceptance Criteria: Reports generated
+   * Compiles actions frequency data and handles averaged metrics reductions over a timeframe.
    */
   public generateAnalyticsReport(start: Date, end: Date): AnalyticsReport {
     const actionsInPeriod = this.queryUserActions({ start, end });
@@ -125,7 +187,7 @@ export class AnalyticsTracker {
   }
 
   /**
-   * Acceptance Criteria: Data queryable
+   * Dynamic lookup query handler for specific user actions filtering lists.
    */
   public queryUserActions(filters: {
     start?: Date;
@@ -143,7 +205,7 @@ export class AnalyticsTracker {
   }
 
   /**
-   * Acceptance Criteria: Data queryable
+   * Dynamic lookup query handler for checking performance metrics logs.
    */
   public querySystemMetrics(filters: {
     start?: Date;
@@ -158,65 +220,11 @@ export class AnalyticsTracker {
     });
   }
 
+  /**
+   * Testing Utility — wipes internal tracking frames back to a clean state.
+   */
   public clearLogs(): void {
     this.userActionsLog = [];
     this.systemMetricsLog = [];
-  }
-}
-
-// ── Provider-based analytics (used by AnalyticsModule) ──────────────────────
-
-import { Inject, Injectable, Logger } from '@nestjs/common';
-
-export const ANALYTICS_PROVIDERS = 'ANALYTICS_PROVIDERS';
-
-export interface AnalyticsProvider {
-  trackEvent(eventName: string, payload?: Record<string, unknown>): Promise<void>;
-}
-
-export class ConsoleAnalyticsProvider implements AnalyticsProvider {
-  private readonly logger = new Logger(ConsoleAnalyticsProvider.name);
-
-  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
-    this.logger.log(`Analytics event tracked: ${eventName}`);
-    console.log(`[Analytics] ${eventName}`, payload);
-  }
-}
-
-export class ExternalAnalyticsProvider implements AnalyticsProvider {
-  constructor(
-    private readonly apiKey?: string,
-    private readonly endpoint: string = 'https://analytics.example.com/track',
-  ) {}
-
-  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
-    if (!this.apiKey) {
-      return;
-    }
-
-    try {
-      console.log(`[ExternalAnalytics] sending event ${eventName} to ${this.endpoint}`);
-      console.log({ apiKey: this.apiKey, eventName, payload });
-    } catch (error) {
-      console.error('[ExternalAnalytics] failed to track event', error);
-    }
-  }
-}
-
-@Injectable()
-export class AnalyticsService {
-  constructor(
-    @Inject(ANALYTICS_PROVIDERS)
-    private readonly providers: AnalyticsProvider[],
-  ) {}
-
-  async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
-    await Promise.all(
-      this.providers.map((provider) =>
-        provider.trackEvent(eventName, payload).catch((error) => {
-          console.error(`[AnalyticsService] provider failed to track ${eventName}`, error);
-        }),
-      ),
-    );
   }
 }

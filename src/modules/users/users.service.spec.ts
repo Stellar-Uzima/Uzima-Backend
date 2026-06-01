@@ -104,4 +104,35 @@ describe('UsersService', () => {
       );
     });
   });
+
+  describe('updateProfile', () => {
+    it('updates user profile fields', async () => {
+      const user = {
+        id: 'user-1',
+        name: 'Old Name',
+        phone: '111111111',
+        address: 'Old Address',
+      };
+
+      userRepository.findOne.mockResolvedValue(user as any);
+      userRepository.save.mockResolvedValue({
+        ...user,
+        name: 'New Name',
+      } as any);
+
+      const result = await service.updateProfile('user-1', {
+        name: 'New Name',
+      } as any);
+
+      expect((result as any).name).toBe('New Name');
+    });
+
+    it('throws when user does not exist', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.updateProfile('missing-user', {} as any)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
 });

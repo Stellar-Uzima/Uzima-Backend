@@ -19,13 +19,13 @@ export class AddHealthTasksForeignKeyToDailyTaskAssignments1740000000001
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop the foreign key constraint
     const table = await queryRunner.getTable('daily_task_assignment_tasks');
-    const foreignKey = table.foreignKeys.find(
+    const foreignKey = table?.foreignKeys.find(
       fk => fk.columnNames.indexOf('task_id') !== -1
     );
     if (foreignKey) {
       await queryRunner.dropForeignKey(
         'daily_task_assignment_tasks',
-        foreignKey
+        foreignKey,
       );
     }
   }

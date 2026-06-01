@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToMany,
   ManyToOne,
   ManyToMany,
@@ -74,11 +75,20 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   walletAddress: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  address: string | null;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   stellarWalletAddress: string | null;
 
+  @Column({ type: 'decimal', precision: 18, scale: 7, default: 0 })
+  walletBalance: number;
+
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   dailyXlmEarned: number;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date | null;
@@ -88,6 +98,9 @@ export class User {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at' })
+  deletedAt?: Date | null;
 
   @Column({ nullable: true, unique: true })
   referralCode?: string | null;
@@ -106,6 +119,12 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   lockedUntil: Date | null;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpiry: Date | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;

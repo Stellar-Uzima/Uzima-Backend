@@ -8,10 +8,12 @@ import {
   Body,
   Req,
   Query,
+   Patch,
   UseGuards,
   UsePipes,
   ValidationPipe,
   HttpCode,
+  HttpStatus,
   ForbiddenException,
   NotFoundException,
   BadRequestException,
@@ -21,6 +23,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
+import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
+import { ActivityFeedService } from './services/activity-feed.service';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 import { IsString, IsNotEmpty } from 'class-validator';
 
@@ -53,11 +57,12 @@ type AuthenticatedRequest = {
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('users')
+@Controller({ path: 'users', version: '1' })
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
+    private readonly activityFeedService: ActivityFeedService,
   ) {}
 
   @Post('device-token')
@@ -107,6 +112,31 @@ export class UsersController {
       updateProfileDto,
       ipAddress,
       finalUserAgent,
+    );
+  }
+
+  @Post('deactivate')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deactivate(@Req() req: AuthenticatedRequest): Promise<void> {
+    const userId = this.extractUserId(req);
+    await this.usersService.deactivateUser(userId);
+  @Get('activity-feed')
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  async getActivityFeed(
+    @Query() query: ActivityFeedQueryDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.extractUserId(req);
+    return this.activityFeedService.getActivityFeed(
+      userId,
+      query.page,
+      query.limit,
     );
   }
 
@@ -171,5 +201,17 @@ export class UsersController {
 
   private extractIpAddress(req: AuthenticatedRequest): string | undefined {
     return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
+  }
+
+    @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Req() req,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(
+      req.user.id,
+      dto,
+    );
   }
 }
