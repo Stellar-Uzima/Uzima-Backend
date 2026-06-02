@@ -87,6 +87,9 @@ export class User {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   dailyXlmEarned: number;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt: Date | null;
+
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date | null;
 
@@ -96,7 +99,7 @@ export class User {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
-  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  @DeleteDateColumn({ type: 'timestamp', nullable: true, name: 'deleted_at' })
   deletedAt?: Date | null;
 
   @Column({ nullable: true, unique: true })
@@ -108,11 +111,20 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   twoFactorSecret: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  fcmToken?: string | null;
+
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 
   @Column({ type: 'timestamp', nullable: true })
   lockedUntil: Date | null;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpiry: Date | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;

@@ -16,6 +16,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RewardService } from './reward.service';
+import { PriceFeedService } from '../stellar/price-feed.service';
+import { XlmPriceResponseDto } from '../stellar/dto/xlm-price-response.dto';
 import {
   RewardHistoryQueryDto,
   RewardHistoryResponseDto,
@@ -27,7 +29,32 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RewardController {
-  constructor(private readonly rewardService: RewardService) {}
+  constructor(
+    private readonly rewardService: RewardService,
+    private readonly priceFeedService: PriceFeedService,
+  ) {}
+
+  @Get('xlm-price')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get current XLM/USD price',
+    description:
+      'Returns the cached XLM price in USD (refreshed every 5 minutes). Falls back to the last cached price if providers are unavailable.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'XLM price retrieved successfully',
+    type: XlmPriceResponseDto,
+  })
+  async getXlmPrice(): Promise<XlmPriceResponseDto> {
+    const snapshot = await this.priceFeedService.getXlmUsdPrice();
+    return {
+      priceUsd: snapshot.priceUsd,
+      source: snapshot.source,
+      fetchedAt: snapshot.fetchedAt,
+      currency: 'USD',
+    };
+  }
 
   /** Call to re-check XLM total and emit reward.milestone if thresholds (10, 25, 50, 100, 250) are reached; coupon service will create coupons. Use for testing or after recording rewards. */
   @Post('check-milestone')

@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -7,6 +8,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
+import passwordConfig from './config/password.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -22,6 +24,7 @@ import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { CacheModule } from './shared/cache/cache.module';
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -36,14 +39,19 @@ import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
+import { AppCacheModule } from './shared/cache/cache.module';
+import { RewardModule } from './rewards/reward.module';
+import { ReferralModule } from './referral/referral.module';
+import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig],
+      load: [secretsConfig, passwordConfig],
     }),
+    AppCacheModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -61,7 +69,8 @@ import { OtpModule } from './otp/otp.module';
     OtpModule,
     LoggingModule,
     // 2. Add it to the imports list
-    StorageModule, 
+    StorageModule,
+    CacheModule,
     MetricsModule,
     AnalyticsModule,
     UsageModule,
@@ -78,6 +87,9 @@ import { OtpModule } from './otp/otp.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    RewardModule,
+    ReferralModule,
+    HealthProfileModule,
   ],
   controllers: [AppController],
   providers: [
@@ -88,4 +100,8 @@ import { OtpModule } from './otp/otp.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
