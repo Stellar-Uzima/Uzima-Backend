@@ -43,12 +43,28 @@ export class AuthController {
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify a user email address',
+    description:
+      'Confirms a user account using the verification token previously emailed to the user.',
+  })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired verification token' })
+  @ApiResponse({ status: 404, description: 'Verification token not found' })
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto);
   }
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend the email verification message',
+    description:
+      'Issues a fresh verification token and re-sends it to the user-supplied email address.',
+  })
+  @ApiResponse({ status: 200, description: 'Verification email re-sent' })
+  @ApiResponse({ status: 400, description: 'Email already verified or invalid request' })
+  @ApiResponse({ status: 404, description: 'No account found for the supplied email' })
   async resendVerification(@Body() dto: ResendEmailVerificationDto) {
     return this.authService.resendEmailVerification(dto);
   }
@@ -69,8 +85,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Enable two-factor authentication' })
+  @ApiOperation({
+    summary: 'Enable two-factor authentication',
+    description:
+      'Issues an authenticator-compatible secret and QR code for the caller, after verifying a TOTP challenge code.',
+  })
   @ApiResponse({ status: 200, description: 'Returns QR code and secret for authenticator setup' })
+  @ApiResponse({ status: 400, description: 'Invalid TOTP code supplied' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async enableTwoFactor(@Req() req: { user: { sub: string } }, @Body() dto: TwoFactorEnableDto) {
     return this.authService.enableTwoFactor(req.user.sub, dto.code);
   }
@@ -79,8 +101,14 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Disable two-factor authentication' })
+  @ApiOperation({
+    summary: 'Disable two-factor authentication',
+    description:
+      'Removes the caller\'s TOTP configuration after they successfully verify a current authenticator code.',
+  })
   @ApiResponse({ status: 200, description: '2FA disabled after verification' })
+  @ApiResponse({ status: 400, description: 'Invalid TOTP code supplied' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async disableTwoFactor(@Req() req: { user: { sub: string } }, @Body() dto: TwoFactorDisableDto) {
     return this.authService.disableTwoFactor(req.user.sub, dto.code);
   }
