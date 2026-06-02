@@ -11,6 +11,7 @@ import { TaskCompletion } from '../entities/task-completion.entity';
 import { User } from '../../entities/user.entity';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { QueueModule } from '../../queue/queue.module';
+import { RecurringTaskService } from './recurring-task.service';
 
 @Module({
   imports: [
@@ -28,7 +29,8 @@ import { QueueModule } from '../../queue/queue.module';
     TaskAssignmentService,
     BulkTaskAssignmentService,
     BulkTaskAssignmentProcessor,
+    RecurringTaskService,
   ],
-  exports: [TaskAssignmentService, BulkTaskAssignmentService],
+  exports: [TaskAssignmentService, BulkTaskAssignmentService, RecurringTaskService],
 })
 export class TaskAssignmentModule {}
