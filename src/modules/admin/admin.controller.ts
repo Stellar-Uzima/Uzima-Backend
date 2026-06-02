@@ -1,14 +1,17 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Query, Res } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiSecurity,
+  ApiQuery,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { AdminService } from './services/admin.service';
 import { TasksScheduler } from '@/tasks/tasks.scheduler';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
+import { ReportsService } from '@modules/reports/reports.service';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/auth/guards/roles.guard';
 import { Roles } from '@/auth/decorators/roles.decorator';
@@ -26,6 +29,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly tasksScheduler: TasksScheduler,
     private readonly rewardsScheduler: RewardsScheduler,
+    private readonly reportsService: ReportsService,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -80,5 +84,29 @@ export class AdminController {
       message: 'Daily rewards reset completed',
       ...result,
     };
+  }
+
+  @Get('reports/health-summary')
+  @ApiOperation({ summary: 'Get health summary report' })
+  @ApiQuery({ name: 'period', enum: ['daily', 'weekly', 'monthly'], required: false })
+  @ApiQuery({ name: 'format', enum: ['json', 'csv'], required: false })
+  @ApiResponse({ status: 200, description: 'Health summary report retrieved successfully' })
+  async getHealthSummary(
+    @Query('period') period: string = 'daily',
+    @Query('format') format: string = 'json',
+    @Res() res: Response,
+  ) {
+    const summary = await this.reportsService.getHealthSummary(period);
+    if (format === 'csv') {
+      const csv = this.reportsService.generateHealthSummaryCsv(summary);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="health-summary-${new Date().toISOString().split('T')[0]}.csv"`,
+      );
+      res.send(csv);
+      return;
+    }
+    res.json(summary);
   }
 }

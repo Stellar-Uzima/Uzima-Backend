@@ -170,6 +170,21 @@ export class AdminUsersService {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
       withDeleted: true,
+      select: [
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'role',
+        'country',
+        'isActive',
+        'status',
+        'stellarWalletAddress',
+        'createdAt',
+        'updatedAt',
+        'deletedAt',
+      ],
+    });
     });
 
     if (!user) {
@@ -182,6 +197,7 @@ export class AdminUsersService {
 
     user.isActive = true;
     user.status = UserStatus.ACTIVE;
+    user.deletedAt = null;
     const updatedUser = await this.usersRepository.save(user);
     await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
     return updatedUser;
@@ -193,6 +209,7 @@ export class AdminUsersService {
     }
 
     const user = await this.getUserById(userId);
+    await this.usersRepository.softRemove(user);
     user.isActive = false;
     user.status = UserStatus.INACTIVE;
     await this.usersRepository.save(user);

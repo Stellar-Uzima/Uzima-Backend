@@ -229,6 +229,16 @@ export class UsersController {
     return { deleted: id };
   }
 
+  @Post('deactivate')
+  @HttpCode(200)
+  async deactivate(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ message: string }> {
+    const userId = this.extractUserId(req);
+    await this.usersService.deactivateUser(userId);
+    return { message: 'Account successfully deactivated' };
+  }
+
   private extractUserId(req: AuthenticatedRequest): string {
     const userId = req.user?.id ?? req.user?.sub ?? req.user?.userId;
     if (!userId) {

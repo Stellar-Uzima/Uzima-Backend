@@ -18,6 +18,7 @@ import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
 import { TasksScheduler } from '@/tasks/tasks.scheduler';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
+import { ReportsModule } from '@modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RewardsScheduler } from '@/rewards/rewards.scheduler';
     HealthTasksModule,
     HealthModule,
     AuthModule,
+    ReportsModule,
     QueueModule,
   ],
   controllers: [AdminController, AdminUsersController, AdminTasksController],
