@@ -4,24 +4,16 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { MonitoringInterceptor }
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter'; from './common/interceptors/monitoring.interceptor';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor'; from './common/interceptors/monitoring.interceptor';
 import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
-  // HSTS (HTTP Strict Transport Security)
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  
-  // X-Frame-Options to prevent clickjacking
   res.setHeader('X-Frame-Options', 'DENY');
-  
-  // X-Content-Type-Options to prevent MIME-type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  // Content Security Policy
   res.setHeader('Content-Security-Policy', 
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com; " +
@@ -33,27 +25,26 @@ function addSecurityHeaders(req, res, next) {
     "base-uri 'self'; " +
     "form-action 'self';"
   );
-  
-  // Additional security headers
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  
   next();
 }
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI }); 
+  
+  // API Versioning
+  app.enableVersioning({
+    type: VersioningType.URI,
+    prefix: 'api/v',
+    defaultVersion: '1',
+  });
 
-  // Apply security headers middleware
   app.use(addSecurityHeaders);
-
-  // Apply CSRF middleware
+  
   const csrfMiddleware = new CsrfMiddleware();
   app.use((req, res, next) => csrfMiddleware.use(req, res, next));
 
-  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -62,17 +53,12 @@ async function bootstrap() {
     }),
   );
 
-  // Global exception filter
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Global logging interceptor
   const loggingInterceptor = app.get(LoggingInterceptor);
   app.useGlobalInterceptors(loggingInterceptor);
-
-  // Global transform interceptor (response envelope)
   app.useGlobalInterceptors(new TransformInterceptor());
-
-  // Global monitoring interceptor
+  
   const monitoringInterceptor = app.get(MonitoringInterceptor);
   app.useGlobalInterceptors(monitoringInterceptor);
 
@@ -88,12 +74,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('Stellar Uzima API')
-    .setDescription(
-      'Healthcare & Financial Inclusion through Blockchain for African Communities',
-    )
+    .setDescription('Healthcare & Financial Inclusion through Blockchain for African Communities')
     .setVersion('1.0.0')
     .addBearerAuth({
       type: 'http',
@@ -120,5 +103,4 @@ async function bootstrap() {
   console.log(`🚀 Stellar Uzima Backend running on http://localhost:${port}`);
   console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
-
 bootstrap();

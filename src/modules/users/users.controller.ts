@@ -8,7 +8,7 @@ import {
   Body,
   Req,
   Query,
-   Patch,
+  Patch,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -17,12 +17,14 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -64,26 +66,14 @@ type AuthenticatedRequest = {
 
 @ApiTags('users')
 @ApiBearerAuth()
+@Version('1')
+@Controller({ path: 'users' })
 @UseGuards(JwtAuthGuard)
-@Controller({ path: 'users', version: '1' })
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
     private readonly dataExportService: DataExportService,
-  ) {}
-
-  @Post('data-export')
-  @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({
-    summary: 'Request GDPR data export',
-    description:
-      'Queues a job to export all personal data. An email with a download link is sent when ready (link expires in 24 hours).',
-  })
-  @ApiResponse({ status: 202, description: 'Export job queued' })
-  async requestDataExport(@Req() req: AuthenticatedRequest) {
-    const userId = this.extractUserId(req);
-    return this.dataExportService.queueExport(userId);
     private readonly activityFeedService: ActivityFeedService,
     private readonly queueService: QueueService,
   ) {}
@@ -144,11 +134,6 @@ export class UsersController {
     );
   }
 
-  @Post('deactivate')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async deactivate(@Req() req: AuthenticatedRequest): Promise<void> {
-    const userId = this.extractUserId(req);
-    await this.usersService.deactivateUser(userId);
   @Get('activity-feed')
   @UsePipes(
     new ValidationPipe({
@@ -231,24 +216,12 @@ export class UsersController {
 
   @Post('deactivate')
   @HttpCode(200)
-  async deactivate(
+  async deactivateUser(
     @Req() req: AuthenticatedRequest,
   ): Promise<{ message: string }> {
     const userId = this.extractUserId(req);
     await this.usersService.deactivateUser(userId);
     return { message: 'Account successfully deactivated' };
-  }
-
-  private extractUserId(req: AuthenticatedRequest): string {
-    const userId = req.user?.id ?? req.user?.sub ?? req.user?.userId;
-    if (!userId) {
-      throw new ForbiddenException('Authenticated user context is missing');
-    }
-    return userId;
-  }
-
-  private extractIpAddress(req: AuthenticatedRequest): string | undefined {
-    return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
   }
 
   @Post('data-export')
@@ -265,15 +238,15 @@ export class UsersController {
     return { message: 'Export job queued' };
   }
 
-    @Patch('profile')
-  @UseGuards(JwtAuthGuard)
-  async updateProfile(
-    @Req() req,
-    @Body() dto: UpdateProfileDto,
-  ) {
-    return this.usersService.updateProfile(
-      req.user.id,
-      dto,
-    );
+  private extractUserId(req: AuthenticatedRequest): string {
+    const userId = req.user?.id ?? req.user?.sub ?? req.user?.userId;
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+    return userId;
+  }
+
+  private extractIpAddress(req: AuthenticatedRequest): string | undefined {
+    return req.ip || req.headers?.['x-forwarded-for']?.toString()?.split(',')[0]?.trim();
   }
 }
