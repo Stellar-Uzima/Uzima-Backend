@@ -13,6 +13,10 @@ import {
 } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } from 'class-validator';
 import { Role } from '../../auth/enums/role.enum';
+import { Session } from './session.entity';
+import { Organization } from './organization.entity';
+import { UserActivity } from './user-activity.entity';
+import { UserPreferences } from './user-preferences.entity';
 
 export enum UserRole {
   USER = 'USER',
@@ -56,6 +60,26 @@ export class User {
   @IsOptional()
   avatar?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  @IsString()
+  @IsOptional()
+  country?: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  @IsString()
+  @IsOptional()
+  postalCode?: string;
+
   @Column({
     type: 'enum',
     enum: UserRole,
@@ -72,23 +96,50 @@ export class User {
   @IsBoolean()
   emailVerified: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  @IsBoolean()
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  @IsOptional()
+  @IsString()
+  twoFactorSecret?: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @IsOptional()
+  @IsString()
+  fcmToken?: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil?: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @DeleteDateColumn({ name: 'deleted_at' })
-  deletedAt?: Date;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt?: Date | null;
 
   // Relationships
   @OneToMany(() => UserActivity, (activity) => activity.user)
   activities: UserActivity[];
 
+  @OneToMany(() => Session, (session) => session.user)
+  sessions?: Session[];
+
+  @ManyToMany(() => Organization, (organization) => organization.users)
+  @JoinTable({
+    name: 'user_organizations',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
+  })
+  organizations?: Organization[];
+
   @OneToMany(() => UserPreferences, (preferences) => preferences.user)
   preferences: UserPreferences[];
 }
-
-// Import related entities to avoid circular dependencies
-import { UserActivity } from './user-activity.entity';
-import { UserPreferences } from './user-preferences.entity';

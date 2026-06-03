@@ -37,7 +37,7 @@ export class CacheService implements OnModuleInit {
       retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-    });
+    } as any);
 
     this.redis.on('connect', () => {
       this.logger.log('Redis connected successfully');
@@ -76,6 +76,29 @@ export class CacheService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Failed to set cache key ${key}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Atomically set a value only if the key does not already exist (NX) with TTL (seconds).
+   * Returns true if the key was set, false if it already existed.
+   */
+  async setIfNotExists(
+    key: string,
+    value: any,
+    ttl: number,
+  ): Promise<boolean> {
+    try {
+      const serializedValue = JSON.stringify(value);
+      // Use Redis SET with NX and EX for atomic set-if-not-exists with expiry
+      const result = await this.redis.set(key, serializedValue, 'EX', ttl, 'NX');
+      const wasSet = result === 'OK';
+      this.logger.debug(`Cache setIfNotExists: ${key} (TTL: ${ttl}s) -> ${wasSet}`);
+      return wasSet;
+    } catch (error) {
+      this.logger.error(`Failed to setIfNotExists cache key ${key}:`, error);
+      // In case of error, be conservative and allow sending (return true)
+      return true;
     }
   }
 
@@ -344,6 +367,38 @@ export class CacheService implements OnModuleInit {
   }
 
   /**
+   * Fetch with cache; on fetch failure return last cached value if present (stale-while-error).
+   */
+  async rememberWithStaleFallback<T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    ttl: number = 3600,
+  ): Promise<T> {
+    const cached = await this.get<T>(key);
+    if (cached !== null) {
+      const remainingTtl = await this.ttl(key);
+      if (remainingTtl > 0) {
+        return cached;
+      }
+    }
+
+    try {
+      const data = await fetcher();
+      await this.set(key, data, { ttl });
+      return data;
+    } catch (error) {
+      if (cached !== null) {
+        this.logger.warn(
+          `Fetcher failed for ${key}; returning stale cached value`,
+        );
+        return cached;
+      }
+      this.logger.error(`Failed to remember cache key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Get multiple keys at once
    */
   async mget<T>(keys: string[]): Promise<(T | null)[]> {
@@ -394,6 +449,51 @@ export class CacheService implements OnModuleInit {
       this.logger.debug(`Cache mset: ${Object.keys(keyValuePairs).length} keys`);
     } catch (error) {
       this.logger.error(`Failed to mset cache:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get or compute leaderboard with caching
+   * Returns cached result if available, otherwise computes and caches
+   */
+  async getOrComputeLeaderboard<T>(
+    cacheKey: string,
+    computeFn: () => Promise<T>,
+    ttl: number = 3600,
+  ): Promise<T> {
+    try {
+      // Try to get from cache
+      const cached = await this.get<T>(cacheKey);
+      if (cached !== null) {
+        this.logger.debug(`Leaderboard cache hit: ${cacheKey}`);
+        return cached;
+      }
+
+      // Compute if not cached
+      this.logger.debug(`Computing leaderboard: ${cacheKey}`);
+      const result = await computeFn();
+
+      // Cache the result
+      await this.set(cacheKey, result, { ttl });
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Invalidate leaderboard cache by pattern
+   */
+  async invalidateLeaderboardCache(pattern: string = 'leaderboard:*'): Promise<number> {
+    try {
+      const count = await this.clearPattern(pattern);
+      this.logger.log(`Invalidated ${count} leaderboard cache keys`);
+      return count;
+    } catch (error) {
+      this.logger.error(`Failed to invalidate leaderboard cache:`, error);
       throw error;
     }
   }

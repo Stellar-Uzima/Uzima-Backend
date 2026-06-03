@@ -29,6 +29,30 @@ export class UserResponseDto {
   country: string;
 
   @Expose()
+  @ApiProperty({
+    description: 'User address',
+    example: '123 Main St',
+    nullable: true,
+  })
+  address: string | null;
+
+  @Expose()
+  @ApiProperty({
+    description: 'User city',
+    example: 'New York',
+    nullable: true,
+  })
+  city: string | null;
+
+  @Expose()
+  @ApiProperty({
+    description: 'User postal code',
+    example: '10001',
+    nullable: true,
+  })
+  postalCode: string | null;
+
+  @Expose()
   @ApiProperty({ description: 'User preferred language code', example: 'en' })
   preferredLanguage: string;
 

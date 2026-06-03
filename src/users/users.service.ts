@@ -15,6 +15,7 @@ import { UserStatsDto } from './dto/user-stats.dto';
 import { TaskCompletion } from './entities/task-completion.entity';
 import { Coupon, CouponStatus } from './entities/coupon.entity';
 import { HealthProfile } from './entities/health-profile.entity';
+import { UserStatusLog } from '../entities/user-status-log.entity';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -159,5 +160,41 @@ export class UsersService implements OnModuleInit {
       activeCoupons: 0,
       rank: 0,
     };
+  }
+
+  /**
+   * Register FCM device token for push notifications (#669)
+   */
+  async registerDeviceToken(userId: string, token: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.fcmToken = token;
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * Cleanup user status logs older than the given retention period.
+   * Returns the number of affected rows.
+   */
+  async cleanupOldStatusLogs(retentionDays: number = 90): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+
+    // Using dataSource because we didn't inject UserStatusLog repository here.
+    const repo = this.dataSource.getRepository(UserStatusLog);
+    const result = await repo
+      .createQueryBuilder()
+      .delete()
+      .from(UserStatusLog)
+      .where('createdAt < :cutoffDate', { cutoffDate })
+      .execute();
+
+    const deletedCount = result.affected || 0;
+    this.logger.log(
+      `Cleaned up ${deletedCount} user status logs older than ${retentionDays} days`,
+    );
+    return deletedCount;
   }
 }
