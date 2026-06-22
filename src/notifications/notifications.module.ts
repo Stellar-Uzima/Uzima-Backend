@@ -9,7 +9,8 @@ import { User } from '../entities/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NotificationPreference, Notification, User]),
+    TypeOrmModule.forFeature([NotificationPreference, Notification, NotificationLog,
+ User]),
     NotificationPreferencesModule,
   ],
   controllers: [NotificationsController],
