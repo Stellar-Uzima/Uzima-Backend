@@ -110,6 +110,14 @@ export class User {
   @IsString()
   fcmToken?: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
+  @IsOptional()
+  @IsString()
+  passwordResetToken?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  passwordResetExpiry?: Date | null;
+
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 

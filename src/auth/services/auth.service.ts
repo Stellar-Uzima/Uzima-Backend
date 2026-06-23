@@ -1,13 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
   Optional,
   UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
@@ -537,7 +537,6 @@ export class AuthService {
     await this.usersService.updateLastLogin(user.id);
 
     const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
-    const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
       message: 'Authentication successful',
@@ -629,15 +628,19 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Look up by token only — expiry is checked separately so we can return 410
+    // instead of 400 when the token exists but has expired.
     const user = await this.usersService['usersRepository'].findOne({
-      where: {
-        passwordResetToken: hash,
-        passwordResetExpiry: MoreThan(new Date()),
-      },
+      where: { passwordResetToken: hash },
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    if (!user.passwordResetExpiry || user.passwordResetExpiry <= new Date()) {
+      throw new GoneException('Password reset token has expired');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
