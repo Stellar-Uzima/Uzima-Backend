@@ -78,6 +78,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   address: string | null;
 
+  @Column({ type: 'varchar', length: '100', nullable: true })
+  city: string | null;
+
+  @Column({ type: 'varchar', length: '20', nullable: true })
+  postalCode: string | null;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   stellarWalletAddress: string | null;
 
