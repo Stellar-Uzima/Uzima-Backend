@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -346,6 +346,57 @@ describe('AuthService', () => {
           country: 'KE',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('resetPassword', () => {
+    const mockUsersRepository = { findOne: jest.fn() };
+
+    beforeEach(() => {
+      // Wire the internal usersRepository used by resetPassword
+      (mockUsersService as any).usersRepository = mockUsersRepository;
+      mockUsersRepository.findOne.mockReset();
+      mockUsersService.save.mockReset();
+      mockAuditService.logAction.mockReset();
+    });
+
+    it('throws BadRequestException when no user matches the token', async () => {
+      mockUsersRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        authService.resetPassword('invalid-token', 'NewPassword1!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws GoneException (410) when the reset token has expired', async () => {
+      const expiredUser = {
+        ...baseUser,
+        passwordResetToken: 'hashed-token',
+        passwordResetExpiry: new Date(Date.now() - 1000), // 1 second in the past
+      };
+      mockUsersRepository.findOne.mockResolvedValue(expiredUser);
+
+      await expect(
+        authService.resetPassword('any-token', 'NewPassword1!'),
+      ).rejects.toThrow(GoneException);
+    });
+
+    it('resets the password and clears the token when token is valid', async () => {
+      const validUser = {
+        ...baseUser,
+        passwordResetToken: 'hashed-token',
+        passwordResetExpiry: new Date(Date.now() + 3600 * 1000),
+        password: 'old-hashed',
+      };
+      mockUsersRepository.findOne.mockResolvedValue(validUser);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockAuditService.logAction.mockResolvedValue(undefined);
+
+      const result = await authService.resetPassword('valid-token', 'NewPassword1!');
+
+      expect(result).toEqual({ message: 'Password reset successful' });
+      expect(validUser.passwordResetToken).toBeNull();
+      expect(validUser.passwordResetExpiry).toBeNull();
     });
   });
 });
