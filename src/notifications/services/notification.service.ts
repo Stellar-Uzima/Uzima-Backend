@@ -7,6 +7,7 @@ import { NotificationPreference } from '../entities/notification-preference.enti
 import { Notification } from '../entities/notification.entity';
 import { User } from '../../entities/user.entity';
 import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
+import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
 
 export interface NotificationOptions {
   userId: string;
@@ -31,6 +32,7 @@ export class NotificationService {
     private readonly pushNotificationService: PushNotificationService,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
+    private readonly emailTemplateService: EmailTemplateService,
   ) {
     // Initialize cooldowns from config or use sensible defaults (seconds)
     this.cooldowns = {
@@ -132,10 +134,13 @@ export class NotificationService {
       return false;
     }
 
+    // Render the template
+    const html = await this.emailTemplateService.render(template, data);
+
     // TODO: Implement actual email sending logic here or emit event
     // For now, log and return success
     this.logger.log(
-      `Sending email to user ${userId} with template: ${template}`,
+      `Sending email to user ${userId} with template: ${template}. Rendered HTML length: ${html.length}`,
     );
 
     return true;

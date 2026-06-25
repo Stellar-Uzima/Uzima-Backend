@@ -9,6 +9,11 @@ module.exports = {
     '<rootDir>/tasks/assignment/bulk-task-assignment.service.spec.ts',
     '<rootDir>/modules/admin/admin-tasks.controller.spec.ts',
     '<rootDir>/shared/queue/queue.service.spec.ts',
+    '<rootDir>/shared/notifications/services/email-template.service.spec.ts',
+    '<rootDir>/notifications/services/notification.service.spec.ts',
+    '<rootDir>/auth/services/auth.service.spec.ts',
+    '<rootDir>/auth/auth.service.spec.ts',
+    '<rootDir>/modules/auth/auth.service.spec.ts',
   ],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',

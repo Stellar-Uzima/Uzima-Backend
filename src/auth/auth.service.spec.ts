@@ -6,6 +6,7 @@ import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
 import { OtpService } from '../otp/otp.service';
 import { Role } from './enums/role.enum';
+import { NotificationService } from '../notifications/services/notification.service';
 
 const mockRedisClient = {
   connect: jest.fn(),
@@ -47,6 +48,10 @@ describe('AuthService', () => {
     emit: jest.fn(),
   };
 
+  const mockNotificationService = {
+    sendEmail: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -56,6 +61,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: EventEmitter2, useValue: mockEventEmitter },
         { provide: OtpService, useValue: mockOtpService },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 

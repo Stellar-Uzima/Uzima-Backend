@@ -8,6 +8,7 @@ import { User } from '../../entities/user.entity';
 import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
 import { CacheService } from '../../shared/cache/cache.service';
 import { ConfigService } from '@nestjs/config';
+import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
@@ -56,6 +57,10 @@ describe('NotificationService', () => {
       get: jest.fn((key: string, def: any) => def),
     };
 
+    const mockEmailTemplateService = {
+      render: jest.fn().mockResolvedValue('<html>Rendered HTML</html>'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationService,
@@ -82,6 +87,10 @@ describe('NotificationService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: EmailTemplateService,
+          useValue: mockEmailTemplateService,
         },
       ],
     }).compile();
@@ -164,6 +173,7 @@ describe('NotificationService - Deduplication', () => {
   let mockPushNotificationService: any;
   let mockCacheService: any;
   let mockConfigService: any;
+  let mockEmailTemplateService: any;
 
   beforeEach(() => {
     mockPreferenceRepo = {
@@ -198,6 +208,10 @@ describe('NotificationService - Deduplication', () => {
       get: jest.fn((key: string, def: any) => def),
     };
 
+    mockEmailTemplateService = {
+      render: jest.fn().mockResolvedValue('<html>Rendered HTML</html>'),
+    };
+
     service = new NotificationService(
       mockPreferenceRepo,
       mockNotificationRepo,
@@ -205,6 +219,7 @@ describe('NotificationService - Deduplication', () => {
       mockPushNotificationService,
       mockCacheService,
       mockConfigService,
+      mockEmailTemplateService,
     );
   });
 
@@ -269,6 +284,7 @@ describe('NotificationService - Deduplication', () => {
       mockPushNotificationService,
       mockCacheService,
       mockConfigService,
+      mockEmailTemplateService,
     );
 
     mockCacheService.setIfNotExists.mockResolvedValue(true);
