@@ -35,7 +35,7 @@ export class HealthProfile {
   @Column('text', { array: true })
   healthGoals: string[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   chronicConditions: string | null; // AES encrypted
 
   @Column({ default: 'BOTH' })

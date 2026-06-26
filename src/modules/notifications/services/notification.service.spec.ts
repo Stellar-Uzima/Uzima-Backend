@@ -4,11 +4,11 @@ import { Repository } from 'typeorm';
 import { NotificationService } from './notification.service';
 import { NotificationPreference } from '../entities/notification-preference.entity';
 import { Notification } from '../entities/notification.entity';
-import { User } from '../../entities/user.entity';
-import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
-import { CacheService } from '../../shared/cache/cache.service';
+import { User } from '../../../entities/user.entity';
+import { PushNotificationService } from '../../../shared/notifications/services/push-notification.service';
+import { CacheService } from '../../../shared/cache/cache.service';
 import { ConfigService } from '@nestjs/config';
-import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
+import { EmailTemplateService } from '../../../shared/notifications/services/email-template.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;

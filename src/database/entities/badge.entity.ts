@@ -12,7 +12,7 @@ export enum BadgeType {
 @Entity('badges')
 export class Badge {
   @PrimaryGeneratedColumn('uuid') id: string;
-  @Column({ type: 'enum', enum: BadgeType, unique: true }) type: BadgeType;
+  @Column({ type: 'simple-enum', enum: BadgeType, unique: true }) type: BadgeType;
   @Column() name: string;
   @Column() description: string;
   @Column() iconUrl: string;

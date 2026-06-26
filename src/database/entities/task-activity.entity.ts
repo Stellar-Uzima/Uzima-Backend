@@ -25,7 +25,7 @@ export class TaskActivity {
   @Column()
   changeType: string;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: 'json' })
   details: Record<string, unknown>;
 
   @CreateDateColumn()

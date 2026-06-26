@@ -6,7 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../entities/user.entity';
+import { User } from '../../../entities/user.entity';
 
 @Entity('notifications')
 export class Notification {
@@ -32,6 +32,6 @@ export class Notification {
   @Column({ default: false })
   isRead: boolean;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

@@ -19,7 +19,7 @@ export class EmailVerification {
   @Length(32, 255)
   token: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   @IsDateString()
   expiresAt!: Date;
 
@@ -27,10 +27,10 @@ export class EmailVerification {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   consumedAt?: Date | null;

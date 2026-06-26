@@ -8,7 +8,7 @@ import {
   OneToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../entities/user.entity';
+import { User } from '../../../entities/user.entity';
 
 @Entity('notification_preferences')
 export class NotificationPreference {
@@ -49,10 +49,10 @@ export class NotificationPreference {
   @Column({ default: 'Africa/Lagos' })
   timezone: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 
   @DeleteDateColumn()

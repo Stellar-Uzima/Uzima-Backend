@@ -21,7 +21,7 @@ export class User {
   @Column()
   name: string;
 
-  @Column({ type: 'enum', enum: Role, default: Role.USER })
+  @Column({ type: 'simple-enum', enum: Role, default: Role.USER })
   role: Role;
 
   @Column({ nullable: true, unique: true })
@@ -54,13 +54,13 @@ export class User {
   @Column({ nullable: true })
   passwordResetToken?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   passwordResetExpiry?: Date;
 
   @Column({ nullable: true, unique: true })
   phoneNumber?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastActiveAt?: Date;
 
   @CreateDateColumn()

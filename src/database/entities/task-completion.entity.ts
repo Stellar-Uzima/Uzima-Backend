@@ -45,7 +45,7 @@ export class TaskCompletion {
   @Max(100)
   completionPercentage: number; // 0-100
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   completedAt: Date | null;

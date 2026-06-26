@@ -28,7 +28,7 @@ export class NotificationLog {
   message: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: NotificationStatus,
   })
   status: NotificationStatus;

@@ -33,7 +33,7 @@ import { SessionService } from '@/modules/auth/services/session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
 import { ReferralService } from '../../referral/referral.service';
-import { NotificationService } from '../../notifications/services/notification.service';
+import { NotificationService } from '../../modules/notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {

@@ -196,28 +196,56 @@ export class TestDatabaseManager {
       await queryRunner.connect();
 
       try {
-        // Disable foreign key constraints
-        await queryRunner.query('SET CONSTRAINTS ALL DEFERRED');
+        const isSqlite = this.dataSource.options.type === 'sqlite';
 
-        // Get all tables
-        const tables = await queryRunner.query(`
-          SELECT tablename FROM pg_tables 
-          WHERE schemaname = 'public' 
-          AND tablename NOT IN ('migrations')
-          ORDER BY tablename DESC
-        `);
+        if (isSqlite) {
+          // Disable foreign key constraints in sqlite
+          await queryRunner.query('PRAGMA foreign_keys = OFF');
 
-        // Truncate all tables
-        for (const { tablename } of tables) {
-          try {
-            await queryRunner.query(`TRUNCATE TABLE "${tablename}" CASCADE`);
-          } catch (error) {
-            this.logger.warn(`Failed to truncate ${tablename}: ${error}`);
+          // Get all tables in sqlite
+          const tables = await queryRunner.query(`
+            SELECT name as tablename FROM sqlite_master 
+            WHERE type = 'table' 
+            AND name NOT LIKE 'sqlite_%'
+            AND name NOT IN ('migrations')
+            ORDER BY name DESC
+          `);
+
+          // Delete rows from all tables
+          for (const { tablename } of tables) {
+            try {
+              await queryRunner.query(`DELETE FROM "${tablename}"`);
+            } catch (error) {
+              this.logger.warn(`Failed to clean ${tablename}: ${error}`);
+            }
           }
-        }
 
-        // Re-enable foreign key constraints
-        await queryRunner.query('SET CONSTRAINTS ALL IMMEDIATE');
+          // Re-enable foreign key constraints in sqlite
+          await queryRunner.query('PRAGMA foreign_keys = ON');
+        } else {
+          // Disable foreign key constraints
+          await queryRunner.query('SET CONSTRAINTS ALL DEFERRED');
+
+          // Get all tables
+          const tables = await queryRunner.query(`
+            SELECT tablename FROM pg_tables 
+            WHERE schemaname = 'public' 
+            AND tablename NOT IN ('migrations')
+            ORDER BY tablename DESC
+          `);
+
+          // Truncate all tables
+          for (const { tablename } of tables) {
+            try {
+              await queryRunner.query(`TRUNCATE TABLE "${tablename}" CASCADE`);
+            } catch (error) {
+              this.logger.warn(`Failed to truncate ${tablename}: ${error}`);
+            }
+          }
+
+          // Re-enable foreign key constraints
+          await queryRunner.query('SET CONSTRAINTS ALL IMMEDIATE');
+        }
         
         this.logger.log('Database cleaned successfully');
       } finally {

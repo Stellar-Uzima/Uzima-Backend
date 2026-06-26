@@ -24,7 +24,7 @@ import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
 import { TaskCategory } from '../../database/entities/task-category.entity';
 import { TaskTag } from '../../database/entities/task-tag.entity';
-import { NotificationsModule } from '../../notifications/notifications.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../../entities/user.entity';
 import { AnalyticsModule } from '../../shared/analytics/analytics.module';
 

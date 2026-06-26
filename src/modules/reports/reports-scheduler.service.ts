@@ -3,7 +3,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { AuditService } from '@/audit/audit.service';
 import { ReportsService, ReportType } from './reports.service';
-import { NotificationService } from '@/notifications/services/notification.service';
+import { NotificationService } from '@modules/notifications/services/notification.service';
 
 interface ScheduledReport {
   name: string;

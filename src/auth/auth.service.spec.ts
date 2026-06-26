@@ -6,7 +6,7 @@ import { AuthService } from './services/auth.service';
 import { UsersService } from './services/users.service';
 import { OtpService } from '../otp/otp.service';
 import { Role } from './enums/role.enum';
-import { NotificationService } from '../notifications/services/notification.service';
+import { NotificationService } from '../modules/notifications/services/notification.service';
 
 const mockRedisClient = {
   connect: jest.fn(),

@@ -32,12 +32,12 @@ export class Coupon {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   xlmValue: number;
 
-  @Column({ type: 'enum', enum: CouponStatus, default: CouponStatus.ACTIVE })
+  @Column({ type: 'simple-enum', enum: CouponStatus, default: CouponStatus.ACTIVE })
   status: CouponStatus;
 
   @Column({ nullable: true })
   expiresAt: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

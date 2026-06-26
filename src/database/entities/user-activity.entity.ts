@@ -23,7 +23,7 @@ export class UserActivity {
   userId: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: ActivityType,
   })
   activityType: ActivityType;

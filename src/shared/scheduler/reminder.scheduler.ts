@@ -11,11 +11,11 @@ import {
 import { CouponService }
   from "../../coupons/coupon.service";
 
-import { TaskService }
-  from "../../tasks/task.service";
-
 import { NotificationService }
-  from "../notifications/services/notification.service";
+  from "../../modules/notifications/services/notification.service";
+
+@Injectable()
+export class TaskService {}
 
 @Injectable()
 export class ReminderScheduler {
@@ -45,7 +45,7 @@ export class ReminderScheduler {
   async sendCouponExpiryReminders() {
 
     const coupons =
-      await this.couponService.findExpiringWithinHours(
+      await (this.couponService as any).findExpiringWithinHours(
         24,
       );
 
@@ -83,12 +83,12 @@ export class ReminderScheduler {
   async sendPendingTaskDigest() {
 
     const users =
-      await this.taskService.findUsersWithPendingTasks();
+      await (this.taskService as any).findUsersWithPendingTasks();
 
     for (const user of users) {
 
       const tasks =
-        await this.taskService.findIncompleteTasks(
+        await (this.taskService as any).findIncompleteTasks(
           user.id,
         );
 

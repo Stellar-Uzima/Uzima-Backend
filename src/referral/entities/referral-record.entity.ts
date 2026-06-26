@@ -24,7 +24,7 @@ export class ReferralRecord {
   @Column({ default: false })
   rewardPaid: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   rewardPaidAt: Date;
 
   @CreateDateColumn()

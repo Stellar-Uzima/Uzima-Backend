@@ -24,7 +24,7 @@ export class PushSubscription {
   deviceToken: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: PushPlatform,
   })
   platform: PushPlatform;

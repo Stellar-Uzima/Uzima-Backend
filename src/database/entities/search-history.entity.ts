@@ -13,7 +13,7 @@ export class SearchHistory {
   @Column()
   query: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   filters: Record<string, any>;
 
   @Column()

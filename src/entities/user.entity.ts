@@ -47,10 +47,10 @@ export class User {
   @Column({ type: 'varchar', length: 255, select: false, nullable: true })
   password: string;
 
-  @Column({ type: 'enum', enum: Role, default: Role.USER })
+  @Column({ type: 'simple-enum', enum: Role, default: Role.USER })
   role: Role;
 
-  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
+  @Column({ type: 'simple-enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
 
   // Keep isActive for backward compatibility during migration
@@ -63,13 +63,13 @@ export class User {
   @Column({ type: 'varchar', nullable: true, unique: true })
   emailVerificationToken: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   emailVerificationExpiry: Date | null;
 
   @Column({ type: 'varchar', nullable: true })
   passwordResetToken: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   passwordResetExpiry: Date | null;
 
   @Column({ type: 'varchar', nullable: true })
@@ -93,22 +93,22 @@ export class User {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   dailyXlmEarned: number;
 
-  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  @Column({ type: 'datetime', nullable: true, name: 'last_login_at' })
   lastLoginAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastActiveAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 
-  @DeleteDateColumn({ type: 'timestamp', nullable: true, name: 'deleted_at' })
+  @DeleteDateColumn({ nullable: true, name: 'deleted_at' })
   deletedAt?: Date | null;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   referralCode?: string | null;
 
   @Column({ type: 'boolean', default: false })
@@ -123,13 +123,13 @@ export class User {
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lockedUntil: Date | null;
 
   @Column({ type: 'varchar', nullable: true, select: false })
   refreshToken: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   refreshTokenExpiry: Date | null;
 
   @ManyToOne(() => User, { nullable: true })

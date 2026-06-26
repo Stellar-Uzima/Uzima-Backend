@@ -47,24 +47,24 @@ export class TaskReminder {
   @Column()
   userId: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   remindAt: Date;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: ReminderType,
     default: ReminderType.PUSH,
   })
   type: ReminderType;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: ReminderStatus,
     default: ReminderStatus.SCHEDULED,
   })
   status: ReminderStatus;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   deliveryTracking: any;
 
   @CreateDateColumn()

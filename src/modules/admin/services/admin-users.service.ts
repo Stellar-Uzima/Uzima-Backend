@@ -185,7 +185,6 @@ export class AdminUsersService {
         'deletedAt',
       ],
     });
-    });
 
     if (!user) {
       throw new BadRequestException('User not found');

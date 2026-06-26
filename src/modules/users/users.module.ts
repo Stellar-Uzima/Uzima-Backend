@@ -13,17 +13,17 @@ import { UsersController } from './users.controller';
 import { DataExportDownloadController } from './controllers/data-export-download.controller';
 import { UsersService } from './users.service';
 import { QueueModule } from '../../queue/queue.module';
-import { UserActivity } from '../../database/entities/user-activity.entity';
 import { ActivityTrackerService } from './services/activity-tracker.service';
+import { ActivityFeedService } from './services/activity-feed.service';
 import { AvatarService } from './services/avatar.service';
 import { DataExportService } from './services/data-export.service';
 import { DataExportProcessor } from './processors/data-export.processor';
 import { TaskCompletion } from '../../database/entities/task-completion.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
-import { Notification } from '../../notifications/entities/notification.entity';
+import { Notification } from '../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../referral/entities/referral-record.entity';
 import { QueueService } from '../../shared/queue/queue.service';
-import { NotificationsModule } from '../../notifications/notifications.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   controllers: [
@@ -69,12 +69,7 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     DataExportService,
     DataExportProcessor,
     QueueService,
-  ],
     ActivityFeedService,
-    AvatarService,
-    StorageService,
-    DataExportProcessor,
   ],
-  exports: [UsersService, UserSearchService, PhoneVerificationService],
 })
 export class UsersModule {}

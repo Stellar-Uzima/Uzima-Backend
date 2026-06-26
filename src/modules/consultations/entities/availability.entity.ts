@@ -9,10 +9,10 @@ export class HealerAvailability {
   @Column('uuid')
   healerId: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   startTime: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   endTime: Date;
 
   @CreateDateColumn()
