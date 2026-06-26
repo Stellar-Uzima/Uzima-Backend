@@ -30,7 +30,7 @@ export class EmailVerificationService {
     try {
       const verificationLink = `${process.env.FRONTEND_URL || 'https://example.com'}/verify-email?token=${token}`;
       await this.notifications.sendMultiChannel(user.id, {
-        email: { template: 'verify-email', data: { name: user.firstName || user.email, link: verificationLink } },
+        email: { template: 'email-verification', data: { name: user.firstName || user.email, link: verificationLink } },
       });
     } catch (err) {
       this.logger.error('Failed to send verification email', err as any);

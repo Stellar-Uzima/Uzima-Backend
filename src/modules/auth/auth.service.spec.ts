@@ -22,6 +22,7 @@ import { OtpService } from '../../otp/otp.service';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { TransactionService } from '../../database/services/transaction.service';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { AccountLockedException } from '../../auth/exceptions/account-locked.exception';
@@ -77,6 +78,10 @@ describe('AuthService', () => {
     lockedUntil: null,
   };
 
+  const mockNotificationService = {
+    sendEmail: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     (bcrypt.compare as jest.Mock).mockReset();
@@ -95,6 +100,7 @@ describe('AuthService', () => {
         { provide: SessionService, useValue: mockSessionService },
         { provide: TransactionService, useValue: mockTransactionService },
         { provide: getRepositoryToken(TokenBlacklist), useValue: mockTokenBlacklistRepository },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 

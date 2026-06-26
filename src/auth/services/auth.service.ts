@@ -33,6 +33,7 @@ import { SessionService } from '@/modules/auth/services/session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
 import { ReferralService } from '../../referral/referral.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -60,6 +61,7 @@ export class AuthService {
     private transactionService: TransactionService,
     @InjectRepository(TokenBlacklist)
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
+    private readonly notifications: NotificationService,
     @Optional() private readonly referralService?: ReferralService,
   ) {
     this.redisClient = createClient({
@@ -101,6 +103,13 @@ export class AuthService {
     // Create email verification token and send email
     if (user.email) {
       await this.emailVerificationService.createForUser(user.id);
+      try {
+        await this.notifications.sendEmail(user.id, 'welcome', {
+          name: user.firstName || user.email,
+        });
+      } catch (err) {
+        this.logger.error('Failed to send welcome email', err as any);
+      }
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -622,6 +631,16 @@ export class AuthService {
 
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${email}`);
+
+    try {
+      const resetLink = `${process.env.FRONTEND_URL || 'https://example.com'}/reset-password?token=${token}`;
+      await this.notifications.sendEmail(user.id, 'password-reset', {
+        name: user.firstName || user.email,
+        link: resetLink,
+      });
+    } catch (err) {
+      this.logger.error('Failed to send password reset email', err as any);
+    }
 
     return { message: 'If an account exists, a reset link has been sent' };
   }

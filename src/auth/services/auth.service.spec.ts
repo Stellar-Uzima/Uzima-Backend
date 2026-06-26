@@ -24,15 +24,16 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { AuthService } from './services/auth.service';
-import { UsersService } from './services/users.service';
-import { OtpService } from '../otp/otp.service';
-import { AuditService } from '../audit/audit.service';
-import { EmailVerificationService } from './services/email-verification.service';
-import { SessionService } from './services/session.service';
-import { TransactionService } from '../database/services/transaction.service';
-import { TokenBlacklist } from '../database/entities/token-blacklist.entity';
-import { Role } from './enums/role.enum';
+import { AuthService } from './auth.service';
+import { UsersService } from './users.service';
+import { OtpService } from '../../otp/otp.service';
+import { AuditService } from '../../audit/audit.service';
+import { EmailVerificationService } from '../../modules/auth/services/email-verification.service';
+import { SessionService } from '../../modules/auth/services/session.service';
+import { NotificationService } from '../../notifications/services/notification.service';
+import { TransactionService } from '../../database/services/transaction.service';
+import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
+import { Role } from '../enums/role.enum';
 
 // Mock Redis client
 const mockRedisClient = {
@@ -114,6 +115,10 @@ describe('AuthService (Comprehensive Unit Tests)', () => {
     find: jest.fn(),
   };
 
+  const mockNotificationService = {
+    sendEmail: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.clearAllTimers();
@@ -130,6 +135,7 @@ describe('AuthService (Comprehensive Unit Tests)', () => {
         { provide: SessionService, useValue: mockSessionService },
         { provide: TransactionService, useValue: mockTransactionService },
         { provide: getRepositoryToken(TokenBlacklist), useValue: mockTokenBlacklistRepository },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 
