@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { redisConfig } from '../../config/redis.config';
@@ -17,7 +17,7 @@ export interface CacheStats {
 }
 
 @Injectable()
-export class CacheService implements OnModuleInit {
+export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
   private redis: Redis;
   private hitCount = 0;
@@ -43,8 +43,9 @@ export class CacheService implements OnModuleInit {
       this.logger.log('Redis connected successfully');
     });
 
-    this.redis.on('error', (error) => {
-      this.logger.error('Redis connection error:', error);
+    this.redis.on('error', (error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Redis connection error: ${msg}`);
     });
 
     this.redis.on('reconnecting', () => {
@@ -64,7 +65,7 @@ export class CacheService implements OnModuleInit {
   ): Promise<void> {
     try {
       const serializedValue = JSON.stringify(value);
-      const ttl = options.ttl || this.configService.get<number>('CACHE_DEFAULT_TTL', 3600);
+      const ttl = options.ttl ?? this.configService.get<number>('CACHE_DEFAULT_TTL', 3600);
 
       if (ttl > 0) {
         await this.redis.setex(key, ttl, serializedValue);
@@ -73,8 +74,8 @@ export class CacheService implements OnModuleInit {
       }
 
       this.logger.debug(`Cache set: ${key} (TTL: ${ttl}s)`);
-    } catch (error) {
-      this.logger.error(`Failed to set cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to set cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -96,8 +97,8 @@ export class CacheService implements OnModuleInit {
       this.logger.debug(`Cache hit: ${key}`);
       
       return JSON.parse(value) as T;
-    } catch (error) {
-      this.logger.error(`Failed to get cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to get cache key ${key}: ${error?.message || error}`);
       return null;
     }
   }
@@ -109,8 +110,8 @@ export class CacheService implements OnModuleInit {
     try {
       await this.redis.del(key);
       this.logger.debug(`Cache deleted: ${key}`);
-    } catch (error) {
-      this.logger.error(`Failed to delete cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to delete cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -122,8 +123,8 @@ export class CacheService implements OnModuleInit {
     try {
       const result = await this.redis.exists(key);
       return result === 1;
-    } catch (error) {
-      this.logger.error(`Failed to check cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to check cache key ${key}: ${error?.message || error}`);
       return false;
     }
   }
@@ -135,8 +136,8 @@ export class CacheService implements OnModuleInit {
     try {
       await this.redis.expire(key, ttl);
       this.logger.debug(`Cache TTL set: ${key} (${ttl}s)`);
-    } catch (error) {
-      this.logger.error(`Failed to set TTL for cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to set TTL for cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -147,8 +148,8 @@ export class CacheService implements OnModuleInit {
   async ttl(key: string): Promise<number> {
     try {
       return await this.redis.ttl(key);
-    } catch (error) {
-      this.logger.error(`Failed to get TTL for cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to get TTL for cache key ${key}: ${error?.message || error}`);
       return -1;
     }
   }
@@ -161,8 +162,8 @@ export class CacheService implements OnModuleInit {
       const result = await this.redis.incrby(key, amount);
       this.logger.debug(`Cache incremented: ${key} by ${amount}`);
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to increment cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to increment cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -175,8 +176,8 @@ export class CacheService implements OnModuleInit {
       const result = await this.redis.decrby(key, amount);
       this.logger.debug(`Cache decremented: ${key} by ${amount}`);
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to decrement cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to decrement cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -190,8 +191,8 @@ export class CacheService implements OnModuleInit {
       const result = await this.redis.lpush(key, ...serializedValues);
       this.logger.debug(`Cache lpush: ${key} (${values.length} items)`);
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to lpush cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to lpush cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -203,8 +204,8 @@ export class CacheService implements OnModuleInit {
     try {
       const values = await this.redis.lrange(key, start, stop);
       return values.map(v => JSON.parse(v)) as T[];
-    } catch (error) {
-      this.logger.error(`Failed to lrange cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to lrange cache key ${key}: ${error?.message || error}`);
       return [];
     }
   }
@@ -218,8 +219,8 @@ export class CacheService implements OnModuleInit {
       const result = await this.redis.sadd(key, ...serializedValues);
       this.logger.debug(`Cache sadd: ${key} (${values.length} items)`);
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to sadd cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to sadd cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -231,8 +232,8 @@ export class CacheService implements OnModuleInit {
     try {
       const values = await this.redis.smembers(key);
       return values.map(v => JSON.parse(v)) as T[];
-    } catch (error) {
-      this.logger.error(`Failed to smembers cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to smembers cache key ${key}: ${error?.message || error}`);
       return [];
     }
   }
@@ -250,8 +251,8 @@ export class CacheService implements OnModuleInit {
       const result = await this.redis.del(...keys);
       this.logger.log(`Cache cleared: ${keys.length} keys matching pattern "${pattern}"`);
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to clear cache pattern ${pattern}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to clear cache pattern ${pattern}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -262,8 +263,8 @@ export class CacheService implements OnModuleInit {
   async keys(pattern: string): Promise<string[]> {
     try {
       return await this.redis.keys(pattern);
-    } catch (error) {
-      this.logger.error(`Failed to get keys for pattern ${pattern}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to get keys for pattern ${pattern}: ${error?.message || error}`);
       return [];
     }
   }
@@ -275,8 +276,8 @@ export class CacheService implements OnModuleInit {
     try {
       await this.redis.flushall();
       this.logger.log('Cache flushed all');
-    } catch (error) {
-      this.logger.error('Failed to flush cache:', error);
+    } catch (error: any) {
+      this.logger.error(`Failed to flush cache: ${error?.message || error}`);
       throw error;
     }
   }
@@ -303,8 +304,8 @@ export class CacheService implements OnModuleInit {
         misses: this.missCount,
         hitRate: Math.round(hitRate * 100) / 100,
       };
-    } catch (error) {
-      this.logger.error('Failed to get cache stats:', error);
+    } catch (error: any) {
+      this.logger.error(`Failed to get cache stats: ${error?.message || error}`);
       return {
         keys: 0,
         memory: '0B',
@@ -337,8 +338,8 @@ export class CacheService implements OnModuleInit {
       await this.set(key, data, { ttl });
       
       return data;
-    } catch (error) {
-      this.logger.error(`Failed to remember cache key ${key}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to remember cache key ${key}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -350,7 +351,7 @@ export class CacheService implements OnModuleInit {
     try {
       const values = await this.redis.mget(...keys);
       
-      return values.map((value, index) => {
+      return values.map((value) => {
         if (value === null) {
           this.missCount++;
           return null;
@@ -363,8 +364,8 @@ export class CacheService implements OnModuleInit {
           return null;
         }
       });
-    } catch (error) {
-      this.logger.error(`Failed to mget cache keys:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to mget cache keys: ${error?.message || error}`);
       return keys.map(() => null);
     }
   }
@@ -392,8 +393,8 @@ export class CacheService implements OnModuleInit {
       }
 
       this.logger.debug(`Cache mset: ${Object.keys(keyValuePairs).length} keys`);
-    } catch (error) {
-      this.logger.error(`Failed to mset cache:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to mset cache: ${error?.message || error}`);
       throw error;
     }
   }
@@ -408,23 +409,20 @@ export class CacheService implements OnModuleInit {
     ttl: number = 3600,
   ): Promise<T> {
     try {
-      // Try to get from cache
       const cached = await this.get<T>(cacheKey);
       if (cached !== null) {
         this.logger.debug(`Leaderboard cache hit: ${cacheKey}`);
         return cached;
       }
 
-      // Compute if not cached
       this.logger.debug(`Computing leaderboard: ${cacheKey}`);
       const result = await computeFn();
 
-      // Cache the result
       await this.set(cacheKey, result, { ttl });
 
       return result;
-    } catch (error) {
-      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}: ${error?.message || error}`);
       throw error;
     }
   }
@@ -437,8 +435,8 @@ export class CacheService implements OnModuleInit {
       const count = await this.clearPattern(pattern);
       this.logger.log(`Invalidated ${count} leaderboard cache keys`);
       return count;
-    } catch (error) {
-      this.logger.error(`Failed to invalidate leaderboard cache:`, error);
+    } catch (error: any) {
+      this.logger.error(`Failed to invalidate leaderboard cache: ${error?.message || error}`);
       throw error;
     }
   }
