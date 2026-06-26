@@ -42,6 +42,15 @@ export class UsersService {
     private readonly preferencesService: PreferencesService = null as any,
   ) {}
 
+  async registerDeviceToken(userId: string, token: string): Promise<User> {
+    if (!token) {
+      throw new BadRequestException('Device token is required');
+    }
+    const user = await this.findUserOrFail(userId);
+    user.fcmToken = token;
+    return this.userRepository.save(user);
+  }
+
   // --- SETTINGS METHODS ---
 
   async getSettings(userId: string): Promise<UserSettingsResponseDto> {
@@ -192,6 +201,7 @@ export class UsersService {
     } = filterDto;
 
     const queryBuilder = this.userRepository.createQueryBuilder('user');
+    queryBuilder.andWhere('user.deletedAt IS NULL');
 
     if (role) queryBuilder.andWhere('user.role = :role', { role });
     if (isActive !== undefined) queryBuilder.andWhere('user.isActive = :isActive', { isActive });
@@ -272,6 +282,18 @@ export class UsersService {
 
   async findByPhone(phoneNumber: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { phoneNumber } });
+  }
+
+  async deactivateUser(userId: string): Promise<void> {
+    const user = await this.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.userRepository.save(user);
+    await this.userRepository.softDelete(userId);
   }
 
   async getUserStats(id: string): Promise<any> {
@@ -491,6 +513,21 @@ export class UsersService {
       changedFields.push('country');
     }
 
+    if (updateProfileDto.address !== undefined) {
+      updates.address = updateProfileDto.address.trim();
+      changedFields.push('address');
+    }
+
+    if (updateProfileDto.city !== undefined) {
+      updates.city = updateProfileDto.city.trim();
+      changedFields.push('city');
+    }
+
+    if (updateProfileDto.postalCode !== undefined) {
+      updates.postalCode = updateProfileDto.postalCode.trim();
+      changedFields.push('postalCode');
+    }
+
     if (updates.firstName || updates.lastName) {
       const firstName = updates.firstName || user.firstName;
       const lastName = updates.lastName || user.lastName;
@@ -543,6 +580,9 @@ export class UsersService {
       bio: user.referralCode,
       preferredLanguage: user.preferredLanguage,
       country: user.country,
+      address: user.address,
+      city: user.city,
+      postalCode: user.postalCode,
       role: user.role,
       status: user.status,
       isVerified: user.isVerified,
@@ -611,5 +651,76 @@ export class UsersService {
    */
   async deletePreferences(userId: string): Promise<void> {
     await this.preferencesService.deletePreferences(userId);
+  }
+
+  /**
+   * Deactivate a user (self-service deactivation)
+   */
+  async deactivateUser(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.userRepository.softRemove(user);
+
+    if (this.cacheManager) {
+      await this.cacheManager.del(`user:profile:${userId}`);
+    }
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ) {
+
+    const user =
+      await this.userRepository.findOne({
+        where: {
+          id: userId,
+        },
+      });
+
+    if (!user) {
+      throw new NotFoundException(
+        'User not found',
+      );
+    }
+
+    Object.assign(
+      user,
+      {
+        name:
+          dto.name ??
+          user.name,
+
+        phone:
+          dto.phone ??
+          user.phone,
+
+        address:
+          dto.address ??
+          user.address,
+      },
+    );
+
+    const updatedUser =
+      await this.userRepository.save(
+        user,
+      );
+
+    return {
+      id:
+        updatedUser.id,
+
+      name:
+        updatedUser.name,
+
+      phone:
+        updatedUser.phone,
+
+      address:
+        updatedUser.address,
+    };
   }
 }

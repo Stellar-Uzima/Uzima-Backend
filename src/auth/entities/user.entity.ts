@@ -33,6 +33,15 @@ export class User {
   @Column({ length: 2 })
   country: string;
 
+  @Column({ nullable: true, length: '255' })
+  address?: string;
+
+  @Column({ nullable: true, length: '100' })
+  city?: string;
+
+  @Column({ nullable: true, length: '20' })
+  postalCode?: string;
+
   @Column({ default: false })
   isVerified: boolean;
 

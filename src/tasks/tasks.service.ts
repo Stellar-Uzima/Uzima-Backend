@@ -5,20 +5,77 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { HealthTask } from './entities/health-task.entity';
+import { HealthTask, TaskCategory } from './entities/health-task.entity';
 import { TaskStatus } from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
 import { Role } from '../auth/enums/role.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
+import { QueueService } from '../shared/queue/queue.service';
+import {
+  NOTIFICATION_QUEUE,
+  TASK_REMINDER_JOB,
+  TASK_REMINDER_TEMPLATE,
+} from '../queue/queue.constants';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectRepository(HealthTask)
     private readonly healthTaskRepository: Repository<HealthTask>,
+    private readonly queueService: QueueService,
   ) {}
+
+  getCategories(): Array<{ value: string; label: string }> {
+    return Object.values(TaskCategory).map((value) => ({
+      value,
+      label: value.charAt(0).toUpperCase() + value.slice(1),
+    }));
+  /**
+   * Enqueue a delayed notification job for a task's reminder.
+   * No-op if reminderTime is null/undefined or already in the past.
+   *
+   * Uses a deterministic Bull jobId derived from `taskId` and the
+   * reminder timestamp so repeated calls (e.g., service-side on create
+   * and scheduler-side from the backfill cron) collapse to a single
+   * queued job. If reminderTime changes, the jobId changes too, so the
+   * new schedule does not collide with the old one.
+   */
+  async scheduleReminderJob(task: HealthTask): Promise<void> {
+    if (!task.reminderTime) {
+      return;
+    }
+    const remindAt = new Date(task.reminderTime).getTime();
+    const delayMs = remindAt - Date.now();
+    if (delayMs <= 0) {
+      // Past reminder; don't enqueue
+      return;
+    }
+    const jobId = `task-reminder:${task.id}:${remindAt}`;
+    await this.queueService.addDelayedJob(
+      NOTIFICATION_QUEUE,
+      TASK_REMINDER_JOB,
+      {
+        template: TASK_REMINDER_TEMPLATE,
+        taskId: task.id,
+        userId: task.createdBy,
+        taskTitle: task.title,
+        remindAt: task.reminderTime,
+      },
+      delayMs,
+      // Use Bull's native JobOptions shape (attempts/backoff) so the
+      // options reach the underlying queue. QueueService.addDelayedJob
+      // passes options through unchanged, unlike addJob which translates
+      // maxRetries/backoffMs. The deterministic jobId makes Bull
+      // deduplicate when the same reminder is enqueued more than once.
+      {
+        jobId,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+      },
+    );
+  }
 
   async create(
     createTaskDto: CreateTaskDto,
@@ -30,7 +87,9 @@ export class TasksService {
       status: TaskStatus.DRAFT,
     });
 
-    return await this.healthTaskRepository.save(task);
+    const saved = await this.healthTaskRepository.save(task);
+    await this.scheduleReminderJob(saved);
+    return saved;
   }
 
   async findAll(
@@ -88,7 +147,11 @@ export class TasksService {
     }
 
     Object.assign(task, updateTaskDto);
-    return await this.healthTaskRepository.save(task);
+    const saved = await this.healthTaskRepository.save(task);
+    if (updateTaskDto.reminderTime !== undefined) {
+      await this.scheduleReminderJob(saved);
+    }
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

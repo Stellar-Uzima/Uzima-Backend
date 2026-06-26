@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
-  InternalServerErrorException,
 } from '@nestjs/common';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
@@ -31,6 +32,8 @@ import { EmailVerificationService } from '@/modules/auth/services/email-verifica
 import { SessionService } from '@/modules/auth/services/session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
+import { ReferralService } from '../../referral/referral.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -58,6 +61,8 @@ export class AuthService {
     private transactionService: TransactionService,
     @InjectRepository(TokenBlacklist)
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
+    private readonly notifications: NotificationService,
+    @Optional() private readonly referralService?: ReferralService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -85,9 +90,26 @@ export class AuthService {
       email: user.email,
     });
 
+    if (dto.referralCode && this.referralService) {
+      try {
+        await this.referralService.redeemReferralCode(user.id, dto.referralCode);
+      } catch (error) {
+        this.logger.warn(
+          `Referral code not applied for user ${user.id}: ${(error as Error).message}`,
+        );
+      }
+    }
+
     // Create email verification token and send email
     if (user.email) {
       await this.emailVerificationService.createForUser(user.id);
+      try {
+        await this.notifications.sendEmail(user.id, 'welcome', {
+          name: user.firstName || user.email,
+        });
+      } catch (err) {
+        this.logger.error('Failed to send welcome email', err as any);
+      }
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -237,6 +259,11 @@ export class AuthService {
       if (!storedToken || storedToken !== refreshToken) {
         // Replay attack or invalid token: clear all user sessions
         await this.clearAllUserRefreshTokens(userId);
+        // Also clear persisted token on the user entity
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
         this.eventEmitter.emit('auth.suspicious_activity', {
           userId,
           reason: 'Invalid or reused refresh token',
@@ -244,10 +271,24 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      // Delete the used token
-      await this.redisClient.del(key);
-
+      // Validate against persisted hashed token on user entity
       const user = await this.usersService.findById(userId);
+      if (
+        !user.refreshToken ||
+        !user.refreshTokenExpiry ||
+        user.refreshTokenExpiry < new Date() ||
+        !(await bcrypt.compare(refreshToken, user.refreshToken))
+      ) {
+        await this.redisClient.del(key);
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Delete the used token (rotation: old token invalidated)
+      await this.redisClient.del(key);
+      user.refreshToken = null;
+      user.refreshTokenExpiry = null;
+      await this.usersService.save(user);
+
       return this.generateTokens(user.id, user.email, user.role);
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
@@ -259,6 +300,7 @@ export class AuthService {
 
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
+    const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(
@@ -266,10 +308,16 @@ export class AuthService {
       { expiresIn: '7d' }
     );
 
+    // Store in Redis for fast lookup
     const key = `refresh:${userId}:${tokenId}`;
-    await this.redisClient.set(key, refreshToken, {
-      EX: 7 * 24 * 60 * 60,
-    });
+    await this.redisClient.set(key, refreshToken, { EX: 7 * 24 * 60 * 60 });
+
+    // Persist hashed refresh token to user entity for durable rotation
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    const user = await this.usersService.findById(userId);
+    user.refreshToken = hashedRefreshToken;
+    user.refreshTokenExpiry = refreshExpiry;
+    await this.usersService.save(user);
 
     // Record session metadata in DB (device info can be passed later)
     try {
@@ -353,6 +401,16 @@ export class AuthService {
       } catch (redisError: any) {
         // Redis failure shouldn't fail the logout
         this.logger.warn(`Redis cleanup failed for user ${userId}: ${redisError.message}`);
+      }
+
+      // Clear persisted refresh token on user entity
+      try {
+        const user = await this.usersService.findById(userId);
+        user.refreshToken = null;
+        user.refreshTokenExpiry = null;
+        await this.usersService.save(user);
+      } catch (err: any) {
+        this.logger.warn(`Failed to clear user refresh token fields: ${err.message}`);
       }
 
       // Log successful logout with performance metrics
@@ -488,7 +546,6 @@ export class AuthService {
     await this.usersService.updateLastLogin(user.id);
 
     const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
-    const tokens = await this.generateTokens(user!.id, user!.email || user!.phoneNumber, user!.role);
     return {
       success: true,
       message: 'Authentication successful',
@@ -575,20 +632,34 @@ export class AuthService {
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${email}`);
 
+    try {
+      const resetLink = `${process.env.FRONTEND_URL || 'https://example.com'}/reset-password?token=${token}`;
+      await this.notifications.sendEmail(user.id, 'password-reset', {
+        name: user.firstName || user.email,
+        link: resetLink,
+      });
+    } catch (err) {
+      this.logger.error('Failed to send password reset email', err as any);
+    }
+
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
   async resetPassword(token: string, newPassword: string) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Look up by token only — expiry is checked separately so we can return 410
+    // instead of 400 when the token exists but has expired.
     const user = await this.usersService['usersRepository'].findOne({
-      where: {
-        passwordResetToken: hash,
-        passwordResetExpiry: MoreThan(new Date()),
-      },
+      where: { passwordResetToken: hash },
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    if (!user.passwordResetExpiry || user.passwordResetExpiry <= new Date()) {
+      throw new GoneException('Password reset token has expired');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);

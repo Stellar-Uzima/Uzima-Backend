@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   BadRequestException,
   ConflictException,
+  GoneException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -21,6 +22,7 @@ import { OtpService } from '../../otp/otp.service';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { TransactionService } from '../../database/services/transaction.service';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { AccountLockedException } from '../../auth/exceptions/account-locked.exception';
@@ -76,6 +78,10 @@ describe('AuthService', () => {
     lockedUntil: null,
   };
 
+  const mockNotificationService = {
+    sendEmail: jest.fn().mockResolvedValue(true),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     (bcrypt.compare as jest.Mock).mockReset();
@@ -94,6 +100,7 @@ describe('AuthService', () => {
         { provide: SessionService, useValue: mockSessionService },
         { provide: TransactionService, useValue: mockTransactionService },
         { provide: getRepositoryToken(TokenBlacklist), useValue: mockTokenBlacklistRepository },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 
@@ -149,10 +156,13 @@ describe('AuthService', () => {
         ...baseUser,
         failedLoginAttempts: 2,
         lockedUntil: null,
+        refreshToken: null,
+        refreshTokenExpiry: null,
       };
       mockUsersService.findByEmail.mockResolvedValue(user);
       mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
       mockUsersService.getProfile.mockResolvedValue({ id: user.id, email: user.email });
+      mockUsersService.findById.mockResolvedValue(user);
       mockUsersService.save.mockImplementation(async (u) => u);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockJwtService.sign.mockReturnValue('token');
@@ -164,6 +174,94 @@ describe('AuthService', () => {
       expect(mockUsersService.save).toHaveBeenCalledWith(
         expect.objectContaining({ failedLoginAttempts: 0, lockedUntil: null }),
       );
+    });
+  });
+
+  describe('refresh token rotation', () => {
+    const userId = 'user-1';
+    const tokenId = 'token-id-abc';
+    const refreshToken = 'valid-refresh-token';
+
+    it('returns new access and refresh tokens on valid refresh', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(refreshToken);
+      const user = {
+        ...baseUser,
+        refreshToken: 'hashed',
+        refreshTokenExpiry: new Date(Date.now() + 86400000),
+      };
+      mockUsersService.findById.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRedisClient.del.mockResolvedValue(1);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockJwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      const result = await authService.refresh(refreshToken);
+
+      expect(result).toEqual({ accessToken: 'new-access-token', refreshToken: 'new-refresh-token' });
+    });
+
+    it('invalidates old refresh token after use (rotation)', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(refreshToken);
+      const user = {
+        ...baseUser,
+        refreshToken: 'hashed',
+        refreshTokenExpiry: new Date(Date.now() + 86400000),
+      };
+      mockUsersService.findById.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRedisClient.del.mockResolvedValue(1);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockJwtService.sign.mockReturnValue('new-token');
+      mockRedisClient.set.mockResolvedValue('OK');
+      mockSessionService.createSession.mockResolvedValue({});
+
+      await authService.refresh(refreshToken);
+
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`refresh:${userId}:${tokenId}`);
+      expect(mockUsersService.save).toHaveBeenCalledWith(
+        expect.objectContaining({ refreshToken: null, refreshTokenExpiry: null }),
+      );
+    });
+
+    it('returns 401 when reusing an old (already rotated) refresh token', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(null); // not in Redis → already rotated
+      mockRedisClient.keys.mockResolvedValue([]);
+      mockUsersService.findById.mockResolvedValue({ ...baseUser, refreshToken: null, refreshTokenExpiry: null });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('emits suspicious_activity event on replay attack', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
+      mockRedisClient.get.mockResolvedValue(null);
+      mockRedisClient.keys.mockResolvedValue([]);
+      mockUsersService.findById.mockResolvedValue({ ...baseUser, refreshToken: null, refreshTokenExpiry: null });
+      mockUsersService.save.mockImplementation(async (u) => u);
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        'auth.suspicious_activity',
+        expect.objectContaining({ userId, reason: expect.stringContaining('reused') }),
+      );
+    });
+
+    it('returns 401 when refresh token is blacklisted', async () => {
+      mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
+      mockTokenBlacklistRepository.findOne.mockResolvedValue({ token: refreshToken });
+
+      await expect(authService.refresh(refreshToken)).rejects.toThrow(UnauthorizedException);
     });
   });
 
@@ -254,6 +352,57 @@ describe('AuthService', () => {
           country: 'KE',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('resetPassword', () => {
+    const mockUsersRepository = { findOne: jest.fn() };
+
+    beforeEach(() => {
+      // Wire the internal usersRepository used by resetPassword
+      (mockUsersService as any).usersRepository = mockUsersRepository;
+      mockUsersRepository.findOne.mockReset();
+      mockUsersService.save.mockReset();
+      mockAuditService.logAction.mockReset();
+    });
+
+    it('throws BadRequestException when no user matches the token', async () => {
+      mockUsersRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        authService.resetPassword('invalid-token', 'NewPassword1!'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws GoneException (410) when the reset token has expired', async () => {
+      const expiredUser = {
+        ...baseUser,
+        passwordResetToken: 'hashed-token',
+        passwordResetExpiry: new Date(Date.now() - 1000), // 1 second in the past
+      };
+      mockUsersRepository.findOne.mockResolvedValue(expiredUser);
+
+      await expect(
+        authService.resetPassword('any-token', 'NewPassword1!'),
+      ).rejects.toThrow(GoneException);
+    });
+
+    it('resets the password and clears the token when token is valid', async () => {
+      const validUser = {
+        ...baseUser,
+        passwordResetToken: 'hashed-token',
+        passwordResetExpiry: new Date(Date.now() + 3600 * 1000),
+        password: 'old-hashed',
+      };
+      mockUsersRepository.findOne.mockResolvedValue(validUser);
+      mockUsersService.save.mockImplementation(async (u) => u);
+      mockAuditService.logAction.mockResolvedValue(undefined);
+
+      const result = await authService.resetPassword('valid-token', 'NewPassword1!');
+
+      expect(result).toEqual({ message: 'Password reset successful' });
+      expect(validUser.passwordResetToken).toBeNull();
+      expect(validUser.passwordResetExpiry).toBeNull();
     });
   });
 });

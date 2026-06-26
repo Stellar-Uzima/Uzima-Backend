@@ -17,6 +17,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RewardService } from './reward.service';
 import { PriceFeedService } from '../stellar/price-feed.service'; // Added import
+import { PriceFeedService } from '../stellar/price-feed.service';
+import { XlmPriceResponseDto } from '../stellar/dto/xlm-price-response.dto';
 import {
   RewardHistoryQueryDto,
   RewardHistoryResponseDto,
@@ -62,6 +64,22 @@ export class RewardController {
       currency: 'USD',
       price: data.price,
       cached: data.cached,
+    summary: 'Get current XLM/USD price',
+    description:
+      'Returns the cached XLM price in USD (refreshed every 5 minutes). Falls back to the last cached price if providers are unavailable.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'XLM price retrieved successfully',
+    type: XlmPriceResponseDto,
+  })
+  async getXlmPrice(): Promise<XlmPriceResponseDto> {
+    const snapshot = await this.priceFeedService.getXlmUsdPrice();
+    return {
+      priceUsd: snapshot.priceUsd,
+      source: snapshot.source,
+      fetchedAt: snapshot.fetchedAt,
+      currency: 'USD',
     };
   }
 

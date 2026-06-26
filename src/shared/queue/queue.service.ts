@@ -11,6 +11,8 @@ import {
   USER_ACTIVITY_QUEUE,
   DATA_PROCESSING_QUEUE,
   REWARD_DEAD_LETTER_QUEUE,
+  BULK_TASK_ASSIGNMENT_JOB,
+  BulkTaskAssignmentJobData,
 } from '../../queue/queue.constants';
 
 export interface JobStatus {
@@ -110,6 +112,21 @@ export class QueueService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Enqueue bulk task assignment for asynchronous processing.
+   */
+  async enqueueBulkTaskAssignment(
+    data: BulkTaskAssignmentJobData,
+    options?: QueueJobOptions,
+  ): Promise<Job<BulkTaskAssignmentJobData>> {
+    return this.addJob(
+      DATA_PROCESSING_QUEUE,
+      BULK_TASK_ASSIGNMENT_JOB,
+      data,
+      options,
+    );
   }
 
   /**

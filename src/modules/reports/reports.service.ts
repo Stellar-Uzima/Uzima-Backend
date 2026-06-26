@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from '@/entities/user.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
+import { Streak } from '@/streaks/entities/streak.entity';
 
 export type ReportType = 'users' | 'activity' | 'health';
 
@@ -15,6 +16,8 @@ export class ReportsService {
     private readonly taskCompletionRepository: Repository<TaskCompletion>,
     @InjectRepository(RewardTransaction)
     private readonly rewardTransactionRepository: Repository<RewardTransaction>,
+    @InjectRepository(Streak)
+    private readonly streakRepository: Repository<Streak>,
   ) {}
 
   async getUserReport() {
@@ -224,6 +227,116 @@ export class ReportsService {
         rows = [];
     }
     
+    return rows.join('\n');
+  }
+
+  async getHealthSummary(period: string = 'daily') {
+    const tcTotals = await this.taskCompletionRepository
+      .createQueryBuilder('tc')
+      .select('COUNT(tc.id)', 'total')
+      .addSelect("SUM(CASE WHEN tc.status = 'verified' THEN 1 ELSE 0 END)", 'verified')
+      .addSelect("SUM(CASE WHEN tc.status = 'pending' THEN 1 ELSE 0 END)", 'pending')
+      .addSelect("SUM(CASE WHEN tc.status = 'rejected' THEN 1 ELSE 0 END)", 'rejected')
+      .getRawOne();
+
+    const total = Number(tcTotals?.total || 0);
+    const verified = Number(tcTotals?.verified || 0);
+    const pending = Number(tcTotals?.pending || 0);
+    const rejected = Number(tcTotals?.rejected || 0);
+    const completionRate = total > 0 ? Number(((verified / total) * 100).toFixed(2)) : 0;
+
+    const taskCompletionRates = {
+      total,
+      verified,
+      pending,
+      rejected,
+      completionRate,
+    };
+
+    const streakGroups = await this.streakRepository
+      .createQueryBuilder('streak')
+      .select('streak.currentStreak', 'currentStreak')
+      .addSelect('COUNT(streak.id)', 'count')
+      .groupBy('streak.currentStreak')
+      .getRawMany();
+
+    const streakDistributions = {
+      '0': 0,
+      '1-3': 0,
+      '4-7': 0,
+      '8-14': 0,
+      '15+': 0,
+    };
+
+    for (const group of streakGroups) {
+      const streak = Number(group.currentStreak || 0);
+      const count = Number(group.count || 0);
+      if (streak === 0) {
+        streakDistributions['0'] += count;
+      } else if (streak >= 1 && streak <= 3) {
+        streakDistributions['1-3'] += count;
+      } else if (streak >= 4 && streak <= 7) {
+        streakDistributions['4-7'] += count;
+      } else if (streak >= 8 && streak <= 14) {
+        streakDistributions['8-14'] += count;
+      } else if (streak >= 15) {
+        streakDistributions['15+'] += count;
+      }
+    }
+
+    let groupFormat = "DATE_TRUNC('day', rt.createdAt)";
+    if (period === 'weekly') {
+      groupFormat = "DATE_TRUNC('week', rt.createdAt)";
+    } else if (period === 'monthly') {
+      groupFormat = "DATE_TRUNC('month', rt.createdAt)";
+    }
+
+    const rewardTotals = await this.rewardTransactionRepository
+      .createQueryBuilder('rt')
+      .select(`${groupFormat}`, 'period')
+      .addSelect('SUM(rt.amount)', 'total')
+      .where("rt.status = 'SUCCESS'")
+      .groupBy('period')
+      .orderBy('period', 'ASC')
+      .getRawMany();
+
+    const rewardTotalsByPeriod = rewardTotals.map((row) => ({
+      period: row.period ? new Date(row.period).toISOString().split('T')[0] : '',
+      totalAmount: Number(row.total || 0),
+    }));
+
+    return {
+      taskCompletionRates,
+      streakDistributions,
+      rewardTotalsByPeriod,
+    };
+  }
+
+  generateHealthSummaryCsv(summary: any): string {
+    const rows: string[] = [];
+
+    rows.push('Task Completion Rates');
+    rows.push('Metric,Value');
+    rows.push(`Total Tasks,${summary.taskCompletionRates.total}`);
+    rows.push(`Verified Tasks,${summary.taskCompletionRates.verified}`);
+    rows.push(`Pending Tasks,${summary.taskCompletionRates.pending}`);
+    rows.push(`Rejected Tasks,${summary.taskCompletionRates.rejected}`);
+    rows.push(`Completion Rate (%),${summary.taskCompletionRates.completionRate}`);
+    rows.push('');
+
+    rows.push('Streak Distributions');
+    rows.push('Streak Range,User Count');
+    Object.entries(summary.streakDistributions).forEach(([range, count]) => {
+      rows.push(`"${range}",${count}`);
+    });
+    rows.push('');
+
+    rows.push('Reward Totals by Period');
+    rows.push('Period,Total Amount');
+    summary.rewardTotalsByPeriod.forEach((item: any) => {
+      rows.push(`${item.period},${item.totalAmount}`);
+    });
+
     return rows.join('\n');
   }
 }
