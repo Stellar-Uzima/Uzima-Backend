@@ -18,7 +18,7 @@ import {
     ApiTags,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { JwtAuthGuard } from '../../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { UsersService } from '../users.service';
 import {
     UpdateUserSettingsDto,

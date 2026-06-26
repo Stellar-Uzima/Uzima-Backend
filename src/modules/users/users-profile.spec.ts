@@ -3,8 +3,8 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
 import { User } from '../../entities/user.entity';
-import { Role } from '../../auth/enums/role.enum';
-import { UserStatus } from '../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
 

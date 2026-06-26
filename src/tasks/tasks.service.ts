@@ -10,7 +10,7 @@ import { TaskStatus } from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
-import { Role } from '../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { QueueService } from '../shared/queue/queue.service';
 import {

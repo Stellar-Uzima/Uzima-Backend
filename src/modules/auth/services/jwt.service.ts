@@ -5,7 +5,7 @@ import {
   TokenPayload,
   TokenPair,
   ValidatedToken,
-} from '../../common/interfaces/token.interface';
+} from '../../../common/interfaces/token.interface';
 
 @Injectable()
 export class JwtTokenService {

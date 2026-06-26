@@ -26,7 +26,7 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';

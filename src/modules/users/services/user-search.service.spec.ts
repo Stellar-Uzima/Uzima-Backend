@@ -2,8 +2,8 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { UserSearchService } from './user-search.service';
 import { UserSearchDto } from '../dto/user-search.dto';
 import { User } from '../../../entities/user.entity';
-import { Role } from '../../../auth/enums/role.enum';
-import { UserStatus } from '../../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 describe('UserSearchService', () => {

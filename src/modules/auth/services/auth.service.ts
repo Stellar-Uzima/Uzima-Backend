@@ -23,17 +23,17 @@ import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { Role } from '../enums/role.enum';
 import { UsersService } from './users.service';
-import { OtpService } from '../../otp/otp.service';
+import { OtpService } from '../../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
-import { AuditService } from '../../audit/audit.service';
-import { EmailVerificationService } from '@/modules/auth/services/email-verification.service';
-import { SessionService } from '@/modules/auth/services/session.service';
+import { AuditService } from '../../../audit/audit.service';
+import { EmailVerificationService } from './email-verification.service';
+import { SessionService } from './session.service';
 import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
-import { ReferralService } from '../../referral/referral.service';
-import { NotificationService } from '../../notifications/services/notification.service';
+import { ReferralService } from '../../../referral/referral.service';
+import { NotificationService } from '../../../notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {

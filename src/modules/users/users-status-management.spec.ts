@@ -4,8 +4,8 @@ import { UsersService } from './users.service';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
 import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
-import { UserStatus } from '../../auth/enums/user-status.enum';
-import { Role } from '../../auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('Users Status Management', () => {

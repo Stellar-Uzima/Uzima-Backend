@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { TaskCompletionService } from './task-completion.service';
 import { CompleteTaskDto } from './dto/complete-task.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { StorageService } from '../../storage/storage.service';
 @UseGuards(JwtAuthGuard)
 @Controller('tasks/completions')

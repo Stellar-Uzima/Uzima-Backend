@@ -19,8 +19,8 @@ import {
   PaginationMetaDto,
   SortOrder,
 } from '../../common/dtos/pagination.dto';
-import { Role } from '../../auth/enums/role.enum';
-import { UserStatus } from '../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
 import { UpdateUserSettingsDto, UserSettingsResponseDto } from './dto/user-settings.dto';
 import { PreferencesService } from './services/preferences.service';

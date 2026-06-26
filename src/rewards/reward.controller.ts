@@ -14,7 +14,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RewardService } from './reward.service';
 import { PriceFeedService } from '../stellar/price-feed.service';
 import { XlmPriceResponseDto } from '../stellar/dto/xlm-price-response.dto';

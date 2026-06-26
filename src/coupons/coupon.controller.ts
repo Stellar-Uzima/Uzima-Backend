@@ -16,7 +16,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { Coupon } from './entities/coupon.entity';
 import { CouponService, ValidateCouponResult } from './coupon.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
