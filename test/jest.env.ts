@@ -7,6 +7,8 @@ import 'dotenv/config';
 
 // Set test environment
 process.env.NODE_ENV = 'test';
+process.env.DATABASE_TYPE = process.env.DATABASE_TYPE || 'postgres';
+process.env.TEST_DATABASE_TYPE = process.env.TEST_DATABASE_TYPE || 'postgres';
 
 // Test database configuration
 process.env.TEST_DB_HOST = process.env.TEST_DB_HOST || 'localhost';

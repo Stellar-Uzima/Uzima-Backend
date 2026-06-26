@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 export const typeOrmConfig = async (
   configService: ConfigService,
 ): Promise<TypeOrmModuleOptions> => ({
-  type: (process.env.DATABASE_TYPE as any) ?? (process.env.NODE_ENV === 'test' ? 'sqlite' : 'postgres'),
+  type: (process.env.DATABASE_TYPE as any) ?? 'postgres',
   host: (process.env.DATABASE_TYPE === 'sqlite' || (!process.env.DATABASE_TYPE && process.env.NODE_ENV === 'test')) ? undefined : (configService.get<string>('DATABASE_HOST') ?? configService.get<string>('DB_HOST') ?? 'localhost'),
   port: (process.env.DATABASE_TYPE === 'sqlite' || (!process.env.DATABASE_TYPE && process.env.NODE_ENV === 'test')) ? undefined : (configService.get<number>('DATABASE_PORT') ?? configService.get<number>('DB_PORT') ?? 5432),
   username: (process.env.DATABASE_TYPE === 'sqlite' || (!process.env.DATABASE_TYPE && process.env.NODE_ENV === 'test')) ? undefined : (configService.get<string>('DATABASE_USERNAME') ?? configService.get<string>('DB_USERNAME') ?? 'postgres'),
