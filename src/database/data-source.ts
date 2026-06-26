@@ -1,9 +1,5 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
-import { join } from 'path';
-
-// Derive absolute paths relative to the project working directory root
-const rootDir = process.cwd();
 
 /**
  * DataSource configuration for database seeding and migrations.
@@ -19,11 +15,9 @@ export const AppDataSource = new DataSource({
   synchronize: false,
   logging: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
   entities: [
-    join(rootDir, 'src/database/../**/*.entity{.ts,.js}'),
+    __dirname + '/../**/*.entity{.ts,.js}',
   ],
-  migrations: [
-    join(rootDir, 'src/database/migrations/*{.ts,.js}'),
-  ],
+  migrations: [__dirname + '/migrations/*{.ts,.js}'],
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
