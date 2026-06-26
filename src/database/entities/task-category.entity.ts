@@ -52,7 +52,7 @@ export class TaskCategory {
   color?: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: PredefinedCategory,
     nullable: true,
   })

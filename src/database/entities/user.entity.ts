@@ -81,7 +81,7 @@ export class User {
   postalCode?: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: UserRole,
     default: UserRole.USER,
   })
@@ -115,13 +115,13 @@ export class User {
   @IsString()
   passwordResetToken?: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   passwordResetExpiry?: Date | null;
 
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lockedUntil?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -130,7 +130,7 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  @DeleteDateColumn({ nullable: true })
   deletedAt?: Date | null;
 
   // Relationships

@@ -32,7 +32,7 @@ export class FailedRewardJob {
   @Column({ type: 'varchar', length: 50, default: 'reward-distribution' })
   jobType: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   jobData?: Record<string, unknown>;
 
   @CreateDateColumn()

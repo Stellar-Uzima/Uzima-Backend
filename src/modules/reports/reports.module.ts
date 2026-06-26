@@ -5,7 +5,7 @@ import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsSchedulerService } from './reports-scheduler.service';
-import { NotificationsModule } from '@/notifications/notifications.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AuditModule } from '@/audit/audit.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { User } from '@/entities/user.entity';

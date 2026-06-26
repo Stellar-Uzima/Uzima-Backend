@@ -12,7 +12,7 @@ import { TwoFactor } from '../../database/entities/two-factor.entity';
 import { User } from '../../entities/user.entity';
 import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
-import { NotificationsModule } from '@/notifications/notifications.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { JwtStrategy } from '../../auth/strategies/jwt.strategy';
 import { JwtRefreshStrategy } from '../../auth/strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';

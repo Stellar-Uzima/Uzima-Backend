@@ -4,11 +4,11 @@ import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users.service';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { StorageService } from '../../../storage/storage.service';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
-import { Notification } from '../../../notifications/entities/notification.entity';
+import { Notification } from '../../notifications/entities/notification.entity';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../../queue/queue.constants';
 
 @Injectable()
@@ -68,7 +68,7 @@ export class DataExportProcessor {
       await job.progress(100);
       this.logger.log(`Data export job ${job.id} completed for user ${userId}`);
     } catch (err) {
-      this.logger.error(`Data export job ${job.id} failed for user ${userId}`, err as any?.stack || String(err));
+      this.logger.error(`Data export job ${job.id} failed for user ${userId}`, (err as any)?.stack || String(err));
       throw err;
     }
   }

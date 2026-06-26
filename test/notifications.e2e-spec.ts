@@ -5,8 +5,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { User } from '../src/entities/user.entity';
-import { Notification } from '../src/notifications/entities/notification.entity';
-import { NotificationPreference } from '../src/notifications/entities/notification-preference.entity';
+import { Notification } from '../src/modules/notifications/entities/notification.entity';
+import { NotificationPreference } from '../src/modules/notifications/entities/notification-preference.entity';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 
 describe('Notifications API e2e', () => {

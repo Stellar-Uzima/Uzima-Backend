@@ -29,7 +29,7 @@ export class TaskCompletion {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   rewardXlm: number;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   completedAt: Date;
 
   @DeleteDateColumn()

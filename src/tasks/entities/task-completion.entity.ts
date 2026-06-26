@@ -27,7 +27,7 @@ export class TaskCompletion {
   task: HealthTask;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: TaskCompletionStatus,
     default: TaskCompletionStatus.PENDING,
   })
@@ -42,7 +42,7 @@ export class TaskCompletion {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   xlmRewarded: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   completedAt: Date;
 
   @CreateDateColumn()

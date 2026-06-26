@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { EmailVerification } from '../../../database/entities/email-verification.entity';
 import { UsersService } from '../../../auth/services/users.service';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class EmailVerificationService {

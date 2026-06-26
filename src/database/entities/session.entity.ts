@@ -46,9 +46,9 @@ export class Session {
   @IsBoolean()
   isActive: boolean;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   lastActiveAt: Date;
 }

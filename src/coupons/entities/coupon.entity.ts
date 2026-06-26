@@ -42,7 +42,7 @@ export class Coupon {
   @Column()
   expiresAt: Date;
 
-  @Column({ type: 'enum', enum: CouponStatus, default: CouponStatus.ACTIVE })
+  @Column({ type: 'simple-enum', enum: CouponStatus, default: CouponStatus.ACTIVE })
   status: CouponStatus;
 
   @CreateDateColumn()

@@ -5,6 +5,9 @@ import {
 import {
   ReminderScheduler,
 } from "./reminder.scheduler";
+import { CouponService } from "../../coupons/coupon.service";
+import { TaskService } from "./reminder.scheduler";
+import { NotificationService } from "../../modules/notifications/services/notification.service";
 
 describe(
   "ReminderScheduler",

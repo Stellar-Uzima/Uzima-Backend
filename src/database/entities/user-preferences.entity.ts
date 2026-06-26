@@ -36,7 +36,7 @@ export class UserPreferences {
   userId: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: Theme,
     default: Theme.SYSTEM,
   })
@@ -47,7 +47,7 @@ export class UserPreferences {
   @Length(2, 10)
   language: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'json', default: '{}' })
   @IsObject()
   notifications: {
     [key in NotificationType]: {
@@ -60,7 +60,7 @@ export class UserPreferences {
     };
   };
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'json', default: '{}' })
   @IsObject()
   privacy: {
     profileVisibility: 'public' | 'private' | 'friends';
@@ -69,7 +69,7 @@ export class UserPreferences {
     showRank: boolean;
   };
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'json', default: '{}' })
   @IsObject()
   accessibility: {
     fontSize: 'small' | 'medium' | 'large' | 'extra-large';
@@ -78,7 +78,7 @@ export class UserPreferences {
     screenReader: boolean;
   };
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'json', default: '{}' })
   @IsObject()
   app: {
     autoStartTasks: boolean;

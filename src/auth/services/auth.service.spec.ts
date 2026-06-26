@@ -30,7 +30,7 @@ import { OtpService } from '../../otp/otp.service';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from '../../modules/auth/services/email-verification.service';
 import { SessionService } from '../../modules/auth/services/session.service';
-import { NotificationService } from '../../notifications/services/notification.service';
+import { NotificationService } from '../../modules/notifications/services/notification.service';
 import { TransactionService } from '../../database/services/transaction.service';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { Role } from '../enums/role.enum';

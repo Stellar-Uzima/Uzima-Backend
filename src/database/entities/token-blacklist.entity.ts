@@ -21,9 +21,9 @@ export class TokenBlacklist {
   @Column({ type: 'varchar' })
   userId: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   expiresAt: Date;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

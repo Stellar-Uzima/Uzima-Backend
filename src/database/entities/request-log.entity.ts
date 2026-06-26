@@ -14,10 +14,10 @@ export class RequestLog {
   @Column()
   path: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   headers: Record<string, any>;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   body: Record<string, any>;
 
   @Column({ nullable: true })
@@ -32,7 +32,7 @@ export class RequestLog {
   @Column()
   statusCode: number;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   response: Record<string, any>;
 
   @Column({ type: 'int' })

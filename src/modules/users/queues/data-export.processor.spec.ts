@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataExportProcessor } from './data-export.processor';
 import { UsersService } from '../users.service';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { StorageService } from '../../../storage/storage.service';
 
 describe('DataExportProcessor', () => {

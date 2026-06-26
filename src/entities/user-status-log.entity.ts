@@ -23,14 +23,14 @@ export class UserStatusLog {
   user: User;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: UserStatus,
     comment: 'Previous status before change',
   })
   previousStatus: UserStatus;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: UserStatus,
     comment: 'New status after change',
   })
@@ -44,7 +44,7 @@ export class UserStatusLog {
   changedByUser: User;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: Role,
     comment: 'Role of the user who made the change',
   })
@@ -80,6 +80,6 @@ export class UserStatusLog {
   })
   userAgent?: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 }

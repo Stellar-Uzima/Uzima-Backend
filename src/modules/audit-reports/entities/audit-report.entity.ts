@@ -51,11 +51,11 @@ export class AuditReport {
   @IsUUID()
   id: string;
 
-  @Column({ type: 'enum', enum: ReportType, default: ReportType.COMPLIANCE })
+  @Column({ type: 'simple-enum', enum: ReportType, default: ReportType.COMPLIANCE })
   @IsEnum(ReportType)
   reportType: ReportType;
 
-  @Column({ type: 'enum', enum: ReportStatus, default: ReportStatus.PENDING })
+  @Column({ type: 'simple-enum', enum: ReportStatus, default: ReportStatus.PENDING })
   @IsEnum(ReportStatus)
   status: ReportStatus;
 
@@ -78,17 +78,17 @@ export class AuditReport {
   @IsUUID()
   userId?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   generatedAt?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   startDate?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   endDate?: Date;
@@ -106,7 +106,7 @@ export class AuditReport {
   @IsString()
   fileName?: string;
 
-  @Column({ type: 'enum', enum: ReportFormat, default: ReportFormat.PDF })
+  @Column({ type: 'simple-enum', enum: ReportFormat, default: ReportFormat.PDF })
   @IsEnum(ReportFormat)
   format: ReportFormat;
 
@@ -132,7 +132,7 @@ export class AuditReport {
   @IsString()
   schedulePattern?: string; // Cron pattern
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   nextScheduledRun?: Date;
@@ -156,7 +156,7 @@ export class AuditReport {
   @IsString()
   accessToken?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   @IsOptional()
   @IsDateString()
   expiresAt?: Date;

@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { TaskReminder, ReminderStatus, ReminderType } from '../../../database/entities/task-reminder.entity';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { HealthTask } from '../../../entities/health-task.entity';
 
 @Injectable()

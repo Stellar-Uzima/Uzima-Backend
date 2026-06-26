@@ -28,7 +28,7 @@ export class RewardTransaction {
   amount: number;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: RewardStatus,
     default: RewardStatus.PENDING,
   })

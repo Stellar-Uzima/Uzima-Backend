@@ -44,7 +44,7 @@ export class TaskShare {
   sharedWithId: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: SharePermission,
     default: SharePermission.VIEW,
   })

@@ -87,8 +87,6 @@ export class AnalyticsService {
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
 
-@Injectable()
-export class AnalyticsService {
   constructor(
     @Inject(ANALYTICS_PROVIDERS)
     private readonly providers: AnalyticsProvider[],

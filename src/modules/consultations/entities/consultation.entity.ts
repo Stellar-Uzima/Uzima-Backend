@@ -11,7 +11,7 @@ export class Consultation {
   @Column({ type: 'uuid', nullable: true })
   healerId: string | null;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'datetime' })
   scheduledAt: Date;
 
   @Column({ default: false })

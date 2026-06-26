@@ -37,9 +37,9 @@ export class TwoFactor {
   @Column({ type: 'json', nullable: true })
   backupCodes: BackupCodeRecord[] | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }

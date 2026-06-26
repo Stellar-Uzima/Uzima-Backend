@@ -4,10 +4,10 @@ import { Repository } from 'typeorm';
 import { User } from '../../../entities/user.entity';
 import { TaskCompletion } from '../../../database/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
-import { Notification } from '../../../notifications/entities/notification.entity';
+import { Notification } from '../../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../../referral/entities/referral-record.entity';
 import { StorageService } from '../../../shared/storage/storage.service';
-import { NotificationService } from '../../../notifications/services/notification.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { QueueService } from '../../../shared/queue/queue.service';
 import {
   DATA_PROCESSING_QUEUE,

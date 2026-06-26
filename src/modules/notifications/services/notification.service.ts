@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CacheService } from '../../shared/cache/cache.service';
+import { CacheService } from '../../../shared/cache/cache.service';
 import { NotificationPreference } from '../entities/notification-preference.entity';
 import { Notification } from '../entities/notification.entity';
-import { User } from '../../entities/user.entity';
-import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
-import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
+import { User } from '../../../entities/user.entity';
+import { PushNotificationService } from '../../../shared/notifications/services/push-notification.service';
+import { EmailTemplateService } from '../../../shared/notifications/services/email-template.service';
 
 export interface NotificationOptions {
   userId: string;
@@ -184,6 +184,7 @@ export class NotificationService {
     userId: string,
     title: string,
     body: string,
+    type: string = 'push',
   ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'push');
 
@@ -228,7 +229,7 @@ export class NotificationService {
 
     await this.createNotification({
       userId,
-      type: 'push',
+      type,
       title,
       body,
     });
@@ -279,5 +280,25 @@ export class NotificationService {
     userId: string,
   ): Promise<NotificationPreference | null> {
     return this.preferenceRepository.findOne({ where: { userId } });
+  }
+
+  async sendCouponExpiryReminder(payload: {
+    userId: string;
+    couponId: string;
+    code: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    const title = 'Coupon Expiring Soon';
+    const body = `Your coupon ${payload.code} expires within 24 hours.`;
+    return this.sendPush(payload.userId, title, body, 'COUPON_EXPIRY_REMINDER');
+  }
+
+  async sendPendingTaskDigest(payload: {
+    userId: string;
+    tasks: Array<{ id: string; title: string }>;
+  }): Promise<boolean> {
+    const title = 'Pending Tasks Reminder';
+    const body = `You have ${payload.tasks.length} incomplete task(s).`;
+    return this.sendPush(payload.userId, title, body, 'PENDING_TASK_DIGEST');
   }
 }

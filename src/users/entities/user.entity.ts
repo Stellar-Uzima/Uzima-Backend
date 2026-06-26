@@ -50,7 +50,7 @@ export class User {
   @Column({ nullable: true })
   stellarWalletAddress: string;
 
-  @Column({ type: 'enum', enum: Role, default: Role.USER })
+  @Column({ type: 'simple-enum', enum: Role, default: Role.USER })
   role: Role;
 
   @Column({ default: false })
@@ -59,19 +59,19 @@ export class User {
   @Column({ nullable: true, unique: true })
   emailVerificationToken: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   emailVerificationExpiry: Date;
 
   @Column({ nullable: true })
   passwordResetToken: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   passwordResetExpiry: Date;
 
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'datetime', nullable: true })
   lastActiveAt: Date;
 
   @CreateDateColumn()
@@ -80,7 +80,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   referralCode?: string;
 
   @ManyToOne(() => User, { nullable: true })

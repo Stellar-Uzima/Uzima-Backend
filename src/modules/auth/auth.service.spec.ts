@@ -22,7 +22,7 @@ import { OtpService } from '../../otp/otp.service';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
-import { NotificationService } from '../../notifications/services/notification.service';
+import { NotificationService } from '../notifications/services/notification.service';
 import { TransactionService } from '../../database/services/transaction.service';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { AccountLockedException } from '../../auth/exceptions/account-locked.exception';

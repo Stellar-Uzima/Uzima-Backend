@@ -40,39 +40,39 @@ export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ type: 'varchar', name: 'user_id', nullable: true })
   userId: string | null;
 
-  @Column({ name: 'user_email', nullable: true })
+  @Column({ type: 'varchar', name: 'user_email', nullable: true })
   userEmail: string | null;
 
-  @Column({ name: 'user_role', nullable: true })
+  @Column({ type: 'varchar', name: 'user_role', nullable: true })
   userRole: string | null;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: AuditAction,
     name: 'action',
   })
   action: AuditAction;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: AuditResource,
     name: 'resource_type',
   })
   resourceType: AuditResource;
 
-  @Column({ name: 'resource_id', nullable: true })
+  @Column({ type: 'varchar', name: 'resource_id', nullable: true })
   resourceId: string | null;
 
-  @Column({ name: 'resource_name', nullable: true })
+  @Column({ type: 'varchar', name: 'resource_name', nullable: true })
   resourceName: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   oldValues: Record<string, any> | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   newValues: Record<string, any> | null;
 
   @Column({ type: 'text', nullable: true })
@@ -105,13 +105,12 @@ export class AuditLog {
   @Column({ name: 'compliance_category', type: 'varchar', length: 50, nullable: true })
   complianceCategory: string | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'json', nullable: true })
   metadata: Record<string, any> | null;
 
   @CreateDateColumn({ 
-    type: 'timestamp with time zone',
+    type: 'datetime',
     name: 'created_at',
-    precision: 6,
   })
   createdAt: Date;
 
@@ -130,10 +129,9 @@ export class AuditLog {
 
   // Retention policy fields
   @Column({
-    type: 'timestamp with time zone',
+    type: 'datetime',
     name: 'retention_expires_at',
     nullable: true,
-    precision: 6,
   })
   retentionExpiresAt: Date | null;
 }
