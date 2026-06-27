@@ -6,7 +6,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual } from 'typeorm';
-import { TaskCompletion } from '../../../database/entities/task-completion.entity';
+import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { HealthTask } from '../../../entities/health-task.entity';
 import { User } from '../../../entities/user.entity';
 
