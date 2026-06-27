@@ -11,8 +11,8 @@ import {
   JoinTable,
   Unique,
 } from 'typeorm';
-import { Role } from '../auth/enums/role.enum';
-import { UserStatus } from '../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { HealthTask } from './health-task.entity';
 import { Session } from '../database/entities/session.entity';
 import { Organization } from '../database/entities/organization.entity';

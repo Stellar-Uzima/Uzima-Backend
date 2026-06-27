@@ -1,7 +1,7 @@
 // src/tasks/assignment/task-assignment.controller.ts
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { TaskAssignmentService } from './task-assignment.service';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Tasks')

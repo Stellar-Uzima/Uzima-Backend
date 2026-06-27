@@ -3,7 +3,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { HealthProfileService } from './health-profile.service';
 import { UpdateHealthProfileDto } from './dto/health-profile.dto';
 import { HealthProfileCompletionDto } from './dto/health-profile-completion.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 
 @ApiTags('users')
 @ApiBearerAuth()

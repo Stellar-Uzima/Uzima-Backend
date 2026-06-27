@@ -11,8 +11,8 @@ import * as bcrypt from 'bcryptjs';
 import { User } from '@/entities/user.entity';
 import { ListUsersDto } from '@/admin/dto/list-users.dto';
 import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
-import { Role } from '@/auth/enums/role.enum';
-import { UserStatus } from '@/auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
 
 @Injectable()

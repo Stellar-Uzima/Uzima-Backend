@@ -21,10 +21,10 @@ import { Response } from 'express';
 import { ReportsService, ReportType } from './reports.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsSchedulerService } from './reports-scheduler.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
-import { Roles } from '@/auth/decorators/roles.decorator';
-import { Role } from '@/auth/enums/role.enum';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 
 class ScheduleReportDto {
   @ApiProperty({ example: 'weekly-user-report', description: 'Unique schedule name' })

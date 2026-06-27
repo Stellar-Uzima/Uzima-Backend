@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Like, Not, IsNull } from 'typeorm';
 import { User } from '../../../entities/user.entity';
 import { UserSearchDto, UserSearchResponseDto, UserSearchResultDto } from '../dto/user-search.dto';
-import { Role } from '../../../auth/enums/role.enum';
-import { UserStatus } from '../../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { SortOrder } from '../../../common/dtos/pagination.dto';
 
 @Injectable()

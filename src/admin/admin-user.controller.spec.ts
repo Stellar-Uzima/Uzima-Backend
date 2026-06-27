@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AdminUsersController } from './admin-user.controller';
 import { AdminUsersService } from './services/admin-users.service';
 
-jest.mock('../auth/guards/jwt-auth.guard', () => ({
+jest.mock('@modules/auth/guards/jwt-auth.guard', () => ({
   JwtAuthGuard: class Mock {},
 }));
-jest.mock('../auth/guards/roles.guard', () => ({ RolesGuard: class Mock {} }));
+jest.mock('@modules/auth/guards/roles.guard', () => ({ RolesGuard: class Mock {} }));
 
 describe('AdminUsersController', () => {
   let controller: AdminUsersController;

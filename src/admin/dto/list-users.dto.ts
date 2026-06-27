@@ -1,7 +1,7 @@
 import { IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from 'src/auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 export class ListUsersDto extends PaginationDto {

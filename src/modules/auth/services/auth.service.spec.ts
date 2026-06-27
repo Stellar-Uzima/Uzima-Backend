@@ -26,13 +26,13 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { AuthService } from './auth.service';
 import { UsersService } from './users.service';
-import { OtpService } from '../../otp/otp.service';
-import { AuditService } from '../../audit/audit.service';
-import { EmailVerificationService } from '../../modules/auth/services/email-verification.service';
-import { SessionService } from '../../modules/auth/services/session.service';
-import { NotificationService } from '../../notifications/services/notification.service';
-import { TransactionService } from '../../database/services/transaction.service';
-import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
+import { OtpService } from '../../../otp/otp.service';
+import { AuditService } from '../../../audit/audit.service';
+import { EmailVerificationService } from './email-verification.service';
+import { SessionService } from './session.service';
+import { NotificationService } from '../../../notifications/services/notification.service';
+import { TransactionService } from '../../../database/services/transaction.service';
+import { TokenBlacklist } from '../../../database/entities/token-blacklist.entity';
 import { Role } from '../enums/role.enum';
 
 // Mock Redis client
