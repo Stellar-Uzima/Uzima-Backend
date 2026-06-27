@@ -5,8 +5,9 @@
 
 import { setupTestDatabase, teardownTestDatabase, beforeEachTest, afterEachTest } from './setup';
 
-// Allow skipping DB setup for isolated unit tests
-if (process.env.SKIP_DB_SETUP === 'true') {
+const skipDbSetup = process.env.SKIP_DB_SETUP === 'true';
+
+if (skipDbSetup) {
   console.log('⚠️ SKIP_DB_SETUP enabled - skipping global DB setup');
 } else {
   // Global setup - runs once before all tests
@@ -17,24 +18,14 @@ if (process.env.SKIP_DB_SETUP === 'true') {
       console.log('✅ Test database setup complete');
     } catch (error) {
       console.error('❌ Failed to setup test database', error);
-      process.exit(1);
+      throw error;
     }
   }, 60000); // 60 second timeout for setup
 }
-// Global setup - runs once before all tests
-beforeAll(async () => {
-  console.log('🚀 Starting test suite setup...');
-  try {
-    await setupTestDatabase();
-    console.log('✅ Test database setup complete');
-  } catch (error) {
-    console.error('❌ Failed to setup test database', error);
-    throw error;
-  }
-}, 60000); // 60 second timeout for setup
 
 // Per-test setup - clean database before each test
 beforeEach(async () => {
+  if (skipDbSetup) return;
   try {
     await beforeEachTest();
   } catch (error) {
@@ -45,6 +36,7 @@ beforeEach(async () => {
 
 // Per-test teardown - cleanup after each test
 afterEach(async () => {
+  if (skipDbSetup) return;
   try {
     await afterEachTest();
   } catch (error) {
@@ -55,6 +47,7 @@ afterEach(async () => {
 
 // Global teardown - runs once after all tests
 afterAll(async () => {
+  if (skipDbSetup) return;
   console.log('🧹 Tearing down test database...');
   try {
     await teardownTestDatabase();
