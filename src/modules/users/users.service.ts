@@ -13,12 +13,12 @@ import { User } from '../../entities/user.entity';
 import { UserStatusLog } from '../../entities/user-status-log.entity';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
-import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
 import {
   PaginatedResponseDto,
   PaginationMetaDto,
   SortOrder,
-} from '../../common/dtos/pagination.dto';
+} from '../../common/dto/pagination.dto';
 import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
