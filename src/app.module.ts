@@ -25,6 +25,7 @@ import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
 import { CacheModule } from './shared/cache/cache.module';
+import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -90,6 +91,7 @@ import { HealthProfileModule } from './users/health-profile/health-profile.modul
     RewardModule,
     ReferralModule,
     HealthProfileModule,
+    CouponModule, // <-- Registered CouponModule in active application imports tree
   ],
   controllers: [AppController],
   providers: [
