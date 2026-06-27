@@ -50,6 +50,7 @@ describe('ConsultationsService', () => {
       const created = { id: 'slot-1', healerId, startTime: start, endTime: end };
       mockAvailabilityRepo.create.mockReturnValue(created);
       mockAvailabilityRepo.save.mockResolvedValue(created);
+      mockAvailabilityRepo.find.mockResolvedValue([]);
 
       const res = await service.setAvailability(healerId, start, end);
 
@@ -59,6 +60,8 @@ describe('ConsultationsService', () => {
     });
 
     it('throws on invalid time range', async () => {
+      mockAvailabilityRepo.find.mockResolvedValue([]);
+
       await expect(
         service.setAvailability(
           'h',
@@ -66,6 +69,92 @@ describe('ConsultationsService', () => {
           new Date('2026-06-10T11:00:00Z'),
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws on past-dated availability', async () => {
+      const healerId = 'healer-uuid-1';
+      const pastStart = new Date(Date.now() - 3600000); // 1 hour ago
+      const pastEnd = new Date(Date.now() - 1800000); // 30 minutes ago
+      mockAvailabilityRepo.find.mockResolvedValue([]);
+
+      await expect(
+        service.setAvailability(healerId, pastStart, pastEnd),
+      ).rejects.toThrow('Cannot set availability in the past');
+    });
+
+    it('throws on overlapping availability windows', async () => {
+      const healerId = 'healer-uuid-1';
+      const existingSlot = {
+        id: 'slot-1',
+        healerId,
+        startTime: new Date('2026-06-10T10:00:00Z'),
+        endTime: new Date('2026-06-10T11:00:00Z'),
+      };
+      const overlappingStart = new Date('2026-06-10T10:30:00Z');
+      const overlappingEnd = new Date('2026-06-10T11:30:00Z');
+
+      mockAvailabilityRepo.find.mockResolvedValue([existingSlot]);
+
+      await expect(
+        service.setAvailability(healerId, overlappingStart, overlappingEnd),
+      ).rejects.toThrow('Availability slot overlaps with existing slot');
+    });
+
+    it('throws when new slot completely contains existing slot', async () => {
+      const healerId = 'healer-uuid-1';
+      const existingSlot = {
+        id: 'slot-1',
+        healerId,
+        startTime: new Date('2026-06-10T10:30:00Z'),
+        endTime: new Date('2026-06-10T11:00:00Z'),
+      };
+      const newStart = new Date('2026-06-10T10:00:00Z');
+      const newEnd = new Date('2026-06-10T11:30:00Z');
+
+      mockAvailabilityRepo.find.mockResolvedValue([existingSlot]);
+
+      await expect(
+        service.setAvailability(healerId, newStart, newEnd),
+      ).rejects.toThrow('Availability slot overlaps with existing slot');
+    });
+
+    it('throws when new slot is completely inside existing slot', async () => {
+      const healerId = 'healer-uuid-1';
+      const existingSlot = {
+        id: 'slot-1',
+        healerId,
+        startTime: new Date('2026-06-10T10:00:00Z'),
+        endTime: new Date('2026-06-10T12:00:00Z'),
+      };
+      const newStart = new Date('2026-06-10T10:30:00Z');
+      const newEnd = new Date('2026-06-10T11:30:00Z');
+
+      mockAvailabilityRepo.find.mockResolvedValue([existingSlot]);
+
+      await expect(
+        service.setAvailability(healerId, newStart, newEnd),
+      ).rejects.toThrow('Availability slot overlaps with existing slot');
+    });
+
+    it('allows non-overlapping availability windows', async () => {
+      const healerId = 'healer-uuid-1';
+      const existingSlot = {
+        id: 'slot-1',
+        healerId,
+        startTime: new Date('2026-06-10T10:00:00Z'),
+        endTime: new Date('2026-06-10T11:00:00Z'),
+      };
+      const nonOverlappingStart = new Date('2026-06-10T11:00:00Z');
+      const nonOverlappingEnd = new Date('2026-06-10T12:00:00Z');
+
+      const created = { id: 'slot-2', healerId, startTime: nonOverlappingStart, endTime: nonOverlappingEnd };
+      mockAvailabilityRepo.find.mockResolvedValue([existingSlot]);
+      mockAvailabilityRepo.create.mockReturnValue(created);
+      mockAvailabilityRepo.save.mockResolvedValue(created);
+
+      const res = await service.setAvailability(healerId, nonOverlappingStart, nonOverlappingEnd);
+
+      expect(res).toEqual(created);
     });
   });
 
