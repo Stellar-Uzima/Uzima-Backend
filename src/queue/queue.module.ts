@@ -9,6 +9,7 @@ import {
   PROOF_VERIFICATION_QUEUE,
   USER_ACTIVITY_QUEUE,
   DATA_PROCESSING_QUEUE,
+  REWARD_DEAD_LETTER_QUEUE,
 } from './queue.constants';
 
 @Module({
@@ -82,6 +83,10 @@ import {
         max: 25,
         duration: 1000,
       },
+    }),
+    // Dead Letter Queue for failed reward jobs - no limiter, all failed jobs go here
+    BullModule.registerQueue({
+      name: REWARD_DEAD_LETTER_QUEUE,
     }),
   ],
   exports: [BullModule],

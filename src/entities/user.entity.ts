@@ -4,11 +4,18 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToMany,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
   Unique,
 } from 'typeorm';
-import { Role } from '../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
+import { HealthTask } from './health-task.entity';
+import { Session } from '../database/entities/session.entity';
+import { Organization } from '../database/entities/organization.entity';
 
 @Entity('users')
 @Unique(['email'])
@@ -43,7 +50,11 @@ export class User {
   @Column({ type: 'enum', enum: Role, default: Role.USER })
   role: Role;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
+  status: UserStatus;
+
+  // Keep isActive for backward compatibility during migration
+  @Column({ type: 'boolean', default: true, select: false })
   isActive: boolean;
 
   @Column({ default: false })
@@ -64,8 +75,26 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   walletAddress: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  address: string | null;
+
+  @Column({ type: 'varchar', length: '100', nullable: true })
+  city: string | null;
+
+  @Column({ type: 'varchar', length: '20', nullable: true })
+  postalCode: string | null;
+
   @Column({ type: 'varchar', nullable: true, unique: true })
   stellarWalletAddress: string | null;
+
+  @Column({ type: 'decimal', precision: 18, scale: 7, default: 0 })
+  walletBalance: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  dailyXlmEarned: number;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastActiveAt: Date | null;
@@ -76,11 +105,49 @@ export class User {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
+  @DeleteDateColumn({ type: 'timestamp', nullable: true, name: 'deleted_at' })
+  deletedAt?: Date | null;
+
   @Column({ nullable: true, unique: true })
-  referralCode?: string;
+  referralCode?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  twoFactorEnabled: boolean;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  twoFactorSecret: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  fcmToken?: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lockedUntil: Date | null;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  refreshToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  refreshTokenExpiry: Date | null;
 
   @ManyToOne(() => User, { nullable: true })
   referredBy?: User;
+
+  @OneToMany(() => HealthTask, (healthTask) => healthTask.user)
+  healthTasks?: HealthTask[];
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions?: Session[];
+
+  @ManyToMany(() => Organization, (organization) => organization.users)
+  @JoinTable({
+    name: 'user_organizations',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'organizationId', referencedColumnName: 'id' },
+  })
+  organizations?: Organization[];
 
   @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];

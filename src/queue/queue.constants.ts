@@ -11,6 +11,9 @@ export const PROOF_VERIFICATION_QUEUE = 'proof-verification-queue' as const;
 export const USER_ACTIVITY_QUEUE = 'user-activity-queue' as const;
 export const DATA_PROCESSING_QUEUE = 'data-processing-queue' as const;
 
+// Dead Letter Queue for failed reward jobs
+export const REWARD_DEAD_LETTER_QUEUE = 'reward-dead-letter-queue' as const;
+
 // Queue Job Types for Reward Queue
 export const REWARD_DISTRIBUTION_JOB = 'reward-distribution' as const;
 export const REWARD_CALCULATION_JOB = 'reward-calculation' as const;
@@ -20,12 +23,23 @@ export const REWARD_CLAIM_JOB = 'reward-claim' as const;
 export const EMAIL_NOTIFICATION_JOB = 'email-notification' as const;
 export const PUSH_NOTIFICATION_JOB = 'push-notification' as const;
 export const SMS_NOTIFICATION_JOB = 'sms-notification' as const;
+export const TASK_REMINDER_JOB = 'task-reminder' as const;
+
+// Notification Template Names
+// Templates are identified by string keys; the actual rendering is
+// performed by the notification queue consumer or NotificationService.
+export const TASK_REMINDER_TEMPLATE = 'task-reminder' as const;
 
 // Queue Job Types for Task Verification Queue
 export const TASK_COMPLETION_VERIFICATION_JOB =
   'task-completion-verification' as const;
 export const TASK_QUALITY_CHECK_JOB = 'task-quality-check' as const;
 export const TASK_APPROVAL_JOB = 'task-approval' as const;
+
+// Queue Job Types for Data Processing Queue
+export const USER_DATA_EXPORT_JOB = 'user-data-export' as const;
+export const BULK_TASK_ASSIGNMENT_JOB = 'bulk-task-assignment' as const;
+export const DATA_EXPORT_JOB = 'data-export' as const;
 
 // Type definitions for better type safety
 export type QueueName =
@@ -34,7 +48,8 @@ export type QueueName =
   | typeof TASK_VERIFICATION_QUEUE
   | typeof PROOF_VERIFICATION_QUEUE
   | typeof USER_ACTIVITY_QUEUE
-  | typeof DATA_PROCESSING_QUEUE;
+  | typeof DATA_PROCESSING_QUEUE
+  | typeof REWARD_DEAD_LETTER_QUEUE;
 
 export type RewardJobType =
   | typeof REWARD_DISTRIBUTION_JOB
@@ -44,18 +59,30 @@ export type RewardJobType =
 export type NotificationJobType =
   | typeof EMAIL_NOTIFICATION_JOB
   | typeof PUSH_NOTIFICATION_JOB
-  | typeof SMS_NOTIFICATION_JOB;
+  | typeof SMS_NOTIFICATION_JOB
+  | typeof TASK_REMINDER_JOB;
 
 export type TaskVerificationJobType =
   | typeof TASK_COMPLETION_VERIFICATION_JOB
   | typeof TASK_QUALITY_CHECK_JOB
   | typeof TASK_APPROVAL_JOB;
 
+export type DataProcessingJobType =
+  | typeof BULK_TASK_ASSIGNMENT_JOB
+  | typeof DATA_EXPORT_JOB;
+
 // All job types combined
 export type JobType =
   | RewardJobType
   | NotificationJobType
-  | TaskVerificationJobType;
+  | TaskVerificationJobType
+  | DataProcessingJobType;
+
+export interface BulkTaskAssignmentJobData {
+  userIds: string[];
+  taskIds: string[];
+  assignedDate: string;
+}
 
 // Queue configuration interface
 export interface QueueConfig {

@@ -19,15 +19,15 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { ListUsersDto } from './dto/list-users.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { AdminUserResponseDto } from './dto/user-response.dto';
 import { AdminUsersService } from './services/admin-users.service';
-import { Role } from 'src/auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 
 @ApiTags('Admin - User Management')
 @ApiBearerAuth()
@@ -106,6 +106,7 @@ export class AdminUsersController {
     status: 401,
     description: 'Unauthorized - JWT token missing or invalid',
   })
+  // mmmm
   @ApiResponse({
     status: 403,
     description: 'Forbidden - requires ADMIN role',
@@ -204,7 +205,7 @@ export class AdminUsersController {
     const adminId = req.user.sub;
     return this.adminUsersService.reactivateUser(adminId, id);
   }
-
+// git add
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete user account',

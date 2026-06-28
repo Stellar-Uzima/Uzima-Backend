@@ -91,6 +91,13 @@ export class TaskCompletionService {
         taskId: dto.taskId,
         xlmAmount: Number(task.xlmReward),
       });
+      // Streak should also update for self-report completions
+      this.eventEmitter.emit('task.completed', {
+        completionId: saved.id,
+        userId,
+        taskId: dto.taskId,
+        xlmAmount: Number(task.xlmReward),
+      });
     } else if (dto.proofType === ProofType.PHOTO) {
       // Queue proof verification
       await this.proofVerificationQueue.add(

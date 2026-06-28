@@ -6,6 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   OneToOne,
   JoinColumn,
   Unique,
@@ -36,6 +37,15 @@ export class User {
 
   @Column({ default: 'en' })
   preferredLanguage: string;
+
+  @Column({ nullable: true, length: '255' })
+  address: string;
+
+  @Column({ nullable: true, length: '100' })
+  city: string;
+
+  @Column({ nullable: true, length: '20' })
+  postalCode: string;
 
   @Column({ nullable: true })
   stellarWalletAddress: string;
@@ -82,4 +92,7 @@ export class User {
     'referrer',
   )
   referralRecords?: ReferralRecord[];
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

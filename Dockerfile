@@ -1,17 +1,40 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+# Build stage
+FROM node:18-alpine AS builder
+
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm install --frozen-lockfile
-COPY . .
+COPY tsconfig.json ./
+COPY nest-cli.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source
+COPY src ./src
+
+# Build application
 RUN npm run build
 
-# Stage 2: Production
-FROM node:20-alpine AS production
+# Runtime stage
+FROM node:18-alpine
+
 WORKDIR /app
+
+# Install production dependencies only
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
+
+# Expose port
 EXPOSE 3000
-ENV NODE_ENV=production
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Start application
 CMD ["node", "dist/main.js"]

@@ -1,56 +1,80 @@
-import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import * as winston from 'winston';
 
 @Injectable()
 export class LoggingMiddleware implements NestMiddleware {
-  private readonly logger = new Logger(LoggingMiddleware.name);
+  private readonly logger: winston.Logger;
+
+  constructor() {
+    this.logger = winston.createLogger({
+      level: 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json(),
+      ),
+      transports: [
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.printf(({ timestamp, level, message, ...meta }) => {
+              const requestId = meta.requestId ? ` [${meta.requestId}]` : '';
+              return `${timestamp} ${level}:${requestId} ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
+            }),
+          ),
+        }),
+      ],
+    });
+  }
 
   use(req: Request, res: Response, next: NextFunction) {
+    const { method, originalUrl, body } = req;
+    
     // Skip logging for health endpoint
-    if (req.originalUrl === '/health') {
+    if (originalUrl === '/health' || originalUrl.includes('/health')) {
       return next();
     }
 
-    const { method, originalUrl } = req;
     const startTime = Date.now();
+    const requestId = (req.headers['x-request-id'] as string) || uuidv4();
+    
+    // Set request ID in headers for tracing
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('x-request-id', requestId);
 
-    const logger = this.logger;
+    // Calculate request body size
+    const bodySize = body ? Buffer.byteLength(JSON.stringify(body)) : 0;
 
-    // Store original end function
-    const originalEnd = res.end;
-
-    // Override response end to capture status and log
-    res.end = function (this: Response, ...args: any[]) {
+    // Handle response finish event
+    res.on('finish', () => {
       const duration = Date.now() - startTime;
-      const statusCode = res.statusCode;
+      const { statusCode } = res;
 
-      // Determine log level based on status code
-      let logLevel: 'log' | 'warn' | 'error' = 'log';
+      // Redact body for auth endpoints
+      const isAuthRoute = originalUrl.includes('/auth');
+      const safeBody = isAuthRoute ? '[REDACTED]' : body;
+
+      const logData = {
+        method,
+        path: originalUrl,
+        statusCode,
+        duration: `${duration}ms`,
+        bodySize: `${bodySize} bytes`,
+        requestId,
+        body: safeBody,
+      };
+
+      const message = `${method} ${originalUrl} ${statusCode} - ${duration}ms`;
+
       if (statusCode >= 500) {
-        logLevel = 'error';
+        this.logger.error(message, logData);
       } else if (statusCode >= 400) {
-        logLevel = 'warn';
+        this.logger.warn(message, logData);
+      } else {
+        this.logger.info(message, logData);
       }
-
-      // Format the log message
-      const logMessage = `${method} ${originalUrl} → ${statusCode} in ${duration}ms`;
-
-      // Log with appropriate level using the correct context
-      switch (logLevel) {
-        case 'error':
-          logger.error(logMessage);
-          break;
-        case 'warn':
-          logger.warn(logMessage);
-          break;
-        default:
-          logger.log(logMessage);
-          break;
-      }
-
-      // Call original end function with proper context
-      return originalEnd.apply(this, args);
-    };
+    });
 
     next();
   }

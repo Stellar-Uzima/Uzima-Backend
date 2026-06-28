@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
-import { redisConfig, getRedisUrl } from '../../config/redis.config';
+import { CacheService } from '../../shared/cache/cache.service';
 import { NotificationPreference } from '../entities/notification-preference.entity';
+import { Notification } from '../entities/notification.entity';
+import { User } from '../../entities/user.entity';
+import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
+import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
 
 export interface NotificationOptions {
   userId: string;
@@ -26,27 +29,62 @@ export interface SendNotificationOptions {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private readonly redis: Redis;
 
-  // Rate limit constants
-  private readonly EMAIL_RATE_LIMIT = 5; // max 5 per hour
-  private readonly EMAIL_WINDOW_SECONDS = 3600; // 1 hour
-  private readonly SMS_RATE_LIMIT = 10; // max 10 per day
-  private readonly SMS_WINDOW_SECONDS = 86400; // 24 hours
-  private readonly PUSH_DEBOUNCE_SECONDS = 300; // 5 minutes
-
-  // Redis key prefixes
-  private readonly EMAIL_RATE_KEY = 'notification:email:';
-  private readonly SMS_RATE_KEY = 'notification:sms:';
-  private readonly PUSH_DEBOUNCE_KEY = 'notification:push:';
+  private cooldowns: Record<string, number> = {};
 
   constructor(
     @InjectRepository(NotificationPreference)
     private readonly preferenceRepository: Repository<NotificationPreference>,
+    @InjectRepository(Notification)
+    private readonly notificationRepository: Repository<Notification>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly pushNotificationService: PushNotificationService,
+    private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
+    private readonly emailTemplateService: EmailTemplateService,
   ) {
-    const config = redisConfig(configService);
-    this.redis = new Redis(getRedisUrl(config));
+    // Initialize cooldowns from config or use sensible defaults (seconds)
+    this.cooldowns = {
+      email: this.configService.get<number>('NOTIF_COOLDOWN_EMAIL', 60),
+      sms: this.configService.get<number>('NOTIF_COOLDOWN_SMS', 30),
+      push: this.configService.get<number>('NOTIF_COOLDOWN_PUSH', 10),
+    };
+  }
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return this.notificationRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const count = await this.notificationRepository.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
+  }
+
+  async markAllAsRead(userId: string): Promise<{ updated: number }> {
+    const result = await this.notificationRepository.update(
+      { userId, isRead: false },
+      { isRead: true },
+    );
+    return { updated: result.affected ?? 0 };
+  }
+
+  async createNotification(payload: {
+    userId: string;
+    type: string;
+    title: string;
+    body: string;
+  }): Promise<Notification> {
+    const notification = this.notificationRepository.create({
+      ...payload,
+      isRead: false,
+    });
+    return this.notificationRepository.save(notification);
   }
 
   /**
@@ -157,7 +195,6 @@ export class NotificationService {
     userId: string,
     template: string,
     data: any,
-    isCritical?: boolean,
   ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'email');
 
@@ -168,31 +205,26 @@ export class NotificationService {
       return false;
     }
 
-    // Check rate limit unless this is a critical notification
-    if (!isCritical) {
-      const withinLimit = await this.checkEmailRateLimit(userId);
-      if (!withinLimit) {
-        this.logger.warn(
-          `Email notification skipped for user ${userId} due to rate limit. Template: ${template}`,
-        );
-        return false;
-      }
-    } else {
+    // Deduplication / rate-limiting per user + channel
+    const cooldown = this.cooldowns.email ?? 60;
+    const dedupeKey = `notification:dedupe:${userId}:email`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
       this.logger.debug(
-        `Critical email notification bypassing rate limit for user ${userId}`,
+        `Duplicate email suppressed for user ${userId} within ${cooldown}s`,
       );
+      return false;
     }
+
+    // Render the template
+    const html = await this.emailTemplateService.render(template, data);
 
     // TODO: Implement actual email sending logic here or emit event
     // For now, log and return success
     this.logger.log(
-      `Sending email to user ${userId} with template: ${template}`,
+      `Sending email to user ${userId} with template: ${template}. Rendered HTML length: ${html.length}`,
     );
-
-    // Example implementation:
-    // - Use a queue job (EMAIL_NOTIFICATION_JOB)
-    // - Or call an email service (e.g., SendGrid, AWS SES)
-    // - Or emit an event for another service to handle
 
     return true;
   }
@@ -215,29 +247,20 @@ export class NotificationService {
       return false;
     }
 
-    // Check rate limit unless this is a critical notification
-    if (!isCritical) {
-      const withinLimit = await this.checkSMSRateLimit(userId);
-      if (!withinLimit) {
-        this.logger.warn(
-          `SMS notification skipped for user ${userId} due to rate limit. Message: ${message.substring(0, 50)}...`,
-        );
-        return false;
-      }
-    } else {
+    const cooldown = this.cooldowns.sms ?? 30;
+    const dedupeKey = `notification:dedupe:${userId}:sms`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
       this.logger.debug(
-        `Critical SMS notification bypassing rate limit for user ${userId}`,
+        `Duplicate SMS suppressed for user ${userId} within ${cooldown}s`,
       );
+      return false;
     }
 
     // TODO: Implement actual SMS sending logic here or emit event
     // For now, log and return success
     this.logger.log(`Sending SMS to user ${userId}: ${message}`);
-
-    // Example implementation:
-    // - Use a queue job (SMS_NOTIFICATION_JOB)
-    // - Or call an SMS service (e.g., Twilio)
-    // - Or emit an event for another service to handle
 
     return true;
   }
@@ -251,8 +274,6 @@ export class NotificationService {
     userId: string,
     title: string,
     body: string,
-    isCritical?: boolean,
-    notificationType?: string,
   ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'push');
 
@@ -263,33 +284,46 @@ export class NotificationService {
       return false;
     }
 
-    // Check debounce unless this is a critical notification
-    if (!isCritical) {
-      const allowed = await this.checkPushDebounce(userId, notificationType);
-      if (!allowed) {
-        this.logger.debug(
-          `Push notification skipped for user ${userId} due to debounce. Type: ${notificationType || 'default'}`,
-        );
-        return false;
-      }
-    } else {
+    const cooldown = this.cooldowns.push ?? 10;
+    const dedupeKey = `notification:dedupe:${userId}:push`;
+    const allowed = await this.cacheService.setIfNotExists(dedupeKey, '1', cooldown);
+
+    if (!allowed) {
       this.logger.debug(
-        `Critical push notification bypassing debounce for user ${userId}`,
+        `Duplicate push suppressed for user ${userId} within ${cooldown}s`,
       );
+      return false;
     }
 
-    // TODO: Implement actual push notification logic here or emit event
-    // For now, log and return success
     this.logger.log(
       `Sending push notification to user ${userId}: ${title} - ${body}`,
     );
 
-    // Example implementation:
-    // - Use a queue job (PUSH_NOTIFICATION_JOB)
-    // - Or call a push notification service (e.g., Firebase Cloud Messaging)
-    // - Or emit an event for another service to handle
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      this.logger.warn(`User ${userId} not found when attempting to send push notification.`);
+      return false;
+    }
 
-    return true;
+    if (!user.fcmToken) {
+      this.logger.warn(`User ${userId} does not have an FCM token registered.`);
+      return false;
+    }
+
+    const success = await this.pushNotificationService.sendPushNotification(
+      user.fcmToken,
+      title,
+      body,
+    );
+
+    await this.createNotification({
+      userId,
+      type: 'push',
+      title,
+      body,
+    });
+
+    return success;
   }
 
   /**
@@ -340,7 +374,9 @@ export class NotificationService {
   /**
    * Get user's notification preferences
    */
-  async getUserPreferences(userId: string): Promise<NotificationPreference | null> {
+  async getUserPreferences(
+    userId: string,
+  ): Promise<NotificationPreference | null> {
     return this.preferenceRepository.findOne({ where: { userId } });
   }
 }

@@ -22,10 +22,10 @@ import {
 import { CategoryService } from './category.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 import { CategoryResponseDto } from './dto/category-response.dto';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { Role } from '../../auth/enums/role.enum';
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { Role } from '@modules/auth/enums/role.enum';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
 
 @ApiTags('Task Categories')
 @Controller('tasks/categories')

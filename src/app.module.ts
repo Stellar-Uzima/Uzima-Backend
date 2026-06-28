@@ -1,78 +1,109 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ShutdownService } from './common/shutdown/shutdown.service';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ScheduleModule } from '@nestjs/schedule';
-import { RedisModule } from '@nestjs-modules/ioredis';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { LoggingMiddleware } from './common/middleware/logging.middleware';
-import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
-import { DatabaseModule } from './database/database.module';
-import { QueueModule } from './queue/queue.module';
-import { AuthModule } from './auth/auth.module';
+import secretsConfig from './config/secrets';
+import passwordConfig from './config/password.config';
+
+// Modules
+import { AuthModule } from '@modules/auth/auth.module';
+import { UsersModule } from '@modules/users/users.module';
+import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
+import { WalletModule } from './users/wallet/wallet.module';
+import { ConsultationsModule } from '@modules/consultations/consultations.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { AdminModule } from '@modules/admin/admin.module';
+import { ReportsModule } from '@modules/reports/reports.module';
+// 1. Import the new StorageModule
+import { StorageModule } from './shared/storage/storage.module'; 
+import { MetricsModule } from './shared/metrics/metrics.module';
+import { UsageModule } from './modules/usage/usage.module';
+import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { CacheModule } from './shared/cache/cache.module';
+import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
+
+// Database
+import { DatabaseModule } from '@database/database.module';
+
+// Common
+import { LoggingModule } from '@common/interceptors/logging.module';
+import { SigningModule } from './common/signing/signing.module';
+
+// Shared
+import { SearchModule } from './shared/search/search.module';
+import { SchedulerModule } from './shared/scheduler/scheduler.module';
+import { PushModule } from './shared/notifications/push.module';
+import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
-import { UsersModule } from './users/users.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { StellarModule } from './stellar/stellar.module';
-import { AdminModule } from './admin/admin.module';
-import { AuditModule } from './audit/audit.module';
-import { CouponModule } from './coupons/coupon.module';
-import { TasksModule } from './tasks/tasks.module';
-import { TaskAssignmentModule } from './tasks/assignment/task-assignment.module';
+import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
-import { StorageModule } from './storage/storage.module';
-import { HealthModule } from './health/health.module';
+import { ReferralModule } from './referral/referral.module';
+import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
   imports: [
-    // ── Infrastructure (must be first) ───────────────────
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      load: [secretsConfig, passwordConfig],
     }),
-    RedisModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'single',
-        url: config.get<string>('REDIS_URL'),
-      }),
-    }),
-    DatabaseModule,
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: parseInt(process.env.RATE_LIMIT_TTL ?? '60'),
-          limit: parseInt(process.env.RATE_LIMIT_LIMIT ?? '100'),
-        },
-      ],
-    }),
+    AppCacheModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: 'otp',
+        ttl: 3600000,
+        limit: 3,
+      },
+    ]),
     EventEmitterModule.forRoot(),
-    ScheduleModule.forRoot(),
-
-    // ── Feature modules ───────────────────────────────────
-    QueueModule,
+    DatabaseModule,
     OtpModule,
+    LoggingModule,
+    // 2. Add it to the imports list
+    StorageModule,
+    CacheModule,
+    MetricsModule,
+    AnalyticsModule,
+    UsageModule,
+    MonitoringModule,
+    SigningModule,
+    SearchModule,
+    SchedulerModule,
+    PushModule,
     AuthModule,
     UsersModule,
+    HealthTasksModule,
+    WalletModule,
+    ConsultationsModule,
     NotificationsModule,
-    StellarModule,
     AdminModule,
-    AuditModule,
-    CouponModule,
-    TasksModule,
-    TaskAssignmentModule,
+    ReportsModule,
     RewardModule,
-    StorageModule,
-    HealthModule,
+    ReferralModule,
+    HealthProfileModule,
+    CouponModule, // <-- Registered CouponModule in active application imports tree
   ],
   controllers: [AppController],
-  providers: [AppService, ShutdownService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SanitizeMiddleware).forRoutes('*');
-    consumer.apply(LoggingMiddleware).forRoutes('*');
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }

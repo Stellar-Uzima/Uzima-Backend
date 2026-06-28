@@ -1,9 +1,16 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import StellarSdk from 'stellar-sdk';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../rewards/enums/reward-status.enum';
 import { StellarService } from '../../stellar/stellar.service';
@@ -34,19 +41,22 @@ export class WalletService {
     }
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user || !user.walletAddress) {
+    if (!user) {
+      return { walletLinked: false } as any;
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
       return { walletLinked: false } as any;
     }
 
     // Fetch live balance
     let liveBalance = 'unavailable';
     try {
-      liveBalance = await this.stellarService.getAccountBalance(
-        user.walletAddress,
-      );
-    } catch (error) {
+      liveBalance = await this.stellarService.getAccountBalance(walletAddress);
+    } catch (error: any) {
       this.logger.warn(
-        `Failed to fetch balance for ${user.walletAddress}: ${error.message}`,
+        `Failed to fetch balance for ${walletAddress}: ${error.message}`,
       );
     }
 
@@ -79,7 +89,7 @@ export class WalletService {
         : '0.00';
 
     const summary: WalletSummaryDto = {
-      walletAddress: user.walletAddress,
+      walletAddress,
       liveBalance,
       totalEarnedFromTasks: totalEarnedFromTasks?.total || '0.00',
       totalSpentOnConsultations,
@@ -99,5 +109,178 @@ export class WalletService {
   async invalidateCache(payload: { userId: string }) {
     const cacheKey = `wallet_summary:${payload.userId}`;
     await this.cacheManager.del(cacheKey);
+  }
+
+  /**
+   * Links a Stellar address to the user account.
+   * Validates format, existence on network, and uniqueness.
+   */
+  async linkWallet(userId: string, address: string): Promise<User> {
+    // 1. Validate format
+    if (!StellarSdk.StrKey.isValidEd25519PublicKey(address)) {
+      throw new BadRequestException('Invalid Stellar address format');
+    }
+
+    // 2. Verify account exists on Stellar network
+    const exists = await this.stellarService.accountExists(address);
+    if (!exists) {
+      throw new BadRequestException(
+        'Stellar account not found on the network. Please ensure it is funded.',
+      );
+    }
+
+    // 3. Check for existing link
+    const alreadyLinked = await this.userRepo.findOne({
+      where: { stellarWalletAddress: address },
+    });
+
+    if (alreadyLinked) {
+      if (alreadyLinked.id === userId) {
+        return alreadyLinked; // Already linked to this user
+      }
+      throw new ConflictException(
+        'This Stellar address is already linked to another account',
+      );
+    }
+
+    // 4. Update user
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    user.stellarWalletAddress = address;
+    const updatedUser = await this.userRepo.save(user);
+
+    // 5. Invalidate cache
+    await this.invalidateCache({ userId });
+
+    this.logger.log(`Wallet linked: ${address} for user ${userId}`);
+    return updatedUser;
+  }
+
+  /**
+   * Reconcile a user's wallet balances and return a summary object for accounting
+   */
+  async reconcile(userId: string): Promise<any> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
+      return { walletLinked: false } as any;
+    }
+
+    let liveBalance = '0.00';
+    try {
+      liveBalance = await this.stellarService.getAccountBalance(walletAddress);
+    } catch (error: any) {
+      this.logger.warn(`Failed to fetch balance for reconciliation: ${error.message}`);
+    }
+
+    const totalEarnedFromTasks = await this.rewardTransactionRepo
+      .createQueryBuilder('rt')
+      .select('SUM(rt.amount)', 'total')
+      .where('rt.userId = :userId', { userId })
+      .andWhere('rt.status = :status', { status: RewardStatus.SUCCESS })
+      .getRawOne();
+
+    const pendingRewards = await this.rewardTransactionRepo
+      .createQueryBuilder('rt')
+      .select('SUM(rt.amount)', 'total')
+      .where('rt.userId = :userId', { userId })
+      .andWhere('rt.status = :status', { status: RewardStatus.PENDING })
+      .getRawOne();
+
+    // Placeholder for consultations spent calculation - default 0.00
+    const totalSpentOnConsultations = '0.00';
+
+    return {
+      walletAddress,
+      liveBalance,
+      totalEarnedFromTasks: totalEarnedFromTasks?.total || '0.00',
+      totalSpentOnConsultations,
+      pendingRewards: pendingRewards?.total || '0.00',
+      walletLinked: true,
+    };
+  }
+
+  /**
+   * Fetch transaction history for a user with pagination and filters.
+   */
+  async getTransactionHistory(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    startDate?: string,
+    endDate?: string,
+    type?: string,
+  ) {
+    const query = this.rewardTransactionRepo
+      .createQueryBuilder('rt')
+      .where('rt.userId = :userId', { userId });
+
+    if (startDate) {
+      query.andWhere('rt.createdAt >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      query.andWhere('rt.createdAt <= :endDate', { endDate });
+    }
+
+    if (type) {
+      // Assuming 'type' maps to status or we just filter by status for now.
+      query.andWhere('rt.status = :type', { type });
+    }
+
+    query.orderBy('rt.createdAt', 'DESC');
+
+    const skip = (page - 1) * limit;
+    query.skip(skip).take(limit);
+
+    const [data, totalCount] = await query.getManyAndCount();
+
+    return {
+      data,
+      metadata: {
+        totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  }
+
+  /**
+   * Synchronize the local wallet balance with the live Stellar network balance
+   */
+  async syncBalance(userId: string): Promise<{ liveBalance: string }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
+      throw new BadRequestException('No wallet linked to this account');
+    }
+
+    try {
+      const liveBalance = await this.stellarService.getAccountBalance(walletAddress);
+      user.walletBalance = parseFloat(liveBalance);
+      await this.userRepo.save(user);
+
+      // Invalidate the wallet summary cache
+      await this.cacheManager.del(`wallet_summary:${userId}`);
+
+      this.logger.log(`Synced wallet balance for user ${userId}: ${liveBalance}`);
+
+      return { liveBalance };
+    } catch (error: any) {
+      this.logger.error(`Failed to sync balance for user ${userId}: ${error.message}`);
+      throw new BadRequestException('Unable to sync wallet balance from Stellar network');
+    }
   }
 }

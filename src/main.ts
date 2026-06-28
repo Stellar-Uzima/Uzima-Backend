@@ -1,98 +1,106 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { CsrfMiddleware } from './common/middleware/csrf.middleware';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { parseCorsOrigins } from './config/app.config';
+
+// Security headers middleware
+function addSecurityHeaders(req, res, next) {
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self' https://api.stellar.org https://horizon-testnet.stellar.org; " +
+    "frame-ancestors 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'self';"
+  );
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // API Versioning
+  app.enableVersioning({
+    type: VersioningType.URI,
+    prefix: 'api/v',
+    defaultVersion: '1',
+  });
 
-  // Enable Nest's shutdown hooks so OnApplicationShutdown is triggered
-  app.enableShutdownHooks();
+  app.use(addSecurityHeaders);
+  
+  const csrfMiddleware = new CsrfMiddleware();
+  app.use((req, res, next) => csrfMiddleware.use(req, res, next));
 
-  // Register global exception filter
-  app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Enable global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
-      forbidNonWhitelisted: false,
     }),
   );
 
-  // Configure Swagger (disabled in production)
-  const nodeEnv = process.env.NODE_ENV;
-  if (nodeEnv !== 'production') {
-    const config = new DocumentBuilder()
-      .setTitle('Stellar Uzima API')
-      .setDescription(
-        'Uzima Backend API - Phone OTP Authentication and User Management',
-      )
-      .setVersion('1.0.0')
-      .addBearerAuth(
-        {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          name: 'Authorization',
-          description: 'Enter JWT token',
-          in: 'header',
-        },
-        'JWT-auth', // This is the key name for the security scheme
-      )
-      .addTag('Authentication', 'Phone OTP authentication endpoints')
-      .addTag('Users', 'User profile management endpoints')
-      .addTag('Health', 'Health check endpoints')
-      .build();
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true,
-        docExpansion: 'list',
-        filter: true,
-        showRequestDuration: true,
-      },
-      customSiteTitle: 'Stellar Uzima API Docs',
-    });
+  const loggingInterceptor = app.get(LoggingInterceptor);
+  app.useGlobalInterceptors(loggingInterceptor);
+  app.useGlobalInterceptors(new TransformInterceptor());
+  
+  const monitoringInterceptor = app.get(MonitoringInterceptor);
+  app.useGlobalInterceptors(monitoringInterceptor);
 
-    console.log(
-      `Swagger UI available at: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
-    );
-  }
-
-  const server = await app.listen(process.env.PORT ?? 3000);
-
-  // Handle SIGTERM for graceful shutdown with a 30s hard timeout
-  process.once('SIGTERM', async () => {
-    console.log('SIGTERM received: starting graceful shutdown');
-
-    // Stop accepting new connections if possible
-    try {
-      const httpServer = (app.getHttpServer && app.getHttpServer()) as any;
-      if (httpServer && typeof httpServer.close === 'function') {
-        httpServer.close(() => console.log('Stopped accepting new connections'));
+  const corsOrigins = parseCorsOrigins(process.env);
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
       }
-    } catch (e) {
-      console.warn('Error while closing http server:', (e as Error).message);
-    }
-
-    const forceTimeout = setTimeout(() => {
-      console.error('Graceful shutdown timed out, forcing exit');
-      process.exit(1);
-    }, 30000);
-
-    try {
-      await app.close();
-      clearTimeout(forceTimeout);
-      console.log('Graceful shutdown complete');
-      process.exit(0);
-    } catch (err) {
-      console.error('Error during graceful shutdown:', (err as Error).message);
-      process.exit(1);
-    }
+      callback(new Error(`CORS origin not allowed: ${origin}`), false);
+    },
+    credentials: true,
   });
+
+  const config = new DocumentBuilder()
+    .setTitle('Stellar Uzima API')
+    .setDescription('Healthcare & Financial Inclusion through Blockchain for African Communities')
+    .setVersion('1.0.0')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      name: 'Authorization',
+      description: 'Enter your JWT access token (without the "Bearer " prefix).',
+      in: 'header',
+    })
+    .addTag('health', 'Health monitoring endpoints')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('users', 'User management endpoints')
+    .addTag('tasks', 'Health tasks endpoints')
+    .addTag('wallet', 'Wallet and blockchain endpoints')
+    .addTag('consultations', 'Consultation booking endpoints')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
+  const port = process.env.APP_PORT || 3001;
+  await app.listen(port);
+
+  console.log(`🚀 Stellar Uzima Backend running on http://localhost:${port}`);
+  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

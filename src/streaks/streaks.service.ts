@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Streak } from './entities/streak.entity';
 import { User } from '../entities/user.entity';
+import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 
 @Injectable()
 export class StreaksService {
@@ -15,6 +16,8 @@ export class StreaksService {
     private readonly streakRepo: Repository<Streak>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(TaskCompletion)
+    private readonly taskCompletionRepo: Repository<TaskCompletion>,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -42,6 +45,68 @@ export class StreaksService {
     await this.streakRepo.save(streak);
   }
 
+  async getCurrentStreak(userId: string) {
+    const streak = await this.streakRepo.findOne({
+      where: { user: { id: userId } },
+    });
+
+    if (!streak) {
+      throw new NotFoundException('Streak not found for user');
+    }
+
+    return {
+      currentStreak: streak.currentStreak,
+      longestStreak: streak.longestStreak,
+      lastCompletedDate: streak.lastCompletedDate,
+    };
+  }
+
+  async getStreakHistory(userId: string, weeks = 4) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const today = new Date();
+    const daysToInclude = weeks * 7;
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - daysToInclude + 1);
+
+    const completions = await this.taskCompletionRepo
+      .createQueryBuilder('c')
+      .where('c.userId = :userId', { userId })
+      .andWhere('c.completedAt >= :startDate', {
+        startDate: startDate.toISOString(),
+      })
+      .andWhere('c.completedAt <= :endDate', { endDate: today.toISOString() })
+      .getMany();
+
+    const completionDays = new Set(
+      completions.map((c) => c.completedAt.toISOString().slice(0, 10)),
+    );
+
+    const history = [] as Array<Array<{ date: string; completed: boolean }>>;
+
+    for (let week = 0; week < weeks; week++) {
+      const weekDates = [] as Array<{ date: string; completed: boolean }>;
+      for (let d = 0; d < 7; d++) {
+        const current = new Date(startDate);
+        current.setDate(startDate.getDate() + week * 7 + d);
+
+        const isoDate = current.toISOString().slice(0, 10);
+        const completed = completionDays.has(isoDate);
+        weekDates.push({ date: isoDate, completed });
+      }
+      history.push(weekDates);
+    }
+
+    return {
+      startDate: startDate.toISOString().slice(0, 10),
+      endDate: today.toISOString().slice(0, 10),
+      weeks: history,
+    };
+  }
+
   @OnEvent('task.completed')
   async handleTaskCompleted(event: {
     completionId: string;
@@ -62,7 +127,7 @@ export class StreaksService {
       return;
     }
 
-    const todayDateStr = this.getLocalDateString(new Date());
+    const todayDateStr = this.getUtcDateString(new Date());
 
     // If no lastCompletedDate, this is the very first task ever
     if (!streak.lastCompletedDate) {
@@ -80,12 +145,13 @@ export class StreaksService {
       return;
     }
 
-    const lastDate = new Date(streak.lastCompletedDate);
-    const todayDate = new Date(todayDateStr);
+    const lastDateUtc = new Date(streak.lastCompletedDate + 'T00:00:00Z');
+    const todayDateUtc = new Date(todayDateStr + 'T00:00:00Z');
 
-    // Get difference in days (UTC based string output)
-    const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Difference in whole days using UTC midnight boundaries
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const diffMs = todayDateUtc.getTime() - lastDateUtc.getTime();
+    const diffDays = Math.round(diffMs / msPerDay);
 
     if (diffDays === 1) {
       // Completed yesterday, streak increments
@@ -120,14 +186,18 @@ export class StreaksService {
       userId,
       milestoneDays,
     });
+    // Also emit reward event for existing milestone reward handling
+    this.eventEmitter.emit('reward.milestone', {
+      userId,
+      milestoneReached: milestoneDays,
+    });
   }
 
-  // Utility to convert Date to YYYY-MM-DD string according to local server timezone
-  // Note: Depending on requirements, explicit timezone manipulation library like dat-fns-tz or moment might be preferred
-  private getLocalDateString(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+  // Utility to convert Date to YYYY-MM-DD string using UTC date parts
+  private getUtcDateString(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }
 }
