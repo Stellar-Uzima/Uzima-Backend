@@ -16,6 +16,16 @@ export interface NotificationOptions {
   data?: any;
 }
 
+export interface SendNotificationOptions {
+  template?: string;
+  data?: any;
+  message?: string;
+  title?: string;
+  body?: string;
+  isCritical?: boolean; // Bypass rate limits for critical notifications
+  notificationType?: string; // For push notification debouncing
+}
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
@@ -106,7 +116,80 @@ export class NotificationService {
   }
 
   /**
+   * Check and enforce email rate limit (5 per hour per user)
+   * Returns true if within rate limit, false if exceeded
+   */
+  private async checkEmailRateLimit(userId: string): Promise<boolean> {
+    const key = `${this.EMAIL_RATE_KEY}${userId}`;
+    const currentCount = await this.redis.get(key);
+    const count = currentCount ? parseInt(currentCount, 10) : 0;
+
+    if (count >= this.EMAIL_RATE_LIMIT) {
+      this.logger.warn(
+        `Email rate limit exceeded for user ${userId}. Count: ${count}/${this.EMAIL_RATE_LIMIT} per hour`,
+      );
+      return false;
+    }
+
+    // Increment counter and set expiry
+    await this.redis.incr(key);
+    await this.redis.expire(key, this.EMAIL_WINDOW_SECONDS);
+
+    return true;
+  }
+
+  /**
+   * Check and enforce SMS rate limit (10 per day per user)
+   * Returns true if within rate limit, false if exceeded
+   */
+  private async checkSMSRateLimit(userId: string): Promise<boolean> {
+    const key = `${this.SMS_RATE_KEY}${userId}`;
+    const currentCount = await this.redis.get(key);
+    const count = currentCount ? parseInt(currentCount, 10) : 0;
+
+    if (count >= this.SMS_RATE_LIMIT) {
+      this.logger.warn(
+        `SMS rate limit exceeded for user ${userId}. Count: ${count}/${this.SMS_RATE_LIMIT} per day`,
+      );
+      return false;
+    }
+
+    // Increment counter and set expiry
+    await this.redis.incr(key);
+    await this.redis.expire(key, this.SMS_WINDOW_SECONDS);
+
+    return true;
+  }
+
+  /**
+   * Check and enforce push notification debounce (same type not sent more than once per 5 minutes)
+   * Returns true if allowed to send, false if debounced
+   */
+  private async checkPushDebounce(
+    userId: string,
+    notificationType?: string,
+  ): Promise<boolean> {
+    // Use a default type if none provided
+    const type = notificationType || 'default';
+    const key = `${this.PUSH_DEBOUNCE_KEY}${userId}:${type}`;
+
+    const exists = await this.redis.exists(key);
+    if (exists) {
+      this.logger.debug(
+        `Push notification debounced for user ${userId}, type: ${type}`,
+      );
+      return false;
+    }
+
+    // Set key with expiry to allow next notification after debounce period
+    await this.redis.set(key, '1', 'EX', this.PUSH_DEBOUNCE_SECONDS);
+
+    return true;
+  }
+
+  /**
    * Send an email notification if the user has enabled email notifications
+   * Rate limited: max 5 per hour per user (bypassed for critical notifications)
    */
   async sendEmail(
     userId: string,
@@ -148,8 +231,13 @@ export class NotificationService {
 
   /**
    * Send an SMS notification if the user has enabled SMS notifications
+   * Rate limited: max 10 per day per user (bypassed for critical notifications)
    */
-  async sendSMS(userId: string, message: string): Promise<boolean> {
+  async sendSMS(
+    userId: string,
+    message: string,
+    isCritical?: boolean,
+  ): Promise<boolean> {
     const canSend = await this.canSendNotification(userId, 'sms');
 
     if (!canSend) {
@@ -179,6 +267,8 @@ export class NotificationService {
 
   /**
    * Send a push notification if the user has enabled push notifications
+   * Debounced: same notification type not sent more than once per 5 minutes per user
+   * (bypassed for critical notifications)
    */
   async sendPush(
     userId: string,
@@ -238,13 +328,15 @@ export class NotificationService {
 
   /**
    * Send notifications through multiple channels based on user preferences
+   * Supports critical notification flag to bypass rate limits
    */
   async sendMultiChannel(
     userId: string,
     options: {
       email?: { template: string; data: any };
       sms?: { message: string };
-      push?: { title: string; body: string };
+      push?: { title: string; body: string; type?: string };
+      isCritical?: boolean;
     },
   ): Promise<{ email?: boolean; sms?: boolean; push?: boolean }> {
     const results: { email?: boolean; sms?: boolean; push?: boolean } = {};
@@ -254,11 +346,16 @@ export class NotificationService {
         userId,
         options.email.template,
         options.email.data,
+        options.isCritical,
       );
     }
 
     if (options.sms) {
-      results.sms = await this.sendSMS(userId, options.sms.message);
+      results.sms = await this.sendSMS(
+        userId,
+        options.sms.message,
+        options.isCritical,
+      );
     }
 
     if (options.push) {
@@ -266,6 +363,8 @@ export class NotificationService {
         userId,
         options.push.title,
         options.push.body,
+        options.isCritical,
+        options.push.type,
       );
     }
 
