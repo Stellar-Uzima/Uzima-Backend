@@ -9,8 +9,8 @@ import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
 import * as bcrypt from 'bcryptjs';
 import { User } from '@/entities/user.entity';
-import { ListUsersDto } from '@/admin/dto/list-users.dto';
-import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
+import { ListUsersDto } from '../dto/list-users.dto';
+import { CreateAdminDto } from '../dto/create-admin.dto';
 import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
@@ -184,7 +184,6 @@ export class AdminUsersService {
         'updatedAt',
         'deletedAt',
       ],
-    });
     });
 
     if (!user) {

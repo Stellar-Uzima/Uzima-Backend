@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FailedRewardJob } from '../../rewards/entities/failed-reward-job.entity';
-import { DeadLetterProcessor } from '../../rewards/queues/dead-letter.processor';
+import { FailedRewardJob } from '@/rewards/entities/failed-reward-job.entity';
+import { DeadLetterProcessor } from '@/rewards/queues/dead-letter.processor';
 import {
   ListFailedJobsDto,
   ListFailedJobsResponseDto,
@@ -19,9 +19,6 @@ export class FailedRewardJobService {
     private readonly deadLetterProcessor: DeadLetterProcessor,
   ) {}
 
-  /**
-   * Get paginated list of failed reward jobs for admin review.
-   */
   async listFailedJobs(
     query: ListFailedJobsDto,
   ): Promise<ListFailedJobsResponseDto> {
@@ -53,9 +50,6 @@ export class FailedRewardJobService {
     };
   }
 
-  /**
-   * Replay a specific failed job by re-queuing it.
-   */
   async replayFailedJob(
     failedJobId: string,
   ): Promise<ReplayFailedJobResponseDto> {

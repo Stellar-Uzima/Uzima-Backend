@@ -22,7 +22,6 @@ export const typeOrmConfig = async (
     __dirname + '/../notifications/entities/*.entity{.ts,.js}',
     __dirname + '/../audit/entities/*.entity{.ts,.js}',
     __dirname + '/../stellar/entities/*.entity{.ts,.js}',
-    __dirname + '/../admin/entities/*.entity{.ts,.js}',
   ],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   logging: true,
