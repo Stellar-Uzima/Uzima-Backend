@@ -19,8 +19,8 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/s
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
-import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
-import { CreateHealthTaskDto } from '../../common/dtos/create-health-task.dto';
+import { UpdateHealthTaskDto } from '../../common/dto/update-health-task.dto';
+import { CreateHealthTaskDto } from '../../common/dto/create-health-task.dto';
 import { ArchiveService } from './services/archive.service';
 import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
 import { AnalyticsService } from './services/analytics.service';
