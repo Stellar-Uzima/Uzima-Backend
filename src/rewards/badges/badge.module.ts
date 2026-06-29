@@ -6,7 +6,7 @@ import { Badge } from '../../database/entities/badge.entity';
 import { UserBadge } from '../../database/entities/user-badge.entity';
 import { User } from '../../database/entities/user.entity';
 import { Streak } from '../../streaks/entities/streak.entity';
-import { TaskCompletion } from '../../task-completion/entities/task-completion.entity';
+import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Badge, UserBadge, User, Streak, TaskCompletion])],

@@ -12,7 +12,7 @@ import { User } from '../entities/user.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UserStatsDto } from './dto/user-stats.dto';
-import { TaskCompletion } from './entities/task-completion.entity';
+import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 import { Coupon, CouponStatus } from './entities/coupon.entity';
 import { HealthProfile } from './entities/health-profile.entity';
 import { UserStatusLog } from '../entities/user-status-log.entity';

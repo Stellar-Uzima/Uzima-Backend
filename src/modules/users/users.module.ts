@@ -18,7 +18,7 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
 import { AvatarService } from './services/avatar.service';
 import { DataExportService } from './services/data-export.service';
 import { DataExportProcessor } from './processors/data-export.processor';
-import { TaskCompletion } from '../../database/entities/task-completion.entity';
+import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../referral/entities/referral-record.entity';

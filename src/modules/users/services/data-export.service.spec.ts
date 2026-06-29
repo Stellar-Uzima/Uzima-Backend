@@ -3,7 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { DataExportService } from './data-export.service';
 import { User } from '../../../entities/user.entity';
-import { TaskCompletion } from '../../../database/entities/task-completion.entity';
+import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { Notification } from '../../../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../../referral/entities/referral-record.entity';

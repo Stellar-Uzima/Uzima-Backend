@@ -13,7 +13,7 @@ import {
 } from './dto/reward-history.dto';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
-import { TaskCompletion } from '../task-completion/entities/task-completion.entity';
+import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import {
   REWARD_QUEUE,
@@ -101,7 +101,7 @@ export class RewardService {
         'reward_transaction.task_completion',
         'task_completion',
       )
-      .leftJoinAndSelect('task_completion.health_task', 'health_task')
+      .leftJoinAndSelect('task_completion.task', 'health_task')
       .where('reward_transaction.userId = :userId', { userId })
       .orderBy('reward_transaction.createdAt', 'DESC');
 
@@ -145,8 +145,8 @@ export class RewardService {
             ? transaction.stellarTxHash
             : undefined,
         taskTitle:
-          transaction.task_completion?.health_task?.title || 'Unknown Task',
-        categoryId: transaction.task_completion?.health_task?.categoryId,
+          transaction.task_completion?.task?.title || 'Unknown Task',
+        categoryId: transaction.task_completion?.task?.categoryId,
         createdAt: transaction.createdAt,
       }),
     );

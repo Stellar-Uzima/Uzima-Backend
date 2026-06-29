@@ -4,7 +4,7 @@ import { RewardController } from './reward.controller';
 import { RewardService } from './reward.service';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { FailedRewardJob } from './entities/failed-reward-job.entity';
-import { TaskCompletion } from '../task-completion/entities/task-completion.entity';
+import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
