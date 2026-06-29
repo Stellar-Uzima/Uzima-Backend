@@ -8,7 +8,7 @@ import {
   TASK_REMINDER_JOB,
 } from '../queue/queue.constants';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Role } from '../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { TaskStatus } from './enums/task-status.enum';
 
 describe('TasksService', () => {

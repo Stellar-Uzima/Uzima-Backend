@@ -1,7 +1,7 @@
 import { Controller, Get, Query, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LeaderboardService } from './leaderboard.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { LeaderboardResponseDto } from './dto/leaderboard.dto';
 import { parseLeaderboardPeriod } from './leaderboard-period.enum';
 

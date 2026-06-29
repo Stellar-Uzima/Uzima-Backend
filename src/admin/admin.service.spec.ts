@@ -8,7 +8,7 @@ import {
 import { AdminUsersService } from './services/admin-users.service';
 import { User } from 'src/entities/user.entity';
 import { AuditService } from 'src/audit/audit.service';
-import { Role } from 'src/auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { ListUsersDto } from './dto/list-users.dto';
 
 const mockRedisClient = {

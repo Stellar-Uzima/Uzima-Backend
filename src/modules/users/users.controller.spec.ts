@@ -6,7 +6,7 @@ import { ActivityFeedService } from './services/activity-feed.service';
 import { UserSearchDto, UserSearchResponseDto } from './dto/user-search.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { User } from '../../entities/user.entity';
-import { Role } from '../../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { ForbiddenException } from '@nestjs/common';
 
 describe('UsersController', () => {

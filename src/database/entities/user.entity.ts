@@ -12,7 +12,7 @@ import {
   JoinTable,
 } from 'typeorm';
 import { IsEmail, IsString, IsEnum, IsBoolean, Length, Matches, IsOptional } from 'class-validator';
-import { Role } from '../../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { Session } from './session.entity';
 import { Organization } from './organization.entity';
 import { UserActivity } from './user-activity.entity';

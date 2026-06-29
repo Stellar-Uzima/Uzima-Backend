@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { LinkWalletDto } from '../dto/link-wallet.dto';
-import { User } from '../../entities/user.entity';
+import { User } from '../../../entities/user.entity';
 import { UserStatus } from '../enums/user-status.enum';
 
 @Injectable()

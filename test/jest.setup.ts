@@ -20,43 +20,40 @@ if (skipDbSetup) {
       console.error('❌ Failed to setup test database', error);
       throw error;
     }
-  }, 60000); // 60 second timeout for setup
+  }, 60000);
+
+  // Per-test setup - clean database before each test
+  beforeEach(async () => {
+    try {
+      await beforeEachTest();
+    } catch (error) {
+      console.error('❌ Failed to setup before test', error);
+      throw error;
+    }
+  });
+
+  // Per-test teardown - cleanup after each test
+  afterEach(async () => {
+    try {
+      await afterEachTest();
+    } catch (error) {
+      console.error('❌ Failed to cleanup after test', error);
+      throw error;
+    }
+  });
+
+  // Global teardown - runs once after all tests
+  afterAll(async () => {
+    console.log('🧹 Tearing down test database...');
+    try {
+      await teardownTestDatabase();
+      console.log('✅ Test database teardown complete');
+    } catch (error) {
+      console.error('❌ Failed to teardown test database', error);
+      throw error;
+    }
+  }, 60000);
 }
-
-// Per-test setup - clean database before each test
-beforeEach(async () => {
-  if (skipDbSetup) return;
-  try {
-    await beforeEachTest();
-  } catch (error) {
-    console.error('❌ Failed to setup before test', error);
-    throw error;
-  }
-});
-
-// Per-test teardown - cleanup after each test
-afterEach(async () => {
-  if (skipDbSetup) return;
-  try {
-    await afterEachTest();
-  } catch (error) {
-    console.error('❌ Failed to cleanup after test', error);
-    throw error;
-  }
-});
-
-// Global teardown - runs once after all tests
-afterAll(async () => {
-  if (skipDbSetup) return;
-  console.log('🧹 Tearing down test database...');
-  try {
-    await teardownTestDatabase();
-    console.log('✅ Test database teardown complete');
-  } catch (error) {
-    console.error('❌ Failed to teardown test database', error);
-    throw error;
-  }
-}, 60000); // 60 second timeout for teardown
 
 // Increase timeout for slow tests
 jest.setTimeout(30000);

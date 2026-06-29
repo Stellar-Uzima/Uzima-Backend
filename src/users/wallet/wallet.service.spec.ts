@@ -9,6 +9,7 @@ import { User } from '../../entities/user.entity';
 import { StellarService } from '../../stellar/stellar.service';
 import { XlmPriceService } from '../../stellar/xlm-price.service';
 import { RewardStatus } from '../../rewards/enums/reward-status.enum';
+import { formatCurrency } from './format';
 
 const mockRewardTransactionRepo = {
   createQueryBuilder: jest.fn().mockReturnThis(),
@@ -24,6 +25,7 @@ const mockRewardTransactionRepo = {
 
 const mockUserRepo = {
   findOne: jest.fn(),
+  save: jest.fn(),
 };
 
 const mockCacheManager = {
@@ -250,5 +252,65 @@ describe('WalletService', () => {
       mockStellarService.getAccountBalance.mockRejectedValue(new Error('Network error'));
       await expect(service.syncBalance('user-id')).rejects.toThrow('Unable to sync wallet balance from Stellar network');
     });
+  });
+});
+
+describe('formatCurrency', () => {
+  it('returns two decimals', () => {
+    expect(formatCurrency(1)).toBe('1.00');
+    expect(formatCurrency(1.234)).toBe('1.23');
+    expect(formatCurrency('2')).toBe('2.00');
+  });
+});
+
+describe('reconcile', () => {
+  let service: WalletService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        WalletService,
+        {
+          provide: getRepositoryToken(RewardTransaction),
+          useValue: mockRewardTransactionRepo,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: mockUserRepo,
+        },
+        {
+          provide: 'CACHE_MANAGER',
+          useValue: mockCacheManager,
+        },
+        {
+          provide: StellarService,
+          useValue: mockStellarService,
+        },
+        {
+          provide: XlmPriceService,
+          useValue: mockXlmPriceService,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
+        },
+      ],
+    }).compile();
+
+    service = module.get<WalletService>(WalletService);
+  });
+
+  it('returns summary object', async () => {
+    mockUserRepo.findOne.mockResolvedValue({ id: 'u1', stellarWalletAddress: 'GABC' });
+    mockStellarService.getAccountBalance.mockResolvedValue('5.00');
+    mockRewardTransactionRepo.getRawOne
+      .mockResolvedValueOnce({ total: '10.00' })
+      .mockResolvedValueOnce({ total: '1.00' });
+
+    const res = await service.reconcile('u1');
+    expect(res.walletLinked).toBe(true);
+    expect(res.liveBalance).toBe('5.00');
+    expect(res.totalEarnedFromTasks).toBe('10.00');
   });
 });

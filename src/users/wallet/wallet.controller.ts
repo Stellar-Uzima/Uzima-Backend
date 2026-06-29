@@ -18,7 +18,7 @@ import {
 import { WalletService } from './wallet.service';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
 import { LinkWalletDto } from './dto/link-wallet.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 
 @ApiTags('Wallet')
 @Controller('users/me/wallet')

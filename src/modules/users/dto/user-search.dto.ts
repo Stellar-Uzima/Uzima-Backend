@@ -2,8 +2,8 @@ import { Type, Transform } from 'class-transformer';
 import { IsOptional, IsString, IsEnum, IsInt, Min, Max, IsBoolean, IsDateString } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { SortOrder } from '../../../common/dtos/pagination.dto';
-import { Role } from '../../../auth/enums/role.enum';
-import { UserStatus } from '../../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 
 export class UserSearchDto {
   @ApiPropertyOptional({

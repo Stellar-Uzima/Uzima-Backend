@@ -16,8 +16,8 @@ jest.mock('bcryptjs', () => ({
 }));
 
 import * as bcrypt from 'bcryptjs';
-import { AuthService } from '../../auth/services/auth.service';
-import { UsersService } from '../../auth/services/users.service';
+import { AuthService } from './services/auth.service';
+import { UsersService } from './services/users.service';
 import { OtpService } from '../../otp/otp.service';
 import { AuditService } from '../../audit/audit.service';
 import { EmailVerificationService } from './services/email-verification.service';
@@ -25,8 +25,8 @@ import { SessionService } from './services/session.service';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { TransactionService } from '../../database/services/transaction.service';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
-import { AccountLockedException } from '../../auth/exceptions/account-locked.exception';
-import { Role } from '../../auth/enums/role.enum';
+import { AccountLockedException } from './exceptions/account-locked.exception';
+import { Role } from './enums/role.enum';
 
 const mockRedisClient = {
   connect: jest.fn(),

@@ -20,10 +20,10 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AdminUsersService } from './services/admin-users.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
-import { Roles } from '@/auth/decorators/roles.decorator';
-import { Role } from '@/auth/enums/role.enum';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 import { ListUsersDto } from '@/admin/dto/list-users.dto';
 import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
 import { ChangeRoleDto } from '@/admin/dto/change-role.dto';
