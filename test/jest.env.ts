@@ -3,6 +3,12 @@
  * Loads and validates environment variables before tests run
  */
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
 import 'dotenv/config';
 
 // Set test environment

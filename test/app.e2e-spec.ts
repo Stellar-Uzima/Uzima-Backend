@@ -16,6 +16,12 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')

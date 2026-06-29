@@ -11,6 +11,12 @@ import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
 export class RewardService {
   private readonly logger = new Logger(RewardService.name);
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
   constructor(
     @InjectRepository(RewardTransaction)
     private readonly rewardRepo: Repository<RewardTransaction>,
