@@ -3,6 +3,11 @@ describe('Dummy', () => {
     expect(1).toBe(1);
   });
 });
+  // @IsOptional()
+  // @Type(() => Number)
+  // @IsInt()
+  // @Min(1)
+  // limit?: number = 20;
 
 // const mockRedisClient = {
 //   connect: jest.fn(),

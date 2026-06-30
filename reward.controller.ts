@@ -11,6 +11,11 @@ import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
 @UseGuards(JwtAuthGuard)
 export class RewardController {
   constructor(private readonly rewardService: RewardService) {}
+  // @IsOptional()
+  // @Type(() => Number)
+  // @IsInt()
+  // @Min(1)
+  // limit?: number = 20;
 
 // const mockRedisClient = {
 //   connect: jest.fn(),
