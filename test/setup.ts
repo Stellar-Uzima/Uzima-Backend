@@ -9,7 +9,7 @@
  */
 
 import 'dotenv/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, ObjectLiteral } from 'typeorm';
 import { Logger } from '@nestjs/common';
 
 // Test database configuration - separate from production
@@ -101,7 +101,7 @@ export class TestDatabaseManager {
   /**
    * Get repository instance
    */
-  getRepository<Entity>(entityClass: new () => Entity): Repository<Entity> {
+  getRepository<Entity extends ObjectLiteral>(entityClass: new () => Entity): Repository<Entity> {
     return this.getDataSource().getRepository(entityClass);
   }
 
@@ -283,7 +283,7 @@ export class IsolatedTestRunner {
   async runTests<T>(
     tests: Array<{ name: string; fn: () => Promise<T> }>,
   ): Promise<Array<{ name: string; result?: T; error?: Error }>> {
-    const results = [];
+    const results: Array<{ name: string; result?: T; error?: Error }> = [];
     for (const test of tests) {
       try {
         const result = await this.runTest(test.fn);
@@ -324,7 +324,7 @@ export class TestFixtureManager {
   /**
    * Load fixtures into database
    */
-  async loadFixture<Entity>(
+  async loadFixture<Entity extends ObjectLiteral>(
     name: string,
     repository: Repository<Entity>,
   ): Promise<Entity[]> {
