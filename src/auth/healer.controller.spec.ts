@@ -10,6 +10,11 @@ describe('HealerController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealerController],
     })
+    
+  // beforeEach(async () => {
+  //   const module: TestingModule = await Test.createTestingModule({
+  //     controllers: [HealerController],
+  //   })
       .overrideGuard(JwtAuthGuard).useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard).useValue({ canActivate: () => true })
       .compile();
