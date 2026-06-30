@@ -21,7 +21,7 @@ export class SessionService {
       ip: meta?.ip,
       userAgent: meta?.userAgent,
       isActive: true,
-    });
+    } as any);
     return this.repo.save(session);
   }
 

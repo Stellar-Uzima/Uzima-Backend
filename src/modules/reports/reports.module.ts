@@ -11,10 +11,11 @@ import { AuthModule } from '@modules/auth/auth.module';
 import { User } from '@/entities/user.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
+import { Streak } from '@/streaks/entities/streak.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, TaskCompletion, RewardTransaction]),
+    TypeOrmModule.forFeature([User, TaskCompletion, RewardTransaction, Streak]),
     ScheduleModule,
     NotificationsModule,
     AuditModule,
@@ -22,5 +23,6 @@ import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity'
   ],
   controllers: [ReportsController],
   providers: [ReportsService, ReportExportService, ReportsSchedulerService],
+  exports: [ReportsService],
 })
 export class ReportsModule {}
