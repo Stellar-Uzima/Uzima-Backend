@@ -9,6 +9,10 @@ function makeHost(url = '/test'): ArgumentsHost {
   return { switchToHttp: () => ({ getResponse, getRequest }) } as any;
 }
 
+  // beforeEach(async () => {
+  //   const module: TestingModule = await Test.createTestingModule({
+  //     controllers: [HealerController],
+  //   })
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
 
