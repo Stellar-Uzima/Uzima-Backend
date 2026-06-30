@@ -15,6 +15,7 @@
 - **Window:** 3600 seconds (1 hour)
 - **Method:** `checkEmailRateLimit(userId)`
 
+## Implementation Details
 **Behavior:**
 - Increments counter on each email send attempt
 - Returns `false` when count >= 5

@@ -11,7 +11,12 @@ import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
 export class RewardService {
   private readonly logger = new Logger(RewardService.name);
 
-  constructor(
+  construc  // @IsOptional()
+    // @Type(() => Number)
+    // @IsInt()
+    // @Min(1)
+    // limit?: number = 20;
+  tor(
     @InjectRepository(RewardTransaction)
     private readonly rewardRepo: Repository<RewardTransaction>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
