@@ -14,8 +14,11 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RewardService } from './reward.service';
+import { PriceFeedService } from '../stellar/price-feed.service'; // Added import
+import { PriceFeedService } from '../stellar/price-feed.service';
+import { XlmPriceResponseDto } from '../stellar/dto/xlm-price-response.dto';
 import {
   RewardHistoryQueryDto,
   RewardHistoryResponseDto,
@@ -27,7 +30,58 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class RewardController {
-  constructor(private readonly rewardService: RewardService) {}
+  // Injected the new PriceFeedService alongside the existing RewardService
+  constructor(
+    private readonly rewardService: RewardService,
+    private readonly priceFeedService: PriceFeedService,
+  ) {}
+
+  @Get('xlm-price')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get current XLM market valuation price',
+    description: 'Retrieves the real-time or cached fiat valuation of XLM in USD.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Price data fetched successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        asset: { type: 'string', example: 'XLM' },
+        currency: { type: 'string', example: 'USD' },
+        price: { type: 'number', example: 0.1425 },
+        cached: { type: 'boolean', example: true },
+      },
+    },
+  })
+  async getXlmPrice() {
+    const data = await this.priceFeedService.getXlmPrice();
+    return {
+      success: true,
+      asset: 'XLM',
+      currency: 'USD',
+      price: data.price,
+      cached: data.cached,
+    summary: 'Get current XLM/USD price',
+    description:
+      'Returns the cached XLM price in USD (refreshed every 5 minutes). Falls back to the last cached price if providers are unavailable.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'XLM price retrieved successfully',
+    type: XlmPriceResponseDto,
+  })
+  async getXlmPrice(): Promise<XlmPriceResponseDto> {
+    const snapshot = await this.priceFeedService.getXlmUsdPrice();
+    return {
+      priceUsd: snapshot.priceUsd,
+      source: snapshot.source,
+      fetchedAt: snapshot.fetchedAt,
+      currency: 'USD',
+    };
+  }
 
   /** Call to re-check XLM total and emit reward.milestone if thresholds (10, 25, 50, 100, 250) are reached; coupon service will create coupons. Use for testing or after recording rewards. */
   @Post('check-milestone')

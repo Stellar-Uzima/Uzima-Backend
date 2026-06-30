@@ -21,10 +21,10 @@ import { Response } from 'express';
 import { ReportsService, ReportType } from './reports.service';
 import { ReportExportService } from './report-export.service';
 import { ReportsSchedulerService } from './reports-scheduler.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
-import { Roles } from '@/auth/decorators/roles.decorator';
-import { Role } from '@/auth/enums/role.enum';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 
 class ScheduleReportDto {
   @ApiProperty({ example: 'weekly-user-report', description: 'Unique schedule name' })
@@ -103,6 +103,45 @@ export class ReportsController {
       return;
     }
     return this.reportsService.getReportByType('activity');
+  }
+
+  @Get('export')
+  @ApiOperation({
+    summary: 'Export any report type as CSV',
+    description: 'Export users, activity, or health reports as CSV format',
+  })
+  @ApiQuery({
+    name: 'type',
+    enum: ['users', 'activity', 'health'],
+    required: false,
+    description: 'Report type to export',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV report generated and streamed',
+    schema: { type: 'string', format: 'binary' },
+  })
+  async exportReport(
+    @Query('type') type: string = 'users',
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      const reportType = type as any;
+      const csvContent = await this.reportsService.generateReportCsv(reportType);
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="report-${reportType}-${new Date().toISOString().split('T')[0]}.csv"`,
+      );
+      res.send(csvContent);
+    } catch (error) {
+      res.status(400).json({
+        statusCode: 400,
+        message: 'Failed to generate CSV report',
+        error: error.message,
+      });
+    }
   }
 
   @Post('schedule')
