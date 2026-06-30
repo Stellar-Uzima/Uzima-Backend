@@ -14,6 +14,7 @@ import { QueueModule } from '@/queue/queue.module';
 import { QueueService } from '@/shared/queue/queue.service';
 import { AdminService } from './services/admin.service';
 import { AdminUsersService } from './services/admin-users.service';
+import { AdminImpersonationService } from './services/admin-impersonation.service';
 import { FailedRewardJobService } from './rewards/failed-reward-job.service';
 import { User } from '@/entities/user.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
@@ -37,6 +38,7 @@ import { ReportsModule } from '@modules/reports/reports.module';
   providers: [
     AdminService,
     AdminUsersService,
+    AdminImpersonationService,
     TasksScheduler,
     RewardsScheduler,
     FailedRewardJobService,

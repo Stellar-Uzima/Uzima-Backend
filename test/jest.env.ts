@@ -8,6 +8,12 @@
   // @Min(1)
   // limit?: number = 20;
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
 import 'dotenv/config';
 
 // Set test environment
