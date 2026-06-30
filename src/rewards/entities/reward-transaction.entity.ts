@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../entities/user.entity';
-import { TaskCompletion } from '../../task-completion/entities/task-completion.entity';
+import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 
 import { RewardStatus } from '../enums/reward-status.enum';
 

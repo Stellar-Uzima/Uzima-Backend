@@ -14,10 +14,10 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../auth/enums/role.enum';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 import {
   ApiTags,
   ApiOperation,
@@ -34,6 +34,13 @@ import { HealthTask } from './entities/health-task.entity';
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all available task categories' })
+  @ApiResponse({ status: 200, description: 'List of task categories' })
+  getCategories() {
+    return this.tasksService.getCategories();
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)

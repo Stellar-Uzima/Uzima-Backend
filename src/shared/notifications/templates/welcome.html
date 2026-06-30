@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Uzima</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f7f9fc;
+      color: #333333;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e1e8ed;
+    }
+    .header {
+      background-color: #0d5c75;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .content {
+      padding: 40px 30px;
+      line-height: 1.6;
+    }
+    .content h2 {
+      margin-top: 0;
+      color: #0d5c75;
+      font-size: 20px;
+    }
+    .content p {
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 30px;
+      background-color: #0f9f90;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      font-size: 16px;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background-color: #0c8275;
+    }
+    .footer {
+      background-color: #f7f9fc;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #777777;
+      border-top: 1px solid #e1e8ed;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-container {
+        width: 100% !important;
+        border-radius: 0 !important;
+        border: none !important;
+      }
+      .content {
+        padding: 30px 20px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <h1>Uzima</h1>
+    </div>
+    <div class="content">
+      <h2>Welcome, {{name}}!</h2>
+      <p>We are absolutely thrilled to welcome you to Uzima. Our mission is to promote healthcare and financial inclusion within communities.</p>
+      <p>With Uzima, you can easily track your health tasks, view resources, earn rewards, and connect with health professionals.</p>
+      <div class="btn-container">
+        <a href="https://uzima.example.com/dashboard" class="btn" style="color: #ffffff;">Get Started</a>
+      </div>
+      <p>If you have any questions, feel free to reply to this email. We are here to help you every step of the way!</p>
+      <p>Best regards,<br>The Uzima Team</p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2026 Stellar Uzima. All rights reserved.</p>
+      <p>You received this email because you registered on Uzima.</p>
+    </div>
+  </div>
+</body>
+</html>

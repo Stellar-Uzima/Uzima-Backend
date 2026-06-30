@@ -11,6 +11,8 @@ import {
   USER_ACTIVITY_QUEUE,
   DATA_PROCESSING_QUEUE,
   REWARD_DEAD_LETTER_QUEUE,
+  BULK_TASK_ASSIGNMENT_JOB,
+  BulkTaskAssignmentJobData,
 } from '../../queue/queue.constants';
 
 export interface JobStatus {
@@ -26,6 +28,13 @@ export interface JobStatus {
   returnvalue?: any;
   attemptsMade: number;
   timestamp: number;
+}
+
+export interface QueueJobOptions extends JobOptions {
+  /** Maximum retry attempts for the job (overrides attempts) */
+  maxRetries?: number;
+  /** Base backoff delay in milliseconds for exponential backoff */
+  backoffMs?: number;
 }
 
 export interface QueueStats {
@@ -69,7 +78,7 @@ export class QueueService {
     queueName: QueueName,
     jobName: string,
     data: T,
-    options?: JobOptions,
+    options?: QueueJobOptions,
   ): Promise<Job<T>> {
     const queue = this.queues.get(queueName);
     if (!queue) {
@@ -77,11 +86,15 @@ export class QueueService {
     }
 
     try {
+      // Map our friendly options to bull JobOptions
+      const attempts = options?.maxRetries ?? options?.attempts ?? 3;
+      const backoffDelay = options?.backoffMs ?? (options?.backoff as any)?.delay ?? 1000;
+
       const job = await queue.add(jobName, data, {
-        attempts: 3,
+        attempts,
         backoff: {
           type: 'exponential',
-          delay: 1000,
+          delay: backoffDelay,
         },
         removeOnComplete: 100,
         removeOnFail: 50,
@@ -99,6 +112,21 @@ export class QueueService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Enqueue bulk task assignment for asynchronous processing.
+   */
+  async enqueueBulkTaskAssignment(
+    data: BulkTaskAssignmentJobData,
+    options?: QueueJobOptions,
+  ): Promise<Job<BulkTaskAssignmentJobData>> {
+    return this.addJob(
+      DATA_PROCESSING_QUEUE,
+      BULK_TASK_ASSIGNMENT_JOB,
+      data,
+      options,
+    );
   }
 
   /**

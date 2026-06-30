@@ -1,11 +1,126 @@
-// src/tasks/tasks.scheduler.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Between, Repository } from 'typeorm';
+import { User } from '../entities/user.entity';
+import { TaskAssignmentService } from './assignment/task-assignment.service';
+import { RecurringTaskService } from './assignment/recurring-task.service';
+import { ReminderService } from '../modules/health-tasks/services/reminder.service';
+import { HealthTask } from './entities/health-task.entity';
+import { TasksService } from './tasks.service';
+
+@Injectable()
+export class TasksScheduler {
+  private readonly logger = new Logger(TasksScheduler.name);
+
+  constructor(
+    private readonly userRepository: Repository<User>,
+    private readonly taskAssignmentService: TaskAssignmentService,
+    private readonly reminderService: ReminderService,
+    private readonly recurringTaskService: RecurringTaskService,
+  ) {}
+
+  /**
+   * Cron job: Assign daily tasks to all active users at 6:00 AM UTC
+   * Runs every day at 6:00 AM UTC
+   */
+  @Cron('0 0 6 * * *') // 6:00 AM UTC daily
+  async assignDailyTasks(): Promise<void> {
+    this.logger.log('Starting daily task assignment cron job');
+
+    try {
+      const activeUsers = await this.userRepository.find({ where: { isActive: true } });
+      this.logger.log(`Found ${activeUsers.length} active users to assign tasks to`);
+
+      let processedCount = 0;
+      let errorCount = 0;
+
+      for (const user of activeUsers) {
+        try {
+          await this.taskAssignmentService.getTodayAssignment(user);
+          processedCount++;
+        } catch (error) {
+          this.logger.error(`Failed to assign tasks to user ${user.id}: ${error.message}`);
+          errorCount++;
+        }
+      }
+
+      this.logger.log(`Daily task assignment completed. Processed: ${processedCount}, Errors: ${errorCount}`);
+    } catch (error) {
+      this.logger.error(`Daily task assignment cron job failed: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Cron job: Process due task reminders every minute
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async processReminders(): Promise<void> {
+    this.logger.debug('Starting task reminder processing cron job');
+    try {
+      const count = await this.reminderService.processDueReminders();
+      if (count > 0) {
+        this.logger.log(`Processed ${count} task reminders`);
+      }
+    } catch (error) {
+      this.logger.error(`Task reminder processing failed: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Cron job: Generate recurring task assignments at midnight UTC
+   */
+  @Cron('0 0 0 * * *') // midnight UTC daily
+  async generateRecurringAssignments(): Promise<void> {
+    this.logger.log('Running recurring task generation at midnight');
+    const today = new Date().toISOString().split('T')[0];
+    await this.recurringTaskService.generateAssignmentsForDate(today);
+  }
+
+  /**
+   * Manual trigger for testing - assigns daily tasks to all active users
+   */
+  async assignDailyTasksManually(): Promise<{ processed: number; errors: number }> {
+    this.logger.log('Manually triggering daily task assignment');
+    const activeUsers = await this.userRepository.find({ where: { isActive: true } });
+    this.logger.log(`Found ${activeUsers.length} active users to assign tasks to`);
+
+    let processedCount = 0;
+    let errorCount = 0;
+
+    for (const user of activeUsers) {
+      try {
+        await this.taskAssignmentService.getTodayAssignment(user);
+        processedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to assign tasks to user ${user.id}: ${error.message}`);
+        errorCount++;
+      }
+    }
+
+    this.logger.log(`Manual task assignment completed. Processed: ${processedCount}, Errors: ${errorCount}`);
+    return { processed: processedCount, errors: errorCount };
+  }
+}
+
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { TaskAssignmentService } from './assignment/task-assignment.service';
-import { ReminderService } from '../modules/health-tasks/services/reminder.service';
+import { RecurringTaskService } from './assignment/recurring-task.service';
+@@
+   private readonly reminderService: ReminderService,
++    private readonly recurringTaskService: RecurringTaskService,
+@@
+   @Cron('0 0 0 * * *') // midnight UTC daily
+   async generateRecurringAssignments(): Promise<void> {
+     this.logger.log('Running recurring task generation at midnight');
+     const today = new Date().toISOString().split('T')[0];
+     await this.recurringTaskService.generateAssignmentsForDate(today);
+   }
+*** End of File ***
 
 @Injectable()
 export class TasksScheduler {
@@ -14,8 +129,11 @@ export class TasksScheduler {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(HealthTask)
+    private readonly healthTaskRepository: Repository<HealthTask>,
     private readonly taskAssignmentService: TaskAssignmentService,
     private readonly reminderService: ReminderService,
+    private readonly tasksService: TasksService,
   ) {}
 
   /**
@@ -68,6 +186,60 @@ export class TasksScheduler {
       }
     } catch (error) {
       this.logger.error(`Task reminder processing failed: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Cron job: every 5 minutes, query tasks with a reminderTime in the
+   * next 10 minutes and enqueue notification jobs for any that aren't
+   * already queued. The 10-minute window overlaps the 5-minute cron
+   * interval so reminders are not missed if a cron tick runs late.
+   *
+   * Deduplication is handled at the queue layer: TasksService uses a
+   * deterministic Bull jobId, so repeated enqueues for the same task +
+   * reminderTime collapse to a single delayed job.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async enqueueUpcomingReminders(): Promise<void> {
+    this.logger.debug('Starting upcoming-reminder enqueue cron job');
+    try {
+      const now = new Date();
+      const windowEnd = new Date(now.getTime() + 10 * 60 * 1000);
+
+      const upcoming = await this.healthTaskRepository.find({
+        where: {
+          reminderTime: Between(now, windowEnd),
+        },
+      });
+
+      if (upcoming.length === 0) {
+        return;
+      }
+
+      this.logger.log(`Found ${upcoming.length} upcoming reminders to enqueue`);
+
+      let enqueuedCount = 0;
+      let errorCount = 0;
+      for (const task of upcoming) {
+        try {
+          await this.tasksService.scheduleReminderJob(task);
+          enqueuedCount++;
+        } catch (error) {
+          this.logger.error(
+            `Failed to enqueue reminder for task ${task.id}: ${error.message}`,
+          );
+          errorCount++;
+        }
+      }
+
+      this.logger.log(
+        `Upcoming reminders processed. Enqueued: ${enqueuedCount}, Errors: ${errorCount}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Upcoming reminders cron job failed: ${error.message}`,
+        error.stack,
+      );
     }
   }
 

@@ -1,14 +1,20 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
+import passwordConfig from './config/password.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from '@modules/users/users.module';
 import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
-import { WalletModule } from './modules/wallet/wallet.module';
+import { WalletModule } from './users/wallet/wallet.module';
 import { ConsultationsModule } from '@modules/consultations/consultations.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
@@ -18,6 +24,8 @@ import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { CacheModule } from './shared/cache/cache.module';
+import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
 
 // Database
 import { DatabaseModule } from '@database/database.module';
@@ -30,19 +38,42 @@ import { SigningModule } from './common/signing/signing.module';
 import { SearchModule } from './shared/search/search.module';
 import { SchedulerModule } from './shared/scheduler/scheduler.module';
 import { PushModule } from './shared/notifications/push.module';
+import { AnalyticsModule } from './shared/analytics/analytics.module';
+import { OtpModule } from './otp/otp.module';
+import { AppCacheModule } from './shared/cache/cache.module';
+import { RewardModule } from './rewards/reward.module';
+import { ReferralModule } from './referral/referral.module';
+import { HealthProfileModule } from './users/health-profile/health-profile.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig],
+      load: [secretsConfig, passwordConfig],
     }),
+    AppCacheModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 100,
+      },
+      {
+        name: 'otp',
+        ttl: 3600000,
+        limit: 3,
+      },
+    ]),
+    EventEmitterModule.forRoot(),
     DatabaseModule,
+    OtpModule,
     LoggingModule,
     // 2. Add it to the imports list
-    StorageModule, 
+    StorageModule,
+    CacheModule,
     MetricsModule,
+    AnalyticsModule,
     UsageModule,
     MonitoringModule,
     SigningModule,
@@ -57,8 +88,22 @@ import { PushModule } from './shared/notifications/push.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    RewardModule,
+    ReferralModule,
+    HealthProfileModule,
+    CouponModule, // <-- Registered CouponModule in active application imports tree
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

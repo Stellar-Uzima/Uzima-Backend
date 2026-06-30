@@ -50,6 +50,15 @@ export const usersData: UserData[] = [
     country: 'GH',
     isVerified: false,
   },
+  {
+    email: 'demo.user@example.com',
+    password: 'DemoPass123!',
+    fullName: 'Demo User',
+    role: Role.USER,
+    country: 'ZA',
+    phoneNumber: '+27123456789',
+    isVerified: true,
+  },
 ];
 
 export class UserSeeder extends BaseSeeder {

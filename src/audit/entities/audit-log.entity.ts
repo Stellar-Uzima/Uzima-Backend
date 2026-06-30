@@ -127,4 +127,13 @@ export class AuditLog {
 
   @Column({ name: 'block_index', type: 'int', nullable: true })
   blockIndex: number | null;
+
+  // Retention policy fields
+  @Column({
+    type: 'timestamp with time zone',
+    name: 'retention_expires_at',
+    nullable: true,
+    precision: 6,
+  })
+  retentionExpiresAt: Date | null;
 }

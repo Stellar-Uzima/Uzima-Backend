@@ -1,60 +1,176 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, CallHandler } from '@nestjs/common';
+/**
+ * @jest-environment node
+ */
+
+import { ExecutionContext, CallHandler, ServiceUnavailableException } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
-import { CircuitBreakerInterceptor } from './circuit-breaker.interceptor';
+import { CircuitBreakerInterceptor, CircuitState } from './circuit-breaker.interceptor';
+
+const mockContext = {} as ExecutionContext;
+
+const successHandler: CallHandler = { handle: () => of({ ok: true }) };
+const failHandler: CallHandler = {
+  handle: () => throwError(() => new Error('upstream error')),
+};
 
 describe('CircuitBreakerInterceptor', () => {
+  const THRESHOLD = 3;
+  const RESET_TIMEOUT = 300;
+
   let interceptor: CircuitBreakerInterceptor;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        {
-          provide: CircuitBreakerInterceptor,
-          useFactory: () => new CircuitBreakerInterceptor({
-            failureThreshold: 3,
-            resetTimeout: 1000,
-          }),
-        },
-      ],
-    }).compile();
-
-    interceptor = module.get<CircuitBreakerInterceptor>(CircuitBreakerInterceptor);
+  beforeEach(() => {
+    interceptor = new CircuitBreakerInterceptor({
+      failureThreshold: THRESHOLD,
+      resetTimeout: RESET_TIMEOUT,
+      serviceName: 'test-service',
+    });
   });
+
+  // ── initial state ──────────────────────────────────────────────────────────
 
   describe('initial state', () => {
-    it('should be CLOSED initially', () => {
-      expect(interceptor.getState()).toBe('CLOSED');
+    it('starts in CLOSED state', () => {
+      expect(interceptor.getState()).toBe(CircuitState.CLOSED);
     });
 
-    it('should have zero failures initially', () => {
-      // Access private failureCount via method that exposes state
-      expect(interceptor.getState()).toBe('CLOSED');
+    it('starts with zero failure count', () => {
+      expect(interceptor.getFailureCount()).toBe(0);
     });
   });
 
-  describe('failure threshold triggers opening', () => {
-    it('should transition from CLOSED to OPEN after threshold failures', (done) => {
-      const mockContext = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
+  // ── CLOSED behaviour ───────────────────────────────────────────────────────
 
-      const mockNext = {
-        handle: () => throwError(() => new Error('Service error')),
-      } as unknown as CallHandler;
+  describe('CLOSED state', () => {
+    it('passes a successful request through', (done) => {
+      interceptor.intercept(mockContext, successHandler).subscribe({
+        next: (val) => expect(val).toEqual({ ok: true }),
+        complete: done,
+      });
+    });
 
-      // Trigger 3 failures (threshold)
-      let completed = 0;
-      for (let i = 0; i < 3; i++) {
-        interceptor.intercept(mockContext, mockNext).subscribe({
+    it('re-throws upstream errors without opening below threshold', (done) => {
+      interceptor.intercept(mockContext, failHandler).subscribe({
+        error: (err) => {
+          expect(err.message).toBe('upstream error');
+          expect(interceptor.getState()).toBe(CircuitState.CLOSED);
+          done();
+        },
+      });
+    });
+
+    it('increments failure count on each error', (done) => {
+      interceptor.intercept(mockContext, failHandler).subscribe({
+        error: () => {
+          expect(interceptor.getFailureCount()).toBe(1);
+          done();
+        },
+      });
+    });
+  });
+
+  // ── threshold-triggered OPEN ───────────────────────────────────────────────
+
+  describe('opening the circuit on failure threshold', () => {
+    function triggerFailures(count: number, cb: () => void) {
+      let remaining = count;
+      for (let i = 0; i < count; i++) {
+        interceptor.intercept(mockContext, failHandler).subscribe({
           error: () => {
-            completed += 1;
-            if (completed === 3) {
-              expect(interceptor.getState()).toBe('OPEN');
-              expect(interceptor.getState()).not.toBe('CLOSED');
+            remaining -= 1;
+            if (remaining === 0) cb();
+          },
+        });
+      }
+    }
+
+    it('transitions to OPEN after failureThreshold consecutive failures', (done) => {
+      triggerFailures(THRESHOLD, () => {
+        expect(interceptor.getState()).toBe(CircuitState.OPEN);
+        done();
+      });
+    });
+
+    it('fast-fails with ServiceUnavailableException while OPEN', (done) => {
+      triggerFailures(THRESHOLD, () => {
+        interceptor.intercept(mockContext, successHandler).subscribe({
+          error: (err) => {
+            expect(err).toBeInstanceOf(ServiceUnavailableException);
+            done();
+          },
+        });
+      });
+    });
+
+    it('does not call the upstream handler while OPEN', (done) => {
+      const spy = jest.fn().mockReturnValue(of({ ok: true }));
+      const spyHandler: CallHandler = { handle: spy };
+
+      triggerFailures(THRESHOLD, () => {
+        interceptor.intercept(mockContext, spyHandler).subscribe({
+          error: () => {
+            expect(spy).not.toHaveBeenCalled();
+            done();
+          },
+        });
+      });
+    });
+  });
+
+  // ── HALF_OPEN trial request ────────────────────────────────────────────────
+
+  describe('HALF_OPEN after reset timeout', () => {
+    function openThenWait(cb: () => void) {
+      let remaining = THRESHOLD;
+      for (let i = 0; i < THRESHOLD; i++) {
+        interceptor.intercept(mockContext, failHandler).subscribe({
+          error: () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              setTimeout(cb, RESET_TIMEOUT + 50);
+            }
+          },
+        });
+      }
+    }
+
+    it('closes the circuit when the trial request succeeds', (done) => {
+      openThenWait(() => {
+        interceptor.intercept(mockContext, successHandler).subscribe({
+          complete: () => {
+            expect(interceptor.getState()).toBe(CircuitState.CLOSED);
+            expect(interceptor.getFailureCount()).toBe(0);
+            done();
+          },
+        });
+      });
+    });
+
+    it('re-opens the circuit when the trial request fails', (done) => {
+      openThenWait(() => {
+        interceptor.intercept(mockContext, failHandler).subscribe({
+          error: () => {
+            expect(interceptor.getState()).toBe(CircuitState.OPEN);
+            done();
+          },
+        });
+      });
+    });
+  });
+
+  // ── reset helper ───────────────────────────────────────────────────────────
+
+  describe('reset()', () => {
+    it('forces circuit back to CLOSED from OPEN', (done) => {
+      let remaining = THRESHOLD;
+      for (let i = 0; i < THRESHOLD; i++) {
+        interceptor.intercept(mockContext, failHandler).subscribe({
+          error: () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              interceptor.reset();
+              expect(interceptor.getState()).toBe(CircuitState.CLOSED);
+              expect(interceptor.getFailureCount()).toBe(0);
               done();
             }
           },
@@ -62,172 +178,22 @@ describe('CircuitBreakerInterceptor', () => {
       }
     });
 
-    it('should reject requests immediately when OPEN', (done) => {
-      // First open the circuit
-      const mockContext = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextError = {
-        handle: () => throwError(() => new Error('Service error')),
-      } as unknown as CallHandler;
-
-      // Open the circuit via failures
-      for (let i = 0; i < 3; i++) {
-        interceptor.intercept(mockContext, mockNextError).subscribe({
-          error: () => {},
+    it('allows normal traffic after a reset', (done) => {
+      let remaining = THRESHOLD;
+      for (let i = 0; i < THRESHOLD; i++) {
+        interceptor.intercept(mockContext, failHandler).subscribe({
+          error: () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              interceptor.reset();
+              interceptor.intercept(mockContext, successHandler).subscribe({
+                next: (val) => expect(val).toEqual({ ok: true }),
+                complete: done,
+              });
+            }
+          },
         });
       }
-
-      expect(interceptor.getState()).toBe('OPEN');
-
-      // Now try a new request - should fail immediately without calling next
-      const mockContext2 = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextSuccess = {
-        handle: () => of({ data: 'success' }),
-      } as unknown as CallHandler;
-
-      interceptor.intercept(mockContext2, mockNextSuccess).subscribe({
-        error: (err) => {
-          expect(err.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
-          expect(err.message).toBe('Service unavailable - circuit breaker open');
-          done();
-        },
-      });
-    });
-  });
-
-  describe('half-open trial', () => {
-    it('should transition to HALF_OPEN after reset timeout', (done) => {
-      const mockContext = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextError = {
-        handle: () => throwError(() => new Error('Service error')),
-      } as unknown as CallHandler;
-
-      // Open the circuit
-      for (let i = 0; i < 3; i++) {
-        interceptor.intercept(mockContext, mockNextError).subscribe({
-          error: () => {},
-        });
-      }
-
-      expect(interceptor.getState()).toBe('OPEN');
-
-      // Manually transition to HALF_OPEN
-      interceptor.transitionToHalfOpen();
-      expect(interceptor.getState()).toBe('HALF_OPEN');
-      done();
-    });
-
-    it('should allow one request through in HALF_OPEN state', (done) => {
-      const mockContext = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextSuccess = {
-        handle: () => of({ data: 'success' }),
-      } as unknown as CallHandler;
-
-      // Set to HALF_OPEN
-      interceptor.transitionToHalfOpen();
-
-      interceptor.intercept(mockContext, mockNextSuccess).subscribe({
-        next: (data) => {
-          // In HALF_OPEN, it should pass through
-          done();
-        },
-        error: (err) => {
-          // If it errors with SERVICE_UNAVAILABLE, circuit is still open
-          if (err.getStatus() === HttpStatus.SERVICE_UNAVAILABLE) {
-            done.fail('Should have allowed request through in HALF_OPEN');
-          }
-        },
-      });
-    });
-  });
-
-  describe('reset on success', () => {
-    it('should close circuit on successful request in HALF_OPEN', (done) => {
-      const mockContext = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextSuccess = {
-        handle: () => of({ data: 'success' }),
-      } as unknown as CallHandler;
-
-      // Open circuit first
-      const mockContextForOpen = {
-        switchToHttp: () => ({
-          getRequest: () => ({}),
-          getResponse: () => ({}),
-        }),
-      } as unknown as ExecutionContext;
-
-      const mockNextError = {
-        handle: () => throwError(() => new Error('error')),
-      } as unknown as CallHandler;
-
-      for (let i = 0; i < 3; i++) {
-        interceptor.intercept(mockContextForOpen, mockNextError).subscribe({
-          error: () => {},
-        });
-      }
-
-      expect(interceptor.getState()).toBe('OPEN');
-      interceptor.transitionToHalfOpen();
-
-      interceptor.intercept(mockContext, mockNextSuccess).subscribe({
-        next: () => {
-          expect(interceptor.getState()).toBe('CLOSED');
-          done();
-        },
-        error: (err) => {
-          if (err.getStatus() === HttpStatus.SERVICE_UNAVAILABLE) {
-            done.fail('Should not fail in HALF_OPEN with success');
-          }
-        },
-      });
-    });
-  });
-
-  describe('manual control', () => {
-    it('should allow manual open', () => {
-      interceptor.openCircuit();
-      expect(interceptor.getState()).toBe('OPEN');
-    });
-
-    it('should allow manual close', () => {
-      interceptor.openCircuit();
-      expect(interceptor.getState()).toBe('OPEN');
-      interceptor.closeCircuit();
-      expect(interceptor.getState()).toBe('CLOSED');
-    });
-
-    it('should reset failure count on manual reset', () => {
-      interceptor.reset();
-      expect(interceptor.getState()).toBe('CLOSED');
     });
   });
 });

@@ -10,6 +10,12 @@ import {
   LeaderboardResponseDto,
   LeaderboardEntryDto,
 } from './dto/leaderboard.dto';
+import {
+  LeaderboardPeriod,
+  DEFAULT_LEADERBOARD_PERIOD,
+  getPeriodStartDate,
+  buildLeaderboardSetKey,
+} from './leaderboard-period.enum';
 
 export interface LeaderboardCalculationRow {
   userId: string;
@@ -130,10 +136,9 @@ export class LeaderboardService {
     limit: number = 50,
     countryCode?: string,
     page: number = 1,
+    period: LeaderboardPeriod = DEFAULT_LEADERBOARD_PERIOD,
   ): Promise<LeaderboardResponseDto> {
-    const setKey = countryCode
-      ? `leaderboard:country:${countryCode.toUpperCase()}`
-      : `leaderboard:global`;
+    const setKey = buildLeaderboardSetKey(period, countryCode);
     const namesKey = `leaderboard:metadata:names`;
     const startIndex = Math.max(page - 1, 0) * limit;
     const endIndex = startIndex + limit - 1;
@@ -182,56 +187,65 @@ export class LeaderboardService {
 
   async rebuildLeaderboards() {
     this.logger.log('Starting optimized leaderboard rebuild...');
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
 
-    // Get all transactions grouped by user with their names and countries
-    const data = await this.rewardRepo
-      .createQueryBuilder('rt')
-      .select('rt.userId', 'userId')
-      .addSelect('SUM(rt.amount)', 'totalXlm')
-      .addSelect('u.fullName', 'fullName')
-      .addSelect('u.country', 'country')
-      .innerJoin('rt.user', 'u')
-      .where('rt.status = :status', { status: RewardStatus.SUCCESS })
-      .andWhere('rt.createdAt >= :startOfMonth', { startOfMonth })
-      .groupBy('rt.userId')
-      .addGroupBy('u.fullName')
-      .addGroupBy('u.country')
-      .getRawMany();
+    const periods = [
+      LeaderboardPeriod.DAILY,
+      LeaderboardPeriod.WEEKLY,
+      LeaderboardPeriod.MONTHLY,
+      LeaderboardPeriod.ALL_TIME,
+    ];
 
     const pipeline = this.redis.pipeline();
-
-    // Clear previous month/day keys to avoid stale data
-    pipeline.del('leaderboard:global');
-
     const nameMap: Record<string, string> = {};
+    let totalUsersProcessed = 0;
 
-    for (const row of data) {
-      const score = parseFloat(row.totalXlm);
-      const truncatedName = this.formatDisplayName(row.fullName);
+    for (const period of periods) {
+      const periodStart = getPeriodStartDate(period);
+      const globalKey = buildLeaderboardSetKey(period);
+      pipeline.del(globalKey);
 
-      // Add to Global Set
-      pipeline.zadd('leaderboard:global', score, row.userId);
-      // Add to Country Set
-      pipeline.zadd(
-        `leaderboard:country:${row.country.toUpperCase()}`,
-        score,
-        row.userId,
-      );
+      const queryBuilder = this.rewardRepo
+        .createQueryBuilder('rt')
+        .select('rt.userId', 'userId')
+        .addSelect('SUM(rt.amount)', 'totalXlm')
+        .addSelect('u.fullName', 'fullName')
+        .addSelect('u.country', 'country')
+        .innerJoin('rt.user', 'u')
+        .where('rt.status = :status', { status: RewardStatus.SUCCESS });
 
-      nameMap[row.userId] = truncatedName;
+      if (periodStart) {
+        queryBuilder.andWhere('rt.createdAt >= :periodStart', { periodStart });
+      }
+
+      const data = await queryBuilder
+        .groupBy('rt.userId')
+        .addGroupBy('u.fullName')
+        .addGroupBy('u.country')
+        .getRawMany();
+
+      totalUsersProcessed = Math.max(totalUsersProcessed, data.length);
+
+      for (const row of data) {
+        const score = parseFloat(row.totalXlm);
+        const truncatedName = this.formatDisplayName(row.fullName);
+        const countryKey = buildLeaderboardSetKey(
+          period,
+          row.country?.toUpperCase(),
+        );
+
+        pipeline.zadd(globalKey, score, row.userId);
+        pipeline.zadd(countryKey, score, row.userId);
+        nameMap[row.userId] = truncatedName;
+      }
     }
 
-    // Update the Metadata Hash (Overwrites existing, adds new)
     if (Object.keys(nameMap).length > 0) {
       pipeline.hmset('leaderboard:metadata:names', nameMap);
     }
 
     await pipeline.exec();
     this.logger.log(
-      `Leaderboard rebuild complete. Processed ${data.length} users.`,
+      `Leaderboard rebuild complete. Processed up to ${totalUsersProcessed} users per period.`,
     );
   }
 }

@@ -13,6 +13,11 @@ export class ReportExportService {
     private readonly rewardTransactionRepository: Repository<RewardTransaction>,
   ) {}
 
+  /**
+   * Streams reward transactions as CSV rows into a PassThrough stream so
+   * large result sets can be sent to the client without buffering them fully
+   * in memory first.
+   */
   streamRewardsCsv(userId?: string): PassThrough {
     const stream = new PassThrough();
     const headers = ['id', 'userId', 'amount', 'status', 'stellarTxHash', 'createdAt'];

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { buildDatabaseTypeOrmOptions } from '../config/database.config';
 import { TransactionService } from './services/transaction.service';
 
 @Module({
@@ -21,7 +22,14 @@ import { TransactionService } from './services/transaction.service';
           configService.get<string>('NODE_ENV') !== 'production' &&
           configService.get<boolean>('DB_SYNCHRONIZE', false),
         migrationsRun: configService.get<string>('NODE_ENV') === 'production',
-        logging: configService.get<boolean>('DB_LOGGING', false),
+        ...buildDatabaseTypeOrmOptions({
+          NODE_ENV: configService.get<string>('NODE_ENV', 'development'),
+          DB_LOGGING: configService.get<string>('DB_LOGGING', 'false'),
+          SLOW_QUERY_THRESHOLD_MS: configService.get<string>(
+            'SLOW_QUERY_THRESHOLD_MS',
+            '1000',
+          ),
+        }),
       }),
     }),
   ],

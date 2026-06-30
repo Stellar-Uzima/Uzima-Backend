@@ -59,7 +59,7 @@ export class TaskCompletionService {
 
     if (existing) {
       const nextAvailableAt = new Date(
-        existing.completedAt.getTime() + 24 * 60 * 60 * 1000,
+        existing.completedAt!.getTime() + 24 * 60 * 60 * 1000,
       );
       throw new ConflictException({
         message: 'Task already completed within the last 24 hours',

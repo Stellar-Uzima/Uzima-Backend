@@ -12,6 +12,11 @@ export class AppController {
   getHealth() {
     return this.appService.getHealth();
   }
+  // beforeEach(async () => {
+  //   const app: TestingModule = await Test.createTestingModule({
+  //     controllers: [AppController],
+  //     providers: [AppService],
+  //   }).compile();
 
   @Get()
   @ApiOperation({ summary: 'Welcome message' })

@@ -9,7 +9,7 @@ describe('RewardProcessor', () => {
   let rewardService: RewardService;
   let eventEmitter: EventEmitter2;
   let rewardQueue: Queue;
-  let dlq: Queue<any>;
+  let dlq: Queue<any>;//
 
   const mockRewardService = {
     processRewardJob: jest.fn(),

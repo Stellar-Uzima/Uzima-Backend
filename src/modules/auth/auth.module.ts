@@ -5,34 +5,43 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UsersModule } from '@modules/users/users.module';
 import { EmailVerification } from '../../database/entities/email-verification.entity';
 import { Session } from '../../database/entities/session.entity';
 import { TokenBlacklist } from '../../database/entities/token-blacklist.entity';
 import { TwoFactor } from '../../database/entities/two-factor.entity';
+import { User } from '../../entities/user.entity';
 import { EmailVerificationService } from './services/email-verification.service';
 import { SessionService } from './services/session.service';
 import { NotificationsModule } from '@/notifications/notifications.module';
-import { JwtStrategy } from '../../auth/strategies/jwt.strategy';
-import { JwtRefreshStrategy } from '../../auth/strategies/jwt-refresh.strategy';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { JwtRefreshGuard } from '../../auth/guards/jwt-refresh.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { TwoFactorController } from './two-factor.controller';
 import { TwoFactorService } from './services/two-factor.service';
+import { OtpModule } from '../../otp/otp.module';
+import { AuditModule } from '../../audit/audit.module';
+import { UsersService } from './services/users.service';
+import { DatabaseModule } from '../../database/database.module';
+import { ReferralModule } from '../../referral/referral.module';
+import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 
 @Module({
   imports: [
-    UsersModule,
+    OtpModule,
+    AuditModule,
+    DatabaseModule,
+    ReferralModule,
     PassportModule,
-    TypeOrmModule.forFeature([EmailVerification, Session, TokenBlacklist, TwoFactor]),
+    TypeOrmModule.forFeature([User, EmailVerification, Session, TokenBlacklist, TwoFactor]),
     NotificationsModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '3600s'),
+          expiresIn: configService.get<string>('JWT_EXPIRATION', '3600s') as any,
         },
       }),
     }),
@@ -40,6 +49,7 @@ import { TwoFactorService } from './services/two-factor.service';
   controllers: [AuthController, TwoFactorController],
   providers: [
     AuthService,
+    UsersService,
     EmailVerificationService,
     SessionService,
     TwoFactorService,
@@ -48,6 +58,7 @@ import { TwoFactorService } from './services/two-factor.service';
     JwtAuthGuard,
     JwtRefreshGuard,
     RolesGuard,
+    PasswordValidationPipe,
   ],
   exports: [
     AuthService,

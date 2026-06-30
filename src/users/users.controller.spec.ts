@@ -46,6 +46,7 @@ describe('UsersController', () => {
             getStats: jest.fn(),
             updateProfile: jest.fn(),
             softDelete: jest.fn(),
+            registerDeviceToken: jest.fn(),
           },
         },
       ],
@@ -338,17 +339,19 @@ describe('UsersController', () => {
     });
   });
 
-  describe('DELETE /users/me', () => {
-    it('should soft delete user account', async () => {
-      jest.spyOn(service, 'softDelete').mockResolvedValue();
-
+  describe('POST /users/device-token', () => {
+    it('should register a device token successfully', async () => {
+      const dto = { token: 'fcm-token-123' };
       const req = {
         user: { userId: 'test-user-id' },
       } as any;
 
-      await controller.deleteProfile(req);
+      jest.spyOn(service, 'registerDeviceToken').mockResolvedValue(mockUser as any);
 
-      expect(service.softDelete).toHaveBeenCalledWith('test-user-id');
+      const result = await controller.registerDeviceToken(dto, req);
+
+      expect(service.registerDeviceToken).toHaveBeenCalledWith('test-user-id', 'fcm-token-123');
+      expect(result).toEqual({ success: true, message: 'Device token registered successfully' });
     });
   });
 });

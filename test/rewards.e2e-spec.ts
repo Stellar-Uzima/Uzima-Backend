@@ -8,6 +8,11 @@ import { User } from '../src/entities/user.entity';
 import { HealthTask } from '../src/tasks/entities/health-task.entity';
 import { TaskCompletion } from '../src/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../src/rewards/entities/reward-transaction.entity';
+  // @IsOptional()
+  // @Type(() => Number)
+  // @IsInt()
+  // @Min(1)
+  // limit?: number = 20;
 
 describe('Rewards E2E', () => {
   let app: INestApplication;

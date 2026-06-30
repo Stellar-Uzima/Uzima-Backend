@@ -7,6 +7,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,7 +18,7 @@ import {
 import { WalletService } from './wallet.service';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
 import { LinkWalletDto } from './dto/link-wallet.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 
 @ApiTags('Wallet')
 @Controller('users/me/wallet')
@@ -64,5 +65,31 @@ export class WalletController {
   ): Promise<{ message: string }> {
     await this.walletService.linkWallet(req.user.sub, linkWalletDto.address);
     return { message: 'Wallet linked successfully' };
+  }
+
+  @Get('transactions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get wallet transaction history' })
+  @ApiResponse({
+    status: 200,
+    description: 'Transaction history retrieved successfully',
+  })
+  async getTransactions(
+    @Request() req,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('type') type?: string,
+  ) {
+    return this.walletService.getTransactionHistory(
+      req.user.sub,
+      Number(page),
+      Number(limit),
+      startDate,
+      endDate,
+      type,
+    );
   }
 }
