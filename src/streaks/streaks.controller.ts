@@ -9,6 +9,12 @@ import { StreaksService } from './streaks.service';
 @Controller('users/me/streak')
 export class StreaksController {
   constructor(private readonly streaksService: StreaksService) {}
+  // beforeEach(async () => {
+  //   const app: TestingModule = await Test.createTestingModule({
+  //     controllers: [AppController],
+  //     providers: [AppService],
+  //   }).compile();
+    //   }).compile();
 
   @Get()
   async getCurrentStreak(@Req() req: any) {
