@@ -11,6 +11,11 @@ describe('Application startup validation', () => {
     process.env = { ...ORIGINAL_ENV };
     jest.resetAllMocks();
   });
+  // @IsOptional()
+  // @Type(() => Number)
+  // @IsInt()
+  // @Min(1)
+  // limit?: number = 20;
 
   it('starts successfully with required env vars present', async () => {
     process.env.DATABASE_HOST = 'localhost';

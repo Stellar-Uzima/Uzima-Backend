@@ -3,103 +3,130 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-  HttpException,
-  HttpStatus,
+  Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
-import { Observable, throwError, timer } from 'rxjs';
-import { catchError, retryWhen, switchMap } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
 
-type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+export enum CircuitState {
+  CLOSED = 'CLOSED',
+  OPEN = 'OPEN',
+  HALF_OPEN = 'HALF_OPEN',
+}
 
-interface CircuitBreakerOptions {
+export interface CircuitBreakerOptions {
   failureThreshold: number;
   resetTimeout: number;
-  monitoringService?: any;
+  serviceName?: string;
 }
+
+const DEFAULT_OPTIONS: Required<CircuitBreakerOptions> = {
+  failureThreshold: 5,
+  resetTimeout: 30_000,
+  serviceName: 'external-service',
+};
 
 @Injectable()
 export class CircuitBreakerInterceptor implements NestInterceptor {
-  private readonly logger = console;
-  private state: CircuitState = 'CLOSED';
+  private readonly logger = new Logger(CircuitBreakerInterceptor.name);
+
+  private state: CircuitState = CircuitState.CLOSED;
   private failureCount = 0;
+  private openedAt: number | null = null;
+
   private readonly options: Required<CircuitBreakerOptions>;
 
-  constructor(options: CircuitBreakerOptions) {
-    this.options = {
-      failureThreshold: options.failureThreshold ?? 5,
-      resetTimeout: options.resetTimeout ?? 30000,
-      monitoringService: options.monitoringService ?? null,
-    };
+  constructor(options: Partial<CircuitBreakerOptions> = {}) {
+    this.options = { ...DEFAULT_OPTIONS, ...options };
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    if (this.state === 'OPEN') {
-      return throwError(
-        () =>
-          new HttpException(
-            'Service unavailable - circuit breaker open',
-            HttpStatus.SERVICE_UNAVAILABLE,
-          ),
-      );
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    if (this.state === CircuitState.OPEN) {
+      const elapsed = Date.now() - (this.openedAt ?? 0);
+
+      if (elapsed >= this.options.resetTimeout) {
+        this.transitionTo(CircuitState.HALF_OPEN);
+        this.logger.log(
+          `[${this.options.serviceName}] Circuit transitioning to HALF_OPEN — allowing trial request`,
+        );
+      } else {
+        this.logger.warn(
+          `[${this.options.serviceName}] Circuit OPEN — fast-failing (${Math.round(this.options.resetTimeout - elapsed)}ms until half-open)`,
+        );
+        return throwError(
+          () =>
+            new ServiceUnavailableException(
+              `Service ${this.options.serviceName} is currently unavailable. Please try again later.`,
+            ),
+        );
+      }
     }
 
     return next.handle().pipe(
-      retryWhen((errors) =>
-        errors.pipe(
-          switchMap((error, i) => {
-            this.recordFailure();
-            if (this.state === 'OPEN') {
-              return throwError(
-                () =>
-                  new HttpException(
-                    'Service unavailable - circuit breaker open',
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                  ),
-              );
-            }
-            return timer(this.options.resetTimeout);
-          }),
-        ),
-      ),
-      catchError((error) => {
-        this.recordFailure();
-        return throwError(() => error);
+      tap(() => this.onSuccess()),
+      catchError((err: unknown) => {
+        this.onFailure();
+        return throwError(() => err);
       }),
     );
   }
 
-  private recordFailure(): void {
+  private onSuccess(): void {
+    if (this.state === CircuitState.HALF_OPEN) {
+      this.logger.log(
+        `[${this.options.serviceName}] Trial request succeeded — closing circuit`,
+      );
+      this.transitionTo(CircuitState.CLOSED);
+    }
+    this.failureCount = 0;
+  }
+
+  private onFailure(): void {
     this.failureCount += 1;
-    if (this.state === 'CLOSED' && this.failureCount >= this.options.failureThreshold) {
-      this.state = 'OPEN';
-      this.failureCount = 0;
-      this.logger.warn('Circuit breaker opened due to failures');
+
+    if (
+      this.state === CircuitState.HALF_OPEN ||
+      this.failureCount >= this.options.failureThreshold
+    ) {
+      this.logger.error(
+        `[${this.options.serviceName}] Failure threshold hit (${this.failureCount}/${this.options.failureThreshold}) — opening circuit`,
+      );
+      this.transitionTo(CircuitState.OPEN);
+    } else {
+      this.logger.warn(
+        `[${this.options.serviceName}] Failure recorded (${this.failureCount}/${this.options.failureThreshold})`,
+      );
     }
   }
 
-  transitionToHalfOpen(): void {
-    if (this.state === 'OPEN') {
-      this.state = 'HALF_OPEN';
-      this.failureCount = 0;
+  private transitionTo(newState: CircuitState): void {
+    const prev = this.state;
+    this.state = newState;
+
+    if (newState === CircuitState.OPEN) {
+      this.openedAt = Date.now();
     }
-  }
 
-  closeCircuit(): void {
-    this.state = 'CLOSED';
-    this.failureCount = 0;
-  }
+    if (newState === CircuitState.CLOSED) {
+      this.failureCount = 0;
+      this.openedAt = null;
+    }
 
-  openCircuit(): void {
-    this.state = 'OPEN';
-    this.failureCount = 0;
+    this.logger.log(
+      `[${this.options.serviceName}] State: ${prev} → ${newState}`,
+    );
   }
 
   getState(): CircuitState {
     return this.state;
   }
 
+  getFailureCount(): number {
+    return this.failureCount;
+  }
+
   reset(): void {
-    this.state = 'CLOSED';
-    this.failureCount = 0;
+    this.transitionTo(CircuitState.CLOSED);
   }
 }

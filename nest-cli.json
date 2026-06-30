@@ -4,6 +4,8 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsPlug": []
+    "tsPlug": [],
+    "assets": ["**/*.html"],
+    "watchAssets": true
   }
 }

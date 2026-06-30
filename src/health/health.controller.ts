@@ -1,61 +1,57 @@
-import { Controller, Get, Logger, ServiceUnavailableException } from '@nestjs/common';
 import {
-  HealthCheckError,
-  TypeOrmHealthIndicator,
-} from '@nestjs/terminus';
-import { RedisHealthIndicator } from './redis-health.indicator';
+  Controller,
+  Get,
+} from "@nestjs/common";
 
-@Controller('health')
+import {
+  HealthCheck,
+  HealthCheckService,
+  TypeOrmHealthIndicator,
+} from "@nestjs/terminus";
+
+import {
+  RedisHealthIndicator,
+} from "./indicators/redis.health";
+
+import {
+  QueueHealthIndicator,
+} from "./indicators/queue.health";
+
+@Controller("health")
 export class HealthController {
-  private readonly logger = new Logger(HealthController.name);
 
   constructor(
-    private readonly db: TypeOrmHealthIndicator,
-    private readonly redis: RedisHealthIndicator,
+    private readonly health: HealthCheckService,
+
+    private readonly db:
+      TypeOrmHealthIndicator,
+
+    private readonly redis:
+      RedisHealthIndicator,
+
+    private readonly queue:
+      QueueHealthIndicator,
   ) {}
 
   @Get()
-  async check() {
-    const details: Record<string, unknown> = {};
-    let hasFailure = false;
+  @HealthCheck()
+  check() {
 
-    try {
-      Object.assign(details, await this.db.pingCheck('db'));
-    } catch (error) {
-      hasFailure = true;
-      details.db =
-        error instanceof HealthCheckError
-          ? error.causes.db
-          : {
-              status: 'down',
-            };
-    }
+    return this.health.check([
+      () =>
+        this.db.pingCheck(
+          "database",
+        ),
 
-    try {
-      Object.assign(details, await this.redis.isHealthy('redis'));
-    } catch (error) {
-      hasFailure = true;
-      details.redis =
-        error instanceof HealthCheckError
-          ? error.causes.redis
-          : {
-              status: 'down',
-            };
-    }
+      () =>
+        this.redis.isHealthy(
+          "redis",
+        ),
 
-    if (hasFailure) {
-      const payload = {
-        status: 'error',
-        ...details,
-      };
-
-      this.logger.error(`Health check failed: ${JSON.stringify(payload)}`);
-      throw new ServiceUnavailableException(payload);
-    }
-
-    return {
-      status: 'ok',
-      ...details,
-    };
+      () =>
+        this.queue.isHealthy(
+          "queue",
+        ),
+    ]);
   }
 }

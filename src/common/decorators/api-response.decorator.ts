@@ -9,6 +9,10 @@ import {
   ApiResponseMetadata,
 } from '@nestjs/swagger';
 
+  // beforeEach(async () => {
+  //   const module: TestingModule = await Test.createTestingModule({
+  //     controllers: [HealerController],
+  //   })
 /**
  * Standard API response decorator that combines common response types
  *
