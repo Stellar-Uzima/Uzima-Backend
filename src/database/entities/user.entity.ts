@@ -127,7 +127,37 @@ export class User {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+    @UpdateDateColumn({ name: 'updated_at' })
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  walletAddress?: string | null;
+
+  @Column({ type: 'decimal', precision: 18, scale: 7, default: 0 })
+  walletBalance: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  dailyXlmEarned: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  address?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  city?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  postalCode?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  avatar?: string;
+
+  @Column({ nullable: true })
+  referralCode?: string;
+
+  @Column({ type: 'boolean', default: true })
+  isVerified: boolean;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login_at' })
+  lastLoginAt?: Date | null;
+
   updatedAt: Date;
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
