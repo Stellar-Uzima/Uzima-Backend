@@ -12,6 +12,12 @@ import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
 export class RewardController {
   constructor(private readonly rewardService: RewardService) {}
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
   @Get('payouts')
   @ApiOperation({ summary: 'Get XLM reward payout history' })
   @ApiResponse({ status: 200, description: 'Returns paginated payout records' })

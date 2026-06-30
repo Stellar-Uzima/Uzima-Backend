@@ -19,6 +19,12 @@ const mockRedisClient = {
   del: jest.fn(),
 };
 
+// const mockRedisClient = {
+//   connect: jest.fn(),
+//   get: jest.fn(),
+//   set: jest.fn(),
+//   del: jest.fn(),
+// };
 jest.mock('redis', () => ({
   createClient: () => mockRedisClient,
 }));
