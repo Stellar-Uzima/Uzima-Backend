@@ -14,7 +14,7 @@ import passwordConfig from './config/password.config';
 import { AuthModule } from '@modules/auth/auth.module';
 import { UsersModule } from '@modules/users/users.module';
 import { HealthTasksModule } from '@modules/health-tasks/health-tasks.module';
-import { WalletModule } from './users/wallet/wallet.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 import { ConsultationsModule } from '@modules/consultations/consultations.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
@@ -43,7 +43,7 @@ import { OtpModule } from './otp/otp.module';
 import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
-import { HealthProfileModule } from './users/health-profile/health-profile.module';
+import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 
 @Module({
   imports: [

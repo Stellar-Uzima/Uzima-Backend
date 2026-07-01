@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import { HealthProfile } from '../entities/health-profile.entity';
+import { HealthProfile } from '../../entities/health-profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { UpdateHealthProfileDto } from './dto/health-profile.dto';
 import { HealthProfileCompletionDto } from './dto/health-profile-completion.dto';
 

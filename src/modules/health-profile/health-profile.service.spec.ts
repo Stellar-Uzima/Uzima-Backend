@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { HealthProfileService } from './health-profile.service';
-import { HealthProfile } from '../entities/health-profile.entity';
+import { HealthProfile } from '../../entities/health-profile.entity';
 
 describe('HealthProfileService', () => {
   let service: HealthProfileService;
