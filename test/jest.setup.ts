@@ -2,33 +2,10 @@
  * Jest Setup and Teardown Hooks
  * Runs before and after test suite execution
  */
-
 import { setupTestDatabase, teardownTestDatabase, beforeEachTest, afterEachTest } from './setup';
-
- feat/all-issues-ghost
-// Global setup - runs once before all tests
-beforeAll(async () => {
-  console.log('🚀 Starting test suite setup...');
-  try {
-    await setupTestDatabase();
-    console.log('✅ Test database setup complete');
-  } catch (error) {
-    console.warn('⚠️  Test database not available - skipping DB-dependent tests');
-  }
-}, 60000); // 60 second timeout for setup
-
-// Per-test setup - clean database before each test
-beforeEach(async () => {
-  try {
-    await beforeEachTest();
-  } catch (error) {
-    console.error('❌ Failed to setup before test', error);
-  }
-});
 
 const skipDbSetup = process.env.SKIP_DB_SETUP === 'true';
 let dbSetupSucceeded = false;
- main
 
 if (skipDbSetup) {
   console.log('⚠️ SKIP_DB_SETUP enabled - skipping global DB setup');
