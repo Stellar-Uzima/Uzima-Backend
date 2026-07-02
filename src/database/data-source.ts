@@ -1,10 +1,17 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 /**
  * DataSource configuration for database seeding and migrations.
  * This file is used by TypeORM CLI and seed scripts.
  */
+
+// Handle both CommonJS and ES Module contexts
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || process.env.DATABASE_HOST || 'localhost',
