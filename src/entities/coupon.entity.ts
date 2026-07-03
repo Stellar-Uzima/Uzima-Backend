@@ -8,6 +8,13 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 
+export enum CouponStatus {
+  ACTIVE = 'active',
+  USED = 'used',
+  EXPIRED = 'expired',
+  REVOKED = 'revoked',
+}
+
 @Entity('coupons')
 export class Coupon {
   @PrimaryGeneratedColumn('uuid')

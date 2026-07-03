@@ -2,7 +2,6 @@
  * Jest Setup and Teardown Hooks
  * Runs before and after test suite execution
  */
-
 import { setupTestDatabase, teardownTestDatabase, beforeEachTest, afterEachTest } from './setup';
 
 const skipDbSetup = process.env.SKIP_DB_SETUP === 'true';

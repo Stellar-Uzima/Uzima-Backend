@@ -1,5 +1,10 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * DataSource configuration for database seeding and migrations.

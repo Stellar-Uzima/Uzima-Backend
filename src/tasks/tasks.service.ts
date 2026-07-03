@@ -32,6 +32,8 @@ export class TasksService {
       value,
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
+  }
+
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
@@ -81,10 +83,13 @@ export class TasksService {
     createTaskDto: CreateTaskDto,
     userId: string,
   ): Promise<HealthTask> {
+    const { categoryId, xlmReward, ...rest } = createTaskDto;
     const task = this.healthTaskRepository.create({
-      ...createTaskDto,
+      ...rest,
       createdBy: userId,
       status: TaskStatus.DRAFT,
+      categoryId: String(categoryId),
+      xlmReward,
     });
 
     const saved = await this.healthTaskRepository.save(task);
