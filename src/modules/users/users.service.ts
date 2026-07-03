@@ -37,9 +37,7 @@ export class UsersService {
     @InjectRepository(UserStatusLog)
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly preferencesService: PreferencesService
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache = null as any,
-    private readonly preferencesService: PreferencesService = null as any,
+    private readonly preferencesService: PreferencesService,
   ) {}
 
   async registerDeviceToken(userId: string, token: string): Promise<User> {
@@ -669,58 +667,5 @@ export class UsersService {
     if (this.cacheManager) {
       await this.cacheManager.del(`user:profile:${userId}`);
     }
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ) {
-
-    const user =
-      await this.userRepository.findOne({
-        where: {
-          id: userId,
-        },
-      });
-
-    if (!user) {
-      throw new NotFoundException(
-        'User not found',
-      );
-    }
-
-    Object.assign(
-      user,
-      {
-        name:
-          dto.name ??
-          user.name,
-
-        phone:
-          dto.phone ??
-          user.phone,
-
-        address:
-          dto.address ??
-          user.address,
-      },
-    );
-
-    const updatedUser =
-      await this.userRepository.save(
-        user,
-      );
-
-    return {
-      id:
-        updatedUser.id,
-
-      name:
-        updatedUser.name,
-
-      phone:
-        updatedUser.phone,
-
-      address:
-        updatedUser.address,
-    };
   }
 }
