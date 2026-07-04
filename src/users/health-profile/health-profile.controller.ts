@@ -1,5 +1,5 @@
 import { Controller, Get, Patch, Body, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthProfileService } from './health-profile.service';
 import { UpdateHealthProfileDto } from './dto/health-profile.dto';
 import { HealthProfileCompletionDto } from './dto/health-profile-completion.dto';
