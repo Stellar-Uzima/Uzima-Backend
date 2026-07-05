@@ -37,9 +37,7 @@ export class UsersService {
     @InjectRepository(UserStatusLog)
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly preferencesService: PreferencesService
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache = null as any,
-    private readonly preferencesService: PreferencesService = null as any,
+    private readonly preferencesService: PreferencesService,
   ) {}
 
   async registerDeviceToken(userId: string, token: string): Promise<User> {
@@ -60,7 +58,7 @@ export class UsersService {
 
   async updateSettings(
     userId: string,
-    dto: UpdateUserSettingsDto
+    dto: UpdateUserSettingsDto,
   ): Promise<UserSettingsResponseDto> {
     const user = await this.findUserOrFail(userId);
 
@@ -100,14 +98,10 @@ export class UsersService {
   }
 
   private async findUserOrFail(userId: string): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
+    const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
     return user;
   }
 
@@ -141,23 +135,15 @@ export class UsersService {
     return [firstName?.trim(), lastName?.trim()].filter(Boolean).join(' ');
   }
 
-  private splitFullName(fullName: string): {
-    firstName: string;
-    lastName: string;
-  } {
+  private splitFullName(fullName: string): { firstName: string; lastName: string } {
     const normalized = fullName.trim().replace(/\s+/g, ' ');
     const [firstName, ...rest] = normalized.split(' ');
-
-    return {
-      firstName,
-      lastName: rest.join(' '),
-    };
+    return { firstName, lastName: rest.join(' ') };
   }
 
   private fallbackName(user: User): string {
     const emailName = user.email?.split('@')[0]?.trim();
     const phoneName = user.phoneNumber?.trim();
-
     return emailName || phoneName || 'User';
   }
 
@@ -186,18 +172,8 @@ export class UsersService {
       isVerified,
       createdAtFrom,
       createdAtTo,
-      lastActiveFrom,
-      lastActiveTo,
       country,
       preferredLanguage,
-      walletAddress,
-      stellarWalletAddress,
-      referralCode,
-      minDailyXlmEarned,
-      maxDailyXlmEarned,
-      phoneNumber,
-      hasPasswordResetToken,
-      hasEmailVerificationToken,
     } = filterDto;
 
     const queryBuilder = this.userRepository.createQueryBuilder('user');
@@ -222,7 +198,7 @@ export class UsersService {
     if (search) {
       queryBuilder.andWhere(
         `(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.fullName ILIKE :search)`,
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
@@ -232,18 +208,8 @@ export class UsersService {
       const { field = 'createdAt', order = SortOrder.DESC } = sortField;
       const sortDirection = order === SortOrder.ASC ? 'ASC' : 'DESC';
       const validFields = [
-        'id',
-        'email',
-        'firstName',
-        'lastName',
-        'role',
-        'isActive',
-        'isVerified',
-        'createdAt',
-        'updatedAt',
-        'lastActiveAt',
-        'country',
-        'preferredLanguage',
+        'id', 'email', 'firstName', 'lastName', 'role', 'isActive', 'isVerified',
+        'createdAt', 'updatedAt', 'lastActiveAt', 'country', 'preferredLanguage',
         'dailyXlmEarned',
       ];
       if (validFields.includes(field)) {
@@ -284,8 +250,12 @@ export class UsersService {
     return this.userRepository.findOne({ where: { phoneNumber } });
   }
 
-  async deactivateUser(userId: string): Promise<void> {
-    const user = await this.findOne(userId);
+  /**
+   * Soft-deletes / deactivates a user (self-service or admin action).
+   * Controller calls this as `softDelete`.
+   */
+  async softDelete(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -294,14 +264,19 @@ export class UsersService {
     user.status = UserStatus.INACTIVE;
     await this.userRepository.save(user);
     await this.userRepository.softDelete(userId);
+
+    await this.cacheManager.del(`user:profile:${userId}`);
   }
 
-  async getUserStats(id: string): Promise<any> {
-    const user = await this.findOne(id);
+  /**
+   * Controller calls this as `getStats`.
+   */
+  async getStats(userId: string): Promise<any> {
+    const user = await this.findOne(userId);
     if (!user) throw new ForbiddenException('User not found');
 
     return {
-      userId: id,
+      userId,
       totalTasksCompleted: 0,
       totalEarnings: 0,
       currentStreak: 0,
@@ -320,7 +295,7 @@ export class UsersService {
     statusChangeDto: UserStatusChangeDto,
     changedBy: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<UserStatusResponseDto> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -371,7 +346,7 @@ export class UsersService {
   async getUserStatusHistory(
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<PaginatedResponseDto<UserStatusLog>> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -389,14 +364,7 @@ export class UsersService {
 
     return {
       data: logs,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      meta: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
     };
   }
 
@@ -419,7 +387,7 @@ export class UsersService {
   async getUsersByStatus(
     status: UserStatus,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<PaginatedResponseDto<User>> {
     const offset = (page - 1) * limit;
     const [users, total] = await this.userRepository.findAndCount({
@@ -433,22 +401,19 @@ export class UsersService {
 
     return {
       data: users,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
+      meta: { page, limit, total, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
     };
   }
 
+  /**
+   * Full-featured profile update (validated field-by-field, tracks changed
+   * fields, invalidates cache). This is the version the controller uses.
+   */
   async updateProfile(
     userId: string,
     updateProfileDto: UpdateProfileDto,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<ProfileResponseDto> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -458,18 +423,14 @@ export class UsersService {
 
     if (updateProfileDto.firstName !== undefined) {
       const trimmedFirstName = updateProfileDto.firstName.trim();
-      if (!trimmedFirstName) {
-        throw new BadRequestException('First name cannot be empty');
-      }
+      if (!trimmedFirstName) throw new BadRequestException('First name cannot be empty');
       updates.firstName = trimmedFirstName;
       changedFields.push('firstName');
     }
 
     if (updateProfileDto.lastName !== undefined) {
       const trimmedLastName = updateProfileDto.lastName.trim();
-      if (!trimmedLastName) {
-        throw new BadRequestException('Last name cannot be empty');
-      }
+      if (!trimmedLastName) throw new BadRequestException('Last name cannot be empty');
       updates.lastName = trimmedLastName;
       changedFields.push('lastName');
     }
@@ -478,9 +439,7 @@ export class UsersService {
       const normalizedPhone = PhoneValidationUtil.normalizePhoneNumber(
         updateProfileDto.phoneNumber,
       );
-      if (!normalizedPhone) {
-        throw new BadRequestException('Invalid phone format');
-      }
+      if (!normalizedPhone) throw new BadRequestException('Invalid phone format');
 
       const existingUser = await this.userRepository.findOne({
         where: { phoneNumber: normalizedPhone },
@@ -543,9 +502,7 @@ export class UsersService {
       updatedAt: new Date(),
     });
 
-    if (this.cacheManager) {
-      await this.cacheManager.del(`user:profile:${userId}`);
-    }
+    await this.cacheManager.del(`user:profile:${userId}`);
 
     if (changedFields.length > 0) {
       console.log(`Profile updated for user ${userId}:`, {
@@ -561,10 +518,8 @@ export class UsersService {
 
   async getProfile(userId: string): Promise<ProfileResponseDto> {
     const cacheKey = `user:profile:${userId}`;
-    if (this.cacheManager) {
-      const cached = await this.cacheManager.get<ProfileResponseDto>(cacheKey);
-      if (cached) return cached;
-    }
+    const cached = await this.cacheManager.get<ProfileResponseDto>(cacheKey);
+    if (cached) return cached;
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -591,136 +546,41 @@ export class UsersService {
       updatedAt: user.updatedAt,
     };
 
-    if (this.cacheManager) {
-      await this.cacheManager.set(cacheKey, profile, 300000);
-    }
+    await this.cacheManager.set(cacheKey, profile, 300000);
     return profile;
   }
 
-  /**
-   * Get user preferences
-   */
   async getUserPreferences(userId: string): Promise<PreferencesResponseDto> {
     const preferences = await this.preferencesService.getPreferences(userId);
-
-    return {
-      id: preferences.id,
-      theme: preferences.theme,
-      language: preferences.language,
-      emailNotifications: preferences.notifications.email,
-      pushNotifications: preferences.notifications.push,
-      smsNotifications: preferences.notifications.sms,
-      privacy: preferences.privacy,
-      accessibility: preferences.accessibility,
-      app: preferences.app,
-      createdAt: preferences.createdAt,
-      updatedAt: preferences.updatedAt,
-    };
+    return this.toPreferencesResponse(preferences);
   }
 
-  /**
-   * Update user preferences
-   */
   async updateUserPreferences(userId: string, updateData: any): Promise<PreferencesResponseDto> {
     const preferences = await this.preferencesService.updatePreferences(userId, updateData);
-
-    return {
-      id: preferences.id,
-      theme: preferences.theme,
-      language: preferences.language,
-      emailNotifications: preferences.notifications.email,
-      pushNotifications: preferences.notifications.push,
-      smsNotifications: preferences.notifications.sms,
-      privacy: preferences.privacy,
-      accessibility: preferences.accessibility,
-      app: preferences.app,
-      createdAt: preferences.createdAt,
-      updatedAt: preferences.updatedAt,
-    };
+    return this.toPreferencesResponse(preferences);
   }
 
-  /**
-   * Create default preferences for new user
-   */
   async createDefaultPreferences(userId: string): Promise<void> {
     await this.preferencesService.createDefaultPreferences(userId);
   }
 
-  /**
-   * Delete user preferences (called when user is deleted)
-   */
   async deletePreferences(userId: string): Promise<void> {
     await this.preferencesService.deletePreferences(userId);
   }
 
-  /**
-   * Deactivate a user (self-service deactivation)
-   */
-  async deactivateUser(userId: string): Promise<void> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    user.isActive = false;
-    user.status = UserStatus.INACTIVE;
-    await this.userRepository.softRemove(user);
-
-    if (this.cacheManager) {
-      await this.cacheManager.del(`user:profile:${userId}`);
-    }
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ) {
-
-    const user =
-      await this.userRepository.findOne({
-        where: {
-          id: userId,
-        },
-      });
-
-    if (!user) {
-      throw new NotFoundException(
-        'User not found',
-      );
-    }
-
-    Object.assign(
-      user,
-      {
-        name:
-          dto.name ??
-          user.name,
-
-        phone:
-          dto.phone ??
-          user.phone,
-
-        address:
-          dto.address ??
-          user.address,
-      },
-    );
-
-    const updatedUser =
-      await this.userRepository.save(
-        user,
-      );
-
+  private toPreferencesResponse(preferences: any): PreferencesResponseDto {
     return {
-      id:
-        updatedUser.id,
-
-      name:
-        updatedUser.name,
-
-      phone:
-        updatedUser.phone,
-
-      address:
-        updatedUser.address,
+      id: preferences.id,
+      theme: preferences.theme,
+      language: preferences.language,
+      emailNotifications: preferences.notifications.email,
+      pushNotifications: preferences.notifications.push,
+      smsNotifications: preferences.notifications.sms,
+      privacy: preferences.privacy,
+      accessibility: preferences.accessibility,
+      app: preferences.app,
+      createdAt: preferences.createdAt,
+      updatedAt: preferences.updatedAt,
     };
   }
 }

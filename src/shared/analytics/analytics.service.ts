@@ -1,30 +1,19 @@
-// src/shared/analytics/analytics.service.ts
-
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
-/**
- * Interface representing logged user interactions across the application platform.
- */
 export interface UserActionPayload {
   userId: string;
-  action: string; // e.g., 'user_login', 'record_creation', 'report_download'
+  action: string;
   timestamp: Date;
-  metadata?: Record<string, any>; // Extensible context such as IP, device logs, or feature flags
+  metadata?: Record<string, any>;
 }
 
-/**
- * Interface representing internal architectural server load, memory spikes, or API performance.
- */
 export interface SystemMetricPayload {
-  metricName: string; // e.g., 'cpu_utilization', 'database_latency_ms', 'memory_leak_bytes'
+  metricName: string;
   value: number;
   timestamp: Date;
-  context?: string; // Core origin execution target (e.g., 'auth-module', 'gateway-proxy')
+  context?: string;
 }
 
-/**
- * Structural contract for generated summary data snapshots.
- */
 export interface AnalyticsReport {
   generatedAt: Date;
   timeframe: {
@@ -36,8 +25,6 @@ export interface AnalyticsReport {
   topActionPatterns: Array<{ action: string; count: number }>;
   averageSystemMetrics: Record<string, number>;
 }
-
-import { Inject, Injectable, Logger } from '@nestjs/common';
 
 export const ANALYTICS_PROVIDERS = 'ANALYTICS_PROVIDERS';
 
@@ -64,9 +51,7 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
     if (!this.apiKey) {
       return;
     }
-
     try {
-      // Placeholder for real external analytics integration.
       console.log(`[ExternalAnalytics] sending event ${eventName} to ${this.endpoint}`);
       console.log({ apiKey: this.apiKey, eventName, payload });
     } catch (error) {
@@ -78,17 +63,15 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
 /**
  * Application-wide analytics service.
  *
- * Combines a NestJS DI-friendly multi-provider dispatcher (`trackEvent`) with the
- * legacy in-memory user-action / system-metric trackers used by older code paths.
+ * Combines a NestJS DI-friendly multi-provider dispatcher (`trackEvent`) with
+ * the legacy in-memory user-action / system-metric trackers used by older
+ * call sites.
  */
 @Injectable()
 export class AnalyticsService {
-  // In-memory operational vectors (kept for backward compatibility with legacy callers)
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
 
-@Injectable()
-export class AnalyticsService {
   constructor(
     @Inject(ANALYTICS_PROVIDERS)
     private readonly providers: AnalyticsProvider[],
@@ -96,7 +79,8 @@ export class AnalyticsService {
 
   /**
    * Dispatches a single event to every configured analytics provider.
-   * Provider failures are logged and swallowed so analytics never break business flows.
+   * Provider failures are logged and swallowed so analytics never break
+   * business flows.
    */
   async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
     await Promise.all(
@@ -108,10 +92,6 @@ export class AnalyticsService {
     );
   }
 
-  /**
-   * Requirement: Track user actions
-   * Acceptance Criteria: Analytics tracked
-   */
   public trackUserAction(userId: string, action: string, metadata?: Record<string, any>): void {
     this.userActionsLog.push({
       userId,
@@ -121,10 +101,6 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Requirement: Track system metrics
-   * Acceptance Criteria: Analytics tracked
-   */
   public trackSystemMetric(metricName: string, value: number, context?: string): void {
     this.systemMetricsLog.push({
       metricName,
@@ -134,10 +110,6 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Requirement: Analyze patterns
-   * Examines historical actions to calculate occurrence counts per specific action name.
-   */
   public analyzeActionPatterns(start: Date, end: Date): Record<string, number> {
     const targetActions = this.queryUserActions({ start, end });
     const frequencyDistributionMap: Record<string, number> = {};
@@ -149,10 +121,6 @@ export class AnalyticsService {
     return frequencyDistributionMap;
   }
 
-  /**
-   * Requirement: Generate reports
-   * Compiles actions frequency data and handles averaged metrics reductions over a timeframe.
-   */
   public generateAnalyticsReport(start: Date, end: Date): AnalyticsReport {
     const actionsInPeriod = this.queryUserActions({ start, end });
     const metricsInPeriod = this.querySystemMetrics({ start, end });
@@ -186,9 +154,6 @@ export class AnalyticsService {
     };
   }
 
-  /**
-   * Dynamic lookup query handler for specific user actions filtering lists.
-   */
   public queryUserActions(filters: {
     start?: Date;
     end?: Date;
@@ -204,9 +169,6 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Dynamic lookup query handler for checking performance metrics logs.
-   */
   public querySystemMetrics(filters: {
     start?: Date;
     end?: Date;
@@ -220,9 +182,6 @@ export class AnalyticsService {
     });
   }
 
-  /**
-   * Testing Utility — wipes internal tracking frames back to a clean state.
-   */
   public clearLogs(): void {
     this.userActionsLog = [];
     this.systemMetricsLog = [];

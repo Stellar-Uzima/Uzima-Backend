@@ -62,13 +62,14 @@ export class AdminService {
       activeUsers,
       newUsersLast7Days,
       walletLinked,
-      roles: roles.reduce((map, row) => ({
-        ...map,
-        [row.role]: Number(row.count),
-      }), {} as Record<string, number>),
-      status: statusGroups.reduce((map, row) => ({
-        ...map,
-        [row.status]: Number(row.count),
+      roles: roles.reduce(
+        (map, row) => ({ ...map, [row.role]: Number(row.count) }),
+        {} as Record<string, number>,
+      ),
+      status: statusGroups.reduce(
+        (map, row) => ({ ...map, [row.status]: Number(row.count) }),
+        {} as Record<string, number>,
+      ),
     };
   }
 
@@ -113,15 +114,8 @@ export class AdminService {
       .getRawMany();
 
     const taskCounts = statusCounts.reduce(
-      (result, row) => ({
-        ...result,
-        [row.status]: Number(row.count),
-      }),
-      {
-        pending: 0,
-        verified: 0,
-        rejected: 0,
-      } as Record<string, number>,
+      (result, row) => ({ ...result, [row.status]: Number(row.count) }),
+      { pending: 0, verified: 0, rejected: 0 } as Record<string, number>,
     );
 
     const recentCount = await this.taskCompletionRepository
@@ -170,14 +164,14 @@ export class AdminService {
       details.database = (await this.dbHealth.pingCheck('database')).database;
     } catch (error) {
       overallStatus = 'error';
-      details.database = error?.causes?.database || { status: 'down' };
+      details.database = (error as any)?.causes?.database ?? { status: 'down' };
     }
 
     try {
       details.redis = await this.redisHealth.isHealthy('redis');
     } catch (error) {
       overallStatus = 'error';
-      details.redis = error?.causes?.redis || { status: 'down' };
+      details.redis = (error as any)?.causes?.redis ?? { status: 'down' };
     }
 
     details.uptimeSeconds = Math.round(process.uptime());
