@@ -1,17 +1,7 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
-} from 'typeorm';
-import { Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { HealthTask } from '../../tasks/entities/health-task.entity';
 
-@Entity('task_activity')
-@Index(['taskId'])
-@Index(['changedBy', 'createdAt'])
-@Index(['createdAt'])
+@Entity('task_activities')
 export class TaskActivity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -19,21 +9,19 @@ export class TaskActivity {
   @Column()
   taskId: string;
 
-  @Column()
-  changedBy: string;
+  @ManyToOne(() => HealthTask)
+  @JoinColumn({ name: 'taskId' })
+  task: HealthTask;
 
   @Column()
-  changeType: string;
+  userId: string;
 
-  @Column({ type: 'jsonb' })
-  details: Record<string, unknown>;
+  @Column()
+  action: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, any>;
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
-
-  @DeleteDateColumn()
-  deletedAt?: Date;
 }

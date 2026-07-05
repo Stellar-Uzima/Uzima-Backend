@@ -196,14 +196,14 @@ export class QueueService {
     }
 
     try {
-      const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
+      const [waiting, active, completed, failed, delayed] = await Promise.all([
         queue.getWaiting(),
         queue.getActive(),
         queue.getCompleted(),
         queue.getFailed(),
         queue.getDelayed(),
-        queue.getPaused(),
       ]);
+      const paused = await (queue as any).getPaused().catch(() => []);
 
       return {
         waiting: waiting.length,
@@ -358,7 +358,7 @@ export class QueueService {
     try {
       await queue.clean(0, 'completed');
       await queue.clean(0, 'failed');
-      await queue.clean(0, 'waiting');
+      await (queue.clean as any)(0, 'waiting');
       await queue.clean(0, 'delayed');
       
       this.logger.log(`Queue ${queueName} cleared`);

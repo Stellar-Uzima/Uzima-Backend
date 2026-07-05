@@ -60,4 +60,12 @@ export class BadgeService {
     const badges = this.userBadges.get(userId);
     return badges ? badges.has(badgeType) : false;
   }
+
+  getAllBadges(): BadgeType[] {
+    return Object.values(BadgeType);
+  }
+
+  async initializeBadges(): Promise<void> {
+    this.logger.log('Badges initialized');
+  }
 }

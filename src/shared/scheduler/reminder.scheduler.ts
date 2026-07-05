@@ -11,8 +11,8 @@ import {
 import { CouponService }
   from "../../coupons/coupon.service";
 
-import { TaskService }
-  from "../../tasks/task.service";
+import { TasksService as TaskService }
+  from "../../tasks/tasks.service";
 
 import { NotificationService }
   from "../notifications/services/notification.service";

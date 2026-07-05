@@ -1,34 +1,62 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
+
+export enum CouponStatus {
+  ACTIVE = 'active',
+  USED = 'used',
+  EXPIRED = 'expired',
+  REVOKED = 'revoked',
+}
+
+export enum CouponType {
+  PERCENTAGE = 'percentage',
+  FIXED = 'fixed',
+  FREE_TRIAL = 'free_trial',
+}
 
 @Entity('coupons')
 export class Coupon {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ unique: true })
   code: string;
 
-  @Column({ type: 'uuid' })
+  @Column({
+    type: 'enum',
+    enum: CouponType,
+    default: CouponType.PERCENTAGE,
+  })
+  type: CouponType;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  value: number;
+
+  @Column({ type: 'enum', enum: CouponStatus, default: CouponStatus.ACTIVE })
+  status: CouponStatus;
+
+  @Column({ nullable: true })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'timestamp' })
+  @Column({ nullable: true })
+  usedAt: Date;
+
+  @Column({ nullable: true })
   expiresAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  usedAt: Date | null;
+  @Column({ nullable: true })
+  maxUses: number;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @Column({ default: 0 })
+  usedCount: number;
+
+  @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

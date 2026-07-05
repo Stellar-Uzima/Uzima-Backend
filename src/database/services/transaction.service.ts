@@ -30,6 +30,7 @@ export interface TransactionContext {
   depth: number;
   startTime: number;
   timeout?: number;
+  savepointName?: string;
 }
 
 /**
@@ -40,8 +41,8 @@ export interface TransactionContext {
 @Injectable()
 export class TransactionService {
   private readonly logger = new Logger(TransactionService.name);
-  private readonly transactionStack: Map<string, TransactionContext[]> =
-    new Map();
+  private readonly transactionStack: Map<string, TransactionContext[]> = new Map();
+  private currentQueryRunner: QueryRunner | null = null;
 
   constructor(@Inject(DataSource) private readonly dataSource: DataSource) {}
 
@@ -84,7 +85,7 @@ export class TransactionService {
         // Create a savepoint for nested transactions
         const savepointName = `sp_${depth}_${Date.now()}`;
         await queryRunner.query(`SAVEPOINT ${savepointName}`);
-        transactionContext['savepointName'] = savepointName;
+        transactionContext.savepointName = savepointName;
         this.logger.debug(
           `[${context}] Savepoint ${savepointName} created at depth ${depth}`,
         );
@@ -137,11 +138,13 @@ export class TransactionService {
         this.logger.debug(`[${context}] Transaction committed at depth ${depth}`);
       } else {
         // For nested transactions, release the savepoint
-        const savepointName = transactionContext['savepointName'];
-        await queryRunner.query(`RELEASE SAVEPOINT ${savepointName}`);
-        this.logger.debug(
-          `[${context}] Savepoint ${savepointName} released at depth ${depth}`,
-        );
+        const savepointName = transactionContext.savepointName;
+        if (savepointName) {
+          await queryRunner.query(`RELEASE SAVEPOINT ${savepointName}`);
+          this.logger.debug(
+            `[${context}] Savepoint ${savepointName} released at depth ${depth}`,
+          );
+        }
       }
 
       stack.pop();
@@ -197,11 +200,13 @@ export class TransactionService {
         );
       } else {
         // Restore to savepoint for nested transactions
-        const savepointName = transactionContext['savepointName'];
-        await queryRunner.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
-        this.logger.debug(
-          `[${context}] Rolled back to savepoint ${savepointName} at depth ${depth}`,
-        );
+        const savepointName = transactionContext.savepointName;
+        if (savepointName) {
+          await queryRunner.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
+          this.logger.debug(
+            `[${context}] Rolled back to savepoint ${savepointName} at depth ${depth}`,
+          );
+        }
       }
 
       stack.pop();
@@ -335,69 +340,13 @@ export class TransactionService {
 }
 
 /**
- * Decorator to inject the TransactionService
- * Usage: constructor(@InjectTransaction() private transactionService: TransactionService)
- */
-export const InjectTransaction = () =>
-  Inject(TransactionService);
-
-/**
- * Decorator for automatic transaction management
- * Handles transactions with automatic rollback on error
- *
- * @param options - Transaction options
- * 
- * Usage:
- * @Transaction({ timeout: 5000 })
- * async myMethod(
- *   @QueryRunnerInject() queryRunner: QueryRunner,
- *   @Context() context: string
- * ) {
- *   // Use queryRunner for database operations
- * }
- */
-export function Transaction(options: TransactionOptions = {}) {
-  return function (
-    target: any,
-    propertyKey: string | symbol,
-    descriptor: PropertyDescriptor,
-  ) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (...args: any[]) {
-      const context = `${target.constructor.name}:${String(propertyKey)}:${Date.now()}`;
-      const transactionService = this.transactionService as TransactionService;
-
-      try {
-        return await transactionService.execute(
-          context,
-          async (queryRunner) => {
-            // Set the queryRunner in the method context
-            this.currentQueryRunner = queryRunner;
-            return originalMethod.apply(this, args);
-          },
-          options,
-        );
-      } finally {
-        // Cleanup
-        await transactionService.cleanup(context);
-        this.currentQueryRunner = null;
-      }
-    };
-
-    return descriptor;
-  };
-}
-
-/**
  * Parameter decorator to inject the current QueryRunner
  * Usage: @QueryRunnerInject() queryRunner: QueryRunner
  */
 export const QueryRunnerInject = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
-    // Get the instance from the context
-    const instance = ctx.getClass().prototype.constructor;
-    return instance.prototype.currentQueryRunner || null;
+    const request = ctx.switchToHttp().getRequest();
+    return request['currentQueryRunner'] || null;
   },
 );
 
