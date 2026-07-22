@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisConfig } from '../config/redis.config';
@@ -9,6 +9,7 @@ import {
   PROOF_VERIFICATION_QUEUE,
   USER_ACTIVITY_QUEUE,
   DATA_PROCESSING_QUEUE,
+  HEALTH_REPORT_QUEUE,
   REWARD_DEAD_LETTER_QUEUE,
 } from './queue.constants';
 
@@ -81,6 +82,13 @@ import {
       name: DATA_PROCESSING_QUEUE,
       limiter: {
         max: 25,
+        duration: 1000,
+      },
+    }),
+    BullModule.registerQueue({
+      name: HEALTH_REPORT_QUEUE,
+      limiter: {
+        max: 10,
         duration: 1000,
       },
     }),

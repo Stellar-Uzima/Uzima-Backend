@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Queue name constants for the application
  * These constants ensure type safety and prevent magic strings throughout the codebase
  */
@@ -10,6 +10,7 @@ export const TASK_VERIFICATION_QUEUE = 'task-verification-queue' as const;
 export const PROOF_VERIFICATION_QUEUE = 'proof-verification-queue' as const;
 export const USER_ACTIVITY_QUEUE = 'user-activity-queue' as const;
 export const DATA_PROCESSING_QUEUE = 'data-processing-queue' as const;
+export const HEALTH_REPORT_QUEUE = 'health-report-queue' as const;
 
 // Dead Letter Queue for failed reward jobs
 export const REWARD_DEAD_LETTER_QUEUE = 'reward-dead-letter-queue' as const;
@@ -31,8 +32,7 @@ export const TASK_REMINDER_JOB = 'task-reminder' as const;
 export const TASK_REMINDER_TEMPLATE = 'task-reminder' as const;
 
 // Queue Job Types for Task Verification Queue
-export const TASK_COMPLETION_VERIFICATION_JOB =
-  'task-completion-verification' as const;
+export const TASK_COMPLETION_VERIFICATION_JOB = 'task-completion-verification' as const;
 export const TASK_QUALITY_CHECK_JOB = 'task-quality-check' as const;
 export const TASK_APPROVAL_JOB = 'task-approval' as const;
 
@@ -40,6 +40,8 @@ export const TASK_APPROVAL_JOB = 'task-approval' as const;
 export const USER_DATA_EXPORT_JOB = 'user-data-export' as const;
 export const BULK_TASK_ASSIGNMENT_JOB = 'bulk-task-assignment' as const;
 export const DATA_EXPORT_JOB = 'data-export' as const;
+// Queue Job Types for Health Report Queue
+export const GENERATE_HEALTH_REPORT_JOB = 'generate-health-report' as const;
 
 // Type definitions for better type safety
 export type QueueName =
@@ -49,6 +51,7 @@ export type QueueName =
   | typeof PROOF_VERIFICATION_QUEUE
   | typeof USER_ACTIVITY_QUEUE
   | typeof DATA_PROCESSING_QUEUE
+  | typeof HEALTH_REPORT_QUEUE
   | typeof REWARD_DEAD_LETTER_QUEUE;
 
 export type RewardJobType =

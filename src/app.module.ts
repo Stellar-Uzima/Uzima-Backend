@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+﻿import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
@@ -19,11 +19,11 @@ import { ConsultationsModule } from '@modules/consultations/consultations.module
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
-// 1. Import the new StorageModule
-import { StorageModule } from './shared/storage/storage.module'; 
+import { HealthReportModule } from './health-report/health-report.module';
+import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
-import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { MonitoringModule } from './shared/monitoring/monitoring.module';
 import { CacheModule } from './shared/cache/cache.module';
 import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
 
@@ -92,6 +92,7 @@ import { HealthProfileModule } from './modules/health-profile/health-profile.mod
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+    HealthReportModule,
   ],
   controllers: [AppController],
   providers: [
