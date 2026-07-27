@@ -20,20 +20,12 @@ export enum TaskCategory {
   HYDRATION = 'hydration',
 }
 
-+export enum Recurrence {
-+  NONE = 'none',
-+  DAILY = 'daily',
-+  WEEKLY = 'weekly',
-+  MONTHLY = 'monthly',
-+}
-@@
-   @Column({ type: 'enum', enum: TaskCategory })
-   category!: TaskCategory;
-+
-+  // Recurrence for the task; default is NONE (no recurrence)
-+  @Column({ type: 'enum', enum: Recurrence, default: Recurrence.NONE })
-+  recurrence!: Recurrence;
-*** End of File ***
+export enum Recurrence {
+  NONE = 'none',
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+}
 
 @Entity('health_tasks')
 @Index(['status'])
@@ -50,6 +42,10 @@ export class HealthTask {
 
   @Column({ type: 'enum', enum: TaskCategory, nullable: true })
   category!: TaskCategory;
+
+  // Recurrence for the task; default is NONE (no recurrence)
+  @Column({ type: 'enum', enum: Recurrence, default: Recurrence.NONE })
+  recurrence!: Recurrence;
 
   @Column({ type: 'uuid', nullable: true })
   categoryId?: string;
