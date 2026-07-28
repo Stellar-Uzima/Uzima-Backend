@@ -13,6 +13,7 @@ import { ConsultationsModule } from '@modules/consultations/consultations.module
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 // 1. Import the new StorageModule
 import { StorageModule } from './shared/storage/storage.module'; 
 import { MetricsModule } from './shared/metrics/metrics.module';
@@ -57,6 +58,7 @@ import { PushModule } from './shared/notifications/push.module';
     NotificationsModule,
     AdminModule,
     ReportsModule,
+    GamificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
