@@ -102,12 +102,10 @@ export class GamificationService {
 
       const oldLevel = userXp.currentLevel;
       
-      // Update XP
       userXp.totalXp += amount;
       userXp.xpTowardNextLevel += amount;
       userXp.xpForNextLevel = this.calculateXpForLevel(userXp.currentLevel + 1);
 
-      // Check for level-up
       let leveledUp = false;
       let newLevel = userXp.currentLevel;
 
@@ -121,7 +119,6 @@ export class GamificationService {
 
       await queryRunner.manager.save(userXp);
 
-      // Create transaction record
       const transaction = queryRunner.manager.create(XpTransaction, {
         userId,
         amount,
@@ -133,7 +130,6 @@ export class GamificationService {
 
       await queryRunner.commitTransaction();
 
-      // Emit level-up event if needed
       if (leveledUp) {
         const levelUpEvent: LevelUpEventDto = {
           userId,
@@ -145,7 +141,6 @@ export class GamificationService {
         this.logger.log(User  leveled up to level !);
       }
 
-      // Refresh leaderboard
       await this.leaderboardService.rebuildLeaderboards();
 
       const xpStatus = await this.getUserXpStatus(userId);

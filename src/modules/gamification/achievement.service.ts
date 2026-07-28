@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { Achievement } from './entities/achievement.entity';
 import { UserAchievement } from './entities/user-achievement.entity';
 import { GamificationService } from './gamification.service';
@@ -56,7 +56,6 @@ export class AchievementService {
         await this.userAchievementRepo.save(userAchievement);
         newlyUnlocked.push(userAchievement);
         
-        // Award XP for achievement
         await this.gamificationService.awardXp({
           userId,
           amount: achievement.xpReward,
@@ -112,8 +111,6 @@ export class AchievementService {
   }
 
   private async checkStreakDays(userId: string, target: number): Promise<boolean> {
-    // Check if user has a streak in the database
-    // This assumes there's a streaks table - we'll query it
     const streakResult = await this.userRepo
       .createQueryBuilder('u')
       .select('s.current_streak', 'streak')
@@ -190,7 +187,6 @@ export class AchievementService {
 
     await this.userAchievementRepo.save(userAchievement);
 
-    // Award XP
     await this.gamificationService.awardXp({
       userId,
       amount: achievement.xpReward,
