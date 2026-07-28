@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Between, LessThanOrEqual, MoreThanOrEqual, Repository, Like, FindOptionsWhere } from 'typeorm';
 import { AuditLog, AuditAction, AuditResource } from './entities/audit-log.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/update-audit.dto';
@@ -210,12 +210,12 @@ export class AuditService {
     }
 
     if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) {
-        (where.createdAt as any).gte = startDate;
-      }
-      if (endDate) {
-        (where.createdAt as any).lte = endDate;
+      if (startDate && endDate) {
+        where.createdAt = Between(startDate, endDate);
+      } else if (startDate) {
+        where.createdAt = MoreThanOrEqual(startDate);
+      } else {
+        where.createdAt = LessThanOrEqual(endDate as Date);
       }
     }
 
@@ -248,7 +248,7 @@ export class AuditService {
     const complianceLogs = await this.auditRepo.find({
       where: {
         isComplianceEvent: true,
-        createdAt: { gte: startDate, lte: endDate },
+        createdAt: Between(startDate, endDate),
       },
       order: { createdAt: 'DESC' },
     });
@@ -295,6 +295,68 @@ export class AuditService {
   async remove(id: number | string): Promise<void> {
     // For audit logs, we should not allow deletion to maintain immutability
     throw new Error('Audit logs are immutable and cannot be deleted');
+  }
+
+  /**
+   * Clean up expired audit logs based on retention policy
+   * Deletes logs older than the specified number of days
+   * 
+   * @param retentionDays Number of days to retain logs (e.g., 30 for 30-day retention)
+   * @returns Object containing deleted count and potentially failed deletes
+   */
+  async cleanupExpiredLogs(retentionDays: number): Promise<{ deletedCount: number; deletedIds: string[] }> {
+    if (retentionDays <= 0) {
+      throw new Error('Retention days must be greater than 0');
+    }
+
+    // Calculate the expiration date
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() - retentionDays);
+
+    this.logger.log(
+      `Starting cleanup of audit logs older than ${retentionDays} days (before ${expirationDate.toISOString()})`,
+    );
+
+    try {
+      // Find logs that are older than the retention period and exclude compliance events
+      const logsToDelete = await this.auditRepo.find({
+        where: {
+          createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
+          isComplianceEvent: false,
+        } as any,
+        select: ['id'],
+      });
+
+      if (logsToDelete.length === 0) {
+        this.logger.log('No logs to clean up');
+        return { deletedCount: 0, deletedIds: [] };
+      }
+
+      const deletedIds = logsToDelete.map(log => log.id);
+
+      // Delete the logs
+      await this.auditRepo.delete({
+        createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
+        isComplianceEvent: false,
+      } as any);
+
+      this.logger.log(
+        `Successfully deleted ${logsToDelete.length} expired audit logs`,
+      );
+
+      return {
+        deletedCount: logsToDelete.length,
+        deletedIds,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `Error cleaning up expired audit logs: ${errorMessage}`,
+        errorStack,
+      );
+      throw error;
+    }
   }
 
   /**

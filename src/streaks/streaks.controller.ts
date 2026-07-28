@@ -1,6 +1,6 @@
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { StreaksService } from './streaks.service';
 
 @ApiTags('Streaks')
@@ -9,6 +9,12 @@ import { StreaksService } from './streaks.service';
 @Controller('users/me/streak')
 export class StreaksController {
   constructor(private readonly streaksService: StreaksService) {}
+  // beforeEach(async () => {
+  //   const app: TestingModule = await Test.createTestingModule({
+  //     controllers: [AppController],
+  //     providers: [AppService],
+  //   }).compile();
+    //   }).compile();
 
   @Get()
   async getCurrentStreak(@Req() req: any) {

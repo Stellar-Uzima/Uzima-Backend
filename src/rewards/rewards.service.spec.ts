@@ -6,7 +6,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RewardService } from './reward.service';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
-import { TaskCompletion } from '../task-completion/entities/task-completion.entity';
+import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
 import {
   REWARD_QUEUE,
@@ -306,6 +306,19 @@ describe('RewardService', () => {
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'reward_transaction.createdAt <= :endDate',
         { endDate: new Date('2024-12-31') },
+      );
+    });
+
+    it('should apply status filter when provided', async () => {
+      mockCacheManager.get.mockResolvedValue(null);
+      mockQueryBuilder.getCount.mockResolvedValue(0);
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.getRewardHistory(userId, { status: RewardStatus.SUCCESS });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'reward_transaction.status = :status',
+        { status: RewardStatus.SUCCESS },
       );
     });
 

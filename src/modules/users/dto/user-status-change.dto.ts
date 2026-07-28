@@ -1,6 +1,6 @@
 import { IsEnum, IsString, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserStatus } from '../../auth/enums/user-status.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 
 export class UserStatusChangeDto {
   @ApiProperty({

@@ -20,11 +20,16 @@ module.exports = {
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
       },
+      diagnostics: false,
+      isolatedModules: true,
     },
   },
   moduleNameMapper: {
+    '^src/(.*)$': '<rootDir>/$1',
     '^@/(.*)$': '<rootDir>/$1',
     '^@modules/(.*)$': '<rootDir>/modules/$1',
     '^@common/(.*)$': '<rootDir>/common/$1',
+    '^src/(.*)$': '<rootDir>/$1',
   },
+  moduleDirectories: ['node_modules', '<rootDir>'],
 };

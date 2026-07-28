@@ -6,7 +6,15 @@
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
+  "globals": {
+    "ts-jest": {
+      "diagnostics": false
+    }
+  },
   "moduleNameMapper": {
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^@modules/(.*)$": "<rootDir>/../src/modules/$1",
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^../../database/entities/(.*)$": "<rootDir>/../src/database/entities/$1"
   }
 }

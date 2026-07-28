@@ -3,7 +3,6 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
@@ -11,14 +10,14 @@ import { Request, Response } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RequestLog } from '../../database/entities/request-log.entity';
+import { CustomLogger } from '../../shared/logging/logger.service';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(LoggingInterceptor.name);
-
   constructor(
     @InjectRepository(RequestLog)
     private readonly requestLogRepository: Repository<RequestLog>,
+    private readonly logger: CustomLogger,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -28,12 +27,14 @@ export class LoggingInterceptor implements NestInterceptor {
 
     const { method, url, headers, body, ip } = request;
     const userAgent = headers['user-agent'];
+    const requestId = (request as any).requestId;
+    const userId = this.extractUserId(request);
 
     // Mask sensitive data
     const maskedHeaders = this.maskSensitiveData(headers);
     const maskedBody = this.maskSensitiveData(body);
 
-    this.logger.log(`${method} ${url} - ${ip}`);
+    this.logger.logApiRequest(method, url, userId, requestId, { ip, userAgent });
 
     return next.handle().pipe(
       tap(async (responseData) => {
@@ -41,12 +42,12 @@ export class LoggingInterceptor implements NestInterceptor {
         const responseTime = endTime - startTime;
         const statusCode = response.statusCode;
 
-        // Log successful response
         this.logger.log(
           `${method} ${url} - ${statusCode} - ${responseTime}ms`,
+          'HTTP',
+          { requestId, userId, responseTime, statusCode },
         );
 
-        // Store log in database
         await this.storeLog({
           method,
           path: url,
@@ -54,7 +55,8 @@ export class LoggingInterceptor implements NestInterceptor {
           body: maskedBody,
           userAgent,
           ip,
-          userId: this.extractUserId(request),
+          userId,
+          requestId,
           statusCode,
           response: this.maskSensitiveData(responseData),
           responseTime,
@@ -65,12 +67,11 @@ export class LoggingInterceptor implements NestInterceptor {
         const responseTime = endTime - startTime;
         const statusCode = error.status || 500;
 
-        // Log error response
-        this.logger.error(
-          `${method} ${url} - ${statusCode} - ${responseTime}ms - ${error.message}`,
-        );
+        this.logger.logApiError(method, url, error, userId, requestId, {
+          responseTime,
+          statusCode,
+        });
 
-        // Store error log in database
         await this.storeLog({
           method,
           path: url,
@@ -78,9 +79,10 @@ export class LoggingInterceptor implements NestInterceptor {
           body: maskedBody,
           userAgent,
           ip,
-          userId: this.extractUserId(request),
+          userId,
+          requestId,
           statusCode,
-          response: null,
+          response: undefined,
           responseTime,
           error: error.message,
         });
@@ -116,7 +118,6 @@ export class LoggingInterceptor implements NestInterceptor {
       }
     }
 
-    // Recursively mask nested objects
     for (const key in masked) {
       if (typeof masked[key] === 'object' && masked[key] !== null) {
         masked[key] = this.maskSensitiveData(masked[key]);
@@ -127,7 +128,6 @@ export class LoggingInterceptor implements NestInterceptor {
   }
 
   private extractUserId(request: Request): string | undefined {
-    // Try to extract user ID from JWT token or session
     const user = (request as any).user;
     return user?.id || user?.sub;
   }
@@ -137,7 +137,6 @@ export class LoggingInterceptor implements NestInterceptor {
       const log = this.requestLogRepository.create(logData);
       await this.requestLogRepository.save(log);
     } catch (error) {
-      // Don't let logging errors break the application
       this.logger.error('Failed to store request log:', error);
     }
   }

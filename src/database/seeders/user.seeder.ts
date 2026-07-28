@@ -1,8 +1,8 @@
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { BaseSeeder } from './base.seeder';
-import { User } from '../../users/entities/user.entity';
-import { Role } from '../../users/enums/role.enum';
+import { User } from '../../entities/user.entity';
+import { Role } from '@modules/auth/enums/role.enum';
 
 interface UserData {
   email: string;
@@ -50,6 +50,15 @@ export const usersData: UserData[] = [
     country: 'GH',
     isVerified: false,
   },
+  {
+    email: 'demo.user@example.com',
+    password: 'DemoPass123!',
+    fullName: 'Demo User',
+    role: Role.USER,
+    country: 'ZA',
+    phoneNumber: '+27123456789',
+    isVerified: true,
+  },
 ];
 
 export class UserSeeder extends BaseSeeder {
@@ -88,7 +97,7 @@ export class UserSeeder extends BaseSeeder {
       // Create user
       const user = userRepository.create({
         email: userData.email,
-        passwordHash: hashedPassword,
+        password: hashedPassword,
         fullName: userData.fullName,
         role: userData.role,
         country: userData.country,

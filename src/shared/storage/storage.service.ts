@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { createHash, randomBytes } from 'crypto';
 
 export interface UploadResult {
   filename: string;
@@ -10,6 +11,13 @@ export interface UploadResult {
   size: number;
   url: string;
   path: string;
+}
+
+export interface DataExportResult {
+  exportId: string;
+  filePath: string;
+  downloadToken: string;
+  expiresAt: Date;
 }
 
 @Injectable()
@@ -100,5 +108,88 @@ export class StorageService {
 
   getUploadDir(): string {
     return this.uploadDir;
+  }
+
+  /**
+   * Persist a GDPR JSON export and return a time-limited download token (24h).
+   */
+  async saveDataExport(
+    userId: string,
+    payload: Record<string, unknown>,
+  ): Promise<DataExportResult> {
+    const exportId = uuidv4();
+    const downloadToken = randomBytes(32).toString('hex');
+    const subfolder = join('exports', userId);
+    const filename = `${exportId}.json`;
+    const content = Buffer.from(JSON.stringify(payload, null, 2), 'utf-8');
+
+    const saved = await this.saveFile(content, filename, 'application/json', subfolder);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const tokenPath = join(this.uploadDir, 'exports', '.tokens', `${downloadToken}.json`);
+    await this.ensureDirectoryExists(join(this.uploadDir, 'exports', '.tokens'));
+    await fs.writeFile(
+      tokenPath,
+      JSON.stringify({
+        userId,
+        exportId,
+        filePath: saved.path,
+        expiresAt: expiresAt.toISOString(),
+      }),
+      'utf-8',
+    );
+
+    return { exportId, filePath: saved.path, downloadToken, expiresAt };
+  }
+
+  async resolveDataExportDownload(
+    downloadToken: string,
+  ): Promise<{ filePath: string; userId: string; exportId: string } | null> {
+    const tokenPath = join(
+      this.uploadDir,
+      'exports',
+      '.tokens',
+      `${downloadToken}.json`,
+    );
+
+    if (!(await this.fileExists(tokenPath))) {
+      return null;
+    }
+
+    const raw = await fs.readFile(tokenPath, 'utf-8');
+    const meta = JSON.parse(raw) as {
+      userId: string;
+      exportId: string;
+      filePath: string;
+      expiresAt: string;
+    };
+
+    if (new Date(meta.expiresAt).getTime() < Date.now()) {
+      await this.deleteFile(tokenPath);
+      if (await this.fileExists(meta.filePath)) {
+        await this.deleteFile(meta.filePath);
+      }
+      return null;
+    }
+
+    if (!(await this.fileExists(meta.filePath))) {
+      return null;
+    }
+
+    return {
+      filePath: meta.filePath,
+      userId: meta.userId,
+      exportId: meta.exportId,
+    };
+  }
+
+  buildDataExportDownloadUrl(downloadToken: string, baseUrl?: string): string {
+    const appBase =
+      baseUrl ?? process.env.APP_URL ?? 'http://localhost:3001';
+    return `${appBase.replace(/\/$/, '')}/users/data-export/download?token=${downloadToken}`;
+  }
+
+  hashDownloadToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

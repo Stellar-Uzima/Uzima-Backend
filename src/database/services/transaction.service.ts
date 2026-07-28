@@ -4,10 +4,10 @@ import {
   Inject,
   InternalServerErrorException,
   BadRequestException,
+  SetMetadata,
 } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import {
-  setMetadata,
   createParamDecorator,
   ExecutionContext,
 } from '@nestjs/common';
@@ -421,5 +421,5 @@ export const TRANSACTION_METADATA_KEY = 'transaction:options';
  * Set transaction metadata on a method
  */
 export const setTransactionMetadata = (options: TransactionOptions) => {
-  return setMetadata(TRANSACTION_METADATA_KEY, options);
+  return SetMetadata(TRANSACTION_METADATA_KEY, options);
 };

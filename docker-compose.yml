@@ -1,14 +1,11 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: uzima_postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      POSTGRES_DB: ${DB_DATABASE:-uzima_dev}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-stellar_uzima_dev}
     ports:
       - '${DB_PORT:-5432}:5432'
     volumes:
@@ -16,31 +13,55 @@ services:
     networks:
       - uzima_network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-postgres}']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-stellar_uzima_dev}']
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # NestJS Application
+  redis:
+    image: redis:7-alpine
+    container_name: uzima_redis
+    command: redis-server --appendonly yes
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - uzima_network
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: uzima_backend
+    profiles:
+      - full
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: 3000
+      APP_PORT: 3001
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-password}
-      DB_DATABASE: ${DB_DATABASE:-uzima_dev}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-stellar_uzima_dev}
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-your-secret-key}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - '3000:3000'
+      - '3001:3001'
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - uzima_network
@@ -49,22 +70,25 @@ services:
       - /app/node_modules
     command: npm run start:dev
 
-  # pgAdmin for database management (optional)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: uzima_pgadmin
+    profiles:
+      - tools
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - '5050:80'
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - uzima_network
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   uzima_network:

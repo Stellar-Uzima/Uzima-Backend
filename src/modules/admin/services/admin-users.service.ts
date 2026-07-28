@@ -9,10 +9,10 @@ import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
 import * as bcrypt from 'bcryptjs';
 import { User } from '@/entities/user.entity';
-import { ListUsersDto } from '@/admin/dto/list-users.dto';
-import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
-import { Role } from '@/auth/enums/role.enum';
-import { UserStatus } from '@/auth/enums/user-status.enum';
+import { ListUsersDto } from '../dto/list-users.dto';
+import { CreateAdminDto } from '../dto/create-admin.dto';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
 
 @Injectable()
@@ -75,6 +75,8 @@ export class AdminUsersService {
     if (dto.isActive !== undefined) {
       qb.andWhere('user.isActive = :active', { active: dto.isActive });
     }
+
+    qb.andWhere('user.deletedAt IS NULL');
 
     if (dto.search) {
       qb.andWhere(
@@ -165,9 +167,36 @@ export class AdminUsersService {
       throw new ForbiddenException('Admins cannot reactivate themselves');
     }
 
-    const user = await this.getUserById(userId);
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      withDeleted: true,
+      select: [
+        'id',
+        'email',
+        'firstName',
+        'lastName',
+        'role',
+        'country',
+        'isActive',
+        'status',
+        'stellarWalletAddress',
+        'createdAt',
+        'updatedAt',
+        'deletedAt',
+      ],
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.deletedAt) {
+      await this.usersRepository.restore(userId);
+    }
+
     user.isActive = true;
     user.status = UserStatus.ACTIVE;
+    user.deletedAt = null;
     const updatedUser = await this.usersRepository.save(user);
     await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
     return updatedUser;
@@ -179,9 +208,13 @@ export class AdminUsersService {
     }
 
     const user = await this.getUserById(userId);
-    await this.usersRepository.remove(user);
+    await this.usersRepository.softRemove(user);
+    user.isActive = false;
+    user.status = UserStatus.INACTIVE;
+    await this.usersRepository.save(user);
+    await this.usersRepository.softDelete(userId);
     await this.redisClient.del(`refresh:${userId}`);
-    await this.auditService.logAction(adminId, `Deleted user ${userId} (${user.email})`);
+    await this.auditService.logAction(adminId, `Soft deleted user ${userId} (${user.email})`);
     return { message: 'User deleted successfully' };
   }
 }

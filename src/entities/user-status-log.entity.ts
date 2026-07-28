@@ -7,8 +7,8 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { UserStatus } from '../auth/enums/user-status.enum';
-import { Role } from '../auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 
 @Entity('user_status_logs')
 export class UserStatusLog {

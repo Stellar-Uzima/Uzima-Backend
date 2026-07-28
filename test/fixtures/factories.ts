@@ -8,7 +8,7 @@
  * - Task factory for task-related tests
  * - Custom data generation with overrides
  */
-
+import { randomUUID } from "crypto";
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -559,3 +559,105 @@ export const testFixtures = {
     return { user, sessions };
   },
 };
+
+export function uid(prefix?: string) {
+  return prefix ? `${prefix}_${randomUUID()}` : randomUUID();
+}
+
+export function nowISO() {
+  return new Date().toISOString();
+}
+
+export function futureISO(minutes = 60) {
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+}
+
+type Factory<T> = (overrides?: Partial<T>) => T;
+
+export function createFactory<T>(defaults: () => T): Factory<T> {
+  return (overrides = {}) => ({
+    ...defaults(),
+    ...overrides,
+  });
+}
+
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: "user" | "admin";
+  createdAt: string;
+};
+
+export const userFactory = createFactory<User>(() => ({
+  id: uid("user"),
+  email: `user_${Date.now()}@example.com`,
+  name: "Test User",
+  role: "user",
+  createdAt: nowISO(),
+}));
+
+
+export type Organization = {
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: string;
+};
+
+export const organizationFactory = createFactory<Organization>(() => {
+  const owner = userFactory();
+
+  return {
+    id: uid("org"),
+    name: "Test Organization",
+    ownerId: owner.id,
+    createdAt: nowISO(),
+  };
+});
+
+
+export type Task = {
+  id: string;
+  title: string;
+  description: string;
+  status: "todo" | "in_progress" | "done";
+  assignedTo: string;
+  createdAt: string;
+};
+
+export const taskFactory = createFactory<Task>(() => {
+  const user = userFactory();
+
+  return {
+    id: uid("task"),
+    title: "Test Task",
+    description: "This is a test task",
+    status: "todo",
+    assignedTo: user.id,
+    createdAt: nowISO(),
+  };
+});
+
+
+export type Session = {
+  id: string;
+  userId: string;
+  token: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export const sessionFactory = createFactory<Session>(() => {
+  const user = userFactory();
+
+  return {
+    id: uid("session"),
+    userId: user.id,
+    token: uid("token"),
+    expiresAt: futureISO(120),
+    createdAt: nowISO(),
+  };
+});
+
+

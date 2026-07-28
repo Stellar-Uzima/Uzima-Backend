@@ -10,7 +10,7 @@ import {
   Index,
   JoinColumn,
 } from 'typeorm';
-import { IsString, IsEnum, IsUUID, IsOptional, Length, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsUUID, IsOptional, Length, IsBoolean, Matches } from 'class-validator';
 import { User } from './user.entity';
 
 export enum PredefinedCategory {
@@ -146,6 +146,3 @@ export class TaskCategory {
     ];
   }
 }
-
-// Import Matches decorator
-import { Matches } from 'class-validator';

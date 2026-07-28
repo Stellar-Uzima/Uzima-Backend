@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TasksController } from './tasks.controller';
 import { TasksService } from './tasks.service';
-import { Role } from '../auth/enums/role.enum';
+import { Role } from '@modules/auth/enums/role.enum';
 import { TaskStatus } from './enums/task-status.enum';
 
 describe('TasksController', () => {

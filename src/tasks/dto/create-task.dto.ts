@@ -5,6 +5,7 @@ import {
   Min,
   Max,
   IsOptional,
+  IsISO8601,
   MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -47,4 +48,13 @@ export class CreateTaskDto {
   @Min(0.1, { message: 'xlmReward must be at least 0.1' })
   @Max(5.0, { message: 'xlmReward must not exceed 5.0' })
   xlmReward: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional ISO 8601 timestamp at which a reminder notification will be enqueued for this task.',
+    example: '2026-01-15T09:00:00.000Z',
+  })
+  @IsISO8601()
+  @IsOptional()
+  reminderTime?: string;
 }

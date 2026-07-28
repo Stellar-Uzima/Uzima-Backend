@@ -20,13 +20,13 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AdminUsersService } from './services/admin-users.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
-import { Roles } from '@/auth/decorators/roles.decorator';
-import { Role } from '@/auth/enums/role.enum';
-import { ListUsersDto } from '@/admin/dto/list-users.dto';
-import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
-import { ChangeRoleDto } from '@/admin/dto/change-role.dto';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
+import { ListUsersDto } from './dto/list-users.dto';
+import { CreateAdminDto } from './dto/create-admin.dto';
+import { ChangeRoleDto } from './dto/change-role.dto';
 
 @ApiTags('Admin - User Management')
 @ApiBearerAuth()
@@ -79,7 +79,7 @@ export class AdminUsersController {
     return this.adminUsersService.suspendUser(req.user.sub, id);
   }
 
-  @Patch(':id/reactivate')
+  @Post(':id/reactivate')
   @ApiOperation({ summary: 'Reactivate a user account' })
   @ApiResponse({ status: 200, description: 'User reactivated successfully' })
   async reactivate(@Req() req: any, @Param('id') id: string) {
@@ -92,4 +92,5 @@ export class AdminUsersController {
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.adminUsersService.deleteUser(req.user.sub, id);
   }
+
 }

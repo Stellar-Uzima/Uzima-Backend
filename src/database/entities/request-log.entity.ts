@@ -39,6 +39,9 @@ export class RequestLog {
   responseTime: number; // in milliseconds
 
   @Column({ nullable: true })
+  requestId?: string;
+
+  @Column({ nullable: true })
   error?: string;
 
   @CreateDateColumn()

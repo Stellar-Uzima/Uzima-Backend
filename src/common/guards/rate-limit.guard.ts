@@ -13,6 +13,18 @@ import {
 
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
+  protected async handleRequest(
+    requestProps: Parameters<ThrottlerGuard['handleRequest']>[0],
+  ): Promise<boolean> {
+    const allowed = await super.handleRequest(requestProps);
+    const { context, limit, ttl } = requestProps;
+    const response = context.switchToHttp().getResponse();
+    response.set('X-RateLimit-Limit', limit.toString());
+    response.set('X-RateLimit-Remaining', Math.max(0, limit - 1).toString());
+    response.set('X-RateLimit-Reset', ttl.toString());
+    return allowed;
+  }
+
   protected async throwThrottlingException(
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,

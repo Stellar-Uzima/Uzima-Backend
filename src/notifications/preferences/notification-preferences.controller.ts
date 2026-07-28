@@ -47,13 +47,13 @@ class JwtAuthGuard implements CanActivate {
 @ApiTags('Notification Preferences')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller()
+@Controller('notifications/preferences')
 export class NotificationPreferencesController {
   constructor(
     private readonly notificationPreferencesService: NotificationPreferencesService,
   ) {}
 
-  @Get('users/notification-preferences')
+  @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get notification preferences',
@@ -94,7 +94,7 @@ export class NotificationPreferencesController {
     return this.notificationPreferencesService.getPreferences(req.user.userId);
   }
 
-  @Patch('users/notification-preferences')
+  @Patch()
   @HttpCode(HttpStatus.OK)
   @UsePipes(
     new ValidationPipe({
