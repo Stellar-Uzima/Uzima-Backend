@@ -64,17 +64,6 @@ export class HealthController {
     ]);
   }
 
-  @Get('redis')
-  @HealthCheck()
-  @ApiOperation({ summary: 'Check Redis connectivity' })
-  @ApiResponse({ status: 200, description: 'Redis is healthy' })
-  @ApiResponse({ status: 503, description: 'Redis is unreachable' })
-  async checkRedis() {
-    return this.health.check([
-      () => this.redis.isHealthy('redis'),
-    ]);
-  }
-
   @Get('queue')
   @HealthCheck()
   @ApiOperation({ summary: 'Check queue health and job counts' })

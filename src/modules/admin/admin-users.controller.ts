@@ -45,6 +45,14 @@ export class AdminUsersController {
     return this.adminUsersService.createAdminUser(req.user.sub, dto);
   }
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search users by name or email' })
+  @ApiQuery({ name: 'q', description: 'Search query (partial name or email)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Matching users returned' })
+  async search(@Query('q') q: string) {
+    return this.adminUsersService.searchUsers(q);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List users with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
