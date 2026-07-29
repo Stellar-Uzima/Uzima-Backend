@@ -3,6 +3,18 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { registerAs } from '@nestjs/config';
 import { Logger as TypeOrmLogger, QueryRunner } from 'typeorm';
 
+interface DatabasePoolConfig {
+  max: number;
+  min: number;
+  idleTimeoutMillis: number;
+  connectionTimeoutMillis: number;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value ?? `${fallback}`, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function getSlowQueryThresholdMs(env: NodeJS.ProcessEnv = process.env): number {
   const parsed = parseInt(env.SLOW_QUERY_THRESHOLD_MS ?? '1000', 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -58,17 +70,33 @@ export class SlowQueryLogger implements TypeOrmLogger {
   }
 }
 
+export function getDatabasePoolConfig(env: NodeJS.ProcessEnv = process.env): DatabasePoolConfig {
+  return {
+    max: parsePositiveInt(env.DB_POOL_MAX, 20),
+    min: parsePositiveInt(env.DB_POOL_MIN, 5),
+    idleTimeoutMillis: parsePositiveInt(env.DB_POOL_IDLE_TIMEOUT_MS, 30000),
+    connectionTimeoutMillis: parsePositiveInt(env.DB_POOL_CONNECTION_TIMEOUT_MS, 2000),
+  };
+}
+
 export function buildDatabaseTypeOrmOptions(
   env: NodeJS.ProcessEnv = process.env,
-): Pick<TypeOrmModuleOptions, 'logging' | 'maxQueryExecutionTime' | 'logger'> {
+): Pick<TypeOrmModuleOptions, 'logging' | 'maxQueryExecutionTime' | 'logger' | 'extra'> {
   const isProduction = env.NODE_ENV === 'production';
   const thresholdMs = getSlowQueryThresholdMs(env);
   const verboseLogging = env.DB_LOGGING === 'true';
 
+  /**
+   * Production defaults:
+   * - keep query logging off in production and only report slow queries
+   * - use a small, stable pool with bounded idle and connect timeouts
+   * - keep the threshold at 1000ms unless explicitly overridden
+   */
   return {
     maxQueryExecutionTime: thresholdMs,
     logging: isProduction ? false : verboseLogging,
     logger: new SlowQueryLogger(thresholdMs, isProduction),
+    extra: getDatabasePoolConfig(env),
   };
 }
 
