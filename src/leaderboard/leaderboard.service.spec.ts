@@ -750,6 +750,212 @@ describe('LeaderboardService', () => {
   });
 
   // ============================================
+  // PERFORMANCE BENCHMARKS
+  // ============================================
+
+  describe('Performance Benchmarks', () => {
+    /** Helper: measure execution time of an async function */
+    async function measureTime(fn: () => Promise<any>): Promise<number> {
+      const start = performance.now();
+      await fn();
+      return performance.now() - start;
+    }
+
+    it('getLeaderboard should respond within 100ms for a cached result (50 entries)', async () => {
+      // Simulate a full leaderboard response
+      const entries: string[] = [];
+      for (let i = 0; i < 50; i++) {
+        entries.push(`user-${i}`, `${1000 - i * 10}`);
+      }
+      const names = Array.from({ length: 50 }, (_, i) => `User ${i}`);
+
+      mockRedisClient.zrevrange.mockResolvedValueOnce(entries);
+      mockRedisClient.hmget.mockResolvedValueOnce(names);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(5);
+      mockRedisClient.zscore.mockResolvedValueOnce('950');
+
+      const elapsed = await measureTime(() =>
+        service.getLeaderboard('user-5', 50),
+      );
+
+      // Should be well under 100ms (no DB calls, pure Redis + in-memory map)
+      expect(elapsed).toBeLessThan(100);
+    });
+
+    it('getLeaderboard should respond within 50ms for a small cached result (10 entries)', async () => {
+      const entries: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        entries.push(`user-${i}`, `${500 - i * 10}`);
+      }
+      const names = Array.from({ length: 10 }, (_, i) => `User ${i}`);
+
+      mockRedisClient.zrevrange.mockResolvedValueOnce(entries);
+      mockRedisClient.hmget.mockResolvedValueOnce(names);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+      mockRedisClient.zscore.mockResolvedValueOnce('500');
+
+      const elapsed = await measureTime(() =>
+        service.getLeaderboard('user-0', 10),
+      );
+
+      expect(elapsed).toBeLessThan(50);
+    });
+
+    it('rebuildLeaderboards should complete within 1s for typical dataset (200 users)', async () => {
+      const users = Array.from({ length: 200 }, (_, i) => ({
+        userId: `user-${i}`,
+        totalXlm: `${1000 - i}`,
+        fullName: `User Number ${i}`,
+        country: i % 5 === 0 ? 'US' : i % 5 === 1 ? 'GB' : i % 5 === 2 ? 'NG' : i % 5 === 3 ? 'KE' : 'GH',
+      }));
+
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        addGroupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue(users),
+      };
+      mockRewardRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockPipeline.exec.mockResolvedValue([]);
+
+      const elapsed = await measureTime(() =>
+        service.rebuildLeaderboards(),
+      );
+
+      // Pipeline operations are batched; should complete quickly
+      expect(elapsed).toBeLessThan(1000);
+    });
+
+    it('concurrent getLeaderboard calls should not degrade beyond 2x single-call latency', async () => {
+      const entries: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        entries.push(`user-${i}`, `${100 - i * 5}`);
+      }
+      const names = Array.from({ length: 10 }, (_, i) => `User ${i}`);
+
+      // Single call baseline
+      mockRedisClient.zrevrange.mockResolvedValueOnce(entries);
+      mockRedisClient.hmget.mockResolvedValueOnce(names);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+      mockRedisClient.zscore.mockResolvedValueOnce('100');
+
+      const singleCallTime = await measureTime(() =>
+        service.getLeaderboard('user-0', 10),
+      );
+
+      // Concurrent calls
+      for (let i = 0; i < 5; i++) {
+        mockRedisClient.zrevrange.mockResolvedValueOnce(entries);
+        mockRedisClient.hmget.mockResolvedValueOnce(names);
+        mockRedisClient.zrevrank.mockResolvedValueOnce(i);
+        mockRedisClient.zscore.mockResolvedValueOnce(`${100 - i * 5}`);
+      }
+
+      const concurrentStart = performance.now();
+      await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          service.getLeaderboard(`user-${i}`, 10),
+        ),
+      );
+      const concurrentTime = performance.now() - concurrentStart;
+
+      // Concurrent execution with mocked Redis should not be worse than 2x single call
+      expect(concurrentTime).toBeLessThan(Math.max(singleCallTime * 2, 50));
+    });
+  });
+
+  // ============================================
+  // CACHE PERFORMANCE METRICS
+  // ============================================
+
+  describe('Cache Performance Metrics', () => {
+    beforeEach(() => {
+      service.resetCacheMetrics();
+    });
+
+    it('should track cache hits and misses', async () => {
+      // Cache hit (data returned)
+      mockRedisClient.zrevrange.mockResolvedValueOnce(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValueOnce(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+      mockRedisClient.zscore.mockResolvedValueOnce('100');
+
+      await service.getLeaderboard('user-1', 50);
+
+      // Cache miss (empty result)
+      mockRedisClient.zrevrange.mockResolvedValueOnce([]);
+      mockRedisClient.hmget.mockResolvedValueOnce([]);
+      mockRedisClient.zrevrank.mockResolvedValueOnce(null);
+      mockRedisClient.zscore.mockResolvedValueOnce(null);
+
+      await service.getLeaderboard('unknown', 50);
+
+      const metrics = service.getCachePerformanceMetrics();
+      expect(metrics.hits).toBe(1);
+      expect(metrics.misses).toBe(1);
+      expect(metrics.hitRate).toBe(50);
+      expect(metrics.totalRequests).toBe(2);
+    });
+
+    it('should report 0 hit rate when no requests made', () => {
+      const metrics = service.getCachePerformanceMetrics();
+      expect(metrics.hits).toBe(0);
+      expect(metrics.misses).toBe(0);
+      expect(metrics.hitRate).toBe(0);
+      expect(metrics.avgResponseTimeMs).toBe(0);
+      expect(metrics.totalRequests).toBe(0);
+    });
+
+    it('should track average response time across requests', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      await service.getLeaderboard('user-1', 10);
+
+      const metrics = service.getCachePerformanceMetrics();
+      expect(metrics.avgResponseTimeMs).toBeGreaterThan(0);
+    });
+
+    it('should reset all metrics to zero', async () => {
+      mockRedisClient.zrevrange.mockResolvedValue(['user-1', '100']);
+      mockRedisClient.hmget.mockResolvedValue(['User 1']);
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('100');
+
+      await service.getLeaderboard('user-1', 10);
+
+      service.resetCacheMetrics();
+
+      const metrics = service.getCachePerformanceMetrics();
+      expect(metrics.hits).toBe(0);
+      expect(metrics.misses).toBe(0);
+      expect(metrics.totalRequests).toBe(0);
+    });
+
+    it('should calculate hit rate accurately with all hits', async () => {
+      for (let i = 0; i < 3; i++) {
+        mockRedisClient.zrevrange.mockResolvedValueOnce(['user-1', '100']);
+        mockRedisClient.hmget.mockResolvedValueOnce(['User 1']);
+        mockRedisClient.zrevrank.mockResolvedValueOnce(0);
+        mockRedisClient.zscore.mockResolvedValueOnce('100');
+
+        await service.getLeaderboard('user-1', 10);
+      }
+
+      const metrics = service.getCachePerformanceMetrics();
+      expect(metrics.hits).toBe(3);
+      expect(metrics.misses).toBe(0);
+      expect(metrics.hitRate).toBe(100);
+    });
+  });
+
+  // ============================================
   // CACHING TESTS
   // ============================================
 

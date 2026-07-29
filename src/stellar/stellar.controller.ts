@@ -6,14 +6,31 @@ import {
   Patch,
   Param,
   Delete,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { StellarService } from './stellar.service';
+import { XlmPriceService } from './xlm-price.service';
 import { CreateStellarDto } from './dto/create-stellar.dto';
 import { UpdateStellarDto } from './dto/update-stellar.dto';
 
+@ApiTags('Stellar')
 @Controller('stellar')
 export class StellarController {
-  constructor(private readonly stellarService: StellarService) {}
+  constructor(
+    private readonly stellarService: StellarService,
+    private readonly xlmPriceService: XlmPriceService,
+  ) {}
+
+  @Get('xlm-price')
+  @ApiOperation({ summary: 'Get current XLM price in USD' })
+  @ApiResponse({ status: 200, description: 'Current XLM price returned' })
+  @ApiResponse({ status: 503, description: 'Price feed unavailable' })
+  async getXlmPrice() {
+    const price = await this.xlmPriceService.getXlmUsdRate();
+    return { priceUsd: price };
+  }
 
   @Post()
   create(@Body() createStellarDto: CreateStellarDto) {

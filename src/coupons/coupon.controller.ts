@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -31,6 +32,17 @@ interface AuthenticatedRequest extends Request {
 @Controller('coupons')
 export class CouponController {
   constructor(private readonly couponService: CouponService) {}
+
+  @Get('available')
+  @ApiOperation({
+    summary: 'Get all available (non-expired, non-redeemed) coupons',
+    description: 'Returns coupons that are currently valid for the authenticated user.',
+  })
+  @ApiResponse({ status: 200, description: 'List of available coupons' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getAvailable(@Req() req: AuthenticatedRequest): Promise<Coupon[]> {
+    return this.couponService.getActiveForUser(req.user.sub);
+  }
 
   @Get('me')
   @ApiOperation({

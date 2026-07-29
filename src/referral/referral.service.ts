@@ -96,6 +96,10 @@ export class ReferralService {
     });
   }
 
+  async getUserWithReferralCode(userId: string) {
+    return this.userRepo.findOne({ where: { id: userId } });
+  }
+
   @OnEvent('task.completed')
   async handleFirstHealthTaskCompletion(payload: {
     userId: string;

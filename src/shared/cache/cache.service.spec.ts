@@ -152,12 +152,12 @@ describe('CacheService', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
 
-    it('should fall back to config default TTL when options.ttl is 0 (falsy coercion)', async () => {
-      // The service uses `options.ttl || configDefault` so 0 is treated as "no override"
-      // and the config default (3600) is used instead — setex is still called.
+    it('should treat ttl:0 as explicit no-expiry', async () => {
+      // When ttl is explicitly 0, it means "no automatic expiry"
       await service.set('my-key', 'value', { ttl: 0 });
 
-      expect(mockSetex).toHaveBeenCalledWith('my-key', 3600, JSON.stringify('value'));
+      expect(mockSet).toHaveBeenCalledWith('my-key', JSON.stringify('value'));
+      expect(mockSetex).not.toHaveBeenCalled();
     });
 
     it('should call redis.set (no expiry) when both options.ttl and config default are 0', async () => {
@@ -218,6 +218,19 @@ describe('CacheService', () => {
         JSON.stringify({ data: true }),
         'EX',
         60,
+        'NX',
+      );
+    });
+
+    it('should use the default TTL when no TTL is provided', async () => {
+      mockSet.mockResolvedValueOnce('OK');
+      await service.setIfNotExists('lock-key', 'value');
+
+      expect(mockSet).toHaveBeenCalledWith(
+        'lock-key',
+        JSON.stringify('value'),
+        'EX',
+        3600,
         'NX',
       );
     });
