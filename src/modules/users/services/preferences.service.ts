@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserPreferences, Theme, NotificationType } from '../../../database/entities/user-preferences.entity';
-import { User } from '../../../database/entities/user.entity';
+import { User } from '../../../entities/user.entity';
 
 export interface UpdatePreferencesDto {
   theme?: Theme;

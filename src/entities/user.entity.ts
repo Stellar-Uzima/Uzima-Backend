@@ -10,15 +10,23 @@ import {
   ManyToMany,
   JoinTable,
   Unique,
+  Index,
 } from 'typeorm';
 import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { HealthTask } from './health-task.entity';
 import { Session } from '../database/entities/session.entity';
 import { Organization } from '../database/entities/organization.entity';
+import { UserActivity } from '../database/entities/user-activity.entity';
+import { UserPreferences } from '../database/entities/user-preferences.entity';
+
+// Re-export Role as UserRole for backward compatibility with code that
+// previously imported UserRole from src/database/entities/user.entity.ts
+export { Role as UserRole };
 
 @Entity('users')
 @Unique(['email'])
+@Index(['email'])
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,6 +36,14 @@ export class User {
 
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
   phoneNumber: string;
+
+  // Backward-compatible alias for code that uses `phone`
+  get phone(): string | undefined {
+    return this.phoneNumber;
+  }
+  set phone(value: string | undefined) {
+    this.phoneNumber = value;
+  }
 
   @Column({ type: 'varchar', length: 2 })
   country: string;
@@ -59,6 +75,14 @@ export class User {
 
   @Column({ default: false })
   isVerified: boolean;
+
+  // Backward-compatible alias for code that uses `emailVerified`
+  get emailVerified(): boolean {
+    return this.isVerified;
+  }
+  set emailVerified(value: boolean) {
+    this.isVerified = value;
+  }
 
   @Column({ type: 'varchar', nullable: true, unique: true })
   emailVerificationToken: string | null;
@@ -117,6 +141,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   twoFactorSecret: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  avatar?: string | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   fcmToken?: string | null;
 
@@ -151,4 +178,10 @@ export class User {
 
   @OneToMany('ReferralRecord', 'referrer')
   referralRecords?: any[];
+
+  @OneToMany(() => UserActivity, (activity) => activity.user)
+  activities?: UserActivity[];
+
+  @OneToMany(() => UserPreferences, (prefs) => prefs.user)
+  preferences?: UserPreferences[];
 }
