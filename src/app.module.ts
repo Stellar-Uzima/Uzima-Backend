@@ -19,6 +19,7 @@ import { ConsultationsModule } from '@modules/consultations/consultations.module
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 // 1. Import the new StorageModule
 import { StorageModule } from './shared/storage/storage.module'; 
 import { MetricsModule } from './shared/metrics/metrics.module';
@@ -44,6 +45,7 @@ import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
+import { NotificationCenterModule } from './modules/notification-center/notification-center.module';
 
 @Module({
   imports: [
@@ -88,10 +90,15 @@ import { HealthProfileModule } from './modules/health-profile/health-profile.mod
     NotificationsModule,
     AdminModule,
     ReportsModule,
+ feat/gamification-engine
+    GamificationModule,
+
     RewardModule,
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+    NotificationCenterModule,
+ main
   ],
   controllers: [AppController],
   providers: [
@@ -102,8 +109,11 @@ import { HealthProfileModule } from './modules/health-profile/health-profile.mod
     },
   ],
 })
+ feat/gamification-engine
+export class AppModule {}
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
+ main
