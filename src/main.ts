@@ -52,7 +52,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const reflector = app.get(Reflector);
-  app.useGlobalGuards(new PermissionsGuard(reflector));
+  // Apply RateLimitGuard first to ensure all requests are rate limited before any other processing
+  const rateLimitGuard = app.get(RateLimitGuard);
+  app.useGlobalGuards(rateLimitGuard, new PermissionsGuard(reflector));
 
   const loggingInterceptor = app.get(LoggingInterceptor);
   app.useGlobalInterceptors(loggingInterceptor);
