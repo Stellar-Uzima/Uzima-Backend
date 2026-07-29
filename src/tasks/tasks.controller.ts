@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   Query,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -29,6 +30,7 @@ import {
 } from '@nestjs/swagger';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { HealthTask } from './entities/health-task.entity';
+import { TaskStatus } from './enums/task-status.enum';
 
 @ApiTags('tasks')
 @Controller('tasks')
@@ -80,6 +82,15 @@ export class TasksController {
     @Query() listTasksDto: ListTasksDto,
   ): Promise<PaginatedResponseDto<HealthTask>> {
     return this.tasksService.findAll(listTasksDto);
+  }
+
+  @Get('status/:status')
+  @ApiOperation({ summary: 'Get tasks by status' })
+  @ApiParam({ name: 'status', enum: TaskStatus, description: 'Task status (e.g. ACTIVE, DRAFT, ARCHIVED)' })
+  @ApiResponse({ status: 200, description: 'Returns tasks matching the status' })
+  @ApiResponse({ status: 400, description: 'Invalid status value' })
+  findByStatus(@Param('status', new ParseEnumPipe(TaskStatus)) status: TaskStatus) {
+    return this.tasksService.findByStatus(status);
   }
 
   @Get(':id')
