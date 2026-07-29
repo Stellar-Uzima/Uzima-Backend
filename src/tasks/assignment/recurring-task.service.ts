@@ -106,4 +106,60 @@ export class RecurringTaskService {
         return false;
     }
   }
+
+  /**
+   * Backfill missed recurring assignments for a range of dates.
+   *
+   * This is useful after server downtime or scheduler restarts where the
+   * nightly `generateRecurringAssignments` cron may have been skipped.
+   *
+   * @param since - Start date (ISO string, e.g. '2026-07-25') for the backfill.
+   *                Defaults to 7 days ago if not provided.
+   * @returns The number of dates that were backfilled.
+   *
+   * @example
+   * // Backfill the last 3 days
+   * const count = await service.backfillMissedAssignments('2026-07-26');
+   */
+  async backfillMissedAssignments(since?: string): Promise<number> {
+    const daysToBackfill = 7;
+    const today = new Date();
+    let startDate: Date;
+
+    if (since) {
+      startDate = new Date(since + 'T00:00:00Z');
+    } else {
+      startDate = new Date(today);
+      startDate.setUTCDate(startDate.getUTCDate() - daysToBackfill);
+    }
+
+    this.logger.log(
+      `Starting backfill for recurring assignments from ${startDate.toISOString().split('T')[0]} to ${today.toISOString().split('T')[0]}`,
+    );
+
+    let backfilledCount = 0;
+    const current = new Date(startDate);
+
+    while (current <= today) {
+      const dateStr = current.toISOString().split('T')[0];
+
+      try {
+        await this.generateAssignmentsForDate(dateStr);
+        backfilledCount++;
+      } catch (error) {
+        this.logger.error(
+          `Backfill failed for date ${dateStr}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      // Advance by one day
+      current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    this.logger.log(
+      `Backfill complete. Processed ${backfilledCount} dates.`,
+    );
+
+    return backfilledCount;
+  }
 }

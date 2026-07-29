@@ -1,7 +1,15 @@
 import {
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
 } from "@nestjs/common";
+
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+} from "@nestjs/swagger";
 
 import {
   HealthCheck,
@@ -17,6 +25,7 @@ import {
   QueueHealthIndicator,
 } from "./indicators/queue.health";
 
+@ApiTags('Health')
 @Controller("health")
 export class HealthController {
 
@@ -52,6 +61,28 @@ export class HealthController {
         this.queue.isHealthy(
           "queue",
         ),
+    ]);
+  }
+
+  @Get('redis')
+  @HealthCheck()
+  @ApiOperation({ summary: 'Check Redis connectivity' })
+  @ApiResponse({ status: 200, description: 'Redis is healthy' })
+  @ApiResponse({ status: 503, description: 'Redis is unreachable' })
+  async checkRedis() {
+    return this.health.check([
+      () => this.redis.isHealthy('redis'),
+    ]);
+  }
+
+  @Get('queue')
+  @HealthCheck()
+  @ApiOperation({ summary: 'Check queue health and job counts' })
+  @ApiResponse({ status: 200, description: 'Queue is healthy' })
+  @ApiResponse({ status: 503, description: 'Queue is unreachable' })
+  async checkQueue() {
+    return this.health.check([
+      () => this.queue.isHealthy('queue'),
     ]);
   }
 }
