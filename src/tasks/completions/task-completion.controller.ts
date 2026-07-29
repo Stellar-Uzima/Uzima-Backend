@@ -30,6 +30,11 @@ export class TaskCompletionController {
     return this.service.getUserCompletions(req.user.id);
   }
 
+  @Get('stats')
+  getStats(@Req() req: any) {
+    return this.service.getUserCompletionStats(req.user.id);
+  }
+
   @Post(':id/proof-upload-url')
   getProofUploadUrl(
     @Req() req: any,

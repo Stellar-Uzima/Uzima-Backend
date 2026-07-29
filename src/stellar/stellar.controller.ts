@@ -42,6 +42,14 @@ export class StellarController {
     return this.stellarService.findAll();
   }
 
+  @Get('wallet/:address/balance')
+  @ApiOperation({ summary: 'Get XLM balance for a Stellar address' })
+  @ApiResponse({ status: 200, description: 'Balance returned' })
+  @ApiResponse({ status: 400, description: 'Invalid Stellar address' })
+  async getWalletBalance(@Param('address') address: string) {
+    return this.stellarService.getAccountBalance(address);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.stellarService.findOne(+id);
