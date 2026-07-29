@@ -47,6 +47,7 @@ import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
+import { HealthModule } from './health/health.module';
 import { NotificationCenterModule } from './modules/notification-center/notification-center.module';
 
 @Module({
@@ -56,6 +57,7 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
       envFilePath: '.env',
       load: [secretsConfig, passwordConfig],
     }),
+    HealthModule,
     AppCacheModule,
     ThrottlerModule.forRootAsync({
       useFactory: (configService) => {

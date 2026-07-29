@@ -568,6 +568,53 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Close Redis connection
    */
+  /**
+   * Ping Redis to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    try {
+      await this.redis.ping();
+      return true;
+    } catch (error) {
+      this.logger.error('Redis ping failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get Redis statistics
+   */
+  async getCacheStats(): Promise<CacheStats> {
+    try {
+      const info = await this.redis.info();
+      const infoLines = info.split('\r\n');
+      const stats: Record<string, string> = {};
+      
+      infoLines.forEach(line => {
+        const [key, value] = line.split(':');
+        if (key && value) stats[key] = value;
+      });
+
+      const keys = parseInt(stats['db0']?.split(',')[0]?.split('=')[1] || '0');
+      const usedMemory = stats['used_memory_human'] || '0B';
+      const hits = parseInt(stats['keyspace_hits'] || '0');
+      const misses = parseInt(stats['keyspace_misses'] || '0');
+      const totalRequests = hits + misses;
+      const hitRate = totalRequests > 0 ? hits / totalRequests : 0;
+
+      return {
+        keys,
+        memory: usedMemory,
+        hits,
+        misses,
+        hitRate,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get Redis stats:', error);
+      throw error;
+    }
+  }
+
   async onModuleDestroy() {
     if (this.redis) {
       await this.redis.quit();
