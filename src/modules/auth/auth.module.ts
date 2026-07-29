@@ -18,6 +18,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 import { TwoFactorController } from './two-factor.controller';
 import { TwoFactorService } from './services/two-factor.service';
 import { OtpModule } from '../../otp/otp.module';
@@ -58,6 +59,7 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     JwtAuthGuard,
     JwtRefreshGuard,
     RolesGuard,
+    PermissionsGuard,
     PasswordValidationPipe,
   ],
   exports: [
@@ -66,6 +68,7 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     SessionService,
     TwoFactorService,
     RolesGuard,
+    PermissionsGuard,
     JwtAuthGuard,
     JwtRefreshGuard,
   ],
