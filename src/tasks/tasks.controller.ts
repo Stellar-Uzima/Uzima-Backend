@@ -82,6 +82,21 @@ export class TasksController {
     return this.tasksService.findAll(listTasksDto);
   }
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search tasks by title or description (public)' })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Search query to match against task title or description',
+    example: 'walking',
+  })
+  @ApiResponse({ status: 200, description: 'Returns matching tasks' })
+  @ApiResponse({ status: 400, description: 'Missing search query' })
+  search(@Query('q') q: string) {
+    return this.tasksService.search(q);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific health task by ID (public)' })
   @ApiParam({ name: 'id', description: 'Task ID' })

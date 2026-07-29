@@ -162,4 +162,19 @@ export class TasksService {
   async restore(id: string): Promise<void> {
     await this.healthTaskRepository.restore(id);
   }
+
+  async search(q: string): Promise<HealthTask[]> {
+    const term = q.trim();
+    if (!term) {
+      return [];
+    }
+    return this.healthTaskRepository
+      .createQueryBuilder('task')
+      .where('LOWER(task.title) LIKE LOWER(:term)', { term: `%${term}%` })
+      .orWhere('LOWER(task.description) LIKE LOWER(:term)', { term: `%${term}%` })
+      .andWhere('task.status = :status', { status: TaskStatus.ACTIVE })
+      .andWhere('task.deletedAt IS NULL')
+      .orderBy('task.createdAt', 'DESC')
+      .getMany();
+  }
 }
