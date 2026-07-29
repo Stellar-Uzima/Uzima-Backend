@@ -1,21 +1,18 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
 
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value ?? `${fallback}`, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /**
  * TypeORM DataSource configuration for database migrations and CLI.
  *
- * type: Database type (e.g., 'postgres')
- * host: Database host address
- * port: Database port
- * username: Database username
- * password: Database password
- * database: Database name
- * entities: Array of entity classes (add all entities here)
- * migrations: Array of migration files
- * synchronize: Auto sync entities (disable in production)
- * logging: Enable query logging
- * ssl: SSL config for secure connections
- * extra: Pool config for connection management
+ * Production expectations:
+ * - keep synchronize disabled and rely on migrations only
+ * - disable verbose query logging in production; enable it only for debugging
+ * - use a bounded connection pool with conservative timeouts to protect the database
  */
 const AppDataSource = new DataSource({
   type: 'postgres', // Database type
@@ -28,7 +25,8 @@ const AppDataSource = new DataSource({
   migrations: ['src/migrations/*{.ts,.js}'], // Migration files for CLI
   migrationsTableName: 'migrations',
   synchronize: false, // Never use true in production
-  logging: process.env.NODE_ENV === 'development' ? 'all' : ['error'], // Enable logging for debugging
+  logging: process.env.NODE_ENV === 'production' ? false : process.env.DB_LOGGING === 'true' ? 'all' : ['error'],
+  maxQueryExecutionTime: parsePositiveInt(process.env.SLOW_QUERY_THRESHOLD_MS, 1000),
   ssl:
     process.env.DATABASE_SSL === 'true'
       ? {
@@ -36,10 +34,10 @@ const AppDataSource = new DataSource({
         }
       : false,
   extra: {
-    max: 20, // Connection pool settings
-    min: 5,
-    idleTimeoutMillis: 30000, // Timeout for idle connections
-    connectionTimeoutMillis: 2000, // Timeout for connection requests
+    max: parsePositiveInt(process.env.DB_POOL_MAX, 20), // Maximum number of pooled connections
+    min: parsePositiveInt(process.env.DB_POOL_MIN, 5), // Minimum number of pooled connections
+    idleTimeoutMillis: parsePositiveInt(process.env.DB_POOL_IDLE_TIMEOUT_MS, 30000), // Timeout for idle connections
+    connectionTimeoutMillis: parsePositiveInt(process.env.DB_POOL_CONNECTION_TIMEOUT_MS, 2000), // Timeout for connection requests
   },
 });
 
