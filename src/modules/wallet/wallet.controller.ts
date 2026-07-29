@@ -25,6 +25,29 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user wallet address and balance' })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet address and balance returned',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No wallet linked',
+  })
+  async getWallet(@Request() req) {
+    const summary = await this.walletService.getWalletSummary(req.user.sub);
+    if (!summary.walletLinked) {
+      return { walletAddress: null, xlmBalance: null };
+    }
+    return {
+      walletAddress: summary.walletAddress,
+      xlmBalance: summary.liveBalance,
+    };
+  }
+
   @Get('summary')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

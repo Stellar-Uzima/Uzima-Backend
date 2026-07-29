@@ -54,4 +54,17 @@ export class ReferralController {
     const userId = req.user.id ?? req.user.sub;
     return this.referralService.getMyReferrals(userId!);
   }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user referral summary' })
+  @ApiResponse({ status: 200, description: 'Referral summary retrieved' })
+  async getMyReferralSummary(@Req() req: { user: { id?: string; sub?: string } }) {
+    const userId = req.user.id ?? req.user.sub;
+    const referrals = await this.referralService.getMyReferrals(userId!);
+    const user = await this.referralService.getUserWithReferralCode(userId!);
+    return {
+      referralCode: user?.referralCode || null,
+      successfulReferralCount: referrals.length,
+    };
+  }
 }
