@@ -549,8 +549,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (this.redis) {
       await this.redis.quit();
-    }
-  }this.logger.log('Redis connection closed');
+      this.logger.log('Redis connection closed');
     }
   }
 }
