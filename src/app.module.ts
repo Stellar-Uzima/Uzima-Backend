@@ -45,6 +45,7 @@ import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
+import { NotificationCenterModule } from './modules/notification-center/notification-center.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { HealthProfileModule } from './modules/health-profile/health-profile.mod
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+    NotificationCenterModule,
  main
   ],
   controllers: [AppController],
