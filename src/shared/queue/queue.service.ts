@@ -223,6 +223,23 @@ export class QueueService {
   }
 
   /**
+   * Ping all queues to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    try {
+      // Try to get stats from the first queue to verify connection
+      const firstQueue = this.queues.values().next().value;
+      if (firstQueue) {
+        await firstQueue.getWaiting();
+      }
+      return true;
+    } catch (error) {
+      this.logger.error('Queue ping failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all queue statistics
    */
   async getAllQueueStats(): Promise<Record<QueueName, QueueStats>> {
