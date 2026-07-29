@@ -23,6 +23,8 @@ import { TasksScheduler } from '@/tasks/tasks.scheduler';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
 import { ReportsModule } from '@modules/reports/reports.module';
 
+import { StreaksModule } from '@/streaks/streaks.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, TaskCompletion, RewardTransaction]),
@@ -33,6 +35,7 @@ import { ReportsModule } from '@modules/reports/reports.module';
     AuthModule,
     ReportsModule,
     QueueModule,
+    StreaksModule,
   ],
   controllers: [AdminController, AdminUsersController, AdminTasksController, FailedRewardJobController],
   providers: [

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +15,7 @@ import { CreateAdminDto } from '../dto/create-admin.dto';
 import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
+import { StreaksService } from '@/streaks/streaks.service';
 
 @Injectable()
 export class AdminUsersService {
@@ -23,6 +25,7 @@ export class AdminUsersService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly auditService: AuditService,
+    private readonly streaksService: StreaksService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -134,6 +137,19 @@ export class AdminUsersService {
       throw new BadRequestException('User not found');
     }
     return user;
+  }
+
+  async getUserStreaks(id: string) {
+    // verify user exists, which returns 404 (or throws BadRequest/NotFound depending on service)
+    // Wait, the instructions say "Returns 404 if user not found".
+    // getUserById throws BadRequestException in AdminUsersService. 
+    // We can just use userRepo to check if user exists.
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    return this.streaksService.getStreakHistory(id);
   }
 
   async changeRole(adminId: string, userId: string, role: Role) {
