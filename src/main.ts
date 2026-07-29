@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { CustomValidationPipe } from './common/pipes/validation.pipe';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
