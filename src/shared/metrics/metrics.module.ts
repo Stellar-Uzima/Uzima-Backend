@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import {
   PrometheusModule,
   makeCounterProvider,
@@ -55,10 +55,12 @@ import { MonitoringController } from '../monitoring/monitoring.controller';
     makeCounterProvider({
       name: 'cache_hits_total',
       help: 'Total number of cache hits',
+      labelNames: ['cache_name'],
     }),
     makeCounterProvider({
       name: 'cache_misses_total',
       help: 'Total number of cache misses',
+      labelNames: ['cache_name'],
     }),
     makeGaugeProvider({
       name: 'system_memory_usage_bytes',
