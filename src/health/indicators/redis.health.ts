@@ -8,15 +8,15 @@ import {
   HealthCheckError,
 } from "@nestjs/terminus";
 
-import { RedisService }
-  from "../../redis/redis.service";
+import { CacheService }
+  from "../../shared/cache/cache.service";
 
 @Injectable()
 export class RedisHealthIndicator
   extends HealthIndicator {
 
   constructor(
-    private readonly redisService: RedisService,
+    private readonly cacheService: CacheService,
   ) {
     super();
   }
@@ -26,21 +26,31 @@ export class RedisHealthIndicator
   ): Promise<HealthIndicatorResult> {
 
     try {
-
-      await this.redisService.ping();
+      await this.cacheService.ping();
+      const stats = await this.cacheService.getCacheStats();
 
       return this.getStatus(
         key,
         true,
+        {
+          ...stats,
+          message: "Redis connection is healthy",
+          timestamp: new Date().toISOString(),
+        },
       );
 
     } catch (error) {
-
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
       throw new HealthCheckError(
         "Redis check failed",
         this.getStatus(
           key,
           false,
+          {
+            error: errorMessage,
+            timestamp: new Date().toISOString(),
+          },
         ),
       );
     }

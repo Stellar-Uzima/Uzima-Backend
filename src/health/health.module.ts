@@ -18,9 +18,19 @@ import {
   QueueHealthIndicator,
 } from "./indicators/queue.health";
 
+import {
+  CacheModule,
+} from "../shared/cache/cache.module";
+
+import {
+  QueueModule,
+} from "../queue/queue.module";
+
 @Module({
   imports: [
     TerminusModule,
+    CacheModule,
+    QueueModule,
   ],
 
   controllers: [

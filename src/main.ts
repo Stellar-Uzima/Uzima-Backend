@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { CustomValidationPipe } from './common/pipes/validation.pipe';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
@@ -52,7 +53,9 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const reflector = app.get(Reflector);
-  app.useGlobalGuards(new PermissionsGuard(reflector));
+  // Apply RateLimitGuard first to ensure all requests are rate limited before any other processing
+  const rateLimitGuard = app.get(RateLimitGuard);
+  app.useGlobalGuards(rateLimitGuard, new PermissionsGuard(reflector));
 
   const loggingInterceptor = app.get(LoggingInterceptor);
   app.useGlobalInterceptors(loggingInterceptor);
