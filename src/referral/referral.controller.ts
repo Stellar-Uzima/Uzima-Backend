@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   Body,
   Controller,
@@ -66,5 +67,34 @@ export class ReferralController {
       referralCode: user?.referralCode || null,
       successfulReferralCount: referrals.length,
     };
+=======
+import { Controller, Get, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { ReferralService } from './referral.service';
+<<<<<<<< HEAD:src/referral/entities/referral.controller.ts
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+========
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RedeemReferralDto } from './dto/redeem-referral.dto';
+>>>>>>>> fea048b (feat(backend): consolidate referral module and add test coverage for referral, streaks & webhook verifier (closes #1055, #1056, #1057, #1061)):src/referral/referral.controller.ts
+
+@Controller('users/me')
+@UseGuards(JwtAuthGuard)
+export class ReferralController {
+  constructor(private readonly referralService: ReferralService) {}
+
+  @Get('referral-code')
+  getReferralCode(@Req() req) {
+    return this.referralService.getMyReferralCode(req.user.id);
+  }
+
+  @Get('referrals')
+  getMyReferrals(@Req() req) {
+    return this.referralService.getMyReferrals(req.user.id);
+  }
+
+  @Post('redeem-referral')
+  redeemReferral(@Req() req, @Body() dto: RedeemReferralDto) {
+    return this.referralService.redeemReferral(req.user.id, dto);
+>>>>>>> fea048b (feat(backend): consolidate referral module and add test coverage for referral, streaks & webhook verifier (closes #1055, #1056, #1057, #1061))
   }
 }
