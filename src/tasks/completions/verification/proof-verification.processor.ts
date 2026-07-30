@@ -7,9 +7,7 @@ import { ProofVerificationService } from './proof-verification.service';
 export class ProofVerificationProcessor extends WorkerHost {
   private readonly logger = new Logger(ProofVerificationProcessor.name);
 
-  constructor(
-    private readonly proofVerificationService: ProofVerificationService,
-  ) {
+  constructor(private proofVerificationService: ProofVerificationService) {
     super();
   }
 

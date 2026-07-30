@@ -60,7 +60,6 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  // In-memory operational vectors (kept for backward compatibility)
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
 
