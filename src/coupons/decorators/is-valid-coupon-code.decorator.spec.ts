@@ -30,7 +30,11 @@ describe('IsValidCouponCodeDecorator', () => {
     it('should reject codes shorter than 6 characters', () => {
       expect(constraint.validate('ABC12', null)).toBe(false);
       expect(constraint.validate('AB1', null)).toBe(false);
+    });
+
+    it('should reject empty strings', () => {
       expect(constraint.validate('', null)).toBe(false);
+      expect(constraint.validate('   ', null)).toBe(false);
     });
 
     it('should reject codes longer than 20 characters', () => {
@@ -44,6 +48,13 @@ describe('IsValidCouponCodeDecorator', () => {
       expect(constraint.validate('CODE$123', null)).toBe(false);
       expect(constraint.validate('CODE_123', null)).toBe(false);
       expect(constraint.validate('CODE.123', null)).toBe(false);
+      expect(constraint.validate('CODE+123', null)).toBe(false);
+    });
+
+    it('should accept lowercase and mixed-case codes', () => {
+      expect(constraint.validate('coupon123', null)).toBe(true);
+      expect(constraint.validate('CoUpOn123', null)).toBe(true);
+      expect(constraint.validate('lower-case', null)).toBe(true);
     });
 
     it('should reject codes with spaces', () => {
