@@ -1,6 +1,5 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
 import { PROOF_VERIFICATION_QUEUE } from '../../../queue/queue.constants';
 import { ProofVerificationService } from './proof-verification.service';
 
@@ -8,29 +7,25 @@ import { ProofVerificationService } from './proof-verification.service';
 export class ProofVerificationProcessor extends WorkerHost {
   private readonly logger = new Logger(ProofVerificationProcessor.name);
 
-  constructor(private proofVerificationService: ProofVerificationService) {
+  constructor(
+    private readonly proofVerificationService: ProofVerificationService,
+  ) {
     super();
   }
 
-  async process(job: Job<{ completionId: string }>): Promise<void> {
+  async process(job: any): Promise<void> {
     const { completionId } = job.data;
-
-    this.logger.log(
-      `Processing proof verification for completion ${completionId}`,
-    );
-
+    this.logger.log(Processing proof verification for completion );
     await this.proofVerificationService.verifyProof(completionId);
   }
 
   @OnWorkerEvent('completed')
-  onCompleted(job: Job) {
-    this.logger.log(`Proof verification completed for job ${job.id}`);
+  onCompleted(job: any) {
+    this.logger.log(Proof verification completed for job );
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job, err: Error) {
-    this.logger.error(
-      `Proof verification failed for job ${job.id}: ${err.message}`,
-    );
+  onFailed(job: any, err: Error) {
+    this.logger.error(Proof verification failed for job : , (err as any)?.stack);
   }
 }
