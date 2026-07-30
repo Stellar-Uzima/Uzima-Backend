@@ -111,12 +111,13 @@ describe('TasksController', () => {
 
   describe('remove', () => {
     it('should remove a task', async () => {
+      const req = { user: { userId: '1', role: Role.HEALER } };
       mockTasksService.remove.mockResolvedValue(undefined);
 
-      const result = await controller.remove('1');
+      const result = await controller.remove('1', req);
 
-      expect(service.remove).toHaveBeenCalledWith('1');
-      expect(result).toEqual({ message: 'Task archived successfully' });
+      expect(service.remove).toHaveBeenCalledWith('1', '1', Role.HEALER);
+      expect(result).toEqual({ message: 'Task deleted successfully' });
     });
   });
 });

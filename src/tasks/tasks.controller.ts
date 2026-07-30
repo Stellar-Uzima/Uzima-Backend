@@ -133,17 +133,17 @@ export class TasksController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.HEALER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Soft delete a health task (ADMIN only)' })
+  @ApiOperation({ summary: 'Soft delete a health task (owner or ADMIN)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task deleted successfully' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  async remove(@Param('id') id: string) {
-    await this.tasksService.remove(id);
+  async remove(@Param('id') id: string, @Request() req) {
+    await this.tasksService.remove(id, req.user.userId, req.user.role);
     return { message: 'Task deleted successfully' };
   }
 

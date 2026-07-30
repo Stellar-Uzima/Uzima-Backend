@@ -32,6 +32,8 @@ export class TasksService {
       value,
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
+  }
+
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
@@ -154,8 +156,15 @@ export class TasksService {
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id);
+  async remove(id: string, userId?: string, userRole?: Role): Promise<void> {
+    const task = await this.findOne(id);
+
+    if (userId && userRole) {
+      if (task.createdBy !== userId && userRole !== Role.ADMIN) {
+        throw new ForbiddenException('You can only delete your own tasks');
+      }
+    }
+
     await this.healthTaskRepository.softDelete(id);
   }
 
