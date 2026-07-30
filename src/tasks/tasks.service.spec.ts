@@ -223,6 +223,35 @@ describe('TasksService', () => {
     });
   });
 
+  describe('updateStatus', () => {
+    it('should allow owner to update their task status', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.DRAFT };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+      mockRepository.save.mockResolvedValue({ ...mockTask, status: TaskStatus.ACTIVE });
+
+      const result = await service.updateStatus('1', TaskStatus.ACTIVE, '1', Role.ADMIN);
+      expect(result.status).toBe(TaskStatus.ACTIVE);
+    });
+
+    it('should throw ForbiddenException if non-owner tries to update status', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '2', status: TaskStatus.DRAFT };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+
+      await expect(service.updateStatus('1', TaskStatus.ACTIVE, '1', Role.HEALER)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should throw ForbiddenException if non-admin tries to publish', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.DRAFT };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+
+      await expect(
+        service.updateStatus('1', TaskStatus.ACTIVE, '1', Role.HEALER),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
   describe('remove', () => {
     it('should soft-delete the task', async () => {
       const mockTask = { id: '1', title: 'Task', status: TaskStatus.ACTIVE };

@@ -32,6 +32,7 @@ export class TasksService {
       value,
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
+  }
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
@@ -152,6 +153,28 @@ export class TasksService {
       await this.scheduleReminderJob(saved);
     }
     return saved;
+  }
+
+  async updateStatus(
+    id: string,
+    status: TaskStatus,
+    userId: string,
+    userRole: Role,
+  ): Promise<HealthTask> {
+    const task = await this.findOne(id);
+
+    // Check ownership
+    if (task.createdBy !== userId && userRole !== Role.ADMIN) {
+      throw new ForbiddenException('You can only update your own tasks');
+    }
+
+    // Only admins can publish (set status to ACTIVE)
+    if (status === TaskStatus.ACTIVE && userRole !== Role.ADMIN) {
+      throw new ForbiddenException('Only admins can publish tasks');
+    }
+
+    task.status = status;
+    return this.healthTaskRepository.save(task);
   }
 
   async remove(id: string): Promise<void> {

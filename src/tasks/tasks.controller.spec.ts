@@ -13,6 +13,7 @@ describe('TasksController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    updateStatus: jest.fn(),
     remove: jest.fn(),
   };
 
@@ -109,6 +110,26 @@ describe('TasksController', () => {
     });
   });
 
+  describe('updateStatus', () => {
+    it('should update a task status', async () => {
+      const updateTaskStatusDto = { status: TaskStatus.ACTIVE };
+      const req = { user: { userId: 1, role: Role.HEALER } };
+      const expectedTask = { id: 1, status: TaskStatus.ACTIVE };
+
+      mockTasksService.updateStatus.mockResolvedValue(expectedTask);
+
+      const result = await controller.updateStatus('1', updateTaskStatusDto, req);
+
+      expect(service.updateStatus).toHaveBeenCalledWith(
+        '1',
+        TaskStatus.ACTIVE,
+        1,
+        Role.HEALER,
+      );
+      expect(result).toEqual(expectedTask);
+    });
+  });
+
   describe('remove', () => {
     it('should remove a task', async () => {
       mockTasksService.remove.mockResolvedValue(undefined);
@@ -116,7 +137,7 @@ describe('TasksController', () => {
       const result = await controller.remove('1');
 
       expect(service.remove).toHaveBeenCalledWith('1');
-      expect(result).toEqual({ message: 'Task archived successfully' });
+      expect(result).toEqual({ message: 'Task deleted successfully' });
     });
   });
 });

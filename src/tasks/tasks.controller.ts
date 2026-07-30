@@ -13,6 +13,7 @@ import {
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
@@ -126,6 +127,34 @@ export class TasksController {
     return this.tasksService.update(
       id,
       updateTaskDto,
+      req.user.userId,
+      req.user.role,
+    );
+  }
+
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HEALER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a health task status (owner or ADMIN)' })
+  @ApiBody({
+    type: UpdateTaskStatusDto,
+    description: 'Payload to update the task status',
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiResponse({ status: 200, description: 'Task status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() updateTaskStatusDto: UpdateTaskStatusDto,
+    @Request() req,
+  ) {
+    return this.tasksService.updateStatus(
+      id,
+      updateTaskStatusDto.status,
       req.user.userId,
       req.user.role,
     );
