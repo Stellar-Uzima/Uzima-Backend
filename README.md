@@ -36,6 +36,42 @@ Stellar Uzima is a comprehensive health and wellness platform designed to help u
 - **API Documentation**: Swagger/OpenAPI
 - **Linting & Formatting**: ESLint, Prettier
 
+## 🎨 Code Quality & Formatting
+
+This project uses **ESLint** for code linting and **Prettier** for automatic code formatting to ensure consistent code style across all contributions.
+
+### Available Scripts
+
+Run these commands to maintain code quality:
+
+```bash
+# Run linting and automatically fix issues
+npm run lint
+
+# Only check for linting issues without fixing
+npm run lint:check
+
+# Run Prettier to format all files
+npm run format
+
+# Only check if files are properly formatted
+npm run format:check
+
+# Run both linting fixes and formatting
+npm run lint:format
+```
+
+### Configuration Files
+
+- **`.eslintrc.js`**: ESLint configuration with TypeScript support
+- **`.prettierrc`**: Prettier formatting rules
+- **`.prettierignore`**: Files to exclude from formatting
+- **`eslint.config.mjs`**: Modern ESLint flat configuration
+
+### Pre-commit Checks
+
+A pre-commit hook automatically runs linting and formatting checks before code is committed to ensure only properly formatted code enters the repository.
+
 ## 📁 Project Structure
 
 ```
@@ -433,5 +469,3 @@ For production deployment guidelines, see [DEPLOYMENT.md](./DEPLOYMENT.md)
 ---
 
 **Happy coding! 🎉**
- 
- 
