@@ -32,6 +32,9 @@ export class TasksService {
       value,
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
+  }
+
+
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
@@ -178,3 +181,4 @@ export class TasksService {
       .getMany();
   }
 }
+
