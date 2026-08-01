@@ -39,7 +39,7 @@ export class TasksService {
     if (delayMs <= 0) {
       return;
     }
-    const jobId = 	ask-reminder::;
+    const jobId = `task-reminder::${task.id}`;
     await this.queueService.addDelayedJob(
       NOTIFICATION_QUEUE,
       TASK_REMINDER_JOB,
@@ -99,7 +99,7 @@ export class TasksService {
     });
 
     if (!task) {
-      throw new NotFoundException(Task with ID  not found);
+      throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
     return task;
@@ -145,8 +145,8 @@ export class TasksService {
     }
     return this.healthTaskRepository
       .createQueryBuilder('task')
-      .where('LOWER(task.title) LIKE LOWER(:term)', { term: %% })
-      .orWhere('LOWER(task.description) LIKE LOWER(:term)', { term: %% })
+      .where('LOWER(task.title) LIKE LOWER(:term)', { term: `%${term}%` })
+      .orWhere('LOWER(task.description) LIKE LOWER(:term)', { term: `%${term}%` })
       .andWhere('task.status = :status', { status: TaskStatus.ACTIVE })
       .andWhere('task.deletedAt IS NULL')
       .orderBy('task.createdAt', 'DESC')

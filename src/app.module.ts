@@ -110,7 +110,6 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     NotificationsModule,
     AdminModule,
     ReportsModule,
- feat/gamification-engine
     GamificationModule,
 
     RewardModule,
@@ -118,7 +117,6 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
     NotificationCenterModule,
- main
   ],
   controllers: [AppController],
   providers: [
@@ -129,11 +127,5 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     },
   ],
 })
- feat/gamification-engine
 export class AppModule {}
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
-  }
 }
- main

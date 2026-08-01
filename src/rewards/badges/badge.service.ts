@@ -1,4 +1,3 @@
- feat/all-issues-anna
 import { Injectable, Logger } from '@nestjs/common';
 import { BadgeType } from './badge-type.enum';
 
