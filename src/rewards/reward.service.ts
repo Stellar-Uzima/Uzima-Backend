@@ -6,6 +6,7 @@ import { Cache } from 'cache-manager';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
 import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
+import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 
 @Injectable()
 export class RewardService {
@@ -74,6 +75,46 @@ export class RewardService {
     };
 
     await this.cacheManager.set(cacheKey, result, 120000); // 2 minute cache
+    return result;
+  }
+
+  /**
+   * Returns reward summary totals for a user.
+   */
+  async getRewardSummary(userId: string): Promise<RewardSummaryResponseDto> {
+    const cacheKey = `reward_summary:${userId}`;
+    const cached = await this.cacheManager.get<RewardSummaryResponseDto>(cacheKey);
+    if (cached) return cached;
+
+    const summary = await this.rewardRepo
+      .createQueryBuilder('reward_transaction')
+      .select(
+        "COALESCE(SUM(CASE WHEN reward_transaction.status = :successStatus THEN reward_transaction.amount ELSE 0 END), 0)",
+        'totalEarned',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN reward_transaction.status = :pendingStatus THEN reward_transaction.amount ELSE 0 END), 0)",
+        'totalPending',
+      )
+      .addSelect('MAX(reward_transaction.createdAt)', 'lastRewardDate')
+      .where('reward_transaction.userId = :userId', { userId })
+      .setParameters({
+        successStatus: RewardStatus.SUCCESS,
+        pendingStatus: RewardStatus.PENDING,
+      })
+      .getRawOne<{
+        totalEarned: string | null;
+        totalPending: string | null;
+        lastRewardDate: string | null;
+      }>();
+
+    const result: RewardSummaryResponseDto = {
+      totalEarned: Number(summary?.totalEarned ?? 0),
+      totalPending: Number(summary?.totalPending ?? 0),
+      lastRewardDate: summary?.lastRewardDate ?? null,
+    };
+
+    await this.cacheManager.set(cacheKey, result, 120000);
     return result;
   }
 }

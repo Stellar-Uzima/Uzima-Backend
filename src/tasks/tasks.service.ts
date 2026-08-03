@@ -115,6 +115,14 @@ export class TasksService {
     return new PaginatedResponseDto(tasks, total, page, limit);
   }
 
+  async findByStatus(status: TaskStatus): Promise<HealthTask[]> {
+    return this.healthTaskRepository.find({
+      where: { status },
+      relations: ['creator'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findOne(id: string): Promise<HealthTask> {
     const task = await this.healthTaskRepository.findOne({
       where: { id },

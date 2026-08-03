@@ -220,6 +220,63 @@ describe('TransactionService', () => {
       const depth = service.getTransactionDepth(contextId);
       expect(depth).toBe(0);
     });
+
+    it('should log an error when transaction execution fails', async () => {
+      const contextId = 'test-context';
+      const testError = new Error('Test error');
+      const callback = jest.fn().mockRejectedValue(testError);
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      await expect(service.execute(contextId, callback)).rejects.toThrow(testError);
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Transaction execution failed: ${testError.message}`);
+    });
+  });
+
+  describe('error logging', () => {
+    it('should log error when starting transaction fails', async () => {
+      const contextId = 'test-context';
+      const connectionError = new Error('Connection failed');
+      (mockQueryRunner.connect as jest.Mock).mockRejectedValueOnce(connectionError);
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      await expect(service.startTransaction(contextId)).rejects.toThrow('Failed to start transaction');
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Failed to start transaction: ${connectionError.message}`);
+    });
+
+    it('should log error when committing transaction fails', async () => {
+      const contextId = 'test-context';
+      const commitError = new Error('Commit failed');
+      (mockQueryRunner.commitTransaction as jest.Mock).mockRejectedValueOnce(commitError);
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      await service.startTransaction(contextId);
+      await expect(service.commitTransaction(contextId)).rejects.toThrow('Failed to commit transaction');
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Failed to commit transaction: ${commitError.message}`);
+    });
+
+    it('should log error when rolling back transaction fails', async () => {
+      const contextId = 'test-context';
+      const rollbackError = new Error('Rollback failed');
+      (mockQueryRunner.rollbackTransaction as jest.Mock).mockRejectedValueOnce(rollbackError);
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      await service.startTransaction(contextId);
+      await expect(service.rollbackTransaction(contextId)).rejects.toThrow('Failed to rollback transaction');
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Failed to rollback transaction: ${rollbackError.message}`);
+    });
+
+    it('should log error when transaction timeout is exceeded', async () => {
+      const contextId = 'test-context';
+      const loggerErrorSpy = jest.spyOn(service['logger'], 'error');
+
+      await service.startTransaction(contextId, { timeout: 100 });
+      // Wait to exceed timeout
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      await expect(service.commitTransaction(contextId)).rejects.toThrow();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Transaction timeout exceeded'));
+    });
   });
 
   describe('getCurrentQueryRunner', () => {

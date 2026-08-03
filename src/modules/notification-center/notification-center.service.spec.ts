@@ -7,7 +7,7 @@ import { ChannelRouterService } from './channel-router.service';
 import { InAppNotification, NotificationTypeEnum, DeliveryChannel } from './entities/in-app-notification.entity';
 import { NotificationDeliveryLog, DeliveryStatus } from './entities/notification-delivery-log.entity';
 import { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { GetInboxDto } from './dto/get-inbox.dto';
 

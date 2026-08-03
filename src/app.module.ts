@@ -3,12 +3,14 @@ import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
+import { redisConfig } from './config/redis.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -45,6 +47,7 @@ import { AppCacheModule } from './shared/cache/cache.module';
 import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
+import { HealthModule } from './health/health.module';
 import { NotificationCenterModule } from './modules/notification-center/notification-center.module';
 
 @Module({
@@ -54,19 +57,36 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
       envFilePath: '.env',
       load: [secretsConfig, passwordConfig],
     }),
+    HealthModule,
     AppCacheModule,
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60000,
-        limit: 100,
+    ThrottlerModule.forRootAsync({
+      useFactory: (configService) => {
+        const config = redisConfig(configService);
+        return {
+          // Use Redis storage for distributed rate limiting across multiple instances
+          storage: new ThrottlerStorageRedisService({
+            host: config.host,
+            port: config.port,
+            password: config.password,
+            db: config.db,
+            tls: config.tls ? {} : undefined,
+          }),
+          throttlers: [
+            {
+              name: 'default',
+              ttl: 60000, // 1 minute in milliseconds
+              limit: 100, // 100 requests per minute per client IP
+            },
+            {
+              name: 'otp',
+              ttl: 3600000, // 1 hour in milliseconds
+              limit: 3, // Only 3 OTP requests per hour to prevent abuse
+            },
+          ],
+        };
       },
-      {
-        name: 'otp',
-        ttl: 3600000,
-        limit: 3,
-      },
-    ]),
+      inject: [ConfigService],
+    }),
     EventEmitterModule.forRoot(),
     DatabaseModule,
     OtpModule,

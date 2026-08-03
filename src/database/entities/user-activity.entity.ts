@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Index } from 'typeorm';
 import { IsString, IsEnum, IsUUID, IsOptional, IsObject, IsDateString, Length, Matches } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 export enum ActivityType {
   LOGIN = 'LOGIN',

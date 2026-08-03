@@ -4,7 +4,7 @@ import { BadgeService } from './badge.service';
 import { BadgeController } from './badge.controller';
 import { Badge } from '../../database/entities/badge.entity';
 import { UserBadge } from '../../database/entities/user-badge.entity';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { Streak } from '../../streaks/entities/streak.entity';
 import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 

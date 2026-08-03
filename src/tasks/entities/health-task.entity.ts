@@ -43,6 +43,10 @@ export class HealthTask {
   @Column({ type: 'enum', enum: TaskCategory, nullable: true })
   category!: TaskCategory;
 
+  // Recurrence for the task; default is NONE (no recurrence)
+  @Column({ type: 'enum', enum: Recurrence, default: Recurrence.NONE })
+  recurrence!: Recurrence;
+
   @Column({ type: 'uuid', nullable: true })
   categoryId?: string;
 
