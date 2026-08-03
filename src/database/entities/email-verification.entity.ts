@@ -7,7 +7,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { IsString, IsUUID, IsOptional, IsDateString, Length } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 @Entity('email_verifications')
 export class EmailVerification {

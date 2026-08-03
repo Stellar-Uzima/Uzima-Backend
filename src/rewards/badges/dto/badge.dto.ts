@@ -1,5 +1,5 @@
 import { IsUUID, IsString, IsEnum, IsInt, IsOptional, IsBoolean } from 'class-validator';
-import { BadgeType } from '../enums/badge-type.enum';
+import { BadgeType } from '../../../database/entities/badge.entity';
 
 export class BadgeDto {
   @IsUUID()

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { NotificationDeliveryLog, DeliveryStatus } from './entities/notification-delivery-log.entity';
 import { InAppNotification, DeliveryChannel } from './entities/in-app-notification.entity';
 import { SmsService } from '../../shared/sms/sms.service';

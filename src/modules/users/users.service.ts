@@ -6,7 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { User } from '../../entities/user.entity';
@@ -38,8 +38,6 @@ export class UsersService {
     private readonly userStatusLogRepository: Repository<UserStatusLog>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly preferencesService: PreferencesService
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache = null as any,
-    private readonly preferencesService: PreferencesService = null as any,
   ) {}
 
   async registerDeviceToken(userId: string, token: string): Promise<User> {
@@ -400,6 +398,27 @@ export class UsersService {
     };
   }
 
+  /**
+   * Permanently deletes {@link UserStatusLog} records older than the given
+   * retention period.
+   *
+   * Only records whose `createdAt` predates `now - retentionDays` are removed;
+   * records newer than (or equal to) the cutoff are never touched.
+   *
+   * @param retentionDays how many days of status-log history to keep
+   * @returns the number of deleted records
+   */
+  async cleanupOldStatusLogs(retentionDays: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+
+    const result = await this.userStatusLogRepository.delete({
+      createdAt: LessThan(cutoff),
+    });
+
+    return result.affected ?? 0;
+  }
+
   async canUserLogin(userId: string): Promise<{ canLogin: boolean; reason?: string }> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) return { canLogin: false, reason: 'User not found' };
@@ -476,7 +495,7 @@ export class UsersService {
 
     if (updateProfileDto.phoneNumber !== undefined) {
       const normalizedPhone = PhoneValidationUtil.normalizePhoneNumber(
-        updateProfileDto.phoneNumber,
+        updateProfileDto.phoneNumber
       );
       if (!normalizedPhone) {
         throw new BadRequestException('Invalid phone format');
@@ -669,58 +688,5 @@ export class UsersService {
     if (this.cacheManager) {
       await this.cacheManager.del(`user:profile:${userId}`);
     }
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ) {
-
-    const user =
-      await this.userRepository.findOne({
-        where: {
-          id: userId,
-        },
-      });
-
-    if (!user) {
-      throw new NotFoundException(
-        'User not found',
-      );
-    }
-
-    Object.assign(
-      user,
-      {
-        name:
-          dto.name ??
-          user.name,
-
-        phone:
-          dto.phone ??
-          user.phone,
-
-        address:
-          dto.address ??
-          user.address,
-      },
-    );
-
-    const updatedUser =
-      await this.userRepository.save(
-        user,
-      );
-
-    return {
-      id:
-        updatedUser.id,
-
-      name:
-        updatedUser.name,
-
-      phone:
-        updatedUser.phone,
-
-      address:
-        updatedUser.address,
-    };
   }
 }

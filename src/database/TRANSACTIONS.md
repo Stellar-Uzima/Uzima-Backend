@@ -489,12 +489,103 @@ async myMethod() {
 }
 ```
 
+## Safe Nesting Strategies
+
+### Depth Limits
+
+Avoid exceeding a nesting depth of 3–4 levels. Each savepoint adds overhead and increases the risk of deadlocks.
+
+```typescript
+const depth = transactionService.getTransactionDepth(contextId);
+if (depth > 3) {
+  this.logger.warn(`Deep transaction nesting detected: depth=${depth}`);
+}
+```
+
+### Prefer Flat Transactions
+
+When possible, flatten nested operations into a single transaction level:
+
+```typescript
+// ❌ Deep nesting — hard to reason about
+await ts.execute(ctx, async (qr) => {
+  await ts.execute(ctx, async (qr2) => {
+    await ts.execute(ctx, async (qr3) => {
+      // ...
+    });
+  });
+});
+
+// ✅ Flat — single level, same atomicity
+await ts.execute(ctx, async (qr) => {
+  await step1(qr);
+  await step2(qr);
+  await step3(qr);
+});
+```
+
+### Savepoint Naming Convention
+
+When using manual savepoints, use descriptive names:
+
+```typescript
+const spName = `sp_${operationName}_${depth}_${Date.now()}`;
+```
+
+### Error Isolation with Savepoints
+
+Use savepoints to isolate failures so a nested failure does not abort the entire transaction:
+
+```typescript
+await ts.execute(ctx, async (qr) => {
+  // Main work
+  for (const item of items) {
+    try {
+      await qr.query(`SAVEPOINT sp_item_${item.id}`);
+      await processItem(qr, item);
+      await qr.query(`RELEASE SAVEPOINT sp_item_${item.id}`);
+    } catch (err) {
+      await qr.query(`ROLLBACK TO SAVEPOINT sp_item_${item.id}`);
+      this.logger.warn(`Item ${item.id} failed, continuing: ${err.message}`);
+    }
+  }
+});
+```
+
+### Guard: Always Clean Up
+
+Register a cleanup handler in the request lifecycle (middleware, interceptor, or filter) to prevent dangling transactions:
+
+```typescript
+@Injectable()
+export class TransactionCleanupInterceptor implements NestInterceptor {
+  constructor(private readonly transactionService: TransactionService) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+    const contextId = `req:${request.id}:${Date.now()}`;
+    request.transactionContext = contextId;
+
+    return next.handle().pipe(
+      catchError((err) => {
+        return from(this.transactionService.cleanup(contextId)).pipe(
+          throwError(() => err),
+        );
+      }),
+      finalize(() => {
+        from(this.transactionService.cleanup(contextId)).subscribe();
+      }),
+    );
+  }
+}
+```
+
 ## Performance Considerations
 
 1. **Connection Pooling**: Configured in database connection settings
 2. **Transaction Duration**: Keep transactions short to avoid lock contention
 3. **Isolation Levels**: Higher isolation levels have more overhead
-4. **Nested Depth**: Excessive nesting can impact performance
+4. **Nested Depth**: Excessive nesting can impact performance; keep depth ≤ 3
 
 ## Testing
 
@@ -536,8 +627,8 @@ describe('TransactionalService', () => {
 
 - Current implementation is optimized for PostgreSQL
 - Timeout is checked at commit time, not during execution
-- Savepoint names are auto-generated and not exposed
 - No query logging within transactions (future feature)
+- Distributed transactions spanning multiple databases are not supported
 
 ## Support and Troubleshooting
 

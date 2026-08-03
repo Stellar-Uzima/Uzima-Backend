@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { IsString, IsUUID, IsOptional, IsBoolean, Length, Matches } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 @Entity('sessions')
 export class Session {

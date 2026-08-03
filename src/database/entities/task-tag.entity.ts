@@ -11,7 +11,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { IsString, IsOptional, Length, IsUUID, IsBoolean } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 @Entity('task_tags')
 @Index(['userId'])
