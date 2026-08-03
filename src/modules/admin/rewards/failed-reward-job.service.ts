@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FailedRewardJob } from '@/rewards/entities/failed-reward-job.entity';
-import { DeadLetterProcessor } from '@/rewards/queues/dead-letter.processor';
+import { FailedRewardJob } from '../../../rewards/entities/failed-reward-job.entity';
+import { DeadLetterProcessor } from '../../../rewards/queues/dead-letter.processor';
 import {
   ListFailedJobsDto,
   ListFailedJobsResponseDto,
@@ -27,7 +27,7 @@ export class FailedRewardJobService {
 
     const [jobs, total] = await this.failedRewardJobRepository.findAndCount({
       order: { failedAt: 'DESC' },
-      skip,
+      skip: skip,
       take: limit,
     });
 
@@ -43,9 +43,9 @@ export class FailedRewardJobService {
         jobType: job.jobType,
         failedAt: job.failedAt,
       })),
-      page,
-      limit,
-      total,
+      page: page,
+      limit: limit,
+      total: total,
       totalPages: Math.ceil(total / limit),
     };
   }
@@ -64,20 +64,54 @@ export class FailedRewardJobService {
     }
 
     try {
-      const { jobId } = await this.deadLetterProcessor.replayFailedJob(
+      const result = await this.deadLetterProcessor.replayFailedJob(
         failedJobId,
       );
 
       return {
         success: true,
         message: `Failed job ${failedJobId} has been re-queued successfully.`,
-        replayedJobId: jobId,
+        replayedJobId: result.jobId,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to replay job ${failedJobId}: ${error}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to replay job ${failedJobId}: ${errorMessage}`);
       return {
         success: false,
-        message: `Failed to replay job: ${error.message || String(error)}`,
+        message: `Failed to replay job: ${errorMessage}`,
+      };
+    }
+  }
+
+  async retryFailedJob(
+    failedJobId: string,
+  ): Promise<ReplayFailedJobResponseDto> {
+    const failedJob = await this.failedRewardJobRepository.findOne({
+      where: { id: failedJobId },
+    });
+
+    if (!failedJob) {
+      throw new NotFoundException(
+        `Failed reward job with ID ${failedJobId} not found`,
+      );
+    }
+
+    try {
+      const result = await this.deadLetterProcessor.replayFailedJob(
+        failedJobId,
+      );
+
+      return {
+        success: true,
+        message: `Failed job ${failedJobId} has been re-enqueued successfully.`,
+        replayedJobId: result.jobId,
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to retry job ${failedJobId}: ${errorMessage}`);
+      return {
+        success: false,
+        message: `Failed to retry job: ${errorMessage}`,
       };
     }
   }

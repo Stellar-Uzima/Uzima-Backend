@@ -72,4 +72,24 @@ export class FailedRewardJobController {
   ): Promise<ReplayFailedJobResponseDto> {
     return this.failedRewardJobService.replayFailedJob(id);
   }
+
+  @Post('failed-jobs/:id/retry')
+  @ApiOperation({
+    summary: 'Retry a failed reward job',
+    description:
+      'Re-enqueues a specific failed reward job for reprocessing. The job is removed from the failed jobs table and added back to the reward queue.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Failed job successfully re-enqueued',
+    type: ReplayFailedJobResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'Failed job not found' })
+  async retryFailedJob(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ReplayFailedJobResponseDto> {
+    return this.failedRewardJobService.retryFailedJob(id);
+  }
 }
