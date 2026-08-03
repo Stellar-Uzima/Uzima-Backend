@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../../database/entities/user.entity';
+import { User } from '../../../entities/user.entity';
 import { Achievement } from './achievement.entity';
 
 @Entity('user_achievements')

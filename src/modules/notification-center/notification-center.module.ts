@@ -6,7 +6,7 @@ import { QueueModule } from '../../queue/queue.module';
 import { InAppNotification } from './entities/in-app-notification.entity';
 import { NotificationDeliveryLog } from './entities/notification-delivery-log.entity';
 import { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { NotificationCenterService } from './notification-center.service';
 import { NotificationCenterController } from './notification-center.controller';
 import { ChannelRouterService } from './channel-router.service';
