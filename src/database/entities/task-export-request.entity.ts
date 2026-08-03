@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { IsDate, IsEnum, IsOptional, IsUUID } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 export enum TaskExportRequestStatus {
   PENDING = 'pending',
