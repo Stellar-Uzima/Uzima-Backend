@@ -251,4 +251,26 @@ export class AdminUsersService {
     await this.auditService.logAction(adminId, `Soft deleted user ${userId} (${user.email})`);
     return { message: 'User deleted successfully' };
   }
+
+  async getUserTasks(userId: string) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'firstName', 'lastName', 'role'],
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      tasks: [],
+    };
+  }
 }

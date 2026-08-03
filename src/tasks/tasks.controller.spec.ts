@@ -14,6 +14,7 @@ describe('TasksController', () => {
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
+    search: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -117,6 +118,32 @@ describe('TasksController', () => {
 
       expect(service.remove).toHaveBeenCalledWith('1');
       expect(result).toEqual({ message: 'Task archived successfully' });
+    });
+  });
+
+  describe('search', () => {
+    it('should return matching tasks', async () => {
+      const query = 'walking';
+      const expectedTasks = [
+        { id: 1, title: 'Morning Walking', description: 'Walk daily' },
+        { id: 2, title: 'Evening Walking', description: 'Walk in the evening' },
+      ];
+
+      mockTasksService.search.mockResolvedValue(expectedTasks);
+
+      const result = await controller.search(query);
+
+      expect(service.search).toHaveBeenCalledWith(query);
+      expect(result).toEqual(expectedTasks);
+    });
+
+    it('should return empty array when no matches', async () => {
+      mockTasksService.search.mockResolvedValue([]);
+
+      const result = await controller.search('nonexistent');
+
+      expect(service.search).toHaveBeenCalledWith('nonexistent');
+      expect(result).toEqual([]);
     });
   });
 });

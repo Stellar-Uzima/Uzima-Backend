@@ -1,0 +1,721 @@
+[33m50fcf0c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeat/gamification-engine[m[33m, [m[1;31morigin/feat/gamification-engine[m[33m)[m fix: fix template string syntax in gamification service
+[33mccaa738[m feat: add complete gamification engine with XP, levels, achievements and leaderboard integration
+[33m14e3e8e[m[33m ([m[1;31morigin/feat/all-issues-ghost[m[33m)[m feat: add complete healer availability and appointment booking system
+[33md8ef726[m refactor: consolidate migrations and seeders (#869, #870, #871, #873)
+[33m05056bf[m feat: add seeder tests, badge service tests, leaderboard processor tests, fix typo (#872, #874, #875, #878)
+[33m4f749f2[m[33m ([m[1;31morigin/feat/all-issues[m[33m, [m[1;32mfeat/all-issues[m[33m)[m feat: add streak milestone service, circuit breaker, and tests (#860, #864, #876, #877)
+[33m7284a3a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mtest/reward-processor[m[33m, [m[1;32mtest/dead-letter-processor[m[33m, [m[1;32mfeat/streak-milestone-service[m[33m, [m[1;32mfeat/circuit-breaker-interceptor[m[33m)[m Merge pull request #605 from Chinaza007/fixed
+[33m709a028[m Merge pull request #606 from annacodervibe/newpage
+[33m7ae49cd[m fixes
+[33me6ada60[m all done
+[33m8cd2fa2[m Merge pull request #604 from sketcherzee/newpage
+[33mf0d6a86[m fix
+[33m8ed32f6[m feat: implement admin dashboard, secrets management, reporting, and 2FA base
+[33m5c054e9[m Merge pull request #603 from DevZee404/newpage
+[33ma7de4c6[m updates
+[33m3a77874[m update
+[33m5b8148b[m feat: audit logging, email verification, encryption at rest, and profile update
+[33m2d97c8f[m Merge pull request #600 from teefeh-07/feat/soft-delete-issue-474
+[33m6996c48[m Merge pull request #602 from coderDom-x/feature/issues-540-550-551-552-apikey-monitoring-metrics-usage
+[33mc988e13[m feat: API key auth, monitoring service, metrics collection and usage tracking
+[33me482042[m Merge pull request #601 from danieloche635-bit/feature/implement-four-issues
+[33mfeb1bec[m Merge branch 'main' into feature/implement-four-issues
+[33m30c4801[m Implement security headers, CSRF protection, database indexes, and audit trail
+[33mc620a02[m feat: implement soft delete functionality #474
+[33m776a01a[m Merge pull request #599 from feyishola/feat/seeder
+[33m9dab6e7[m Merge pull request #598 from Nacho1499/feat/-File-Storage-Service
+[33m24ec81e[m Merge pull request #596 from akordavid373/feature/implement-four-issues
+[33m4c23c18[m seeder, cors and few more updates done
+[33m3b3ccb8[m feat: implement File Storage Service and fix TS resolution
+[33m91e477a[m Merge pull request #597 from RUKAYAT-CODER/feat-input-validation
+[33mf163e23[m Input validation Pipe
+[33m7f4992e[m feat: Implement four issues - User Entity, Data Validation, Logging Service, and Task Categories
+[33m0510e65[m Merge pull request #592 from JamesEjembi/feature/health-task-enhancements-bundle
+[33mc7dbaa4[m Merge branch 'main' into feature/health-task-enhancements-bundle
+[33m70ed1cb[m Merge pull request #594 from SheyeJDev/feat/461-Implement-Database-Migrations
+[33m59fa3de[m Merge pull request #595 from lynaDev2/feature/issues-529-530-531-532-shared-services
+[33ma591dc6[m feat: image processing, encryption, sanitization and rate limiting services
+[33mc231f58[m feat:#461 Implement Database Migrations
+[33m8b182f9[m Merge pull request #589 from MaryammAli/Implement-User-Profile-Preferences
+[33m3b5afe9[m Merge branch 'main' into Implement-User-Profile-Preferences
+[33mec9d70c[m Merge pull request #588 from jobbykings/feature/implement-four-issues
+[33me31fa8b[m Merge pull request #585 from ummarig/feat/completion
+[33m13c7b34[m Merge pull request #591 from KAMALDEEN333/Task-Activity/ENV
+[33m064a4a0[m Merge branch 'main' into Task-Activity/ENV
+[33m4397eca[m Merge branch 'main' into feat/completion
+[33m96fa047[m Merge branch 'main' into feature/implement-four-issues
+[33m6316491[m Merge pull request #587 from Nacho1499/feat/DELETE-/api/health-tasks/-id
+[33m42a0ebd[m Merge pull request #590 from KAMALDEEN333/Sms-Service
+[33m50540fc[m feat: implement reminders, notes, sharing, and analytics for health tasks (#513, #516, #518, #520)
+[33m1f1b3d5[m Implemented the Task Activity config and Enviromental Config
+[33m62813c7[m Implemented the Sms service and Email Service
+[33m3eb5d7b[m implement User Profile Preferences
+[33m92836b9[m Implement four issues: User Activity Tracking, Avatar Upload, and Health Tasks endpoints
+[33ma1bc4c7[m feat(tasks): implement secure soft-delete for health tasks (#505)
+[33m9d22e01[m Merge pull request #571 from 3m1n3nc3/feat/implement-user-settings-api
+[33m5fb9f1e[m Merge pull request #586 from elizabetheonoja-art/feature/health-task-enhancements-bundle
+[33m2af700f[m Merge branch 'main' into feat/implement-user-settings-api
+[33m782816d[m feat: implement task search, duplication, attachments, and query optimization (#508, #512, #517, #524)
+[33m819eeed[m implemented the task analytics
+[33m7a107d4[m implemented the task analytics
+[33m57d4538[m implemented the task analytics
+[33m8c59695[m implemented the task analytics
+[33mfb9a170[m implemented the task analytics
+[33m4f3b83b[m implemented the task completion
+[33m0a9bbca[m implemented the task completion
+[33mb3d203f[m implemented the task completion
+[33m247d075[m Merge pull request #584 from Abidoyesimze/feat/health-task-archiving-system
+[33m6e191c0[m feat: add health task archiving workflow
+[33md5ab0d0[m Merge pull request #583 from Abidoyesimze/feat/health-task-prioritization-system
+[33m41585a9[m Merge pull request #582 from yusuftomilola/feat/bulk-task-operations-522
+[33ma7daf3e[m Merge pull request #581 from yusuftomilola/feat/health-task-detail-dto-503
+[33m028a1a7[m Merge pull request #580 from yusuftomilola/feat/get-health-task-by-id-502
+[33m56be6b1[m Merge pull request #579 from yusuftomilola/feat/user-email-change-497
+[33medd4dc4[m Merge pull request #577 from mftee/feat/task-notifications-523
+[33m4bf4dee[m Merge pull request #576 from mftee/feat/task-templates-519
+[33m636dcc7[m Merge pull request #575 from mftee/feat/task-dependencies-515
+[33m7d4633f[m Merge pull request #574 from mftee/feat/task-filtering-api-509
+[33m6d502fb[m feat: add health task priority automation
+[33me6ec116[m Merge pull request #573 from OthmanImam/feat/Issue483
+[33m6222f58[m Merge pull request #578 from JerryIdoko/feature/identity-and-relational-schema-bundle
+[33m372b54c[m feat: add BulkTaskService for status, category, delete, and reminder bulk operations
+[33mb9fe5cd[m feat: add TaskDetailResponseDto with completion history and reminder shape
+[33me0f46f4[m feat: add TaskDetailService with permission check, completion history, and reminders
+[33m75d3ee1[m feat: add EmailChangeService with token-based verification and duplicate check
+[33m2d9d307[m Merge branch 'main' into feat/Issue483
+[33m0dcc11a[m feat: implement database relations, RBAC guards, and Auth (Login/Register) (#476, #479, #480, #481)
+[33m3066a40[m feat: add TaskNotificationsService for due-soon, completion, shared, and overdue events
+[33m97e5acf[m feat: add TaskTemplatesService with CRUD, sharing, and task instantiation
+[33m0f7cabe[m feat: add TaskDependenciesService with cycle detection and completion unlock
+[33m1c1cf17[m feat: add TaskFilterService with status, category, date range filtering and presets
+[33mea2b6bb[m Merge pull request #572 from OthmanImam/feat/Issue477
+[33me663cd4[m Merge pull request #570 from 3m1n3nc3/feat/implement-user-phone-verification
+[33m1e4d3f4[m feat: implement GET /api/users/profile endpoint with caching
+[33m1f470c0[m perf: optimize logout endpoint with transaction handling and caching
+[33m7658615[m feat: implement refresh token endpoint
+[33mee2f7db[m feat: implement logout endpoint with token blacklisting
+[33m29202d5[m Implement Database Transactions
+[33m7adf6d8[m Merge remote-tracking branch 'origin/main' into feat/implement-user-settings-api
+[33m48d5e46[m feat: Implement User Settings API
+[33mf8d98a1[m feat: Add Twilio dependency for phone verification
+[33m2151159[m Merge remote-tracking branch 'origin/main' into feat/implement-user-phone-verification
+[33mf5e97de[m feat: Implement User Phone Verification
+[33m44bc007[m Merge pull request #569 from akargi/feat/issue489
+[33mc97a2f5[m Merge pull request #568 from akargi/feat/issue484
+[33m2b44178[m Merge branch 'main' into feat/issue489
+[33m17a205f[m Merge branch 'main' into feat/issue484
+[33m8ad5739[m Merge pull request #567 from shamoo53/Implement-User-Search
+[33m3ac578f[m feat(health-tasks): implement PUT /tasks/:id with permission checks
+[33mc467e02[m feat(users): GET /users/:id with permission checks and safe user serialization
+[33m5bc9484[m feat(auth): add session entity and session service; record sessions on token generation
+[33m98b24a2[m Implement-User-Search
+[33md759542[m feat(auth): add email verification flow (entity, service, controller + wiring)
+[33m35aeaaa[m implement PUT
+[33m97b759b[m Implement-User-Status-Management
+[33m52516cb[m Implement-GET-api-users-List-Users
+[33md374f79[m Merge pull request #456 from Uyoxy/newpage
+[33m79baee4[m add my changes
+[33m7f5b497[m Merge pull request #453 from Bug-Hunter-X/feature/387-leaderboard-service-tests
+[33m47e34fe[m Merge pull request #452 from Bug-Hunter-X/feature/390-daily-rewards-reset
+[33m46cd945[m Merge upstream/main into feature/387-leaderboard-service-tests
+[33me17bd8c[m Merge upstream/main into feature/390-daily-rewards-reset
+[33m1ec8985[m test(leaderboard): cover ranking and pagination logic
+[33me0cb732[m feat(rewards): add daily rewards reset scheduler
+[33mbce25f3[m Merge pull request #449 from D2758695161/feat/leaderboard-tests-387
+[33ma8d43cc[m test: add comprehensive unit tests for LeaderboardService (#387)
+[33m19ba1b2[m Merge pull request #448 from lynaDev2/feat/validation-root-tracing-swagger
+[33md4031d0[m Merge pull request #447 from spartan124/feat/leaderboard-e2e-test
+[33m95d0d37[m feat(users, app, logging, docs): add fullName validation, root endpoint, request ID tracing, and swagger docs for rewards and streaks
+[33mc6beb59[m Merge pull request #446 from Abrahamojobo/feature/notification-swagger-docs
+[33m7b8a4d8[m feat(leaderboard): add comprehensive e2e integration tests
+[33m3ac319a[m Add Swagger docs for notification endpoints and checks for unread workflows
+[33m2e06388[m Merge pull request #443 from Abrahamojobo/feature/streak-endpoints-integration
+[33md931769[m Add streak endpoint integration tests and streak API persistence updates
+[33m1deae12[m Merge pull request #442 from Abrahamojobo/feature/wallet-linking-integration
+[33meb96c3a[m Merge branch 'main' into feature/wallet-linking-integration
+[33mec915f8[m Merge pull request #441 from K1NGD4VID/Request-Logging
+[33m6574243[m Merge pull request #440 from Itodo-S/test/rewards-service-unit-tests
+[33m928967a[m Merge pull request #439 from mftee/fix/396-streaming-csv-export
+[33mfb6bc3f[m Merge pull request #438 from mftee/fix/423-stellar-webhook-signature-verification
+[33md7f349c[m Merge pull request #437 from mftee/fix/424-streak-service-unit-tests
+[33m3512182[m Merge pull request #436 from mftee/fix/425-wallet-address-validation-decorator
+[33m7c1f0ac[m Merge pull request #435 from D2758695161/env-validation-432
+[33mea7fbd5[m feat: implement wallet linking flow and add integration tests #426
+[33md946f05[m feat: implement reward processing queue, user service management, and request logging middleware
+[33me3b7165[m test: add comprehensive unit tests for RewardsService
+[33m729ba67[m feat: implement streaming CSV export for reward reports
+[33m2afc7bf[m feat: add Stellar transaction webhook signature verification service
+[33m094f511[m test: add comprehensive unit tests for StreaksService
+[33m639255c[m feat: add IsValidStellarAddress validation decorator
+[33mbd6cf7a[m feat(config): add environment variable validation on startup
+[33m335180f[m Merge pull request #434 from iGEORGE17/fix#369
+[33mc58ccf9[m Merge pull request #433 from D2758695161/feature/dead-letter-queue
+[33m041742d[m implemented Cascading Soft Delete for User Accounts
+[33m88cde3a[m feat(rewards): implement Dead Letter Queue for failed reward jobs
+[33m8e6dd2c[m Merge pull request #422 from ayshadogo/explorer
+[33m5b1f4f3[m Merge pull request #421 from ayshadogo/builder
+[33m86d5af9[m Add Coupon Endpoint Integration Tests
+[33m43295f8[m Implement Per-User Notification Preferences
+[33mf21e57b[m Merge pull request #420 from Ireoluwy/feature/393-redis-health-check
+[33m99eb426[m Merge pull request #418 from okekefrancis112/admin_test
+[33m6390479[m feat(health): add redis health check
+[33m82b1839[m Merge pull request #419 from Cybermaxi7/issues/392-394-399-400/add-tests-shutdown
+[33m7ab7598[m tests: add rewards e2e, health unit, app-startup tests; feat: graceful shutdown service (issues #392 #394 #399 #400)
+[33mee393e6[m merge: resolve conflicts with main, keep both reactivate and delete features
+[33m8b3d64e[m Merge pull request #417 from okekefrancis112/guard_test
+[33mb5ed998[m test: add admin user management unit and e2e tests (#371)
+[33m3d0ef7d[m Merge pull request #416 from Divineifed1/main
+[33m1dbcb9d[m tests: add comprehensive RBAC tests for RolesGuard (#372)
+[33m926cb78[m audit logging
+[33m014338c[m api docs
+[33mebc28b3[m Merge pull request #413 from MerlinTheWhiz/tests/registerdto-input-validation
+[33m3ea50d3[m Merge pull request #414 from SamixYasuke/feat/add-soft-delete-for-health-tasks
+[33mc839565[m feat: add soft delete feature for health tasks, fix nest js build error, ran migrations
+[33m6f77298[m feat: add soft delete feature for health tasks, fix nest js build error, ran migrations
+[33m2eeab2b[m tests: Add missing input validation tests for RegisterDto
+[33ma408576[m Merge pull request #412 from MerlinTheWhiz/test/auth-verify-email-success
+[33m2186225[m Merge pull request #411 from EA10-lite/feat/add-email-validation
+[33m7503668[m Merge pull request #410 from MaryammAli/The-Swagger-documentation
+[33m9e38aa5[m Add Unique Email Validation on Registration
+[33m051551e[m test: Re-enable skipped auth verify email success test
+[33m6ee4f7e[m Merge pull request #409 from OthmanImam/feat/Task
+[33m578b840[m Merge pull request #408 from OthmanImam/feat/Seach
+[33mb17ab93[m feat(tasks): add daily task assignment cron job
+[33ma8022fd[m feat(tasks): add search + pagination to tasks categories endpoint
+[33mbac7c76[m Add pagination validation and tests for ListTasksDto
+[33m2dd1e5e[m Add Swagger documentation to Tasks endpoints
+[33mf6276a7[m Merge pull request #405 from shamoo53/implement-Password-Strength-Validation-Service
+[33mc861340[m Merge pull request #404 from KAMALDEEN333/Jwt-Rotation
+[33m7f4d734[m Merge pull request #403 from KAMALDEEN333/Rate-Limiting
+[33m13803e0[m Merge pull request #402 from KAMALDEEN333/Input-Sanitization-Middleware
+[33m3c027a2[m Merge pull request #401 from KAMALDEEN333/Auth-Docs
+[33m73d1527[m create user service spec
+[33m565ced3[m The Swagger documentation
+[33m4c89f8f[m implement-Password-Strength-Validation-Service
+[33m2e16a7e[m Added the Jwt Rotation
+[33m556ec1f[m Added a comprehensive rate limiting for Auth Controller
+[33m405ea98[m Added the Input Sanitization Middleware
+[33m383a0e9[m Added a comprehensive Auth Swagger Documentation
+[33mcb21214[m Merge pull request #350 from feyishola/feat/database-health
+[33m5e9b5f7[m migration error task completed 2
+[33m0c1f04b[m migration error task completed
+[33mc0ef331[m migration error
+[33m55fcf7a[m migration error fixed again
+[33m015e7c9[m migration error fixed
+[33m98d428c[m e2e test fixed
+[33m068e658[m e2e test fixed yet again
+[33m665fe39[m e2e test fixed
+[33m6d5d94b[m database health check implemented
+[33mf26d1f0[m Merge pull request #349 from OlufunbiIK/feat/Add-Pagination-to-GET/tasks-Endpoint-#338
+[33m64d3bb7[m feat:Add Pagination to GET /tasks Endpoint #338
+[33m0c3b601[m feat:Add GET /tasks/categories Endpoint #336
+[33m51240ce[m Merge pull request #347 from RUKAYAT-CODER/feat-add-patch-user-validation
+[33m7b180de[m Merge pull request #346 from RUKAYAT-CODER/feat-ad-getsponsedto
+[33m00017a7[m Add PATCH /users/me Validation
+[33m2f02c54[m Add GET /users/me Response DTO
+[33md37d9c3[m Merge pull request #345 from lynaDev2/feat/proof-verification-worker
+[33me670748[m feat(tasks): implement proof verification worker with S3 validation and reward queue
+[33m2d3ce81[m feat(tasks): implement proof verification worker with S3 validation and reward queue
+[33maf7b131[m Merge pull request #344 from lynaDev2/feat/wallet-summary-endpoint
+[33m690cc76[m feat(wallet): implement GET /users/me/wallet/summary with Stellar balance, reward aggregates, Redis caching, and USD conversion
+[33m7f6b897[m Merge pull request #343 from lynaDev2/feat/refresh-token-rotation
+[33m780eeb5[m feat(auth): implement refresh token rotation with Redis and replay attack detection
+[33m4acb173[m Merge pull request #334 from Dataguru-tech/feat/Build-Daily-Task-Assignment-Logic
+[33md50c989[m feat/Build Daily Task Assignment Logic
+[33mb998a17[m Merge pull request #333 from robertocarlous/robbert
+[33m7a218a5[m Merge branch 'main' into robbert
+[33m38efbde[m #320 Build Coupon Generation Service
+[33m2f168a8[m Merge pull request #319 from Emmanuelluxury/Uzima-Backend
+[33me32889a[m Merge branch 'main' into Uzima-Backend
+[33m8414443[m Merge pull request #332 from romeoscript/feature/s3-presigned-urls
+[33mb8e26e6[m Merge pull request #328 from lishmanTech/HealthPro
+[33m3cfebb1[m Merge branch 'main' into HealthPro
+[33m21a40fb[m Merge branch 'main' into feature/s3-presigned-urls
+[33md97fecf[m Merge pull request #331 from romeoscript/feature/xlm-reward-queue
+[33m882bb32[m Merge pull request #330 from romeoscript/feature/streaks
+[33m9a9be5a[m feat: implement pre-signed S3 URLs for photo proof uploads
+[33mf082716[m feat: implement xlm reward queue processor
+[33m05345d5[m feat(streaks): track user consecutive task completions and milestone events
+[33m5c84b61[m Merge pull request #329 from Franklivania/feat/workflows
+[33md987397[m Merge pull request #324 from Chucks1093/feat/task-completion-entity-endpoint-304
+[33mf2733da[m feat: build workflows to handle pr checks and node
+[33m9bd517f[m Merge pull request #327 from Bappa-Kamba/main
+[33m932339c[m feat(users): add HealthProfile entity, service, controller, DTO, and migration
+[33m9993455[m chore: leaderboard module
+[33m750bdd4[m feat: build task completion entity and endpoint (#304)
+[33m907f6ff[m Merge pull request #325 from Agbasimere/feature/321-coupon-validate
+[33m5aae9df[m Merge pull request #318 from Divineifed1/main
+[33ma358ad2[m Merge branch 'main' into feature/321-coupon-validate
+[33m96329c0[m Merge branch 'main' into main
+[33m2daa53c[m Merge pull request #316 from simplicityf/feat/categories
+[33mc404acb[m Merge: merge main branch to feat/categories
+[33m737d560[m fix: made changes in migration file, category servce and category controller files respectively
+[33m2fca2c7[m Merge pull request #315 from Hallab7/feat/health-task-crud-endpoints
+[33mdfe7fb2[m Added @Roles(Role.ADMIN, Role.HEALER), Removed duplicate role check in emove(), Fixed repository injection, Moved QueryBuilder logic directly into service, Updated test descriptions to match actual behavior, Added test for indOne(), Added test for emove()
+[33m674f88a[m Merge pull request #322 from Properprogress1/main
+[33ma6d1924[m Merge branch 'main' into feature/321-coupon-validate
+[33m6c1c236[m feat(coupons): add POST /coupons/validate (#321)
+[33m932850c[m Merge pull request #314 from Shadow-MMN/feature/healthtask-entity
+[33m8083cdd[m Merge branch 'main' into feature/healthtask-entity
+[33m28415c6[m Merge branch 'main' into main
+[33md400197[m Merge pull request #313 from PeterOche/feat/user-activity
+[33md72c042[m Merge pull request #317 from lishmanTech/RefSystem
+[33ma701446[m feat: add reward history endpoint and health task entity
+[33mb7b4ea6[m Uzima-Backend
+[33m8844acd[m user notification and user stats points
+[33m173dc85[m feat(referral): implement XLM referral reward system with referral codes and tracking
+[33m26f0562[m feat: add task categories entity, migration, CRUD endpoints, and seed data for African health task organization
+[33m3bc2be4[m feat: implement health task CRUD endpoints
+[33m22e9acd[m refactor: Delete redundant auth.service and integrate phone OTP authentication into auth/services/auth.service, updating password comparison.
+[33m71fc48c[m Merge branch 'main' of https://github.com/PeterOche/Uzima-Backend into feat/user-activity
+[33m482e4b3[m feat: define HealthTask entity with enums and XLM reward
+[33m404a37a[m Merge pull request #312 from feyishola/feat/guards-permissions
+[33m75ac7be[m Merge pull request #311 from ekumamatthew/email_verification
+[33m2502eb3[m feat: Implement user activity tracking, email verification, and password reset functionalities with corresponding database updates.
+[33m9e99ec5[m fixed roles guard, admin user managements endpoins
+[33me50f664[m email verification service
+[33mf538108[m Merge pull request #285 from KAMALDEEN333/Api-Docs
+[33md57eff1[m Merge pull request #289 from OthmanImam/feat/UserEntity256
+[33mba452a1[m Merge pull request #284 from KAMALDEEN333/User-profile-Endpoint
+[33m78dbe6b[m Merge branch 'main' into User-profile-Endpoint
+[33m8bc4188[m Merge branch 'main' into Api-Docs
+[33m41fe440[m feat(user): add User entity, Role enum, and update ormconfig for TypeORM CLI
+[33m29cb144[m Merge pull request #288 from OthmanImam/feat/ENV254
+[33m2304200[m Merge branch 'main' into feat/ENV254
+[33m5c9b539[m Merge pull request #287 from OlufunbiIK/feat/#273-Build-Admin-User-Management-Endpoints
+[33m7e48ea6[m chore(docker): add Dockerfile, docker-compose, and Docker instructions for local development
+[33mbecd969[m #273 Build Admin User Management Endpoints
+[33mb4b283c[m Merge branch 'main' into feat/TypeORM255
+[33m85ff99d[m fix(typeorm): resolve build errors, correct DataSource import and throttler config
+[33m9c53eb3[m Merge pull request #282 from OlufunbiIK/feat/#268-Build-Login-Endpoint-with-JWT
+[33m36abade[m Created a comprehensive swagger Api docs
+[33m3c095f2[m Added the User Profile Endpoint
+[33macc1b71[m feat(typeorm): setup TypeORM with PostgreSQL, config, and error handling
+[33m6c256fc[m Created the phone number otp Authentification
+[33m28e0f2c[m feat/#268-Build-Login-Endpoint-with-JWT
+[33m2c936b3[m Merge pull request #281 from Cybermaxi7/feat/rate-limiting
+[33m28f45fc[m Merge branch 'main' into feat/rate-limiting
+[33m2732561[m Merge pull request #280 from Cybermaxi7/chore/typeorm-migration-workflow
+[33m56f3fb1[m Merge branch 'main' into feat/rate-limiting
+[33m0dd6360[m feat(rate-limiting): add global and per-route IP-based rate limiting with Retry-After header and env config
+[33mfa164bc[m Merge pull request #279 from Cybermaxi7/feat/base-pagination-dtos
+[33m8c67576[m Merge branch 'main' into chore/typeorm-migration-workflow
+[33m5a2ada7[m chore(migrations): establish migration workflow, add User entity, scripts, and config documentation
+[33m7346418[m feat(dto): add reusable base DTOs for pagination, paginated response, and id param with validation
+[33mfcdd935[m Merge pull request #278 from Cybermaxi7/feat/global-exception-filter
+[33me808e67[m feat(exception): add global exception filter with structured error responses
+[33md7ec873[m Merge pull request #277 from Cybermaxi7/feat/resolved-health-endpoint
+[33m6c638ee[m Merge branch 'main' into feat/resolved-health-endpoint
+[33mfcc4690[m feat(health): add health endpoint with database connectivity check (resolved)
+[33m999ae96[m Merge pull request #275 from Cybermaxi7/feat/http-request-logging
+[33md03a9ed[m feat(logging): add structured request logging middleware
+[33m256d35c[m Merge pull request #274 from Cybermaxi7/feat/redis-queue-configuration
+[33m093716b[m feat(queue): configure Redis queue backend with @nestjs/bull
+[33m47b7147[m Merge pull request #253 from lynaDev2/feat/nestjs-init
+[33m2ae3cbc[m feat: initialize NestJS backend setup
+[33m24aca22[m feat: initialize NestJS project
+[33mbf0e550[m Merge pull request #250 from RUKAYAT-CODER/feat-graphql
+[33m89e3222[m Notification Worker (Email & Push)
+[33m990a9c4[m GraphQL API Layer with Apollo Server
+[33md7a7af4[m Merge pull request #249 from Divineifed1/main
+[33m4391a1d[m Merge pull request #248 from Dataguru-tech/feat/Monitoring-Dashboard-Data-Endpoints
+[33m6cec4c0[m Merge pull request #247 from KuchiMercy/issue-#149
+[33m4f791ee[m Merge pull request #246 from KuchiMercy/issue-#128
+[33mf427f35[m backup scheduler
+[33m8c6de76[m feat/Monitoring Dashboard Data Endpoints
+[33mfbdb329[m Multi-Tenant Data Isolation
+[33m528f46f[m WebSocket Real-Time Notifications
+[33m4448929[m Merge pull request #245 from walterthesmart/fix-issues-160-171-173
+[33m3461363[m Merge branch 'main' into fix-issues-160-171-173
+[33m1b762cb[m Merge pull request #244 from Jayking40/main
+[33m25d9190[m Fix issue #177
+[33m61397a3[m Fix issues #160, #171, #173
+[33m8f7a48f[m feat: add CSV import with validation, transactions, and progress tracking
+[33m990224e[m Merge pull request #203 from ayomideadeniran/feature/sms-2fa
+[33m0af5969[m Resolve merge conflicts and fix dependencies
+[33m1eb9b20[m chore: ignore error.log
+[33m87e256a[m Merge pull request #209 from davedumto/feat-implement-csp
+[33mf3edbc4[m chore: fix ci
+[33m4902069[m Merge remote-tracking branch 'origin/main' into feat-implement-csp
+[33me554769[m Merge remote-tracking branch 'origin/main' into feat-implement-csp
+[33md39fc53[m Merge pull request #201 from gabito1451/#websocket
+[33m808ebaa[m Merge pull request #199 from rosemary21/feature/Email-Template-System-with-Handlebars
+[33m4d13f69[m Merge pull request #213 from davedumto/feat-implement-response-compression
+[33mce581c8[m Merge branch 'main' into feat-implement-response-compression
+[33m283f59a[m fix
+[33mf2aef26[m Merge branch '#websocket' of https://github.com/gabito1451/Uzima-Backend into #websocket
+[33mdd9eb51[m fix
+[33md840626[m Merge branch 'main' into #websocket
+[33m4a8b587[m email notification
+[33m495e5a3[m email notification
+[33m9711751[m Merge pull request #215 from ALIPHATICHYD/feature/healthchecks-67
+[33mf87c13f[m Merge branch 'main' into feature/healthchecks-67: Resolve merge conflicts
+[33m1ebe361[m Merge pull request #241 from AbdulSnk/feature/db-connection-pool-optimization
+[33m2dce01f[m Merge pull request #216 from dotandev/feat/secure-webhooks
+[33ma2179bb[m Merge pull request #242 from BrayanMQ/feat-soft-delete-with-restore-functionality
+[33m0291920[m Merge branch 'main' into feat/secure-webhooks
+[33md1df4a9[m Merge pull request #214 from Sandijigs/feat-Winston_Structured_logging_System
+[33m654ad2d[m Merge branch 'main' into feat-Winston_Structured_logging_System
+[33md351ac2[m fix(tests): fix setup.js async function and lint issues
+[33mb5a58b8[m Update package-lock.json
+[33m2437985[m Fix test setup and correct ObjectId case in tests
+[33mfddb9c4[m Remove unused compound index from softDeletePlugin
+[33ma7c0157[m test: add integration tests for trash controller
+[33mcf8eb62[m test: add unit tests for soft delete plugin
+[33m01e2c5b[m refactor(cron): extend purgeJob to support all soft-delete models
+[33mb5556f6[m feat(routes): add trash management routes to admin
+[33m2d191fe[m feat(admin): add trash controller for managing deleted items
+[33ma51e4f1[m refactor(models): convert Article and FileMetadata to ES modules with soft delete
+[33mda8e97b[m feat(models): apply soft delete to Permission and InventoryItem
+[33m9da3bd7[m feat(models): apply soft delete to Prescription and Payment
+[33mec82ef3[m feat(models): add soft delete Mongoose plugin
+[33m390d194[m Merge pull request #240 from AbdulSnk/feature/api-testing-newman-ci
+[33m74565e4[m feat: add /health/db endpoint for MongoDB pool stats (#170)
+[33m2592f53[m Merge pull request #208 from Samaro1/issue-146-fix
+[33m2f2d4b1[m fix: Repair package.json JSON syntax and regenerate package-lock.json for CI/CD compatibility
+[33mf19a7d6[m test: add Postman API tests and Newman CI integration
+[33m0fc36e4[m feat: Import exportCleanupJob in main server startup
+[33m1c3c4ba[m Issue 146: data export queue
+[33m2bf6085[m Fixed merge conflicts
+[33mc821e52[m chore: Update security audit level to critical and remove deprecated MongoDB connection options.
+[33mda61547[m chore: added dependencies
+[33m6084e37[m chore: fix github ci
+[33m9c1ce71[m Merge branch 'main' into feat-Winston_Structured_logging_System
+[33m9c77bdd[m Merge remote-tracking branch 'origin/main' into feat-implement-csp
+[33m464a6ac[m Merge branch 'main' into feat/secure-webhooks
+[33m8b7b0ce[m Merge branch 'main' into feature/Email-Template-System-with-Handlebars
+[33m8175a13[m Merge pull request #225 from davedumto/feat-implement-file-upload-and-security-system
+[33m4eca20f[m Merge pull request #219 from shamoo53/OAuth2-Social-Login-Integration
+[33m10c7a45[m Merge branch 'main' into feat-implement-file-upload-and-security-system
+[33m6e3968f[m Merge branch 'main' into OAuth2-Social-Login-Integration
+[33m8470c8e[m Merge pull request #229 from pragmaticAweds/bull-queue-implementation
+[33m7d4b19d[m Merge branch 'main' into bull-queue-implementation
+[33mddf6b3b[m Merge pull request #211 from Cedarich/feature/automated-security-scanning
+[33m2eca4b2[m fix: resolve conflict
+[33m9a3e503[m Merge branch 'main' into feature/automated-security-scanning
+[33m4c719f7[m Merge pull request #239 from Agbeleshe/Payment-Integration
+[33m18152e4[m Merge pull request #238 from icedoutskay/feature/analytics
+[33m00febfc[m Merge pull request #200 from caxtonacollins/TOTP
+[33meab07d3[m Merge branch 'main' into TOTP
+[33mab82932[m Merge branch 'Payment-Integration' of https://github.com/Agbeleshe/Uzima-Backend into Payment-Integration
+[33mc52ba0d[m fixed the workflow
+[33m94cb8c5[m Merge branch 'main' into Payment-Integration
+[33md8b2cfc[m feat: payment integration system has been successfully implemented according to the requirements in issue #126
+[33me57df1b[m API Analytics Dashboard
+[33md776e06[m Merge pull request #235 from Properprogress1/main
+[33m1f49e47[m fix: sync package-lock.json with package.json for CI
+[33m392a9a2[m Merge branch 'main' into main
+[33m06818c6[m Merge pull request #207 from laryhills/feature/request-logging-middleware
+[33m4ab88eb[m Merge pull request #237 from Villarley/feat/ip-geolocation
+[33m7e69f74[m Merge branch 'main' into feature/request-logging-middleware
+[33macb2261[m Merge branch 'main' into feat/ip-geolocation
+[33m905ed3a[m Merge branch 'main' into main
+[33mb13aee1[m feat: add security routes for device and login history management
+[33m995aa80[m feat: add security alert notifications for fraud detection
+[33m8d71d95[m feat: integrate geolocation and fingerprinting into login flow
+[33m260bf46[m feat: implement fraud detection with impossible travel detection
+[33m5d87870[m feat: add browser fingerprinting service for device tracking
+[33m8b898b4[m feat: implement IP geolocation service with ipapi.co integration
+[33m74e0fb9[m feat: add UserDevice and LoginHistory models for security tracking
+[33m10eb940[m Merge pull request #234 from lishmanTech/Redd
+[33m9088ec7[m Merge pull request #236 from KAMALDEEN333/File-Storage-Abstration
+[33m7786471[m Created and Added File storage Abstration
+[33m27aa813[m fix: update yaml dependency to 2.8.2 to resolve npm ci sync issue
+[33m2f0635f[m doc
+[33m2ed9ab5[m packages
+[33mfbb9a07[m responceTimeMonitor
+[33m6e8a153[m emailBounce
+[33m84ea2a3[m index.js
+[33mef9e385[m api
+[33m3864949[m emailQueue
+[33m7f85995[m performance
+[33m68b2e3a[m logger
+[33mf9f9fea[m feat(auth): Redis-backed session management with session revocation
+[33m8127518[m fixed doc
+[33meff7c67[m Merge branch 'main' into feature/automated-security-scanning
+[33m5e8055d[m Merge pull request #205 from fawizzy/payment_Payment-Webhook-Reconciliation-System
+[33m6b896f4[m Merge branch 'main' into payment_Payment-Webhook-Reconciliation-System
+[33m38c4dd1[m Merge pull request #232 from DioChuks/feature/admin-analytics
+[33m7e36715[m Merge pull request #233 from RUKAYAT-CODER/feat-elasticsearch
+[33ma98b313[m Advanced Search with Elasticsearch Integration
+[33m253890d[m Merge branch 'main' into feature/admin-analytics
+[33m64abe24[m Advanced Search with Elasticsearch Integration
+[33mf36fa6f[m feat: add admin analytics APIs & test suite
+[33m1575d17[m Merge pull request #224 from davedumto/feat-implement-db-index-optimization
+[33m3458239[m Merge pull request #222 from No-bodyq/main
+[33me0918d6[m Merge pull request #228 from nafiuishaaq/feat/activityTracking
+[33m6702936[m Merge pull request #206 from PeterOche/feat-data
+[33m42e2a53[m Merge pull request #198 from Properprogress1/main
+[33mcdabb7a[m Merge pull request #194 from Georgechisom/feature/env-specific-config
+[33m6d778e8[m Merge pull request #231 from RUKAYAT-CODER/feat-rbac
+[33mb39c616[m Role-Based Access Control (RBAC) Permissions System
+[33mcac7d3e[m Merge branch 'main' of https://github.com/PeterOche/Uzima-Backend into feat-data
+[33me7d1121[m implmeneted User Activity Tracking System
+[33m0d1fc44[m feat: added job route to main routes
+[33m1acc9e7[m feat: implemented job queue background system
+[33m41a602a[m Merge branch 'main' into feature/env-specific-config
+[33md2b6246[m Merge branch 'main' into main
+[33m3d5f799[m Merge branch 'main' into payment_Payment-Webhook-Reconciliation-System
+[33m99a4d4f[m Merge pull request #227 from OlufunbiIK/feat/#162-Audit-Log-System-with-Immutable-History
+[33m233f46c[m feat:#162 Audit Log System with Immutable History
+[33m1fd514a[m feat:Email Bounce and Complaint Handling #176
+[33m24a4612[m Merge branch 'main' into feat-implement-file-upload-and-security-system
+[33m0c62855[m feat: implement file upload security  and validation system
+[33m3824295[m Merge pull request #210 from man-croft/feature/cors-configuration-hardening-153
+[33m1971696[m Merge pull request #204 from dannyy2000/feat/redis-caching-hot-endpoints-65
+[33md3804d7[m Merge pull request #202 from kingjosmel/Advanced-Password-Policies
+[33m00c2668[m Merge pull request #217 from OtowoSamuel/feature/api-version-strategy
+[33mb9ff3c5[m Merge pull request #218 from shamoo53/User-Preferences-and-Settings-Management
+[33mf73e6fa[m Merge branch 'main' into feat-implement-db-index-optimization
+[33m0d4714b[m Merge pull request #221 from ShantelPeters/main
+[33m1d7cbdd[m Merge branch 'main' into main
+[33mfc81d65[m Merge pull request #195 from Jayking40/main
+[33m3b01839[m Merge pull request #196 from yahia008/main
+[33m1fca0d5[m Merge pull request #197 from Samaro1/main
+[33m182afd1[m feat: Implement comprehensive database index optimization strategy
+[33mcceb6b7[m Merge pull request #223 from OthmanImam/feat/DatabaseMigration
+[33m692c0b3[m feat: implement CORS configuration hardening (#153)
+[33m04ce298[m Implemented Database Migration System
+[33md2c2a26[m Merge branch 'Stellar-Uzima:main' into main
+[33m7ddc9ad[m Advanced Backup Filtering & Export System
+[33m9ec9512[m Merge pull request #220 from Godsmiracle001/feature/client-encryption
+[33m06c2ea3[m Update package-lock.json and synchronize
+[33m24072b8[m feat: Implement client-side encryption for PHI data (Issue #44)
+[33me8717ce[m Merge branch 'main' into TOTP
+[33m1126f74[m OAuth2-Social-Login-Integration
+[33me08a773[m User-Preferences-and-Settings-Management
+[33mc991c13[m Merge pull request #193 from supreme2580/issue-164
+[33m82bd41c[m Merge pull request #212 from OthmanImam/feat/Server-SentEvent
+[33mcfb69b4[m feat: API Versioning Strategy Implementation
+[33mb2447c4[m feat: Implement secure webhook system with HMAC validation
+[33mf2b3a08[m feat: implement health check endpoints for orchestration systems
+[33md03006a[m feat: Implement secure webhook system with HMAC validation
+[33me50b16d[m Winston Structured Logging System
+[33m0606aff[m feat: Implement response compression middleware
+[33m5481a8a[m Implemented  Server-Sent Events (SSE) system
+[33mba33e2e[m Merge branch 'main' into feature/automated-security-scanning
+[33m7ba820d[m feat: Implement Content Security Policy (CSP) with Helmet middleware
+[33mc0aa005[m feat(security): implement automated dependency vulnerability scanning
+[33m9c47009[m feat: :sparkles: Enhance logging functionality and add API request/response logger
+[33md771af7[m Data Anonymization & PII Masking Service
+[33m5ddd26d[m feat: implement reconciliation feature with cron job and API endpoint
+[33me2218cd[m feat: implement Redis caching for hot endpoints
+[33m84ea7ed[m feat: Implement SMS 2FA with Twilio integration and unit tests
+[33m3b7887a[m Advanced-Password-Policies
+[33m4fff9a3[m integrate websocket authentication
+[33m9f34538[m Merge branch 'Stellar-Uzima:main' into TOTP
+[33m229a1a9[m test: TOTP test
+[33m15b145a[m feat: Implemented Two-Factor Authentication (TOTP) System
+[33m4576337[m Merge branch 'main' into main
+[33mf885f26[m Documentation
+[33mf6a2080[m feature/Email-Template-System-with-Handlebars
+[33m476e13a[m test
+[33m2e68564[m correlation Id
+[33mc5de188[m request logger
+[33mb39a31f[m request Id test
+[33mcf4eed1[m emailQue
+[33mab815a1[m request Id test
+[33ma6d2e3f[m browser test
+[33m02c7229[m server test
+[33mc2c6202[m manual test
+[33m108afca[m request Id Impl
+[33m93d377e[m packages
+[33m705ef4c[m Worked on the comprehensive health check endpoints and fixed merge conflicts
+[33md1a1614[m fix(encryption): update patient phone field and enhance encryption tests
+[33m68bfca7[m Merge pull request #192 from sasasamaes/feature/swagger-api-docs
+[33m25774f1[m Merge pull request #191 from KAMALDEEN333/Webhook-Delivery
+[33mc06abc4[m implement caching wuth redis
+[33m909e8fb[m feat: API Rate Limiter with Redis Backend
+[33m14df556[m feat(encryption): add history field to encrypted fields and improve security
+[33mb2f1703[m docs(config): add comprehensive documentation and tests
+[33m0aa0a18[m refactor(config): update existing configs to use new system
+[33m234d326[m feat(config): implement Joi-validated config loader
+[33m5fec76d[m feat(config): add environment-specific config files
+[33m046bd05[m feat(security): implement field-level encryption for sensitive data
+[33m316cc9b[m delete docs
+[33m2c05b78[m Added the webhook delivery
+[33m86fbd35[m feat: Add Swagger API documentation with OpenAPI 3.0
+[33m1998f0e[m Merge pull request #190 from KAMALDEEN333/Email-Queue-Worker
+[33m8b669b2[m created the Email-queue worker
+[33mb019736[m Merge pull request #189 from Chucks1093/feature/graceful-shutdown-151
+[33madf0660[m Merge branch 'main' into feature/graceful-shutdown-151
+[33maba84d6[m Merge pull request #187 from akintewe/task-63-centralized-error-handling
+[33m89a49f2[m Fix migrate-mongo-config.js to use ES module syntax
+[33mfa1acf2[m Add migrate-mongo-config.js for CI/CD compatibility
+[33m4c5bbe7[m Merge main into task-63: Resolve conflicts in src/index.js and src/routes/index.js
+[33m7489e61[m feat: implement graceful shutdown handler (#151)
+[33m25488df[m Merge pull request #186 from akintewe/task-46-prescription-verification-system
+[33m294d9b3[m Merge branch 'task-63-centralized-error-handling' of https://github.com/akintewe/Uzima-Backend into task-63-centralized-error-handling
+[33m7011c9d[m feat: Implement Centralized Error Handling & Standardized Responses (Task #63)
+[33mbd6cd78[m feat: Implement Centralized Error Handling & Standardized Responses (Task #63)
+[33m688b0e8[m Merge remote-tracking branch 'origin/main' into task-46-prescription-verification-system
+[33mabcf02f[m feat: Implement Prescription Verification System (Task #46)
+[33m56704b1[m Merge pull request #155 from codewithzubair07/feat/env-validation
+[33m5bbbbea[m feat(config): validate environment variables on startup
+[33m304563b[m Merge pull request #124 from Uyoxy/updates
+[33m43c0441[m cleanup
+[33me403fc1[m git commit -m "cleanup: remove migrate-mongo-config"
+[33m38e172f[m Merge pull request #122 from suhaib-ilahi/fix#121
+[33m4a87bc8[m Correct function usage in metric route
+[33m7c21f36[m Merge pull request #120 from suhaib-ilahi/feat/#43
+[33m97e63c4[m fix: replace deprecated socket.io-redis with @socket.io/redis-adapter,fix:imports
+[33mc49c23e[m Fix import paths
+[33m49e70c6[m Merge pull request #119 from Godsmiracle001/feat/health-data-visualization
+[33m3103845[m chore(db): fix migrate-mongo config and CJS migrations
+[33m2b5804a[m health visualization dashboard latest
+[33mf574338[m health visualization dashboard
+[33m09107f7[m Merge pull request #118 from PeterOche/main
+[33m0987cc2[m Merge pull request #117 from wheval/feat/validation-sanitization
+[33m3483bee[m Add Hourly Incremental Backups & Restore Testing
+[33m5e81330[m Merge branch 'main' into feat/validation-sanitization
+[33m45648da[m fix conflicts
+[33m438f7eb[m Merge branch 'main' into feat/validation-sanitization
+[33m68c97a4[m feat: validate and sanitize inputs
+[33m851dd1c[m Merge pull request #116 from Stellar-Uzima/feature/db-migrations-frameworkw
+[33m6735d0b[m Merge pull request #115 from Stellar-Uzima/feature/structured-json-logging2
+[33me564d7f[m Merge pull request #114 from Stellar-Uzima/feature/db-indexing-audit
+[33m6a15b80[m Merge pull request #113 from Stellar-Uzima/feature/anonymization-service
+[33mfe0412c[m fix(ci): remove unsupported --config flag and use MIGRATE_MONGO_CONFIG env var
+[33m455ab6d[m fix(ci): migrate-mongo config ESM and CI migration step
+[33m7db7b96[m fix(ci): ensure MongoDB service starts before migrations
+[33m068adfa[m chore(ci): fix migration check and add migrate-mongo config
+[33m2607ac6[m chore(db): add migration framework and CI integration (#75)
+[33mea77471[m[33m ([m[1;31morigin/feature/structured-json-logging[m[33m)[m feat(logging): add structured JSON logging with correlation IDs (#66)
+[33mefc007e[m[33m ([m[1;31morigin/feature/db-indexing-audit[m[33m)[m perf(db): add indexing & query optimization audit (#72)
+[33m04d9dc4[m[33m ([m[1;31morigin/feature/anonymization-service[m[33m)[m Resolve merge: move subscriptionScheduler to src/services and update anonymize.controller
+[33mf80d2f2[m Merge pull request #112 from feyishola/feat/sub-lifecycle-mgt
+[33m092fcd9[m feat: implement data anonymization and pseudonymization service
+[33mb43748a[m subscription feat implemented
+[33m5822765[m swagger docs implemented
+[33m2a3f7c7[m Merge pull request #110 from lishmanTech/SearchApi
+[33m0cc2c12[m Full Text Search API Created
+[33m962207f[m Merge pull request #109 from lishmanTech/audutcreatebranch
+[33mc4e6e54[m Merge pull request #108 from feyishola/feat/image-processing
+[33m50d9935[m Merge pull request #107 from onelove-dev/notif
+[33mdc466e3[m Feat: Audit Login system created
+[33mfa98d00[m Low-Bandwidth Image Optimization
+[33m239ba93[m npm i
+[33m8f73566[m Merge branch 'main' of github.com-mann:onelove-dev/Uzima-Backend into notif
+[33m1cbf9f3[m chore: add email worker configuration and clean up duplicate imports
+[33mb289907[m feat: implement email notification system with queuing and tracking
+[33m7139e6e[m feat: add email templates and notification helper functions
+[33m1e7244a[m feat: implement email queue and worker with BullMQ for notification processing
+[33m8be6135[m Merge pull request #87 from shamoo53/WebSocket-Real-time-Notifications-API
+[33m08ad1f9[m Merge branch 'main' into WebSocket-Real-time-Notifications-API
+[33m54aa1e3[m Merge pull request #106 from OthmanImam/feat/Multi-Language
+[33me19733a[m feat(i18n): add localization (English, French, Swahili) with middleware
+[33mfe12281[m Merge pull request #53 from KAMALDEEN333/Track-User
+[33md54b237[m Merge pull request #105 from phertyameen/feat/payments
+[33mfea3ad6[m feat(payments): add reconciliation job with Mongoose models + manual endpoints
+[33md83137b[m feat: add Notification model with email tracking and provider support
+[33mc3d50bf[m Merge pull request #104 from Cedarich/feature/activity-logging-system
+[33mc744a3f[m Merge pull request #103 from Cedarich/feature/automated-mongodb-backup-service
+[33m7c2d0fa[m feat: implement comprehensive activity logging system for user actions
+[33m79f0297[m feat: implement automated MongoDB backup service with disaster recovery
+[33mdce4f41[m Merge pull request #102 from OlufunbiIK/feat/Signed-File-Uploads-
+[33m6a7b22f[m feat:Signed File Uploads & Secure Access Layer #69
+[33m2e5de7c[m Merge pull request #97 from nafiuishaaq/inventory
+[33m2d47510[m readme
+[33mc61f382[m routes
+[33m3d7547b[m service
+[33mb078b37[m service
+[33m78d10f8[m service
+[33m3f514ae[m routes
+[33m3cabfcd[m Audil log
+[33mb2374a1[m Audil log
+[33m04aff18[m Merge pull request #96 from Godsmiracle001/feature/authentication-refresh-token
+[33m2609d11[m Authentication Refresh Token Flow fixed 2
+[33m3eef3aa[m Authentication Refresh Token Flow fixed
+[33m4586ada[m Merge pull request #94 from benedictfred/feat/reset-password
+[33ma4c7096[m chore: remove .env from git tracking
+[33m6e25f26[m feat: I built the reset password flow
+[33maf2f3df[m Merge pull request #88 from KAMALDEEN333/Central-Error-Handling
+[33me345663[m Merge pull request #91 from phertyameen/feat/worker
+[33m415ecb6[m Merge pull request #93 from RUKAYAT-CODER/feat-payment-hook
+[33m7d860a1[m Implement Payment Webhook Handler
+[33m22dd907[m GDPR/Compliance — User Data Export & Delete Endpoint
+[33md323f3b[m feat(worker): add retries with exponential backoff and DLQ support
+[33m3cdd12c[m Merge branch 'main' into Central-Error-Handling
+[33m470990b[m Merge pull request #90 from ikemHood/feat-atomic-db
+[33m67a837e[m Merge branch 'main' into feat-atomic-db
+[33m0217ebf[m Merge pull request #89 from iGEORGE17/feature/rate-limiting
+[33mbb71d12[m refactor: convert CommonJS to ES modules and improve transaction handling. Fix start errors
+[33mb034eeb[m Merge branch 'main' into feature/rate-limiting
+[33mb07c0db[m Merge pull request #86 from gabito1451/Bulk-CSV-Upload
+[33ma982015[m Merge pull request #85 from phertyameen/feat/webrtc
+[33mb83d4df[m Merge pull request #84 from gabito1451/RBAC
+[33m629e84a[m Merge pull request #83 from shamoo53/Soft-Delete-Restore-for-Critical-Models
+[33m951cac4[m added rate limiting feature
+[33md5be773[m created a comprehensive centralized error handling
+[33m2195dbc[m added test file
+[33m8bffec7[m added more enhanament
+[33me7ba28c[m enhanament
+[33mc5126d0[m initial commit
+[33ma6f02aa[m Implement Bulk CSV Upload, Preview, Validation, and Import
+[33mfee2e47[m feat(webrtc): implement adaptive bitrate streaming with simulcast & SVC
+[33m22c6446[m Implement RBAC
+[33m066e020[m addded test file
+[33m5fc2494[m implementation of Soft-Delete-Restore-for-Critical-Models
+[33m9b9dba9[m initial commit
+[33mdb716d2[m Adjustments
+[33md41483d[m Added sample/scripts data
+[33m270429e[m Update metric
+[33m2f5d553[m Implemented recommendation logic
+[33m5ba4d4b[m Implemented enhancements
+[33m6871d51[m Implemented recommendation test
+[33m2915cf3[m Implemented a personalized recommendation system to surface relevant health article
+[33mfc70a76[m Merge pull request #52 from shamoo53/Medical-Data-Encryption
+[33me38067e[m test file
+[33m3b8be73[m test file
+[33meff0110[m implementation of Medical-Data-Encryption
+[33m25617cc[m test file
+[33m042578a[m test file
+[33mdd8c241[m implementation of Two‑Factor-Authentication
+[33m258d26e[m Merge pull request #50 from KAMALDEEN333/Ai-Checker
+[33madc93f5[m Created and implemtented Ai symptom checker
+[33m20504b2[m Merge pull request #38 from LaGodxy/validate-stellar-testnet
+[33m430d35e[m Feature: Validate Stellar Testnet Connectivity on Boot
+[33mfccb535[m Merge pull request #34 from phertyameen/feat/graphApiLayer
+[33m59d7a09[m Merge branch 'main' into feat/graphApiLayer
+[33m42014e6[m Merge pull request #37 from OthmanImam/feat/Internationalization
+[33mabea534[m feat(i18n): Implement internationalization support
+[33mba9c1ca[m Merge pull request #35 from RUKAYAT-CODER/feat-offline-data-sync
+[33m9aa342a[m Merge branch 'main' into feat-offline-data-sync
+[33mad8f18b[m Merge pull request #36 from Cedarich/feature/ci-cd-github-actions-pipeline
+[33m34d1d62[m Merge branch 'main' into feature/ci-cd-github-actions-pipeline
+[33m6b8d2c4[m feat: implement GitHub Actions CI/CD pipeline for backend
+[33mb64c228[m Merge pull request #27 from KAMALDEEN333/Database
+[33m39177a1[m Merge branch 'main' into Database
+[33m270b577[m Implement Offline-First Data Sync for Medical Records
+[33m7588255[m Merge main into Database and resolve conflicts
+[33m08331dd[m Merge pull request #33 from Spycall/chore/integrate-sentry-monitoring
+[33mc9926a2[m feat: add GraphQL API layer with Apollo Server for medical records, appointments, and users
+[33me9463ad[m Merge branch 'main' into chore/integrate-sentry-monitoring
+[33ma98f8ce[m Merge pull request #31 from Cybermaxi7/feature/ipfs-integration
+[33m78deffb[m Merge branch 'main' into feature/ipfs-integration
+[33m6d4860f[m chore: integrate Sentry for error tracking and performance monitoring
+[33ma12e2cb[m Merge pull request #32 from lishmanTech/lishman
+[33m790caa8[m feat: add Stellar anchoring endpoint with post-save hash logging and verification route
+[33mabb33ae[m feat: Integrate IPFS for prescription scan storage and retrieval
+[33m0806b4a[m Merge pull request #30 from Godsmiracle001/feature/swagger-documentation
+[33m55fd06f[m feat: Add Swagger API documentation
+[33m184fa7e[m Merge pull request #29 from OlufunbiIK/feat/Implement-Blockchain-Transaction-Logging-Middleware-for-Stellar-Anchoring
+[33m034a92f[m feat:Implement Blockchain Transaction Logging Middleware for Stellar Anchoring #11
+[33ma257d24[m feat:Implement AES-256 Encryption Middleware for Medical Records #9
+[33m2372f59[m feat:Implement AES-256 Encryption Middleware for Medical Records #9
+[33m0d92b61[m database endpoint has been created
+[33me52547e[m Merge pull request #26 from gabito1451/email-notification-#16
+[33m412506d[m Implement Email notification
+[33mf46ca43[m resolved conflit
+[33m30f7644[m Merge pull request #23 from shamoo53/PDF-Summaries-of-Medical-Records-Endpoint-Using-PDFKit
+[33mb917ed7[m DataBase Backend endpoint created
+[33ma31b34d[m Merge pull request #22 from Bappa-Kamba/main
+[33m44c62c1[m implementation of Pdf summarites
+[33m0a95616[m Merge branch 'Stellar-Uzima:main' into main
+[33meb0762d[m feat: Implement role-based access control with permissions
+[33md19b0cc[m Merge pull request #21 from Bappa-Kamba/main
+[33mf15a342[m feat: Add example environment configuration file
+[33mcb46c0d[m feat: Implement user authentication and authorization
+[33me925197[m Merge pull request #6 from emmanueldindu/main
+[33m99c22b2[m Initial setup for backend repository
+[33m29188c4[m Initial Express setup with MongoDB

@@ -34,7 +34,7 @@ import {
 export class FailedRewardJobController {
   constructor(private readonly failedRewardJobService: FailedRewardJobService) {}
 
-  @Get('failed')
+  @Get('failed-jobs')
   @ApiOperation({
     summary: 'List all failed reward jobs',
     description:

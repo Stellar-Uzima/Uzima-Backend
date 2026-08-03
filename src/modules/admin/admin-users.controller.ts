@@ -110,4 +110,13 @@ export class AdminUsersController {
     return this.adminUsersService.deleteUser(req.user.sub, id);
   }
 
+  @Get(':id/tasks')
+  @ApiOperation({ summary: 'Get all tasks for a specific user (ADMIN only)' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserTasks(@Param('id') id: string) {
+    return this.adminUsersService.getUserTasks(id);
+  }
+
 }
