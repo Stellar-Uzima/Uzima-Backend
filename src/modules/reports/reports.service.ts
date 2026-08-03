@@ -10,6 +10,27 @@ export type ReportType = 'users' | 'activity' | 'health';
 
 @Injectable()
 export class ReportsService {
+  private readonly availableReports = [
+    {
+      id: 'users',
+      title: 'Users Report',
+      type: 'users' as ReportType,
+      description: 'Overview of user growth and demographics',
+    },
+    {
+      id: 'activity',
+      title: 'Activity Report',
+      type: 'activity' as ReportType,
+      description: 'Task and reward activity analytics',
+    },
+    {
+      id: 'health',
+      title: 'Health Report',
+      type: 'health' as ReportType,
+      description: 'Health and engagement trends',
+    },
+  ];
+
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(TaskCompletion)
@@ -19,6 +40,23 @@ export class ReportsService {
     @InjectRepository(Streak)
     private readonly streakRepository: Repository<Streak>,
   ) {}
+
+  async listReports(page: number = 1, limit: number = 20) {
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 20;
+    const total = this.availableReports.length;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / safeLimit);
+    const start = (safePage - 1) * safeLimit;
+    const data = this.availableReports.slice(start, start + safeLimit);
+
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+    };
+  }
 
   async getUserReport() {
     const totalUsers = await this.userRepository.count();

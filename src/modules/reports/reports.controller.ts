@@ -6,6 +6,8 @@ import {
   Query,
   Res,
   UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -57,8 +59,7 @@ class DistributeReportDto {
 @ApiTags('Reports')
 @ApiBearerAuth()
 @ApiSecurity('bearer')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@UseGuards(JwtAuthGuard)
 @Controller('reports')
 export class ReportsController {
   constructor(
@@ -67,7 +68,21 @@ export class ReportsController {
     private readonly schedulerService: ReportsSchedulerService,
   ) {}
 
+  @Get('list')
+  @ApiOperation({ summary: 'Get a paginated list of available reports' })
+  @ApiResponse({ status: 200, description: 'Paginated list of reports returned' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page for pagination', example: 20 })
+  async listReports(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    return this.reportsService.listReports(page, limit);
+  }
+
   @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get user reports and summary statistics' })
   @ApiResponse({ status: 200, description: 'User report returned' })
   async getUserReport() {
@@ -75,6 +90,8 @@ export class ReportsController {
   }
 
   @Get('activity')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get activity reports for tasks and rewards' })
   @ApiResponse({ status: 200, description: 'Activity report returned' })
   async getActivityReport() {
@@ -82,6 +99,8 @@ export class ReportsController {
   }
 
   @Get('health')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Get health statistics report' })
   @ApiResponse({ status: 200, description: 'Health report returned' })
   async getHealthReport() {
@@ -89,6 +108,8 @@ export class ReportsController {
   }
 
   @Get('export/rewards')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Export rewards data as JSON or CSV' })
   @ApiQuery({ name: 'format', enum: ['json', 'csv'], required: false })
   async exportRewards(
@@ -106,6 +127,8 @@ export class ReportsController {
   }
 
   @Get('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Export any report type as CSV',
     description: 'Export users, activity, or health reports as CSV format',
@@ -145,6 +168,8 @@ export class ReportsController {
   }
 
   @Post('schedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Create a scheduled report' })
   @ApiResponse({ status: 201, description: 'Scheduled report created' })
   async scheduleReport(@Body() dto: ScheduleReportDto) {
@@ -157,6 +182,8 @@ export class ReportsController {
   }
 
   @Get('schedules')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List configured scheduled reports' })
   @ApiResponse({ status: 200, description: 'Scheduled reports returned' })
   async getSchedules() {
@@ -164,6 +191,8 @@ export class ReportsController {
   }
 
   @Post('distribute')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Distribute a report immediately' })
   @ApiResponse({ status: 200, description: 'Report distribution triggered' })
   async distributeReport(@Body() dto: DistributeReportDto) {
