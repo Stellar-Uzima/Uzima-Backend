@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter, Histogram, Gauge } from 'prom-client';
 
@@ -60,12 +60,12 @@ export class MetricsService {
     this.dbQueryDuration.observe({ operation }, duration);
   }
 
-  incrementCacheHits() {
-    this.cacheHitsTotal.inc();
+  incrementCacheHits(cacheName: string = 'default') {
+    this.cacheHitsTotal.inc({ cache_name: cacheName });
   }
 
-  incrementCacheMisses() {
-    this.cacheMissesTotal.inc();
+  incrementCacheMisses(cacheName: string = 'default') {
+    this.cacheMissesTotal.inc({ cache_name: cacheName });
   }
 
   setMemoryUsage(bytes: number) {

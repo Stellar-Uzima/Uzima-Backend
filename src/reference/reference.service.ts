@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
 import { AFRICAN_COUNTRIES, Country } from './data/african-countries';
 import { SUPPORTED_LANGUAGES, Language } from './data/supported-languages';
+import { MetricsService } from '../shared/metrics/metrics.service';
 
 @Injectable()
 export class ReferenceService {
@@ -11,7 +12,7 @@ export class ReferenceService {
   private readonly COUNTRIES_CACHE_KEY = 'reference:countries';
   private readonly LANGUAGES_CACHE_KEY = 'reference:languages';
 
-  constructor() {
+  constructor(private readonly metricsService: MetricsService) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
     });
@@ -29,11 +30,13 @@ export class ReferenceService {
       // Try to get from cache
       const cached = await this.redisClient.get(this.COUNTRIES_CACHE_KEY);
       if (cached) {
+        this.metricsService.incrementCacheHits(this.COUNTRIES_CACHE_KEY);
         this.logger.debug('Returning countries from cache');
         return JSON.parse(cached as string);
       }
 
       // Cache miss - return static data and cache it
+      this.metricsService.incrementCacheMisses(this.COUNTRIES_CACHE_KEY);
       await this.redisClient.setEx(
         this.COUNTRIES_CACHE_KEY,
         this.CACHE_TTL,
@@ -56,11 +59,13 @@ export class ReferenceService {
       // Try to get from cache
       const cached = await this.redisClient.get(this.LANGUAGES_CACHE_KEY);
       if (cached) {
+        this.metricsService.incrementCacheHits(this.LANGUAGES_CACHE_KEY);
         this.logger.debug('Returning languages from cache');
         return JSON.parse(cached as string);
       }
 
       // Cache miss - return static data and cache it
+      this.metricsService.incrementCacheMisses(this.LANGUAGES_CACHE_KEY);
       await this.redisClient.setEx(
         this.LANGUAGES_CACHE_KEY,
         this.CACHE_TTL,

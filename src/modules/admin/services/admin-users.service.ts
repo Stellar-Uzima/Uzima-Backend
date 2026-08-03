@@ -58,6 +58,24 @@ export class AdminUsersService {
     return result;
   }
 
+  async searchUsers(query: string) {
+    if (!query || query.trim().length === 0) {
+      return { data: [], total: 0 };
+    }
+    const qb = this.usersRepository.createQueryBuilder('user')
+      .where('(user.firstName ILIKE :q OR user.lastName ILIKE :q OR user.email ILIKE :q)',
+        { q: `%${query.trim()}%` })
+      .andWhere('user.deletedAt IS NULL')
+      .select([
+        'user.id', 'user.email', 'user.firstName', 'user.lastName',
+        'user.role', 'user.country', 'user.isActive',
+        'user.createdAt', 'user.updatedAt',
+      ])
+      .take(20);
+    const [users, total] = await qb.getManyAndCount();
+    return { data: users, total };
+  }
+
   async listUsers(dto: ListUsersDto) {
     const page = dto.page || 1;
     const limit = dto.limit || 20;

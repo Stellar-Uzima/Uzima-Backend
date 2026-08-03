@@ -5,17 +5,28 @@ This directory contains all TypeORM entities for the Stellar Uzima backend.
 ## Overview
 
 Entities represent database tables and define the schema structure. Each entity:
+
 - Maps to a database table
 - Defines column types and constraints
 - May include relationships to other entities
 - Should have proper documentation
+
+## Current Entities
+
+- `TaskExportRequest` maps to `task_export_requests` and tracks health-task export requests independently from account-level exports. It stores the requesting user, lifecycle status, requested timestamp, completion timestamp, download expiry, and audit timestamps.
 
 ## Creating an Entity
 
 ### Basic Entity Structure
 
 ```typescript
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('users')
 export class User {
@@ -160,6 +171,7 @@ email: string;
 1. **Use UUID for Primary Keys**
    - More secure than auto-increment integers
    - Better for distributed systems
+
    ```typescript
    @PrimaryGeneratedColumn('uuid')
    id: string;
@@ -167,6 +179,7 @@ email: string;
 
 2. **Add Timestamps**
    - Track creation and modification dates
+
    ```typescript
    @CreateDateColumn()
    createdAt: Date;
@@ -177,6 +190,7 @@ email: string;
 
 3. **Add Soft Delete**
    - Keep historical data while marking as deleted
+
    ```typescript
    @DeleteDateColumn()
    deletedAt?: Date;
@@ -184,6 +198,7 @@ email: string;
 
 4. **Index Frequently Queried Columns**
    - Improves query performance
+
    ```typescript
    @Index()
    @Column()
@@ -192,6 +207,7 @@ email: string;
 
 5. **Use Nullable Wisely**
    - Mark truly optional fields as nullable
+
    ```typescript
    @Column({ nullable: true })
    middleName?: string;
@@ -200,7 +216,7 @@ email: string;
 6. **Add Comments**
    - Document complex fields
    ```typescript
-   @Column({ 
+   @Column({
      comment: 'User email address for login and notifications'
    })
    email: string;

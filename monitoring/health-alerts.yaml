@@ -1,0 +1,55 @@
+# Prometheus Alertmanager configuration for health check failure alerts
+# This demonstrates how to notify on-call teams when health checks start failing
+
+groups:
+- name: uzima-health-alerts
+  rules:
+  # Alert if any pod is not ready
+  - alert: PodNotReady
+    expr: kube_pod_status_ready{condition="true",pod=~"uzima-backend-.*"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Pod {{ $labels.pod }} is not ready"
+      description: "Backend pod {{ $labels.pod }} has failed readiness probes for more than 1 minute"
+
+  # Alert if less than 2 replicas are available
+  - alert: InsufficientBackendReplicas
+    expr: count(kube_pod_status_ready{condition="true",pod=~"uzima-backend-.*"}) < 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Insufficient backend replicas available"
+      description: "Only {{ $value }} backend pods are ready, minimum 2 required"
+
+  # Alert on application-level health check failures (from /health endpoint)
+  - alert: ApplicationHealthCheckFailed
+    expr: http_server_requests_seconds_count{status="503",uri="/health"} > 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "Health check failed on {{ $labels.instance }}"
+      description: "Instance {{ $labels.instance }} returned 503 Service Unavailable for health check"
+
+  # Alert on high queue backlog (detected from health check metrics)
+  - alert: HighQueueBacklog
+    expr: application_queue_jobs_waiting > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High queue backlog detected"
+      description: "Total waiting jobs across all queues exceeds 100, current value: {{ $value }}"
+
+  # Alert on low Redis hit rate
+  - alert: LowRedisHitRate
+    expr: application_redis_hit_rate < 0.8
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis cache hit rate is low"
+      description: "Redis hit rate has dropped below 80%, current rate: {{ $value | humanizePercentage }}"

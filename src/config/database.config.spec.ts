@@ -36,6 +36,23 @@ describe('database.config', () => {
       expect(options.logger).toBeInstanceOf(SlowQueryLogger);
     });
 
+    it('exposes pool settings via extra config', () => {
+      const options = buildDatabaseTypeOrmOptions({
+        NODE_ENV: 'production',
+        DB_POOL_MAX: '25',
+        DB_POOL_MIN: '3',
+        DB_POOL_IDLE_TIMEOUT_MS: '45000',
+        DB_POOL_CONNECTION_TIMEOUT_MS: '3000',
+      });
+
+      expect(options.extra).toEqual({
+        max: 25,
+        min: 3,
+        idleTimeoutMillis: 45000,
+        connectionTimeoutMillis: 3000,
+      });
+    });
+
     it('enables verbose logging in development when DB_LOGGING=true', () => {
       const options = buildDatabaseTypeOrmOptions({
         NODE_ENV: 'development',

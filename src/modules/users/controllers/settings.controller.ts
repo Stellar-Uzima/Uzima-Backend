@@ -5,6 +5,7 @@ import {
     Get,
     HttpCode,
     HttpStatus,
+    Patch,
     Put,
     Req,
     UseGuards,
@@ -36,7 +37,7 @@ type AuthenticatedRequest = Request & {
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('users/settings')
+@Controller(['users/settings', 'users/me/preferences'])
 export class SettingsController {
     constructor(private readonly usersService: UsersService) { }
 
@@ -94,6 +95,36 @@ export class SettingsController {
         description: 'User not found',
     })
     async updateSettings (
+        @Req() req: AuthenticatedRequest,
+        @Body() dto: UpdateUserSettingsDto,
+    ): Promise<UserSettingsResponseDto> {
+        return this.usersService.updateSettings(this.extractUserId(req), dto);
+    }
+
+    @Patch()
+    @HttpCode(HttpStatus.OK)
+    @UsePipes(
+        new ValidationPipe({
+            whitelist: true,
+            forbidNonWhitelisted: true,
+            transform: true,
+        }),
+    )
+    @ApiOperation({ summary: 'Partially update user preferences' })
+    @ApiResponse({
+        status: 200,
+        description: 'User preferences updated successfully',
+        type: UserSettingsResponseDto,
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Validation failed or authenticated user context is missing',
+    })
+    @ApiResponse({
+        status: 401,
+        description: 'Unauthorized',
+    })
+    async patchPreferences (
         @Req() req: AuthenticatedRequest,
         @Body() dto: UpdateUserSettingsDto,
     ): Promise<UserSettingsResponseDto> {
