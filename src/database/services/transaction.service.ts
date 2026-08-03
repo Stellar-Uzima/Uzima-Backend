@@ -285,6 +285,8 @@ export class TransactionService {
       return;
     }
 
+    const firstContext = stack[0];
+
     // Rollback all remaining transactions
     while (stack.length > 0) {
       try {
@@ -297,10 +299,9 @@ export class TransactionService {
     }
 
     // Release all query runners
-    const queryRunner = stack[0]?.queryRunner;
-    if (queryRunner) {
+    if (firstContext?.queryRunner) {
       try {
-        await queryRunner.release();
+        await firstContext.queryRunner.release();
       } catch (error) {
         this.logger.error(
           `Failed to release query runner during cleanup: ${(error as Error)?.message}`,
@@ -365,21 +366,23 @@ export function Transaction(options: TransactionOptions = {}) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
-      const context = `${target.constructor.name}:${String(propertyKey)}:${Date.now()}`;
       const transactionService = this.transactionService as TransactionService;
+      if (!transactionService) {
+        return originalMethod.apply(this, args);
+      }
+
+      const context = `${target.constructor.name}:${String(propertyKey)}:${Date.now()}`;
 
       try {
         return await transactionService.execute(
           context,
           async (queryRunner) => {
-            // Set the queryRunner in the method context
             this.currentQueryRunner = queryRunner;
             return originalMethod.apply(this, args);
           },
           options,
         );
       } finally {
-        // Cleanup
         await transactionService.cleanup(context);
         this.currentQueryRunner = null;
       }
@@ -395,9 +398,8 @@ export function Transaction(options: TransactionOptions = {}) {
  */
 export const QueryRunnerInject = createParamDecorator(
   (data: unknown, ctx: ExecutionContext) => {
-    // Get the instance from the context
-    const instance = ctx.getClass().prototype.constructor;
-    return instance.prototype.currentQueryRunner || null;
+    const request = ctx.switchToHttp().getRequest();
+    return request.currentQueryRunner || null;
   },
 );
 

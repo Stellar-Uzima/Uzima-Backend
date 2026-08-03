@@ -30,6 +30,9 @@ export enum Recurrence {
 @Entity('health_tasks')
 @Index(['status'])
 @Index(['createdAt'])
+@Index(['category'])
+@Index(['createdBy'])
+@Index(['isActive'])
 export class HealthTask {
   @PrimaryGeneratedColumn('uuid')
   id!: string; // Added ! to satisfy strictPropertyInitialization
