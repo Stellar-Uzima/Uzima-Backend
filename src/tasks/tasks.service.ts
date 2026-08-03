@@ -32,6 +32,9 @@ export class TasksService {
       value,
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
+  }
+
+
   /**
    * Enqueue a delayed notification job for a task's reminder.
    * No-op if reminderTime is null/undefined or already in the past.
@@ -115,6 +118,14 @@ export class TasksService {
     return new PaginatedResponseDto(tasks, total, page, limit);
   }
 
+  async findByStatus(status: TaskStatus): Promise<HealthTask[]> {
+    return this.healthTaskRepository.find({
+      where: { status },
+      relations: ['creator'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async findOne(id: string): Promise<HealthTask> {
     const task = await this.healthTaskRepository.findOne({
       where: { id },
@@ -154,12 +165,35 @@ export class TasksService {
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
-    await this.findOne(id);
+  async remove(id: string, userId?: string, userRole?: Role): Promise<void> {
+    const task = await this.findOne(id);
+
+    if (userId && userRole) {
+      if (task.createdBy !== userId && userRole !== Role.ADMIN) {
+        throw new ForbiddenException('You can only delete your own tasks');
+      }
+    }
+
     await this.healthTaskRepository.softDelete(id);
   }
 
   async restore(id: string): Promise<void> {
     await this.healthTaskRepository.restore(id);
   }
+
+  async search(q: string): Promise<HealthTask[]> {
+    const term = q.trim();
+    if (!term) {
+      return [];
+    }
+    return this.healthTaskRepository
+      .createQueryBuilder('task')
+      .where('LOWER(task.title) LIKE LOWER(:term)', { term: `%${term}%` })
+      .orWhere('LOWER(task.description) LIKE LOWER(:term)', { term: `%${term}%` })
+      .andWhere('task.status = :status', { status: TaskStatus.ACTIVE })
+      .andWhere('task.deletedAt IS NULL')
+      .orderBy('task.createdAt', 'DESC')
+      .getMany();
+  }
 }
+

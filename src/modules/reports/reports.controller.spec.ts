@@ -16,6 +16,7 @@ describe('ReportsController', () => {
     getHealthReport: jest.fn(),
     getReportByType: jest.fn(),
     generateReportCsv: jest.fn(),
+    listReports: jest.fn(),
   };
 
   const mockReportExportService = {
@@ -55,6 +56,23 @@ describe('ReportsController', () => {
   // ============================================
 
   describe('Report Retrieval', () => {
+    it('should list reports with pagination', async () => {
+      const mockReportsPage = {
+        data: [{ id: 'users', title: 'Users Report', type: 'users' }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      };
+
+      mockReportsService.listReports.mockResolvedValue(mockReportsPage);
+
+      const result = await controller.listReports(1, 20);
+
+      expect(result).toEqual(mockReportsPage);
+      expect(mockReportsService.listReports).toHaveBeenCalledWith(1, 20);
+    });
+
     it('should get user report', async () => {
       const mockUserReport = {
         totalUsers: 100,

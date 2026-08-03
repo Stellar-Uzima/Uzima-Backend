@@ -1,70 +1,9 @@
- feat/all-issues-anna
-import { Injectable, Logger } from '@nestjs/common';
-import { BadgeType } from './badge-type.enum';
-
-export interface UserBadge {
-  userId: string;
-  badgeType: BadgeType;
-  awardedAt: Date;
-}
-
-@Injectable()
-export class BadgeService {
-  private readonly logger = new Logger(BadgeService.name);
-  private readonly userBadges = new Map<string, Set<BadgeType>>();
-
-  /**
-   * Award a badge to a user.
-   * Returns true if the badge was newly awarded, false if already owned.
-   * Throws an error for invalid badge types.
-   */
-  awardBadge(userId: string, badgeType: BadgeType): boolean {
-    // Validate badge type
-    const validBadgeTypes = Object.values(BadgeType);
-    if (!validBadgeTypes.includes(badgeType)) {
-      throw new Error(`Invalid badge type: ${badgeType}`);
-    }
-
-    // Initialize user badge set if not exists
-    if (!this.userBadges.has(userId)) {
-      this.userBadges.set(userId, new Set());
-    }
-
-    const userBadges = this.userBadges.get(userId)!;
-
-    // Check for duplicate
-    if (userBadges.has(badgeType)) {
-      this.logger.warn(
-        `User ${userId} already has badge ${badgeType} - skipping duplicate award`,
-      );
-      return false;
-    }
-
-    // Award the badge
-    userBadges.add(badgeType);
-    this.logger.log(`Awarded badge ${badgeType} to user ${userId}`);
-    return true;
-  }
-
-  /**
-   * Get all badges for a user.
-   */
-  getUserBadges(userId: string): BadgeType[] {
-    const badges = this.userBadges.get(userId);
-    return badges ? Array.from(badges) : [];
-  }
-
-  /**
-   * Check if a user has a specific badge.
-   */
-  hasBadge(userId: string, badgeType: BadgeType): boolean {
-    const badges = this.userBadges.get(userId);
-    return badges ? badges.has(badgeType) : false;
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Badge, BadgeType } from '../../database/entities/badge.entity';
 import { UserBadge } from '../../database/entities/user-badge.entity';
+import { UserBadgesResponseDto } from './dto/badge.dto';
 
 const BADGE_DEFINITIONS = [
   { type: BadgeType.FIRST_TASK, name: 'First Step', description: 'Completed your first health task', iconUrl: '/badges/first-task.svg' },
@@ -82,10 +21,36 @@ export class BadgeService {
     @InjectRepository(UserBadge) private readonly userBadgeRepository: Repository<UserBadge>,
   ) {}
 
-  async getAllBadges(): Promise<Badge[]> { return this.badgeRepository.find(); }
+  async initializeBadges(): Promise<void> {
+    for (const def of BADGE_DEFINITIONS) {
+      const exists = await this.badgeRepository.findOne({ where: { type: def.type } });
+      if (!exists) {
+        await this.badgeRepository.save(this.badgeRepository.create(def));
+      }
+    }
+  }
 
-  async getUserBadges(userId: string): Promise<UserBadge[]> {
-    return this.userBadgeRepository.find({ where: { userId } });
+  async getAllBadges() {
+    const badges = await this.badgeRepository.find();
+    return { badges, totalBadges: badges.length };
+  }
+
+  async getMyBadges(userId: string): Promise<UserBadgesResponseDto> {
+    const userBadges = await this.userBadgeRepository.find({ where: { userId } });
+    return {
+      userId,
+      badges: userBadges.map((ub) => ({
+        id: ub.id,
+        badgeId: ub.badgeId,
+        badgeName: ub.badge?.name ?? '',
+        badgeType: ub.badge?.type,
+        badgeDescription: ub.badge?.description ?? '',
+        badgeIcon: ub.badge?.iconUrl,
+        badgeMilestone: 0,
+        awardedAt: ub.awardedAt.toISOString(),
+      })),
+      totalBadges: userBadges.length,
+    };
   }
 
   async awardBadge(userId: string, badgeType: BadgeType): Promise<UserBadge | null> {
@@ -103,6 +68,5 @@ export class BadgeService {
     if (completedTaskCount >= 100) await this.awardBadge(userId, BadgeType.TASKS_100);
     if (currentStreak >= 7) await this.awardBadge(userId, BadgeType.STREAK_7);
     if (currentStreak >= 30) await this.awardBadge(userId, BadgeType.STREAK_30);
- main
   }
 }

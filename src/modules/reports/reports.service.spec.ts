@@ -70,6 +70,37 @@ describe('ReportsService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('listReports', () => {
+    it('should return paginated reports for the authenticated user', async () => {
+      const result = await service.listReports(1, 2);
+
+      expect(result).toEqual({
+        data: [
+          expect.objectContaining({ id: 'users', type: 'users' }),
+          expect.objectContaining({ id: 'activity', type: 'activity' }),
+        ],
+        total: 3,
+        page: 1,
+        limit: 2,
+        totalPages: 2,
+      });
+    });
+
+    it('should return an empty report list when none are available', async () => {
+      (service as any).availableReports = [];
+
+      const result = await service.listReports(1, 10);
+
+      expect(result).toEqual({
+        data: [],
+        total: 0,
+        page: 1,
+        limit: 10,
+        totalPages: 0,
+      });
+    });
+  });
+
   describe('getHealthSummary', () => {
     it('should generate health summary statistics correctly', async () => {
       // Mock Task Completion query

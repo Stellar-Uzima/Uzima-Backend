@@ -24,7 +24,8 @@ jobs:
             ${{ runner.os }}-node-
 
       - run: npm install
-      - run: npm run lint
+      - run: npm run lint:check
+      - run: npm run format:check
 
   build:
     name: Build
@@ -143,4 +144,5 @@ jobs:
         run: >
           npx jest --config jest.config.js --coverage
           --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}'
+          --passWithNoTests
           --passWithNoTests

@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { IsString, IsEnum, IsUUID, IsOptional, IsObject, Min, Max, Length } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 export enum Theme {
   LIGHT = 'light',

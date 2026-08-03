@@ -9,7 +9,7 @@ import { XpTransaction } from './entities/xp-transaction.entity';
 import { Achievement } from './entities/achievement.entity';
 import { UserAchievement } from './entities/user-achievement.entity';
 import { LeaderboardModule } from '../../leaderboard/leaderboard.module';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 
 @Module({
   imports: [
