@@ -69,6 +69,15 @@ export class AdminUsersController {
     return this.adminUsersService.getUserById(id);
   }
 
+  @Get(':id/streaks')
+  @ApiOperation({ summary: 'Get user streak history' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'User streaks found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getStreaks(@Param('id') id: string) {
+    return this.adminUsersService.getUserStreaks(id);
+  }
+
   @Patch(':id/role')
   @ApiOperation({ summary: 'Change user role' })
   @ApiResponse({ status: 200, description: 'Role updated successfully' })
@@ -99,6 +108,15 @@ export class AdminUsersController {
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.adminUsersService.deleteUser(req.user.sub, id);
+  }
+
+  @Get(':id/tasks')
+  @ApiOperation({ summary: 'Get all tasks for a specific user (ADMIN only)' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserTasks(@Param('id') id: string) {
+    return this.adminUsersService.getUserTasks(id);
   }
 
 }

@@ -4,6 +4,7 @@ import { RewardService } from './reward.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
+import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 
 @ApiTags('Rewards')
 @ApiBearerAuth()
@@ -20,5 +21,16 @@ export class RewardController {
     @Query() query: PayoutHistoryQueryDto,
   ) {
     return this.rewardService.getRewardHistory(userId, query);
+  }
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Get reward summary for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns total earned, total pending and last reward date',
+    type: RewardSummaryResponseDto,
+  })
+  async getSummary(@GetUser('id') userId: string): Promise<RewardSummaryResponseDto> {
+    return this.rewardService.getRewardSummary(userId);
   }
 }

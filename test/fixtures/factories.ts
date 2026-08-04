@@ -12,7 +12,7 @@ import { randomUUID } from "crypto";
 import { faker } from '@faker-js/faker';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { User, UserRole } from '../../src/database/entities/user.entity';
+import { User, UserRole } from '../../src/entities/user.entity';
 import { Organization } from '../../src/database/entities/organization.entity';
 import { Session } from '../../src/database/entities/session.entity';
 import { HealthTask } from '../../src/entities/health-task.entity';

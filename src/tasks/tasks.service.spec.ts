@@ -253,14 +253,33 @@ describe('TasksService', () => {
   });
 
   describe('remove', () => {
-    it('should soft-delete the task', async () => {
-      const mockTask = { id: '1', title: 'Task', status: TaskStatus.ACTIVE };
+    it('should allow owner to soft-delete the task', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.ACTIVE };
       mockRepository.findOne.mockResolvedValue(mockTask);
       mockRepository.softDelete.mockResolvedValue({ affected: 1 });
 
-      await service.remove('1');
+      await service.remove('1', '1', Role.HEALER);
 
       expect(mockRepository.softDelete).toHaveBeenCalledWith('1');
+    });
+
+    it('should allow admin to soft-delete any task', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '2', status: TaskStatus.ACTIVE };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+      mockRepository.softDelete.mockResolvedValue({ affected: 1 });
+
+      await service.remove('1', '1', Role.ADMIN);
+
+      expect(mockRepository.softDelete).toHaveBeenCalledWith('1');
+    });
+
+    it('should throw ForbiddenException if non-owner non-admin tries to delete', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '2', status: TaskStatus.ACTIVE };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+
+      await expect(service.remove('1', '1', Role.HEALER)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw NotFoundException if task does not exist', async () => {

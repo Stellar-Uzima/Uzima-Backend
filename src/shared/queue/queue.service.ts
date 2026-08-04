@@ -375,7 +375,7 @@ export class QueueService {
     try {
       await queue.clean(0, 'completed');
       await queue.clean(0, 'failed');
-      await queue.clean(0, 'waiting');
+      await queue.clean(0, 'wait');
       await queue.clean(0, 'delayed');
       
       this.logger.log(`Queue ${queueName} cleared`);

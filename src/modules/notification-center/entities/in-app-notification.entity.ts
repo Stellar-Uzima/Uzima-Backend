@@ -7,7 +7,7 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { User } from '../../../database/entities/user.entity';
+import { User } from '../../../entities/user.entity';
 
 export enum NotificationTypeEnum {
   TASK_REMINDER = 'task_reminder',

@@ -4,7 +4,7 @@ import { IsNull, Repository } from 'typeorm';
 import { InAppNotification, NotificationTypeEnum } from './entities/in-app-notification.entity';
 import { NotificationDeliveryLog } from './entities/notification-delivery-log.entity';
 import { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { ChannelRouterService } from './channel-router.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
 import { GetInboxDto } from './dto/get-inbox.dto';

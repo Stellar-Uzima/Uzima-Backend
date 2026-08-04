@@ -15,6 +15,7 @@ describe('TasksController', () => {
     update: jest.fn(),
     updateStatus: jest.fn(),
     remove: jest.fn(),
+    search: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -132,12 +133,39 @@ describe('TasksController', () => {
 
   describe('remove', () => {
     it('should remove a task', async () => {
+      const req = { user: { userId: '1', role: Role.HEALER } };
       mockTasksService.remove.mockResolvedValue(undefined);
 
-      const result = await controller.remove('1');
+      const result = await controller.remove('1', req);
 
-      expect(service.remove).toHaveBeenCalledWith('1');
+      expect(service.remove).toHaveBeenCalledWith('1', '1', Role.HEALER);
       expect(result).toEqual({ message: 'Task deleted successfully' });
+    });
+  });
+
+  describe('search', () => {
+    it('should return matching tasks', async () => {
+      const query = 'walking';
+      const expectedTasks = [
+        { id: 1, title: 'Morning Walking', description: 'Walk daily' },
+        { id: 2, title: 'Evening Walking', description: 'Walk in the evening' },
+      ];
+
+      mockTasksService.search.mockResolvedValue(expectedTasks);
+
+      const result = await controller.search(query);
+
+      expect(service.search).toHaveBeenCalledWith(query);
+      expect(result).toEqual(expectedTasks);
+    });
+
+    it('should return empty array when no matches', async () => {
+      mockTasksService.search.mockResolvedValue([]);
+
+      const result = await controller.search('nonexistent');
+
+      expect(service.search).toHaveBeenCalledWith('nonexistent');
+      expect(result).toEqual([]);
     });
   });
 });

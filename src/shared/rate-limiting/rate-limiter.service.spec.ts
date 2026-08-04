@@ -63,4 +63,50 @@ describe('RateLimiterService', () => {
     expect(status.remaining).toBe(0);
     expect(status.type).toBe('ip');
   });
+
+  it('should handle concurrent requests at the exact limit boundary', async () => {
+    const limit = 5;
+    // Simulate 5 concurrent increments returning values 1-5, all exactly at boundary
+    let counter = 0;
+    mockIncr.mockImplementation(() => Promise.resolve(++counter));
+    mockExpire.mockResolvedValue(1);
+    mockTtl.mockResolvedValue(30);
+
+    const requests = Array.from({ length: limit }, () =>
+      service.consumeUser('user-boundary', { userLimit: limit, userWindowSeconds: 60 }),
+    );
+
+    const results = await Promise.all(requests);
+
+    // All requests at or below the limit should be allowed
+    expect(results.every((r) => r.allowed)).toBe(true);
+    // Each request should have a unique current count
+    const counts = results.map((r) => r.current).sort((a, b) => a - b);
+    expect(counts).toEqual([1, 2, 3, 4, 5]);
+    // The last allowed request should have 0 remaining
+    const lastRequest = results.find((r) => r.current === limit)!;
+    expect(lastRequest.remaining).toBe(0);
+  });
+
+  it('should allow requests again after the window resets', async () => {
+    mockExpire.mockResolvedValue(1);
+
+    // First window: user hits the limit
+    mockIncr.mockResolvedValue(6);
+    mockTtl.mockResolvedValue(1);
+
+    const blocked = await service.consumeUser('user-reset', { userLimit: 5, userWindowSeconds: 60 });
+    expect(blocked.allowed).toBe(false);
+
+    // Window expires — Redis key is gone, next incr starts fresh at 1
+    mockIncr.mockResolvedValue(1);
+    mockTtl.mockResolvedValue(60);
+
+    const allowed = await service.consumeUser('user-reset', { userLimit: 5, userWindowSeconds: 60 });
+    expect(allowed.allowed).toBe(true);
+    expect(allowed.current).toBe(1);
+    expect(allowed.remaining).toBe(4);
+    // A new window was set on the fresh key
+    expect(mockExpire).toHaveBeenLastCalledWith(allowed.key, 60);
+  });
 });

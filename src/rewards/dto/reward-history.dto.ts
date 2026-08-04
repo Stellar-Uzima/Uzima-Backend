@@ -135,3 +135,28 @@ export class RewardHistoryResponseDto {
   })
   totalPages: number;
 }
+
+export class RewardSummaryResponseDto {
+  @ApiProperty({
+    description: 'Total amount of successful rewards earned by the user',
+    type: Number,
+    example: 42.5,
+  })
+  totalEarned: number;
+
+  @ApiProperty({
+    description: 'Total amount of pending rewards for the user',
+    type: Number,
+    example: 3.25,
+  })
+  totalPending: number;
+
+  @ApiPropertyOptional({
+    description: 'Date of the latest reward transaction for the user',
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    example: '2026-07-20T10:15:30.000Z',
+  })
+  lastRewardDate: string | null;
+}

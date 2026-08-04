@@ -4,7 +4,7 @@ import { Repository, Between } from 'typeorm';
 import { Achievement } from './entities/achievement.entity';
 import { UserAchievement } from './entities/user-achievement.entity';
 import { GamificationService } from './gamification.service';
-import { User } from '../../database/entities/user.entity';
+import { User } from '../../entities/user.entity';
 import { XpTransaction, XpEventType } from './entities/xp-transaction.entity';
 import { UserXP } from './entities/user-xp.entity';
 

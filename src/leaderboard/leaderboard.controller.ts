@@ -56,14 +56,15 @@ export class LeaderboardController {
     summary: 'Get global leaderboard rankings',
     description: 'Retrieve the global leaderboard with caching optimization',
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiResponse({
     status: 200,
     description: 'Successfully retrieved global leaderboard',
     type: LeaderboardResponseDto,
   })
-  async getGlobal(@Req() req, @Query('limit') limit?: number) {
-    return this.leaderboardService.getLeaderboard(req.user.id, limit || 50);
+  async getGlobal(@Req() req, @Query('limit') limit?: number, @Query('page') page?: number) {
+    return this.leaderboardService.getLeaderboard(req.user.id, limit || 10, undefined, page || 1);
   }
 
   /**
@@ -74,7 +75,8 @@ export class LeaderboardController {
     summary: 'Get leaderboard by country',
     description: 'Retrieve leaderboard rankings filtered by country code',
   })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 50 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiResponse({
     status: 200,
     description: 'Successfully retrieved country leaderboard',
@@ -84,11 +86,13 @@ export class LeaderboardController {
     @Req() req,
     @Param('countryCode') countryCode: string,
     @Query('limit') limit?: number,
+    @Query('page') page?: number,
   ) {
     return this.leaderboardService.getLeaderboard(
       req.user.id,
-      limit || 50,
+      limit || 10,
       countryCode,
+      page || 1,
     );
   }
 }

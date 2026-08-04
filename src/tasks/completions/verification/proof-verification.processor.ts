@@ -1,6 +1,6 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import type { Job } from 'bullmq';
 import { PROOF_VERIFICATION_QUEUE } from '../../../queue/queue.constants';
 import { ProofVerificationService } from './proof-verification.service';
 
@@ -34,3 +34,5 @@ export class ProofVerificationProcessor extends WorkerHost {
     );
   }
 }
+
+

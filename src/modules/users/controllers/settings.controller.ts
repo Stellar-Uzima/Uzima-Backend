@@ -37,7 +37,7 @@ type AuthenticatedRequest = Request & {
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller(['users/settings', 'users/me/preferences'])
+@Controller(['users/settings', 'users/me/preferences', 'users/me/settings'])
 export class SettingsController {
     constructor(private readonly usersService: UsersService) { }
 

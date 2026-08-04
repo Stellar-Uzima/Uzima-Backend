@@ -11,7 +11,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { IsString, IsEnum, IsUUID, IsOptional, Length, IsBoolean, Matches } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 export enum PredefinedCategory {
   NUTRITION = 'nutrition',

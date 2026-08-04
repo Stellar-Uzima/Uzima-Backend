@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+build
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Ignore compiled files
+*.js
+*.d.ts
+
+# Ignore config files that are already properly formatted
+.eslintrc.js
+eslint.config.mjs
+package.json
+package-lock.json
+
+# Ignore documentation that might have specific formatting
+docs/**/*.md
+*.md

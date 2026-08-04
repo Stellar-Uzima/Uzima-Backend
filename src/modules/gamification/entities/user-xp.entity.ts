@@ -8,7 +8,7 @@ import {
   OneToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../../../database/entities/user.entity';
+import { User } from '../../../entities/user.entity';
 
 @Entity('user_xp')
 @Index(['userId'], { unique: true })
