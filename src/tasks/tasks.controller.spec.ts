@@ -13,6 +13,7 @@ describe('TasksController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+    updateStatus: jest.fn(),
     remove: jest.fn(),
     search: jest.fn(),
   };
@@ -103,6 +104,26 @@ describe('TasksController', () => {
       expect(service.update).toHaveBeenCalledWith(
         '1',
         updateTaskDto,
+        1,
+        Role.HEALER,
+      );
+      expect(result).toEqual(expectedTask);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update a task status', async () => {
+      const updateTaskStatusDto = { status: TaskStatus.ACTIVE };
+      const req = { user: { userId: 1, role: Role.HEALER } };
+      const expectedTask = { id: 1, status: TaskStatus.ACTIVE };
+
+      mockTasksService.updateStatus.mockResolvedValue(expectedTask);
+
+      const result = await controller.updateStatus('1', updateTaskStatusDto, req);
+
+      expect(service.updateStatus).toHaveBeenCalledWith(
+        '1',
+        TaskStatus.ACTIVE,
         1,
         Role.HEALER,
       );
