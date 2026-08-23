@@ -37,7 +37,23 @@ export class NotificationService {
     }
   }
 
-  private async fallback(failedChannel: string, payload: unknown, retry: RetryConfig): Promise<void> {
+  /**
+   * Convenience wrappers used by callers such as the GDPR export job.
+   * They route through the strategy pipeline via `send`.
+   */
+  async sendEmail(
+    userId: string,
+    template: string,
+    data: Record<string, unknown> = {}
+  ): Promise<void> {
+    await this.send('email', { userId, template, ...data });
+  }
+
+  private async fallback(
+    failedChannel: string,
+    payload: unknown,
+    retry: RetryConfig
+  ): Promise<void> {
     const next = this.fallbackOrder.find((c) => c !== failedChannel);
     if (!next) throw new Error('All notification channels exhausted');
     await this.send(next, payload, retry);

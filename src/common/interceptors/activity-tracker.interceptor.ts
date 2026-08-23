@@ -1,16 +1,10 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Observable, of } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { redisConfig, getRedisUrl } from '../../config/redis.config';
-import { UsersService } from '../../users/users.service';
+import { UsersService } from '../../modules/users/users.service';
 
 @Injectable()
 export class ActivityTrackerInterceptor implements NestInterceptor {
@@ -21,7 +15,7 @@ export class ActivityTrackerInterceptor implements NestInterceptor {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
+    private readonly usersService: UsersService
   ) {
     const config = redisConfig(configService);
     this.redis = new Redis(getRedisUrl(config));
@@ -33,9 +27,7 @@ export class ActivityTrackerInterceptor implements NestInterceptor {
 
     if (user && user.id) {
       this.trackActivity(user.id).catch((err) => {
-        this.logger.error(
-          `Failed to track activity for user ${user.id}: ${err.message}`,
-        );
+        this.logger.error(`Failed to track activity for user ${user.id}: ${err.message}`);
       });
     }
 

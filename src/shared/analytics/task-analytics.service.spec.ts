@@ -2,10 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskAnalyticsService } from './task-analytics.service';
-import {
-  TaskCompletion,
-  TaskCompletionStatus,
-} from '../../tasks/entities/task-completion.entity';
+import { TaskCompletion, TaskCompletionStatus } from '../../tasks/entities/task-completion.entity';
 import { HealthTask, TaskCategory } from '../../tasks/entities/health-task.entity';
 
 describe('TaskAnalyticsService', () => {
@@ -78,7 +75,7 @@ describe('TaskAnalyticsService', () => {
     it('returns ~1 day window for daily', () => {
       const { startDate, endDate } = service.resolveDateRange({ period: 'daily' });
       const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       expect(diffDays).toBe(1);
     });
@@ -86,7 +83,7 @@ describe('TaskAnalyticsService', () => {
     it('returns ~7 days for weekly', () => {
       const { startDate, endDate } = service.resolveDateRange({ period: 'weekly' });
       const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       expect(diffDays).toBe(7);
     });
@@ -94,7 +91,7 @@ describe('TaskAnalyticsService', () => {
     it('returns ~30 days for monthly', () => {
       const { startDate, endDate } = service.resolveDateRange({ period: 'monthly' });
       const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
       );
       expect(diffDays).toBe(30);
     });
@@ -139,17 +136,13 @@ describe('TaskAnalyticsService', () => {
       expect(result.completionRate).toBe(70);
       expect(result.categoryBreakdown).toHaveLength(2);
 
-      const nutrition = result.categoryBreakdown.find(
-        (c) => c.category === TaskCategory.NUTRITION,
-      );
+      const nutrition = result.categoryBreakdown.find((c) => c.category === TaskCategory.NUTRITION);
       expect(nutrition).toBeDefined();
       expect(nutrition!.totalAttempted).toBe(5);
       expect(nutrition!.totalCompleted).toBe(3);
       expect(nutrition!.completionRate).toBe(60);
 
-      const fitness = result.categoryBreakdown.find(
-        (c) => c.category === TaskCategory.FITNESS,
-      );
+      const fitness = result.categoryBreakdown.find((c) => c.category === TaskCategory.FITNESS);
       expect(fitness!.completionRate).toBe(80);
     });
 
@@ -172,10 +165,9 @@ describe('TaskAnalyticsService', () => {
       await service.getStats({ period: 'weekly', userId: 'user-123' });
 
       // The createQueryBuilder chain should have called andWhere for userId
-      expect(qbMock.andWhere).toHaveBeenCalledWith(
-        'completion.userId = :userId',
-        { userId: 'user-123' },
-      );
+      expect(qbMock.andWhere).toHaveBeenCalledWith('completion.userId = :userId', {
+        userId: 'user-123',
+      });
     });
   });
 
@@ -207,7 +199,7 @@ describe('TaskAnalyticsService', () => {
 
       const result = await service.getCategoryBreakdown(
         new Date('2025-01-01'),
-        new Date('2025-01-08'),
+        new Date('2025-01-08')
       );
 
       expect(result).toEqual([
@@ -216,18 +208,6 @@ describe('TaskAnalyticsService', () => {
           totalAttempted: 4,
           totalCompleted: 2,
           completionRate: 50,
-          it('should return default zero metrics when task dataset is empty', async () => {
-      jest.spyOn(service, 'calculateTaskMetrics').mockImplementation(async () => ({
-        averageCompletionTime: 0,
-        tasksByStatus: {},
-      }));
-
-      const taskAnalytics = await service.calculateTaskMetrics('empty-user-id');
-
-      expect(taskAnalytics).toBeDefined();
-      expect(taskAnalytics.averageCompletionTime).toBe(0);
-      expect(taskAnalytics.tasksByStatus).toEqual({});
-    });
         },
       ]);
     });

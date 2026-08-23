@@ -25,7 +25,7 @@ export class DataExportProcessor {
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
     private readonly storageService: StorageService,
-    private readonly notificationService: NotificationService,
+    private readonly notificationService: NotificationService
   ) {}
 
   @Process(DATA_EXPORT_JOB)
@@ -54,7 +54,7 @@ export class DataExportProcessor {
       // StorageService.uploadFile expects an object similar to multer file
       const fileKey = await this.storageService.uploadFile(
         { originalname: filename, buffer: Buffer.from(json), mimetype: 'application/json' } as any,
-        'gdpr-exports',
+        'gdpr-exports'
       );
 
       const expiresIn = 24 * 3600; // 24 hours in seconds
@@ -68,7 +68,10 @@ export class DataExportProcessor {
       await job.progress(100);
       this.logger.log(`Data export job ${job.id} completed for user ${userId}`);
     } catch (err) {
-      this.logger.error(`Data export job ${job.id} failed for user ${userId}`, err as any?.stack || String(err));
+      this.logger.error(
+        `Data export job ${job.id} failed for user ${userId}`,
+        err instanceof Error ? err.stack : String(err)
+      );
       throw err;
     }
   }

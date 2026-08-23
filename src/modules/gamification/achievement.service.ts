@@ -23,7 +23,7 @@ export class AchievementService {
     private xpTransactionRepo: Repository<XpTransaction>,
     @InjectRepository(UserXP)
     private userXpRepo: Repository<UserXP>,
-    private gamificationService: GamificationService,
+    private gamificationService: GamificationService
   ) {}
 
   async checkAchievements(userId: string): Promise<UserAchievement[]> {
@@ -31,20 +31,18 @@ export class AchievementService {
       where: { userId },
       select: ['achievementId'],
     });
-    
-    const unlockedIds = unlockedAchievements.map(ua => ua.achievementId);
-    
+
+    const unlockedIds = unlockedAchievements.map((ua) => ua.achievementId);
+
     const allAchievements = await this.achievementRepo.find();
-    const eligibleAchievements = allAchievements.filter(
-      a => !unlockedIds.includes(a.id)
-    );
+    const eligibleAchievements = allAchievements.filter((a) => !unlockedIds.includes(a.id));
 
     if (eligibleAchievements.length === 0) {
       return [];
     }
 
-    const newlyUnlocked = [];
-    
+    const newlyUnlocked: UserAchievement[] = [];
+
     for (const achievement of eligibleAchievements) {
       const isUnlocked = await this.evaluateCondition(userId, achievement);
       if (isUnlocked) {
@@ -55,19 +53,19 @@ export class AchievementService {
         });
         await this.userAchievementRepo.save(userAchievement);
         newlyUnlocked.push(userAchievement);
-        
+
         await this.gamificationService.awardXp({
           userId,
           amount: achievement.xpReward,
-          reason: Unlocked achievement: ,
+          reason: `Unlocked achievement: ${achievement.key}`,
           sourceEvent: XpEventType.ACHIEVEMENT_UNLOCKED,
           metadata: { achievementKey: achievement.key },
         });
-        
-        this.logger.log(User  unlocked achievement: );
+
+        this.logger.log(`User ${userId} unlocked achievement: ${achievement.key}`);
       }
     }
-    
+
     return newlyUnlocked;
   }
 
@@ -87,7 +85,7 @@ export class AchievementService {
       case 'night_task':
         return this.checkNightTask(userId, target);
       default:
-        this.logger.warn(Unknown achievement condition type: );
+        this.logger.warn(`Unknown achievement condition type: ${type}`);
         return false;
     }
   }
@@ -165,7 +163,7 @@ export class AchievementService {
     });
 
     if (!achievement) {
-      throw new Error(Achievement with key  not found);
+      throw new Error(`Achievement with key ${achievementKey} not found`);
     }
 
     const existing = await this.userAchievementRepo.findOne({
@@ -190,7 +188,7 @@ export class AchievementService {
     await this.gamificationService.awardXp({
       userId,
       amount: achievement.xpReward,
-      reason: Unlocked achievement: ,
+      reason: `Unlocked achievement: ${achievementKey}`,
       sourceEvent: XpEventType.ACHIEVEMENT_UNLOCKED,
       metadata: { achievementKey },
     });

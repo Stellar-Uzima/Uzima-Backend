@@ -5,7 +5,7 @@ import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { TaskCompletionStatus } from '../../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../../rewards/enums/reward-status.enum';
-import { Coupon } from '../../../coupons/entities/coupon.entity';
+import { Coupon } from '../../../entities/coupon.entity';
 
 describe('ActivityFeedService', () => {
   let service: ActivityFeedService;
@@ -91,7 +91,7 @@ describe('ActivityFeedService', () => {
         completedAt: new Date(`2026-05-0${i + 1}T12:00:00Z`),
         xlmRewarded: 1,
         task: { id: `task-${i}`, title: `Task ${i}` },
-      })),
+      }))
     );
     mockRewardRepo.find.mockResolvedValue([]);
     mockCouponRepo.find.mockResolvedValue([]);

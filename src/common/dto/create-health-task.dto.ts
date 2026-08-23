@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty, IsUUID, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum TaskCategory {
@@ -11,7 +11,6 @@ export enum TaskCategory {
   MEDICATION = 'medication',
   OTHER = 'other',
 }
-import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty, IsUUID, IsArray } from 'class-validator';
 
 export enum TaskPriority {
   LOW = 'low',

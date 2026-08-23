@@ -7,7 +7,7 @@ import {
 } from '../../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../../rewards/enums/reward-status.enum';
-import { Coupon } from '../../../coupons/entities/coupon.entity';
+import { Coupon } from '../../../entities/coupon.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
 
 export type ActivityFeedType = 'task_completed' | 'reward_earned' | 'badge_earned';
@@ -29,13 +29,13 @@ export class ActivityFeedService {
     @InjectRepository(RewardTransaction)
     private readonly rewardRepo: Repository<RewardTransaction>,
     @InjectRepository(Coupon)
-    private readonly couponRepo: Repository<Coupon>,
+    private readonly couponRepo: Repository<Coupon>
   ) {}
 
   async getActivityFeed(
     userId: string,
     page: number = 1,
-    limit: number = 20,
+    limit: number = 20
   ): Promise<PaginatedResponseDto<ActivityFeedItem>> {
     const [tasks, rewards, badges] = await Promise.all([
       this.fetchCompletedTasks(userId),
@@ -44,7 +44,7 @@ export class ActivityFeedService {
     ]);
 
     const merged = [...tasks, ...rewards, ...badges].sort(
-      (a, b) => b.occurredAt.getTime() - a.occurredAt.getTime(),
+      (a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()
     );
 
     const total = merged.length;
@@ -73,7 +73,7 @@ export class ActivityFeedService {
         taskId: completion.task?.id,
         xlmRewarded: Number(completion.xlmRewarded),
       },
-      occurredAt: completion.completedAt,
+      occurredAt: completion.completedAt ?? new Date(),
     }));
   }
 
