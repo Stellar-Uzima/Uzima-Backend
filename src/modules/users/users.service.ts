@@ -274,6 +274,10 @@ export class UsersService {
     return this.userRepository.findOne({ where: { id }, relations });
   }
 
+  async updateLastActiveAt(userId: string): Promise<void> {
+    await this.userRepository.update({ id: userId }, { lastActiveAt: new Date() });
+  }
+
   async findByEmail(email: string, relations: string[] = []): Promise<User | null> {
     return this.userRepository.findOne({ where: { email }, relations });
   }

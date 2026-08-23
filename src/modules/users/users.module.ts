@@ -13,7 +13,6 @@ import { UsersController } from './users.controller';
 import { DataExportDownloadController } from './controllers/data-export-download.controller';
 import { UsersService } from './users.service';
 import { QueueModule } from '../../queue/queue.module';
-import { UserActivity } from '../../database/entities/user-activity.entity';
 import { ActivityTrackerService } from './services/activity-tracker.service';
 import { AvatarService } from './services/avatar.service';
 import { DataExportService } from './services/data-export.service';
@@ -22,15 +21,13 @@ import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../referral/entities/referral-record.entity';
+import { Coupon } from '../../entities/coupon.entity';
+import { HealthTask } from '../../entities/health-task.entity';
 import { QueueService } from '../../shared/queue/queue.service';
 import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
-  controllers: [
-    UsersController,
-    SettingsController,
-    DataExportDownloadController,
-  ],
+  controllers: [UsersController, SettingsController, DataExportDownloadController],
   imports: [
     TypeOrmModule.forFeature([
       User,
@@ -43,7 +40,6 @@ import { NotificationsModule } from '../../notifications/notifications.module';
       ReferralRecord,
       Coupon,
       HealthTask,
-      Notification,
     ]),
     CacheModule.register({
       ttl: 300,
@@ -70,11 +66,5 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     DataExportProcessor,
     QueueService,
   ],
-    ActivityFeedService,
-    AvatarService,
-    StorageService,
-    DataExportProcessor,
-  ],
-  exports: [UsersService, UserSearchService, PhoneVerificationService],
 })
 export class UsersModule {}

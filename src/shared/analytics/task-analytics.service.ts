@@ -1,223 +1,164 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TaskAnalyticsService } from './task-analytics.service';
-import {
-  TaskCompletion,
-  TaskCompletionStatus,
-} from '../../tasks/entities/task-completion.entity';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Between, FindOptionsWhere, Repository } from 'typeorm';
+import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { HealthTask, TaskCategory } from '../../tasks/entities/health-task.entity';
 
-describe('TaskAnalyticsService', () => {
-  let service: TaskAnalyticsService;
-  let completionRepo: Repository<TaskCompletion>;
+export type AnalyticsPeriod = 'daily' | 'weekly' | 'monthly' | 'custom';
 
-  const qbMock = {
-    leftJoin: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    setParameter: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    getRawMany: jest.fn(),
-  };
+export interface ResolveDateRangeOptions {
+  period?: AnalyticsPeriod;
+  startDate?: Date;
+  endDate?: Date;
+}
 
-  const mockCompletionRepo = {
-    count: jest.fn(),
-    createQueryBuilder: jest.fn(() => qbMock),
-  };
+export interface CategoryBreakdownEntry {
+  category: TaskCategory | 'uncategorized';
+  totalAttempted: number;
+  totalCompleted: number;
+  completionRate: number;
+}
 
-  const mockTaskRepo = {
-    count: jest.fn(),
-  };
+export interface TaskAnalyticsStats {
+  period: AnalyticsPeriod;
+  startDate: Date;
+  endDate: Date;
+  totalAttempted: number;
+  totalCompleted: number;
+  completionRate: number;
+  categoryBreakdown: CategoryBreakdownEntry[];
+}
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        TaskAnalyticsService,
-        { provide: getRepositoryToken(TaskCompletion), useValue: mockCompletionRepo },
-        { provide: getRepositoryToken(HealthTask), useValue: mockTaskRepo },
-      ],
-    }).compile();
+export interface GetStatsOptions extends ResolveDateRangeOptions {
+  userId?: string;
+}
 
-    service = module.get<TaskAnalyticsService>(TaskAnalyticsService);
-    completionRepo = module.get<Repository<TaskCompletion>>(getRepositoryToken(TaskCompletion));
-  });
+const PERIOD_DAYS: Record<Exclude<AnalyticsPeriod, 'custom'>, number> = {
+  daily: 1,
+  weekly: 7,
+  monthly: 30,
+};
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+@Injectable()
+export class TaskAnalyticsService {
+  constructor(
+    @InjectRepository(TaskCompletion)
+    private readonly completionRepo: Repository<TaskCompletion>,
+    @InjectRepository(HealthTask)
+    private readonly taskRepo: Repository<HealthTask>
+  ) {}
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+  calculateCompletionRate(totalCompleted: number, totalAttempted: number): number {
+    if (totalAttempted <= 0) {
+      return 0;
+    }
+    return Math.round((totalCompleted / totalAttempted) * 10000) / 100;
+  }
 
-  describe('calculateCompletionRate', () => {
-    it('returns 0 when nothing attempted', () => {
-      expect(service.calculateCompletionRate(0, 0)).toBe(0);
-      expect(service.calculateCompletionRate(5, 0)).toBe(0);
+  resolveDateRange(options: ResolveDateRangeOptions = {}): {
+    startDate: Date;
+    endDate: Date;
+  } {
+    const period = options.period ?? 'weekly';
+    const endDate = options.endDate ?? new Date();
+
+    let startDate = options.startDate;
+    if (!startDate && period !== 'custom') {
+      startDate = new Date(endDate.getTime() - PERIOD_DAYS[period] * 24 * 60 * 60 * 1000);
+    }
+    if (!startDate) {
+      startDate = new Date(endDate.getTime() - PERIOD_DAYS.weekly * 24 * 60 * 60 * 1000);
+    }
+
+    return { startDate, endDate };
+  }
+
+  async getStats(options: GetStatsOptions = {}): Promise<TaskAnalyticsStats> {
+    const period: AnalyticsPeriod = options.period ?? 'weekly';
+    const { startDate, endDate } = this.resolveDateRange(options);
+
+    const rangeWhere: FindOptionsWhere<TaskCompletion> = {
+      createdAt: Between(startDate, endDate),
+    };
+
+    const attemptedWhere: FindOptionsWhere<TaskCompletion> = options.userId
+      ? { ...rangeWhere, userId: options.userId }
+      : { ...rangeWhere };
+
+    const completedWhere: FindOptionsWhere<TaskCompletion> = options.userId
+      ? { ...attemptedWhere, isCompleted: true }
+      : { ...attemptedWhere, isCompleted: true };
+
+    const totalAttempted = await this.completionRepo.count({
+      where: attemptedWhere,
     });
 
-    it('computes correct percentage rounded to 2 decimals', () => {
-      expect(service.calculateCompletionRate(1, 2)).toBe(50);
-      expect(service.calculateCompletionRate(1, 3)).toBe(33.33);
-      expect(service.calculateCompletionRate(2, 3)).toBe(66.67);
-      expect(service.calculateCompletionRate(10, 10)).toBe(100);
-    });
-  });
-
-  describe('resolveDateRange', () => {
-    it('defaults to weekly (7 days back) when no period specified', () => {
-      const { startDate, endDate } = service.resolveDateRange({});
-      const diffMs = endDate.getTime() - startDate.getTime();
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-      expect(diffDays).toBe(7);
+    const totalCompleted = await this.completionRepo.count({
+      where: completedWhere,
     });
 
-    it('returns ~1 day window for daily', () => {
-      const { startDate, endDate } = service.resolveDateRange({ period: 'daily' });
-      const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      expect(diffDays).toBe(1);
+    const categoryBreakdown = await this.getCategoryBreakdown(startDate, endDate, options.userId);
+
+    return {
+      period,
+      startDate,
+      endDate,
+      totalAttempted,
+      totalCompleted,
+      completionRate: this.calculateCompletionRate(totalCompleted, totalAttempted),
+      categoryBreakdown,
+    };
+  }
+
+  async getCategoryBreakdown(
+    startDate: Date,
+    endDate: Date,
+    userId?: string
+  ): Promise<CategoryBreakdownEntry[]> {
+    const qb = this.completionRepo
+      .createQueryBuilder('completion')
+      .leftJoin('completion.task', 'task')
+      .select('task.category', 'category')
+      .addSelect('COUNT(completion.id)', 'totalAttempted')
+      .addSelect(
+        'SUM(CASE WHEN completion.isCompleted = :isCompleted THEN 1 ELSE 0 END)',
+        'totalCompleted'
+      )
+      .where('completion.createdAt BETWEEN :startDate AND :endDate')
+      .setParameter('startDate', startDate)
+      .setParameter('endDate', endDate)
+      .setParameter('isCompleted', true)
+      .groupBy('task.category');
+
+    if (userId) {
+      qb.andWhere('completion.userId = :userId', { userId });
+    }
+
+    const rawRows = await qb.getRawMany<{
+      category: TaskCategory | null;
+      totalAttempted: string;
+      totalCompleted: string | null;
+    }>();
+
+    const categoryBreakdown: CategoryBreakdownEntry[] = rawRows.map((row) => {
+      const attempted = Number(row.totalAttempted);
+      const completed = Number(row.totalCompleted ?? 0);
+      return {
+        category: row.category ?? 'uncategorized',
+        totalAttempted: attempted,
+        totalCompleted: completed,
+        completionRate: this.calculateCompletionRate(completed, attempted),
+      };
     });
 
-    it('returns ~7 days for weekly', () => {
-      const { startDate, endDate } = service.resolveDateRange({ period: 'weekly' });
-      const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      expect(diffDays).toBe(7);
-    });
+    return categoryBreakdown;
+  }
 
-    it('returns ~30 days for monthly', () => {
-      const { startDate, endDate } = service.resolveDateRange({ period: 'monthly' });
-      const diffDays = Math.round(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      expect(diffDays).toBe(30);
-    });
+  async getWeeklyStats(userId?: string): Promise<TaskAnalyticsStats> {
+    return this.getStats({ period: 'weekly', userId });
+  }
 
-    it('honors explicit startDate and endDate', () => {
-      const start = new Date('2025-01-01T00:00:00.000Z');
-      const end = new Date('2025-01-15T00:00:00.000Z');
-      const { startDate, endDate } = service.resolveDateRange({
-        period: 'custom',
-        startDate: start,
-        endDate: end,
-      });
-      expect(startDate.toISOString()).toBe(start.toISOString());
-      expect(endDate.toISOString()).toBe(end.toISOString());
-    });
-  });
-
-  describe('getStats', () => {
-    it('returns weekly stats with completion rate and category breakdown', async () => {
-      mockCompletionRepo.count
-        .mockResolvedValueOnce(10) // totalAttempted
-        .mockResolvedValueOnce(7); // totalCompleted
-
-      qbMock.getRawMany.mockResolvedValueOnce([
-        {
-          category: TaskCategory.NUTRITION,
-          totalAttempted: '5',
-          totalCompleted: '3',
-        },
-        {
-          category: TaskCategory.FITNESS,
-          totalAttempted: '5',
-          totalCompleted: '4',
-        },
-      ]);
-
-      const result = await service.getStats({ period: 'weekly' });
-
-      expect(result.period).toBe('weekly');
-      expect(result.totalAttempted).toBe(10);
-      expect(result.totalCompleted).toBe(7);
-      expect(result.completionRate).toBe(70);
-      expect(result.categoryBreakdown).toHaveLength(2);
-
-      const nutrition = result.categoryBreakdown.find(
-        (c) => c.category === TaskCategory.NUTRITION,
-      );
-      expect(nutrition).toBeDefined();
-      expect(nutrition!.totalAttempted).toBe(5);
-      expect(nutrition!.totalCompleted).toBe(3);
-      expect(nutrition!.completionRate).toBe(60);
-
-      const fitness = result.categoryBreakdown.find(
-        (c) => c.category === TaskCategory.FITNESS,
-      );
-      expect(fitness!.completionRate).toBe(80);
-    });
-
-    it('returns 0 completion rate when nothing attempted', async () => {
-      mockCompletionRepo.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
-      qbMock.getRawMany.mockResolvedValueOnce([]);
-
-      const result = await service.getStats({ period: 'daily' });
-      expect(result.totalAttempted).toBe(0);
-      expect(result.totalCompleted).toBe(0);
-      expect(result.completionRate).toBe(0);
-      expect(result.categoryBreakdown).toEqual([]);
-      expect(result.period).toBe('daily');
-    });
-
-    it('applies userId filter when provided', async () => {
-      mockCompletionRepo.count.mockResolvedValue(0);
-      qbMock.getRawMany.mockResolvedValue([]);
-
-      await service.getStats({ period: 'weekly', userId: 'user-123' });
-
-      // The createQueryBuilder chain should have called andWhere for userId
-      expect(qbMock.andWhere).toHaveBeenCalledWith(
-        'completion.userId = :userId',
-        { userId: 'user-123' },
-      );
-    });
-  });
-
-  describe('getWeeklyStats', () => {
-    it('forces period weekly even if other period was passed', async () => {
-      mockCompletionRepo.count.mockResolvedValue(0);
-      qbMock.getRawMany.mockResolvedValue([]);
-
-      const result = await service.getWeeklyStats();
-      expect(result.period).toBe('weekly');
-    });
-  });
-
-  describe('getDailyStats', () => {
-    it('forces period daily', async () => {
-      mockCompletionRepo.count.mockResolvedValue(0);
-      qbMock.getRawMany.mockResolvedValue([]);
-
-      const result = await service.getDailyStats();
-      expect(result.period).toBe('daily');
-    });
-  });
-
-  describe('getCategoryBreakdown', () => {
-    it('handles uncategorized rows gracefully', async () => {
-      qbMock.getRawMany.mockResolvedValueOnce([
-        { category: null, totalAttempted: '4', totalCompleted: '2' },
-      ]);
-
-      const result = await service.getCategoryBreakdown(
-        new Date('2025-01-01'),
-        new Date('2025-01-08'),
-      );
-
-      expect(result).toEqual([
-        {
-          category: 'uncategorized',
-          totalAttempted: 4,
-          totalCompleted: 2,
-          completionRate: 50,
-        },
-      ]);
-    });
-  });
-});
+  async getDailyStats(userId?: string): Promise<TaskAnalyticsStats> {
+    return this.getStats({ period: 'daily', userId });
+  }
+}

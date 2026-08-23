@@ -1,9 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
@@ -23,10 +23,10 @@ import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 // 1. Import the new StorageModule
-import { StorageModule } from './shared/storage/storage.module'; 
+import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
-import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { MonitoringModule } from './shared/monitoring/monitoring.module';
 import { CacheModule } from './shared/cache/cache.module';
 import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
 
@@ -110,7 +110,6 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     NotificationsModule,
     AdminModule,
     ReportsModule,
- feat/gamification-engine
     GamificationModule,
 
     RewardModule,
@@ -118,7 +117,6 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
     NotificationCenterModule,
- main
   ],
   controllers: [AppController],
   providers: [
@@ -129,11 +127,8 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     },
   ],
 })
- feat/gamification-engine
-export class AppModule {}
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
- main

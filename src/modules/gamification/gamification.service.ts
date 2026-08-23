@@ -27,7 +27,7 @@ export class GamificationService {
     private dataSource: DataSource,
     private eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => LeaderboardService))
-    private leaderboardService: LeaderboardService,
+    private leaderboardService: LeaderboardService
   ) {}
 
   private calculateLevel(xp: number): number {
@@ -44,7 +44,7 @@ export class GamificationService {
 
   async getUserXpStatus(userId: string): Promise<XpStatusDto> {
     let userXp = await this.userXpRepo.findOne({ where: { userId } });
-    
+
     if (!userXp) {
       userXp = this.userXpRepo.create({
         userId,
@@ -56,9 +56,8 @@ export class GamificationService {
     }
 
     const xpForNextLevel = this.calculateXpForLevel(userXp.currentLevel + 1);
-    const progressPercentage = xpForNextLevel > 0 
-      ? (userXp.xpTowardNextLevel / xpForNextLevel) * 100 
-      : 0;
+    const progressPercentage =
+      xpForNextLevel > 0 ? (userXp.xpTowardNextLevel / xpForNextLevel) * 100 : 0;
 
     return {
       userId: userXp.userId,
@@ -76,8 +75,8 @@ export class GamificationService {
     newLevel?: number;
   }> {
     const { userId, amount, reason, sourceEvent, metadata } = awardXpDto;
-    
-    this.logger.log(Awarding  XP to user  for );
+
+    this.logger.log(`Awarding ${amount} XP to user ${userId} for ${reason}`);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -101,7 +100,7 @@ export class GamificationService {
       }
 
       const oldLevel = userXp.currentLevel;
-      
+
       userXp.totalXp += amount;
       userXp.xpTowardNextLevel += amount;
       userXp.xpForNextLevel = this.calculateXpForLevel(userXp.currentLevel + 1);
@@ -138,7 +137,7 @@ export class GamificationService {
           totalXp: userXp.totalXp,
         };
         this.eventEmitter.emit('level-up', levelUpEvent);
-        this.logger.log(User  leveled up to level !);
+        this.logger.log(`User ${userId} leveled up to level ${newLevel}!`);
       }
 
       await this.leaderboardService.rebuildLeaderboards();
@@ -150,10 +149,9 @@ export class GamificationService {
         leveledUp,
         newLevel: leveledUp ? newLevel : undefined,
       };
-
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error(Failed to award XP: );
+      this.logger.error(`Failed to award XP: ${(error as Error)?.message}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -228,11 +226,11 @@ export class GamificationService {
       const exists = await this.achievementRepo.findOne({
         where: { key: achievementData.key },
       });
-      
+
       if (!exists) {
         const achievement = this.achievementRepo.create(achievementData);
         await this.achievementRepo.save(achievement);
-        this.logger.log(Seeded achievement: );
+        this.logger.log(`Seeded achievement: ${achievementData.key}`);
       }
     }
   }

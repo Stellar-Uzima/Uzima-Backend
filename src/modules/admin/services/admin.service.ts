@@ -20,7 +20,7 @@ export class AdminService {
     @InjectRepository(RewardTransaction)
     private readonly rewardTransactionRepository: Repository<RewardTransaction>,
     private readonly dbHealth: TypeOrmHealthIndicator,
-    private readonly redisHealth: RedisHealthIndicator,
+    private readonly redisHealth: RedisHealthIndicator
   ) {}
 
   async getSystemStatistics() {
@@ -43,7 +43,7 @@ export class AdminService {
       (await this.userRepository
         .createQueryBuilder('user')
         .where("user.createdAt >= NOW() - INTERVAL '7 days'")
-        .getCount()) || 0,
+        .getCount()) || 0
     );
 
     const walletLinked = await this.userRepository
@@ -62,13 +62,20 @@ export class AdminService {
       activeUsers,
       newUsersLast7Days,
       walletLinked,
-      roles: roles.reduce((map, row) => ({
-        ...map,
-        [row.role]: Number(row.count),
-      }), {} as Record<string, number>),
-      status: statusGroups.reduce((map, row) => ({
-        ...map,
-        [row.status]: Number(row.count),
+      roles: roles.reduce(
+        (map, row) => ({
+          ...map,
+          [row.role]: Number(row.count),
+        }),
+        {} as Record<string, number>
+      ),
+      status: statusGroups.reduce(
+        (map, row) => ({
+          ...map,
+          [row.status]: Number(row.count),
+        }),
+        {} as Record<string, number>
+      ),
     };
   }
 
@@ -121,7 +128,7 @@ export class AdminService {
         pending: 0,
         verified: 0,
         rejected: 0,
-      } as Record<string, number>,
+      } as Record<string, number>
     );
 
     const recentCount = await this.taskCompletionRepository
@@ -170,14 +177,14 @@ export class AdminService {
       details.database = (await this.dbHealth.pingCheck('database')).database;
     } catch (error) {
       overallStatus = 'error';
-      details.database = error?.causes?.database || { status: 'down' };
+      details.database = (error as any)?.causes?.database || { status: 'down' };
     }
 
     try {
       details.redis = await this.redisHealth.isHealthy('redis');
     } catch (error) {
       overallStatus = 'error';
-      details.redis = error?.causes?.redis || { status: 'down' };
+      details.redis = (error as any)?.causes?.redis || { status: 'down' };
     }
 
     details.uptimeSeconds = Math.round(process.uptime());
