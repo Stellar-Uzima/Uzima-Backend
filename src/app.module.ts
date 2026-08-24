@@ -1,7 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -23,10 +23,10 @@ import { AdminModule } from '@modules/admin/admin.module';
 import { ReportsModule } from '@modules/reports/reports.module';
 import { GamificationModule } from './modules/gamification/gamification.module';
 // 1. Import the new StorageModule
-import { StorageModule } from './shared/storage/storage.module'; 
+import { StorageModule } from './shared/storage/storage.module';
 import { MetricsModule } from './shared/metrics/metrics.module';
 import { UsageModule } from './modules/usage/usage.module';
-import { MonitoringModule } from './shared/monitoring/monitoring.module'; 
+import { MonitoringModule } from './shared/monitoring/monitoring.module';
 import { CacheModule } from './shared/cache/cache.module';
 import { CouponModule } from './coupons/coupon.module'; // <-- Added CouponModule import
 
@@ -40,7 +40,6 @@ import { SigningModule } from './common/signing/signing.module';
 // Shared
 import { SearchModule } from './shared/search/search.module';
 import { SchedulerModule } from './shared/scheduler/scheduler.module';
-import { PushModule } from './shared/notifications/push.module';
 import { AnalyticsModule } from './shared/analytics/analytics.module';
 import { OtpModule } from './otp/otp.module';
 import { AppCacheModule } from './shared/cache/cache.module';
@@ -48,7 +47,6 @@ import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
-import { NotificationCenterModule } from './modules/notification-center/notification-center.module';
 
 @Module({
   imports: [
@@ -101,7 +99,6 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     SigningModule,
     SearchModule,
     SchedulerModule,
-    PushModule,
     AuthModule,
     UsersModule,
     HealthTasksModule,
@@ -110,15 +107,12 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     NotificationsModule,
     AdminModule,
     ReportsModule,
- feat/gamification-engine
     GamificationModule,
 
     RewardModule,
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
-    NotificationCenterModule,
- main
   ],
   controllers: [AppController],
   providers: [
@@ -129,11 +123,8 @@ import { NotificationCenterModule } from './modules/notification-center/notifica
     },
   ],
 })
- feat/gamification-engine
-export class AppModule {}
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }
- main

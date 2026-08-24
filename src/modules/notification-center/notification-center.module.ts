@@ -15,6 +15,8 @@ import { SmsService } from '../../shared/sms/sms.service';
 import { PushModule } from '../../shared/notifications/push.module';
 import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
 import { NOTIFICATION_CENTER_QUEUE } from './constants/notification-center.constants';
+import { NotificationService } from './notification.service';
+import { NotificationPreferencesModule } from '../../notifications/preferences/preferences.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { NOTIFICATION_CENTER_QUEUE } from './constants/notification-center.const
     // PushModule is @Global() so PushNotificationService is already available,
     // but importing it here makes the dependency explicit.
     PushModule,
+    NotificationPreferencesModule,
   ],
   controllers: [NotificationCenterController],
   providers: [
@@ -43,7 +46,8 @@ import { NOTIFICATION_CENTER_QUEUE } from './constants/notification-center.const
     RetryProcessor,
     SmsService,
     EmailTemplateService,
+    NotificationService,
   ],
-  exports: [NotificationCenterService],
+  exports: [NotificationCenterService, NotificationService, NotificationPreferencesModule],
 })
 export class NotificationCenterModule {}
