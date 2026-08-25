@@ -19,6 +19,10 @@ export interface EmailChangeRequest {
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+/**
+ * Manages the email change workflow for users, including request tokens and confirmation.
+ * It validates pending requests and updates the user's email after successful verification.
+ */
 @Injectable()
 export class EmailChangeService {
   private readonly pending = new Map<string, EmailChangeRequest>();
