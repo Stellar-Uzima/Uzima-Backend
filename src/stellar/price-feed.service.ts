@@ -58,7 +58,7 @@ export class PriceFeedService {
     });
 
     const priceUsd = data?.stellar?.usd;
-    if (priceUsd == null || priceUsd <= 0) {
+    if (priceUsd === null || priceUsd === undefined || priceUsd <= 0) {
       throw new Error('Invalid CoinGecko price response');
     }
 
