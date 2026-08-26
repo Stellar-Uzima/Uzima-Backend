@@ -17,6 +17,10 @@ import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
 import { StreaksService } from '@/streaks/streaks.service';
 
+/**
+ * Provides admin-level user management operations including user
+ * creation, role changes, suspension, reactivation, and deletion.
+ */
 @Injectable()
 export class AdminUsersService {
   private readonly redisClient: RedisClientType;
