@@ -10,6 +10,8 @@ import { AuthGuard } from '@nestjs/passport';
  *
  * Denies access with a 401 Unauthorized response when the token is
  * missing, malformed, expired, or fails signature verification.
+ * Guards routes by requiring a valid JWT authentication token.
+ * Access is denied when the request is not authenticated.
  */
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {}

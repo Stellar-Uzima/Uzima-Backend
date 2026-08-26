@@ -6,6 +6,10 @@ import { EmailVerification } from '../../../database/entities/email-verification
 import { UsersService } from './users.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
 
+/**
+ * Manages email verification workflows: generates verification tokens,
+ * sends verification emails, and validates consumed tokens.
+ */
 @Injectable()
 export class EmailVerificationService {
   private readonly logger = new Logger(EmailVerificationService.name);

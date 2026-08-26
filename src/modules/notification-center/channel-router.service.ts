@@ -5,7 +5,10 @@ import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { NotificationPreference } from '../../notifications/entities/notification-preference.entity';
 import { User } from '../../entities/user.entity';
-import { NotificationDeliveryLog, DeliveryStatus } from './entities/notification-delivery-log.entity';
+import {
+  NotificationDeliveryLog,
+  DeliveryStatus,
+} from './entities/notification-delivery-log.entity';
 import { InAppNotification, DeliveryChannel } from './entities/in-app-notification.entity';
 import { SmsService } from '../../shared/sms/sms.service';
 import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
@@ -48,7 +51,7 @@ export class ChannelRouterService {
     private readonly retryQueue: Queue<RetryJobData>,
     private readonly smsService: SmsService,
     private readonly pushNotificationService: PushNotificationService,
-    private readonly emailTemplateService: EmailTemplateService,
+    private readonly emailTemplateService: EmailTemplateService
   ) {}
 
   /**
@@ -84,7 +87,7 @@ export class ChannelRouterService {
     await Promise.allSettled(
       channelHandlers
         .filter((h) => h.enabled)
-        .map((h) => this.attemptDelivery(h.channel, h.send, notification, user, 1)),
+        .map((h) => this.attemptDelivery(h.channel, h.send, notification, user, 1))
     );
   }
 
@@ -112,13 +115,13 @@ export class ChannelRouterService {
     } catch (err: any) {
       const errorMessage: string = err?.message ?? String(err);
       this.logger.warn(
-        `Retry attempt ${attempt}/${MAX_DELIVERY_ATTEMPTS} failed for notification ${notificationId} channel ${channel}: ${errorMessage}`,
+        `Retry attempt ${attempt}/${MAX_DELIVERY_ATTEMPTS} failed for notification ${notificationId} channel ${channel}: ${errorMessage}`
       );
 
       if (attempt >= MAX_DELIVERY_ATTEMPTS) {
         await this.updateLog(logId, DeliveryStatus.FAILED, attempt, errorMessage);
         this.logger.error(
-          `Notification ${notificationId} channel ${channel} permanently failed after ${MAX_DELIVERY_ATTEMPTS} attempts`,
+          `Notification ${notificationId} channel ${channel} permanently failed after ${MAX_DELIVERY_ATTEMPTS} attempts`
         );
       } else {
         await this.updateLog(logId, DeliveryStatus.PENDING, attempt, errorMessage);
@@ -131,7 +134,7 @@ export class ChannelRouterService {
             attempts: 1, // we manage our own retry count
             removeOnComplete: true,
             removeOnFail: 50,
-          },
+          }
         );
       }
     }
@@ -146,7 +149,7 @@ export class ChannelRouterService {
     send: () => Promise<void>,
     notification: InAppNotification,
     user: User,
-    attempt: number,
+    attempt: number
   ): Promise<void> {
     const log = await this.createLog(notification.id, channel);
 
@@ -157,7 +160,7 @@ export class ChannelRouterService {
     } catch (err: any) {
       const errorMessage: string = err?.message ?? String(err);
       this.logger.warn(
-        `Initial delivery failed for notification ${notification.id} channel ${channel}: ${errorMessage}`,
+        `Initial delivery failed for notification ${notification.id} channel ${channel}: ${errorMessage}`
       );
 
       if (attempt >= MAX_DELIVERY_ATTEMPTS) {
@@ -181,7 +184,7 @@ export class ChannelRouterService {
             attempts: 1,
             removeOnComplete: true,
             removeOnFail: 50,
-          },
+          }
         );
       }
     }
@@ -190,7 +193,7 @@ export class ChannelRouterService {
   private buildSendFn(
     channel: DeliveryChannel,
     user: User,
-    notification: Pick<InAppNotification, 'title' | 'body'>,
+    notification: Pick<InAppNotification, 'title' | 'body'>
   ): () => Promise<void> {
     switch (channel) {
       case DeliveryChannel.EMAIL:
@@ -209,23 +212,18 @@ export class ChannelRouterService {
       throw new Error('User has no email address');
     }
 
-    // Render a generic notification template (falls back gracefully if not found)
-    let html: string;
-    try {
-      html = await this.emailTemplateService.render('notification', {
-        title: notification.title,
-        body: notification.body,
-        firstName: user.firstName ?? '',
-      });
-    } catch {
-      // Template not found — use plain text fallback
-      html = `<p><strong>${notification.title}</strong></p><p>${notification.body}</p>`;
-    }
+    // Rendering is part of the delivery attempt. A rendering/provider failure
+    // must reach attemptDelivery so it is logged and queued for retry.
+    const html = await this.emailTemplateService.render('notification', {
+      title: notification.title,
+      body: notification.body,
+      firstName: user.firstName ?? '',
+    });
 
     // TODO: wire up actual mailer (e.g. SendGrid / Nodemailer) here.
     // For now we log at info level so the flow is testable end-to-end.
     this.logger.log(
-      `[EMAIL] → ${user.email} | subject: ${notification.title} | html length: ${html.length}`,
+      `[EMAIL] → ${user.email} | subject: ${notification.title} | html length: ${html.length}`
     );
   }
 
@@ -239,10 +237,8 @@ export class ChannelRouterService {
       notification.title,
       notification.body,
       notification.data
-        ? Object.fromEntries(
-            Object.entries(notification.data).map(([k, v]) => [k, String(v)]),
-          )
-        : {},
+        ? Object.fromEntries(Object.entries(notification.data).map(([k, v]) => [k, String(v)]))
+        : {}
     );
 
     if (!success) {
@@ -255,15 +251,12 @@ export class ChannelRouterService {
       throw new Error('User has no phone number registered');
     }
 
-    await this.smsService.sendSms(
-      user.phone,
-      `${notification.title}: ${notification.body}`,
-    );
+    await this.smsService.sendSms(user.phone, `${notification.title}: ${notification.body}`);
   }
 
   private async createLog(
     notificationId: string,
-    channel: DeliveryChannel,
+    channel: DeliveryChannel
   ): Promise<NotificationDeliveryLog> {
     const log = this.deliveryLogRepo.create({
       notificationId,
@@ -279,7 +272,7 @@ export class ChannelRouterService {
     logId: string,
     status: DeliveryStatus,
     attempts: number,
-    errorMessage: string | null,
+    errorMessage: string | null
   ): Promise<void> {
     await this.deliveryLogRepo.update(logId, {
       status,
@@ -291,15 +284,14 @@ export class ChannelRouterService {
 
   private async markChannelDelivered(
     notificationId: string,
-    channel: DeliveryChannel,
+    channel: DeliveryChannel
   ): Promise<void> {
     // Use a raw query to append to the deliveredChannels array without a full load
     await this.deliveryLogRepo.manager
       .createQueryBuilder()
       .update('in_app_notifications')
       .set({
-        deliveredChannels: () =>
-          `array_append("deliveredChannels", '${channel}')`,
+        deliveredChannels: () => `array_append("deliveredChannels", '${channel}')`,
       })
       .where('id = :id', { id: notificationId })
       .execute();

@@ -16,6 +16,11 @@ import {
 } from './dto/notification-response.dto';
 
 @Injectable()
+/**
+ * Coordinates in-app notifications: persists notification records,
+ * dispatches them to enabled delivery channels (push, email, etc.),
+ * and exposes inbox, unread-count, and mark-read operations.
+ */
 export class NotificationCenterService {
   private readonly logger = new Logger(NotificationCenterService.name);
 
