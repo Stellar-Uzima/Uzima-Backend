@@ -14,6 +14,35 @@ import {
   BULK_TASK_ASSIGNMENT_JOB,
   BulkTaskAssignmentJobData,
 } from '../../queue/queue.constants';
+import { Injectable, Logger } from '@nestjs/common';
+
+export interface QueueJobPayload<T = Record<string, unknown>> {
+  name: string;
+  data: T;
+  attempts?: number;
+}
+
+@Injectable()
+export class QueueService {
+  private readonly logger = new Logger(QueueService.name);
+
+  // Replace 'any' with generic type T or QueueJobPayload
+  public async addJob<T>(jobName: string, data: T): Promise<void> {
+    if (!jobName || !data) {
+      throw new Error('Invalid queue job definition');
+    }
+
+    this.logger.log(`Dispatching job: ${jobName}`);
+    // Queue dispatch implementation...
+  }
+
+  public async processJobPayload<T>(payload: QueueJobPayload<T>): Promise<boolean> {
+    if (typeof payload !== 'object' || payload === null) {
+      throw new Error('Invalid payload shape');
+    }
+    return true;
+  }
+}
 
 export interface JobStatus {
   id: string;
