@@ -39,6 +39,12 @@ export interface CacheStats {
   hitRate: number;
 }
 
+/**
+ * Centralized Redis-backed cache service.
+ * Provides key-value, list, set, and leaderboard caching with configurable TTLs,
+ * hit/miss tracking, and convenience helpers such as `remember` and
+ * `rememberWithStaleFallback` for read-through and stale-while-error patterns.
+ */
 @Injectable()
 export class CacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CacheService.name);
