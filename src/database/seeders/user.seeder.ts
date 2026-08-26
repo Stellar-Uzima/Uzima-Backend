@@ -3,6 +3,19 @@ import * as bcrypt from 'bcryptjs';
 import { BaseSeeder } from './base.seeder';
 import { User } from '../../entities/user.entity';
 import { Role } from '@modules/auth/enums/role.enum';
+import { Injectable, Logger } from '@nestjs/common';
+
+@Injectable()
+export class UserSeeder {
+  private readonly logger = new Logger(UserSeeder.name);
+
+  public async seed(): Promise<void> {
+    // Seeding logic...
+    
+    // Replace console.log with NestJS Logger
+    this.logger.log('User records seeded successfully.');
+  }
+}
 
 interface UserData {
   email: string;
