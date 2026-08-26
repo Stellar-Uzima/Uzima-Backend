@@ -47,6 +47,11 @@ export interface QueueStats {
 }
 
 @Injectable()
+/**
+ * Central façade over Bull queues. Provides helpers to enqueue jobs,
+ * inspect job/queue status, retry or cancel work, and manage
+ * dead-letter and paused-queue operations across the application.
+ */
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
   private readonly queues: Map<QueueName, Queue>;

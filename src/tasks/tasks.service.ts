@@ -20,6 +20,11 @@ import {
 } from '../queue/queue.constants';
 
 @Injectable()
+/**
+ * Manages the full lifecycle of health tasks — creation, retrieval,
+ * updates, soft-delete/restore, search, and reminder scheduling via
+ * the notification queue.
+ */
 export class TasksService {
   constructor(
     @InjectRepository(HealthTask)
