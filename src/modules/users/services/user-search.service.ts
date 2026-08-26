@@ -7,6 +7,10 @@ import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { SortOrder } from '../../../common/dto/pagination.dto';
 
+/**
+ * Handles user search operations with fuzzy matching, filtering,
+ * relevance scoring, and paginated results.
+ */
 @Injectable()
 export class UserSearchService {
   private readonly logger = new Logger(UserSearchService.name);
