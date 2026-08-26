@@ -21,6 +21,11 @@ export interface ActivityFeedItem {
   occurredAt: Date;
 }
 
+/**
+ * Aggregates a user's recent activity — completed tasks, earned XLM rewards,
+ * and milestone badges — into a single chronologically-sorted, paginated feed
+ * suitable for display in the user-facing activity timeline.
+ */
 @Injectable()
 export class ActivityFeedService {
   constructor(
