@@ -42,8 +42,9 @@ export class PushNotificationService implements OnModuleInit {
         // Fallback for local development or testing when no FCM credentials are present
         this.logger.warn('No Firebase credentials provided. FCM push notification service is running in mock/offline mode.');
       }
-    } catch (error: any) {
-      this.logger.error(`FCM initialization failed: ${error.message}. Running in offline/mock mode.`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`FCM initialization failed: ${message}. Running in offline/mock mode.`);
     }
   }
 
@@ -81,8 +82,9 @@ export class PushNotificationService implements OnModuleInit {
       });
       this.logger.log(`FCM push notification sent successfully, messageId: ${response}`);
       return true;
-    } catch (error: any) {
-      this.logger.error(`FCM push notification delivery failed for token ${token}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`FCM push notification delivery failed for token ${token}: ${message}`);
       // Failed pushes are logged and don't break the notification flow (returns false instead of throwing)
       return false;
     }
