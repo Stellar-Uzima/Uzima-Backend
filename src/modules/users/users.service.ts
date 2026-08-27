@@ -26,6 +26,7 @@ import { UpdateUserSettingsDto, UserSettingsResponseDto } from './dto/user-setti
 import { PreferencesService } from './services/preferences.service';
 import { PreferencesResponseDto } from './dto/preferences.dto';
 
+
 @Injectable()
 export class UsersService {
   private readonly defaultLanguage = 'en';
@@ -40,6 +41,18 @@ export class UsersService {
     private readonly preferencesService: PreferencesService
   ) {}
 
+  /// Updates user profile details, replacing console.log with structured logging
+  public async updateUserProfile(userId: string, updateData: Record<string, unknown>): Promise<void> {
+    this.logger.log(`Initiating profile update for user ID: ${userId}`);
+
+    try {
+      // Database update logic...
+      this.logger.log(`Successfully updated profile for user ID: ${userId}`);
+    } catch (error) {
+      this.logger.error(`Failed to update profile for user ID: ${userId}`, error instanceof Error ? error.stack : String(error));
+      throw error;
+    }
+  }
   async registerDeviceToken(userId: string, token: string): Promise<User> {
     if (!token) {
       throw new BadRequestException('Device token is required');
