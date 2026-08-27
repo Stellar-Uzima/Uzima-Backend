@@ -14,14 +14,14 @@ export class ReminderService {
     private readonly reminderRepository: Repository<TaskReminder>,
     @InjectRepository(HealthTask)
     private readonly taskRepository: Repository<HealthTask>,
-    private readonly notificationService: NotificationService,
+    private readonly notificationService: NotificationService
   ) {}
 
   async setReminder(
     taskId: string,
     userId: string,
     remindAt: Date,
-    type: ReminderType = ReminderType.PUSH,
+    type: ReminderType = ReminderType.PUSH
   ): Promise<TaskReminder> {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
     if (!task) {
@@ -67,9 +67,10 @@ export class ReminderService {
         await this.sendReminder(reminder);
         processedCount++;
       } catch (error) {
-        this.logger.error(`Failed to send reminder ${reminder.id}: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Failed to send reminder ${reminder.id}: ${errorMessage}`);
         reminder.status = ReminderStatus.FAILED;
-        reminder.deliveryTracking = { error: error.message, timestamp: new Date() };
+        reminder.deliveryTracking = { error: errorMessage, timestamp: new Date() };
         await this.reminderRepository.save(reminder);
       }
     }
@@ -78,7 +79,7 @@ export class ReminderService {
   }
 
   private async sendReminder(reminder: TaskReminder): Promise<void> {
-    const { user, task, type } = reminder;
+    const { task, type } = reminder;
     const userId = reminder.userId;
     const taskTitle = task?.title || 'Health Task';
 
@@ -95,7 +96,7 @@ export class ReminderService {
       case ReminderType.SMS:
         success = await this.notificationService.sendSMS(
           userId,
-          `Reminder: Your health task "${taskTitle}" is due now!`,
+          `Reminder: Your health task "${taskTitle}" is due now!`
         );
         break;
       case ReminderType.PUSH:
@@ -103,7 +104,7 @@ export class ReminderService {
         success = await this.notificationService.sendPush(
           userId,
           'Task Reminder',
-          `Time to work on your task: ${taskTitle}`,
+          `Time to work on your task: ${taskTitle}`
         );
         break;
     }
