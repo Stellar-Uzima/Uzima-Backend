@@ -1,4 +1,5 @@
 import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 import * as crypto from 'crypto';
 
@@ -8,13 +9,15 @@ export class CsrfMiddleware implements NestMiddleware {
   private readonly cookieName = 'csrf-token';
   private readonly headerName = 'x-csrf-token';
 
+  constructor(private readonly configService: ConfigService) {}
+
   use(req: Request, res: Response, next: NextFunction) {
     // Generate CSRF token for new sessions
     if (!req.cookies[this.cookieName]) {
       const token = this.generateToken();
       res.cookie(this.cookieName, token, {
         httpOnly: false, // Allow JavaScript access for SPAs
-        secure: process.env.NODE_ENV === 'production',
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
         sameSite: 'strict',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
