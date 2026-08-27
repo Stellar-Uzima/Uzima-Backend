@@ -1,5 +1,28 @@
 import { DataSource } from 'typeorm';
 
+import { Logger } from '@nestjs/common';
+
+export abstract class BaseSeeder {
+  protected readonly logger = new Logger(this.constructor.name);
+
+  /// Executes seeding operations with structured logging instead of raw console statements
+  public async seed(): Promise<void> {
+    this.logger.log('Starting database seeding process...');
+
+    try {
+      await this.run();
+      this.logger.log('Database seeding completed successfully.');
+    } catch (error) {
+      this.logger.error(
+        'Database seeding failed during execution.',
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  protected abstract run(): Promise<void>;
+}
 /**
  * Abstract base class for all seeders.
  * Provides common functionality and enforces a consistent interface.
