@@ -17,6 +17,12 @@ import { TaskCategory } from '../../database/entities/task-category.entity';
 import { TaskTag } from '../../database/entities/task-tag.entity';
 import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
 
+interface PriorityAlert {
+  type: string;
+  message: string;
+  createdAt: string;
+}
+
 @Injectable()
 export class HealthTasksService {
   constructor(
@@ -174,11 +180,14 @@ export class HealthTasksService {
     const alertMessage = this.priorityService.buildOverdueAlert(prioritizableTask);
     if (alertMessage) {
       const existingProfile = task.targetProfile ?? {};
-      const priorityAlerts = Array.isArray((existingProfile as any).priorityAlerts)
+      const priorityAlerts: PriorityAlert[] = Array.isArray(
+        (existingProfile as any).priorityAlerts,
+      )
         ? [...(existingProfile as any).priorityAlerts]
         : [];
       const alreadyPresent = priorityAlerts.some(
-        (alert: any) => alert?.type === 'overdue' && alert?.message === alertMessage,
+        (alert: PriorityAlert) =>
+          alert?.type === 'overdue' && alert?.message === alertMessage,
       );
       if (!alreadyPresent) {
         priorityAlerts.push({
