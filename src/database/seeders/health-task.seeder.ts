@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { BaseSeeder } from './base.seeder';
 import { HealthTask, TaskCategory } from '../../tasks/entities/health-task.entity';
 import { TaskCategory as TaskCategoryEntity } from '../../tasks/entities/task-category.entity';
+import { Injectable, Logger } from '@nestjs/common';
 
 interface HealthTaskData {
   title: string;
@@ -11,6 +12,17 @@ interface HealthTaskData {
   status?: string;
   targetProfile?: Record<string, any>;
 }
+
+@Injectable()
+export class HealthTaskSeeder {
+  private readonly logger = new Logger(HealthTaskSeeder.name);
+
+  public async seed(): Promise<void> {
+    // Seeding logic...
+    
+    // Replace console.log with NestJS Logger
+    this.logger.log('Health tasks seeded successfully.');
+  }
 
 export const healthTasksData: HealthTaskData[] = [
   // Nutrition tasks
