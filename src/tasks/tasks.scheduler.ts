@@ -283,4 +283,15 @@ export class TasksScheduler implements OnApplicationBootstrap {
 
     return { processed: processedCount, errors: errorCount };
   }
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  public async handleScheduledTasks(): Promise<void> {
+    // Replace direct process.env reference with configService.get
+    const batchSize = this.configService.get<number>('TASK_BATCH_SIZE') || 50;
+    
+    this.logger.log(`Executing scheduled health tasks with batch size: ${batchSize}`);
+    
+    // Scheduled execution logic...
+  }
+
+  
 }
