@@ -2,18 +2,23 @@ import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { Usage } from './entities/usage.entity';
-import { NotificationsService } from '../../notifications/notifications.service'; // Assuming exists
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class UsageService {
   constructor(
     @InjectRepository(Usage)
     private readonly usageRepository: Repository<Usage>,
-    @Inject(NotificationsService)
-    private readonly notificationsService: NotificationsService,
+    @Inject(NotificationService)
+    private readonly notificationsService: NotificationService
   ) {}
 
-  async trackUsage(userId: number, event: string, amount: number = 1, metadata?: any): Promise<void> {
+  async trackUsage(
+    userId: number,
+    event: string,
+    amount: number = 1,
+    metadata?: any
+  ): Promise<void> {
     const usage = this.usageRepository.create({
       userId,
       event,
@@ -26,7 +31,12 @@ export class UsageService {
     await this.checkLimits(userId, event);
   }
 
-  async getUsage(userId: number, event?: string, startDate?: Date, endDate?: Date): Promise<Usage[]> {
+  async getUsage(
+    userId: number,
+    event?: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<Usage[]> {
     const where: any = { userId };
     if (event) where.event = event;
     if (startDate && endDate) where.createdAt = Between(startDate, endDate);
@@ -34,7 +44,11 @@ export class UsageService {
     return this.usageRepository.find({ where });
   }
 
-  async aggregateUsage(userId: number, event: string, period: 'day' | 'month' | 'year' = 'month'): Promise<number> {
+  async aggregateUsage(
+    userId: number,
+    event: string,
+    period: 'day' | 'month' | 'year' = 'month'
+  ): Promise<number> {
     const now = new Date();
     let startDate: Date;
 
@@ -60,8 +74,8 @@ export class UsageService {
   private async checkLimits(userId: number, event: string): Promise<void> {
     // Define limits - in real app, from config or DB
     const limits = {
-      'api_call': { monthly: 1000, alertThreshold: 0.8 },
-      'task_completion': { daily: 10, alertThreshold: 0.9 },
+      api_call: { monthly: 1000, alertThreshold: 0.8 },
+      task_completion: { daily: 10, alertThreshold: 0.9 },
     };
 
     const limit = limits[event];
@@ -73,9 +87,10 @@ export class UsageService {
 
     if (currentUsage >= maxLimit * limit.alertThreshold) {
       // Send alert
-      await this.notificationsService.sendNotification(userId, {
+      await this.notificationsService.createNotification({
+        userId,
         title: 'Usage Limit Approaching',
-        message: `You have used ${currentUsage} of ${maxLimit} ${event}s this ${period}.`,
+        body: `You have used ${currentUsage} of ${maxLimit} ${event}s this ${period}.`,
         type: 'warning',
       });
     }

@@ -97,7 +97,7 @@ export const testDatabaseConfig = {
       process.env.DATABASE_NAME ||
       'uzima_test',
   entities: [process.cwd() + '/src/**/*.entity.{ts,js}'],
-  migrations: isSqliteTest ? [] : ['src/migrations/*{.ts,.js}'],
+  migrations: isSqliteTest ? [] : ['src/database/migrations/*{.ts,.js}'],
   migrationsTableName: 'migrations',
   synchronize: isSqliteTest,
   dropSchema: isSqliteTest,

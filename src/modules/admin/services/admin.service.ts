@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { TypeOrmHealthIndicator } from '@nestjs/terminus';
 import { RedisHealthIndicator } from '@/health/redis-health.indicator';
 import { User } from '@/entities/user.entity';
-import { UserStatus } from '@/auth/enums/user-status.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { TaskCompletion, TaskCompletionStatus } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
 

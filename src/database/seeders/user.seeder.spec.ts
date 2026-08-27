@@ -1,6 +1,6 @@
 import { DataSource, Repository } from 'typeorm';
 import { UserSeeder, usersData } from './user.seeder';
-import { User } from '../../users/entities/user.entity';
+import { User } from '../../entities/user.entity';
 
 jest.mock('bcryptjs', () => ({
   genSalt: jest.fn().mockResolvedValue('salt'),

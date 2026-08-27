@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AnalyticsService } from './analytics.service';
-import { TaskCompletion } from '../../../database/entities/task-completion.entity';
+import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { HealthTask, TaskCategory } from '../../../tasks/entities/health-task.entity';
 import { User } from '../../../entities/user.entity';
 

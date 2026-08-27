@@ -1,13 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
-
-@Injectable()
-export class PasswordService {
-  async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 12);
-  }
-
-  async comparePassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
-  }
-}
+// #1082 – Reconcile duplicate auth services between auth trees.
+// The full implementation lives in src/modules/auth/services/password.service.ts.
+// This re-export points all imports from src/auth/services/ to that single source of truth.
+export { PasswordService } from '../../modules/auth/services/password.service';

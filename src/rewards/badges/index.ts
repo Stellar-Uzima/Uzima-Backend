@@ -2,4 +2,4 @@ export * from './badge.service';
 export * from './badge.controller';
 export * from './badge.module';
 export * from './dto/badge.dto';
-export * from './enums/badge-type.enum';
+export { BadgeType } from '../../database/entities/badge.entity';

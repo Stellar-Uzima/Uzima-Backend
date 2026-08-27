@@ -36,10 +36,33 @@ export class ConsultationsService {
       throw new BadRequestException('startTime must be before endTime');
     }
 
+    if (startTime < new Date()) {
+      throw new BadRequestException('Cannot set availability in the past');
+    }
+
+    const existingSlots = await this.availabilityRepo.find({
+      where: { healerId },
+    });
+
+    if (this.hasOverlappingSlot(startTime, endTime, existingSlots)) {
+      throw new BadRequestException('Availability slot overlaps with existing slot');
+    }
+
     const slot = this.availabilityRepo.create({ healerId, startTime, endTime });
     const saved = await this.availabilityRepo.save(slot);
     this.logger.log(`Healer ${healerId} added availability slot ${saved.id}`);
     return saved;
+  }
+
+  private hasOverlappingSlot(startTime: Date, endTime: Date, existingSlots: HealerAvailability[]): boolean {
+    const newStart = startTime.getTime();
+    const newEnd = endTime.getTime();
+
+    return existingSlots.some((slot) => {
+      const existingStart = slot.startTime.getTime();
+      const existingEnd = slot.endTime.getTime();
+      return newStart < existingEnd && newEnd > existingStart;
+    });
   }
 
   async getAvailability(healerId: string): Promise<AvailabilitySlotView[]> {

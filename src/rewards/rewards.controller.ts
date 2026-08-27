@@ -1,6 +1,6 @@
 import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { RewardsService } from './rewards.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { GetPayoutHistoryDto, PaginatedPayoutHistoryDto } from './dto/payout-history.dto';
 
 @Controller('rewards')

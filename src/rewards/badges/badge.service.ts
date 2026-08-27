@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Badge, BadgeType } from '../../database/entities/badge.entity';
 import { UserBadge } from '../../database/entities/user-badge.entity';
+import { UserBadgesResponseDto } from './dto/badge.dto';
 
 const BADGE_DEFINITIONS = [
   { type: BadgeType.FIRST_TASK, name: 'First Step', description: 'Completed your first health task', iconUrl: '/badges/first-task.svg' },
@@ -20,10 +21,36 @@ export class BadgeService {
     @InjectRepository(UserBadge) private readonly userBadgeRepository: Repository<UserBadge>,
   ) {}
 
-  async getAllBadges(): Promise<Badge[]> { return this.badgeRepository.find(); }
+  async initializeBadges(): Promise<void> {
+    for (const def of BADGE_DEFINITIONS) {
+      const exists = await this.badgeRepository.findOne({ where: { type: def.type } });
+      if (!exists) {
+        await this.badgeRepository.save(this.badgeRepository.create(def));
+      }
+    }
+  }
 
-  async getUserBadges(userId: string): Promise<UserBadge[]> {
-    return this.userBadgeRepository.find({ where: { userId } });
+  async getAllBadges() {
+    const badges = await this.badgeRepository.find();
+    return { badges, totalBadges: badges.length };
+  }
+
+  async getMyBadges(userId: string): Promise<UserBadgesResponseDto> {
+    const userBadges = await this.userBadgeRepository.find({ where: { userId } });
+    return {
+      userId,
+      badges: userBadges.map((ub) => ({
+        id: ub.id,
+        badgeId: ub.badgeId,
+        badgeName: ub.badge?.name ?? '',
+        badgeType: ub.badge?.type,
+        badgeDescription: ub.badge?.description ?? '',
+        badgeIcon: ub.badge?.iconUrl,
+        badgeMilestone: 0,
+        awardedAt: ub.awardedAt.toISOString(),
+      })),
+      totalBadges: userBadges.length,
+    };
   }
 
   async awardBadge(userId: string, badgeType: BadgeType): Promise<UserBadge | null> {

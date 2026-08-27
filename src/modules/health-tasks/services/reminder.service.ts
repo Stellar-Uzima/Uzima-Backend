@@ -1,11 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
-import {
-  TaskReminder,
-  ReminderStatus,
-  ReminderType,
-} from '../../../database/entities/task-reminder.entity';
+import { Repository, LessThanOrEqual, Between } from 'typeorm';
+import { TaskReminder, ReminderStatus, ReminderType } from '../../../database/entities/task-reminder.entity';
 import { NotificationService } from '../../../notifications/services/notification.service';
 import { HealthTask } from '../../../entities/health-task.entity';
 
@@ -133,5 +129,90 @@ export class ReminderService {
 
   async deleteReminder(reminderId: string): Promise<void> {
     await this.reminderRepository.delete(reminderId);
+  }
+
+  /**
+   * Backfill missed reminders that were scheduled before a given cutoff time
+   * but never processed (e.g., after server downtime or scheduler restart).
+   *
+   * This method looks for reminders with `SCHEDULED` status whose `remindAt`
+   * timestamp falls between the `since` date and `now`. It processes them in
+   * batches to avoid overwhelming the notification service.
+   *
+   * @param since - The start of the backfill window (inclusive). Defaults to
+   *                24 hours ago if not provided.
+   * @param batchSize - Number of reminders to process per batch (default: 50).
+   * @returns An object with `total` (number of missed reminders found) and
+   *          `processed` (number successfully sent).
+   *
+   * @example
+   * // Backfill reminders missed in the last 6 hours
+   * const result = await service.backfillMissedReminders(
+   *   new Date(Date.now() - 6 * 60 * 60 * 1000),
+   * );
+   * console.log(`Backfilled ${result.processed} of ${result.total} missed reminders`);
+   */
+  async backfillMissedReminders(
+    since?: Date,
+    batchSize: number = 50,
+  ): Promise<{ total: number; processed: number }> {
+    const now = new Date();
+    const windowStart = since || new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    this.logger.log(
+      `Starting backfill for missed reminders from ${windowStart.toISOString()} to ${now.toISOString()}`,
+    );
+
+    // Use a database-level range query for efficiency
+    const missedReminders = await this.reminderRepository.find({
+      where: {
+        status: ReminderStatus.SCHEDULED,
+        remindAt: Between(windowStart, now),
+      },
+      relations: ['task'],
+    });
+
+    if (missedReminders.length === 0) {
+      this.logger.log('No missed reminders found in backfill window');
+      return { total: 0, processed: 0 };
+    }
+
+    this.logger.log(
+      `Found ${missedReminders.length} missed reminders to backfill (batch size: ${batchSize})`,
+    );
+
+    let processedCount = 0;
+
+    for (let i = 0; i < missedReminders.length; i += batchSize) {
+      const batch = missedReminders.slice(i, i + batchSize);
+
+      for (const reminder of batch) {
+        try {
+          await this.sendReminder(reminder);
+          processedCount++;
+        } catch (error) {
+          this.logger.error(
+            `Backfill: Failed to send reminder ${reminder.id}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          reminder.status = ReminderStatus.FAILED;
+          reminder.deliveryTracking = {
+            error: error instanceof Error ? error.message : String(error),
+            timestamp: new Date(),
+            backfill: true,
+          };
+          await this.reminderRepository.save(reminder);
+        }
+      }
+
+      this.logger.debug(
+        `Backfill progress: ${processedCount}/${missedReminders.length} reminders processed`,
+      );
+    }
+
+    this.logger.log(
+      `Backfill complete. Processed: ${processedCount}/${missedReminders.length} missed reminders`,
+    );
+
+    return { total: missedReminders.length, processed: processedCount };
   }
 }

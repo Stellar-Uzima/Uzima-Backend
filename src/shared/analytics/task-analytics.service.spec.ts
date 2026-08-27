@@ -216,6 +216,18 @@ describe('TaskAnalyticsService', () => {
           totalAttempted: 4,
           totalCompleted: 2,
           completionRate: 50,
+          it('should return default zero metrics when task dataset is empty', async () => {
+      jest.spyOn(service, 'calculateTaskMetrics').mockImplementation(async () => ({
+        averageCompletionTime: 0,
+        tasksByStatus: {},
+      }));
+
+      const taskAnalytics = await service.calculateTaskMetrics('empty-user-id');
+
+      expect(taskAnalytics).toBeDefined();
+      expect(taskAnalytics.averageCompletionTime).toBe(0);
+      expect(taskAnalytics.tasksByStatus).toEqual({});
+    });
         },
       ]);
     });

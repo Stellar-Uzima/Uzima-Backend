@@ -1,3 +1,9 @@
+/**
+ * Represents an immutable audit log entry recording user and system actions,
+ * including the affected resource, request context, changes, and compliance
+ * metadata.
+ */
+
 import {
   Entity,
   Column,
@@ -108,7 +114,7 @@ export class AuditLog {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 
-  @CreateDateColumn({ 
+  @CreateDateColumn({
     type: 'timestamp with time zone',
     name: 'created_at',
     precision: 6,

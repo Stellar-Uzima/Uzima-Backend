@@ -82,7 +82,7 @@ export class StreaksService {
       .getMany();
 
     const completionDays = new Set(
-      completions.map((c) => c.completedAt.toISOString().slice(0, 10)),
+      completions.map((c) => c.completedAt!.toISOString().slice(0, 10)),
     );
 
     const history = [] as Array<Array<{ date: string; completed: boolean }>>;

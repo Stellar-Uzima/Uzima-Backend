@@ -1,12 +1,15 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { NestFactory, Reflector } from '@nestjs/core';
+import { VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { CustomValidationPipe } from './common/pipes/validation.pipe';
+import { PermissionsGuard } from './common/guards/permissions.guard';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
@@ -45,15 +48,14 @@ async function bootstrap() {
   const csrfMiddleware = new CsrfMiddleware();
   app.use((req, res, next) => csrfMiddleware.use(req, res, next));
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(new CustomValidationPipe());
 
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  const reflector = app.get(Reflector);
+  // Apply RateLimitGuard first to ensure all requests are rate limited before any other processing
+  const rateLimitGuard = app.get(RateLimitGuard);
+  app.useGlobalGuards(rateLimitGuard, new PermissionsGuard(reflector));
 
   const loggingInterceptor = app.get(LoggingInterceptor);
   app.useGlobalInterceptors(loggingInterceptor);

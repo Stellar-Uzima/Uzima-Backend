@@ -20,13 +20,13 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { AdminUsersService } from './services/admin-users.service';
-import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@/auth/guards/roles.guard';
-import { Roles } from '@/auth/decorators/roles.decorator';
-import { Role } from '@/auth/enums/role.enum';
-import { ListUsersDto } from '@/admin/dto/list-users.dto';
-import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
-import { ChangeRoleDto } from '@/admin/dto/change-role.dto';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
+import { ListUsersDto } from './dto/list-users.dto';
+import { CreateAdminDto } from './dto/create-admin.dto';
+import { ChangeRoleDto } from './dto/change-role.dto';
 
 @ApiTags('Admin - User Management')
 @ApiBearerAuth()
@@ -45,6 +45,14 @@ export class AdminUsersController {
     return this.adminUsersService.createAdminUser(req.user.sub, dto);
   }
 
+  @Get('search')
+  @ApiOperation({ summary: 'Search users by name or email' })
+  @ApiQuery({ name: 'q', description: 'Search query (partial name or email)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Matching users returned' })
+  async search(@Query('q') q: string) {
+    return this.adminUsersService.searchUsers(q);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List users with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -59,6 +67,15 @@ export class AdminUsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async getById(@Param('id') id: string) {
     return this.adminUsersService.getUserById(id);
+  }
+
+  @Get(':id/streaks')
+  @ApiOperation({ summary: 'Get user streak history' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'User streaks found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getStreaks(@Param('id') id: string) {
+    return this.adminUsersService.getUserStreaks(id);
   }
 
   @Patch(':id/role')
@@ -92,35 +109,14 @@ export class AdminUsersController {
   async delete(@Req() req: any, @Param('id') id: string) {
     return this.adminUsersService.deleteUser(req.user.sub, id);
   }
-   @Post(
-    "users/:id/roles",
-  )
-  async assignRole(
-    @Param("id")
-    userId: string,
 
-    @Body()
-    dto: AssignRoleDto,
-  ) {
-    return this.adminService.assignRole(
-      userId,
-      dto.role,
-    );
+  @Get(':id/tasks')
+  @ApiOperation({ summary: 'Get all tasks for a specific user (ADMIN only)' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Tasks retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserTasks(@Param('id') id: string) {
+    return this.adminUsersService.getUserTasks(id);
   }
 
-  @Delete(
-    "users/:id/roles/:role",
-  )
-  async revokeRole(
-    @Param("id")
-    userId: string,
-
-    @Param("role")
-    role: string,
-  ) {
-    return this.adminService.revokeRole(
-      userId,
-      role,
-    );
-  }
 }

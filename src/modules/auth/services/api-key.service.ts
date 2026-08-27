@@ -40,9 +40,6 @@ export class ApiKeyService {
     return this.apiKeyRepository.find({ where: { userId } });
   }
 
-  // Track usage - for now, just return the key, can add metrics later
   async trackUsage(key: string): Promise<void> {
-    // Placeholder for usage tracking
-    // Could increment a counter or log to metrics
   }
 }

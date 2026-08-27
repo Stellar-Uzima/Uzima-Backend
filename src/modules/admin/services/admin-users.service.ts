@@ -3,18 +3,24 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RedisClientType, createClient } from 'redis';
 import * as bcrypt from 'bcryptjs';
 import { User } from '@/entities/user.entity';
-import { ListUsersDto } from '@/admin/dto/list-users.dto';
-import { CreateAdminDto } from '@/admin/dto/create-admin.dto';
-import { Role } from '@/auth/enums/role.enum';
-import { UserStatus } from '@/auth/enums/user-status.enum';
+import { ListUsersDto } from '../dto/list-users.dto';
+import { CreateAdminDto } from '../dto/create-admin.dto';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
+import { StreaksService } from '@/streaks/streaks.service';
 
+/**
+ * Provides admin-level user management operations including user
+ * creation, role changes, suspension, reactivation, and deletion.
+ */
 @Injectable()
 export class AdminUsersService {
   private readonly redisClient: RedisClientType;
@@ -23,6 +29,7 @@ export class AdminUsersService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly auditService: AuditService,
+    private readonly streaksService: StreaksService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -56,6 +63,24 @@ export class AdminUsersService {
 
     const { password, ...result } = savedUser as User & { password: string };
     return result;
+  }
+
+  async searchUsers(query: string) {
+    if (!query || query.trim().length === 0) {
+      return { data: [], total: 0 };
+    }
+    const qb = this.usersRepository.createQueryBuilder('user')
+      .where('(user.firstName ILIKE :q OR user.lastName ILIKE :q OR user.email ILIKE :q)',
+        { q: `%${query.trim()}%` })
+      .andWhere('user.deletedAt IS NULL')
+      .select([
+        'user.id', 'user.email', 'user.firstName', 'user.lastName',
+        'user.role', 'user.country', 'user.isActive',
+        'user.createdAt', 'user.updatedAt',
+      ])
+      .take(20);
+    const [users, total] = await qb.getManyAndCount();
+    return { data: users, total };
   }
 
   async listUsers(dto: ListUsersDto) {
@@ -136,6 +161,19 @@ export class AdminUsersService {
     return user;
   }
 
+  async getUserStreaks(id: string) {
+    // verify user exists, which returns 404 (or throws BadRequest/NotFound depending on service)
+    // Wait, the instructions say "Returns 404 if user not found".
+    // getUserById throws BadRequestException in AdminUsersService. 
+    // We can just use userRepo to check if user exists.
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    return this.streaksService.getStreakHistory(id);
+  }
+
   async changeRole(adminId: string, userId: string, role: Role) {
     if (adminId === userId) {
       throw new ForbiddenException('Admins cannot change their own role');
@@ -185,7 +223,6 @@ export class AdminUsersService {
         'deletedAt',
       ],
     });
-    });
 
     if (!user) {
       throw new BadRequestException('User not found');
@@ -217,5 +254,27 @@ export class AdminUsersService {
     await this.redisClient.del(`refresh:${userId}`);
     await this.auditService.logAction(adminId, `Soft deleted user ${userId} (${user.email})`);
     return { message: 'User deleted successfully' };
+  }
+
+  async getUserTasks(userId: string) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'firstName', 'lastName', 'role'],
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      tasks: [],
+    };
   }
 }
