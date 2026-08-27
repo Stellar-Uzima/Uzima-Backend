@@ -36,19 +36,41 @@ describe('AnalyticsService', () => {
     await expect(service.trackEvent('test')).resolves.toBeUndefined();
     expect(mockProvider.trackEvent).toHaveBeenCalledTimes(1);
   });
-  it('should handle empty dataset gracefully without throwing or returning malformed results', async () => {
-      jest.spyOn(service, 'getAnalyticsData').mockImplementation(async () => ({
-        totalTasks: 0,
-        completedTasks: 0,
-        completionRate: 0,
-      }));
 
-      const result = await service.getAnalyticsData('empty-user-id');
+  describe('empty dataset handling', () => {
+    it('should generate a valid analytics report when dataset is empty', () => {
+      service.clearLogs();
+      const start = new Date('2026-01-01T00:00:00.000Z');
+      const end = new Date('2026-01-31T23:59:59.999Z');
 
-      expect(result).toBeDefined();
-      expect(result.totalTasks).toBe(0);
-      expect(result.completedTasks).toBe(0);
-      expect(result.completionRate).toBe(0);
+      const report = service.generateAnalyticsReport(start, end);
+
+      expect(report).toBeDefined();
+      expect(report.totalUserActions).toBe(0);
+      expect(report.totalMetricsRecorded).toBe(0);
+      expect(report.topActionPatterns).toEqual([]);
+      expect(report.averageSystemMetrics).toEqual({});
+      expect(report.timeframe).toEqual({ start, end });
+      expect(report.generatedAt).toBeInstanceOf(Date);
     });
-});
 
+    it('should return an empty frequency map when analyzing action patterns on empty data', () => {
+      service.clearLogs();
+      const start = new Date('2026-01-01T00:00:00.000Z');
+      const end = new Date('2026-01-31T23:59:59.999Z');
+
+      const patterns = service.analyzeActionPatterns(start, end);
+
+      expect(patterns).toEqual({});
+    });
+
+    it('should return empty arrays when querying user actions and system metrics for non-existent or new user', () => {
+      service.clearLogs();
+      const userActions = service.queryUserActions({ userId: 'empty-user-id' });
+      const systemMetrics = service.querySystemMetrics({ metricName: 'non_existent_metric' });
+
+      expect(userActions).toEqual([]);
+      expect(systemMetrics).toEqual([]);
+    });
+  });
+});

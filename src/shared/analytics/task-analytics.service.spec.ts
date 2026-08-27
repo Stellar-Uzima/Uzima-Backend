@@ -57,6 +57,17 @@ describe('TaskAnalyticsService', () => {
     it('returns 0 when nothing attempted', () => {
       expect(service.calculateCompletionRate(0, 0)).toBe(0);
       expect(service.calculateCompletionRate(5, 0)).toBe(0);
+      expect(service.calculateCompletionRate(0, 5)).toBe(0);
+    });
+
+    it('ensures returned values are finite numbers and not NaN or Infinity', () => {
+      const rateZero = service.calculateCompletionRate(0, 0);
+      expect(Number.isNaN(rateZero)).toBe(false);
+      expect(Number.isFinite(rateZero)).toBe(true);
+
+      const rateDivZero = service.calculateCompletionRate(0, 10);
+      expect(Number.isNaN(rateDivZero)).toBe(false);
+      expect(Number.isFinite(rateDivZero)).toBe(true);
     });
 
     it('computes correct percentage rounded to 2 decimals', () => {
@@ -165,13 +176,29 @@ describe('TaskAnalyticsService', () => {
       expect(result.period).toBe('daily');
     });
 
+    it('handles a new user with zero completed tasks without throwing or returning NaN/Infinity', async () => {
+      mockCompletionRepo.count.mockResolvedValue(0);
+      qbMock.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getStats({ period: 'weekly', userId: 'new-user-zero-tasks' });
+
+      expect(result).toBeDefined();
+      expect(result.totalAttempted).toBe(0);
+      expect(result.totalCompleted).toBe(0);
+      expect(result.completionRate).toBe(0);
+      expect(Number.isNaN(result.completionRate)).toBe(false);
+      expect(Number.isFinite(result.completionRate)).toBe(true);
+      expect(result.categoryBreakdown).toEqual([]);
+      expect(result.dateRange.startDate).toBeInstanceOf(Date);
+      expect(result.dateRange.endDate).toBeInstanceOf(Date);
+    });
+
     it('applies userId filter when provided', async () => {
       mockCompletionRepo.count.mockResolvedValue(0);
       qbMock.getRawMany.mockResolvedValue([]);
 
       await service.getStats({ period: 'weekly', userId: 'user-123' });
 
-      // The createQueryBuilder chain should have called andWhere for userId
       expect(qbMock.andWhere).toHaveBeenCalledWith(
         'completion.userId = :userId',
         { userId: 'user-123' },
@@ -216,20 +243,20 @@ describe('TaskAnalyticsService', () => {
           totalAttempted: 4,
           totalCompleted: 2,
           completionRate: 50,
-          it('should return default zero metrics when task dataset is empty', async () => {
-      jest.spyOn(service, 'calculateTaskMetrics').mockImplementation(async () => ({
-        averageCompletionTime: 0,
-        tasksByStatus: {},
-      }));
-
-      const taskAnalytics = await service.calculateTaskMetrics('empty-user-id');
-
-      expect(taskAnalytics).toBeDefined();
-      expect(taskAnalytics.averageCompletionTime).toBe(0);
-      expect(taskAnalytics.tasksByStatus).toEqual({});
-    });
         },
       ]);
+    });
+
+    it('returns empty array when query returns no category records', async () => {
+      qbMock.getRawMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCategoryBreakdown(
+        new Date('2025-01-01'),
+        new Date('2025-01-08'),
+        'user-with-no-tasks',
+      );
+
+      expect(result).toEqual([]);
     });
   });
 });
