@@ -1,36 +1,34 @@
 import { Module } from '@nestjs/common';
-import { SettingsController } from './controllers/settings.controller';
-import { UserSearchService } from './services/user-search.service';
-import { UserStatusLog } from '../../entities/user-status-log.entity';
-import { UserPreferences } from '../../database/entities/user-preferences.entity';
-import { UserActivity } from '../../database/entities/user-activity.entity';
-import { PhoneVerificationService } from './services/phone-verification.service';
-import { SmsService } from '../../shared/sms/sms.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { User } from '../../entities/user.entity';
 import { UsersController } from './users.controller';
+import { SettingsController } from './controllers/settings.controller';
 import { DataExportDownloadController } from './controllers/data-export-download.controller';
 import { UsersService } from './users.service';
-import { QueueModule } from '../../queue/queue.module';
-import { UserActivity } from '../../database/entities/user-activity.entity';
+import { UserSearchService } from './services/user-search.service';
+import { PhoneVerificationService } from './services/phone-verification.service';
 import { ActivityTrackerService } from './services/activity-tracker.service';
+import { ActivityFeedService } from './services/activity-feed.service';
 import { AvatarService } from './services/avatar.service';
 import { DataExportService } from './services/data-export.service';
 import { DataExportProcessor } from './processors/data-export.processor';
+import { SmsService } from '../../shared/sms/sms.service';
+import { QueueService } from '../../shared/queue/queue.service';
+import { QueueModule } from '../../queue/queue.module';
+import { NotificationsModule } from '../../notifications/notifications.module';
+import { User } from '../../entities/user.entity';
+import { UserStatusLog } from '../../entities/user-status-log.entity';
+import { UserPreferences } from '../../database/entities/user-preferences.entity';
+import { UserActivity } from '../../database/entities/user-activity.entity';
 import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
+import { HealthTask } from '../../tasks/entities/health-task.entity';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { Notification } from '../../notifications/entities/notification.entity';
 import { ReferralRecord } from '../../referral/entities/referral-record.entity';
-import { QueueService } from '../../shared/queue/queue.service';
-import { NotificationsModule } from '../../notifications/notifications.module';
+import { Coupon } from '../../entities/coupon.entity';
+import { StorageModule } from '../../shared/storage/storage.module';
 
 @Module({
-  controllers: [
-    UsersController,
-    SettingsController,
-    DataExportDownloadController,
-  ],
   imports: [
     TypeOrmModule.forFeature([
       User,
@@ -38,26 +36,23 @@ import { NotificationsModule } from '../../notifications/notifications.module';
       UserPreferences,
       UserActivity,
       TaskCompletion,
+      HealthTask,
       RewardTransaction,
       Notification,
       ReferralRecord,
       Coupon,
-      HealthTask,
-      Notification,
     ]),
     CacheModule.register({
       ttl: 300,
     }),
     QueueModule,
     NotificationsModule,
+    StorageModule,
   ],
-  exports: [
-    UsersService,
-    UserSearchService,
-    PhoneVerificationService,
-    ActivityTrackerService,
-    AvatarService,
-    DataExportService,
+  controllers: [
+    UsersController,
+    SettingsController,
+    DataExportDownloadController,
   ],
   providers: [
     UsersService,
@@ -65,16 +60,20 @@ import { NotificationsModule } from '../../notifications/notifications.module';
     PhoneVerificationService,
     SmsService,
     ActivityTrackerService,
+    ActivityFeedService,
     AvatarService,
     DataExportService,
     DataExportProcessor,
     QueueService,
   ],
+  exports: [
+    UsersService,
+    UserSearchService,
+    PhoneVerificationService,
+    ActivityTrackerService,
     ActivityFeedService,
     AvatarService,
-    StorageService,
-    DataExportProcessor,
+    DataExportService,
   ],
-  exports: [UsersService, UserSearchService, PhoneVerificationService],
 })
 export class UsersModule {}

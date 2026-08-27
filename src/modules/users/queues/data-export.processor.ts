@@ -68,7 +68,7 @@ export class DataExportProcessor {
       await job.progress(100);
       this.logger.log(`Data export job ${job.id} completed for user ${userId}`);
     } catch (err) {
-      this.logger.error(`Data export job ${job.id} failed for user ${userId}`, err as any?.stack || String(err));
+      this.logger.error(`Data export job ${job.id} failed for user ${userId}`, (err as any)?.stack || String(err));
       throw err;
     }
   }

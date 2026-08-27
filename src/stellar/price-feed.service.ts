@@ -87,8 +87,8 @@ export class PriceFeedService {
       { timeout: 8000 },
     );
 
-    const bestBid = data?.bids?[0]?.price_r;
-    const bestAsk = data?.asks?[0]?.price_r;
+    const bestBid = data?.bids?.[0]?.price_r;
+    const bestAsk = data?.asks?.[0]?.price_r;
     const priceStr = bestBid ?? bestAsk;
     const priceUsd = priceStr ? parseFloat(priceStr) : NaN;
 

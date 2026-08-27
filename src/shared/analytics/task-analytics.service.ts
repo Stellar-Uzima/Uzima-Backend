@@ -101,7 +101,7 @@ export class TaskAnalyticsService {
 
     const rawResults = await qb.getRawMany();
 
-    return rawResults.map((row) => {
+    return rawResults.map((row): CategoryBreakdown => {
       const category = row.category || 'uncategorized';
       const totalAttempted = parseInt(row.totalAttempted, 10) || 0;
       const totalCompleted = parseInt(row.totalCompleted, 10) || 0;
