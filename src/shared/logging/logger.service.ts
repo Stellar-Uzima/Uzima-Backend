@@ -3,6 +3,36 @@ import { ConfigService } from '@nestjs/config';
 import { writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
 
+
+export interface LogContext {
+  [key: string]: unknown;
+}
+
+export class LoggerService {
+  /// Logs messages with structured metadata using explicit types instead of 'any'
+  public log(message: string, context?: LogContext): void {
+    const sanitizedContext = this.sanitizeContext(context);
+    console.log(`[INFO] ${message}`, JSON.stringify(sanitizedContext));
+  }
+
+  /// Ensures context metadata values are safely handled without resorting to 'any'
+  private sanitizeContext(context?: LogContext): LogContext {
+    if (!context) {
+      return {};
+    }
+
+    const sanitized: LogContext = {};
+    for (const [key, value] of Object.entries(context)) {
+      if (typeof value === 'function') {
+        sanitized[key] = '[Function]';
+      } else {
+        sanitized[key] = value;
+      }
+    }
+    return sanitized;
+  }
+}
+
 export enum LogLevel {
   ERROR = 'error',
   WARN = 'warn',
