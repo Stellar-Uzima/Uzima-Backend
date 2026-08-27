@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto, UserSearchResponseDto } from './dto/user-search.dto';
 import { User } from '../../entities/user.entity';
-import { Role } from '../../auth/enums/role.enum';
-import { UserStatus } from '../../auth/enums/user-status.enum';
+import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 

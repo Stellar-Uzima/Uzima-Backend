@@ -47,6 +47,11 @@ export interface QueueStats {
 }
 
 @Injectable()
+/**
+ * Central façade over Bull queues. Provides helpers to enqueue jobs,
+ * inspect job/queue status, retry or cancel work, and manage
+ * dead-letter and paused-queue operations across the application.
+ */
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
   private readonly queues: Map<QueueName, Queue>;
@@ -223,6 +228,23 @@ export class QueueService {
   }
 
   /**
+   * Ping all queues to check connectivity
+   */
+  async ping(): Promise<boolean> {
+    try {
+      // Try to get stats from the first queue to verify connection
+      const firstQueue = this.queues.values().next().value;
+      if (firstQueue) {
+        await firstQueue.getWaiting();
+      }
+      return true;
+    } catch (error) {
+      this.logger.error('Queue ping failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all queue statistics
    */
   async getAllQueueStats(): Promise<Record<QueueName, QueueStats>> {
@@ -358,7 +380,7 @@ export class QueueService {
     try {
       await queue.clean(0, 'completed');
       await queue.clean(0, 'failed');
-      await queue.clean(0, 'waiting');
+      await queue.clean(0, 'wait');
       await queue.clean(0, 'delayed');
       
       this.logger.log(`Queue ${queueName} cleared`);

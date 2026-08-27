@@ -1,6 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, LessThanOrEqual, MoreThanOrEqual, Repository, Like, FindOptionsWhere } from 'typeorm';
+import {
+  Between,
+  IsNull,
+  LessThan,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
+  Like,
+  FindOptionsWhere,
+} from 'typeorm';
 import { AuditLog, AuditAction, AuditResource } from './entities/audit-log.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/update-audit.dto';
@@ -57,6 +66,11 @@ export class AuditService {
   private readonly logger = new Logger(AuditService.name);
   private previousHash: string | null = null;
 
+  // How long non-compliance audit logs are retained by default (days).
+  // Compliance events are never auto-expired.
+  private readonly DEFAULT_RETENTION_DAYS =
+    Number(process.env.AUDIT_LOG_RETENTION_DAYS) || 365;
+
   constructor(
     @InjectRepository(AuditLog) private auditRepo: Repository<AuditLog>,
   ) {}
@@ -94,6 +108,16 @@ export class AuditService {
     auditLog.previousHash = this.previousHash;
     auditLog.blockIndex = await this.getNextBlockIndex();
 
+    // Compliance events are retained indefinitely; everything else gets
+    // a computed expiry so cleanup can use the indexed retention_expires_at column.
+    if (!auditLog.isComplianceEvent) {
+      const retentionExpiresAt = new Date();
+      retentionExpiresAt.setDate(
+        retentionExpiresAt.getDate() + this.DEFAULT_RETENTION_DAYS,
+      );
+      auditLog.retentionExpiresAt = retentionExpiresAt;
+    }
+
     const savedLog = await this.auditRepo.save(auditLog);
     this.previousHash = savedLog.hash;
 
@@ -118,11 +142,26 @@ export class AuditService {
    */
   async create(dto: CreateAuditDto): Promise<AuditLog> {
     return this.logEvent({
-      userId: (dto as any).userId,
-      userEmail: (dto as any).userEmail,
-      action: (dto as any).action || AuditAction.SYSTEM,
-      resourceType: (dto as any).resourceType || AuditResource.SYSTEM,
-      description: (dto as any).description,
+      userId: dto.userId,
+      userEmail: dto.userEmail,
+      userRole: dto.userRole,
+      action: dto.action || AuditAction.SYSTEM,
+      resourceType: dto.resourceType || AuditResource.SYSTEM,
+      resourceId: dto.resourceId,
+      resourceName: dto.resourceName,
+      oldValues: dto.oldValues,
+      newValues: dto.newValues,
+      description: dto.description,
+      ipAddress: dto.ipAddress,
+      userAgent: dto.userAgent,
+      sessionId: dto.sessionId,
+      requestId: dto.requestId,
+      correlationId: dto.correlationId,
+      tenantId: dto.tenantId,
+      isSensitive: dto.isSensitive,
+      isComplianceEvent: dto.isComplianceEvent,
+      complianceCategory: dto.complianceCategory,
+      metadata: dto.metadata,
     });
   }
 
@@ -140,7 +179,7 @@ export class AuditService {
 
     for (let i = 0; i < logs.length; i++) {
       const log = logs[i];
-      
+
       // Verify hash
       const expectedHash = this.generateHash(log);
       if (log.hash !== expectedHash) {
@@ -184,11 +223,11 @@ export class AuditService {
 
     // Build where clause for filtering
     const where: FindOptionsWhere<AuditLog> = {};
-    
+
     if (action) {
       where.action = action;
     }
-    
+
     if (resourceType) {
       where.resourceType = resourceType;
     }
@@ -196,7 +235,7 @@ export class AuditService {
     if (resourceId) {
       where.resourceId = resourceId;
     }
-    
+
     if (userId) {
       where.userId = userId;
     }
@@ -298,32 +337,46 @@ export class AuditService {
   }
 
   /**
-   * Clean up expired audit logs based on retention policy
-   * Deletes logs older than the specified number of days
-   * 
-   * @param retentionDays Number of days to retain logs (e.g., 30 for 30-day retention)
-   * @returns Object containing deleted count and potentially failed deletes
+   * Clean up expired audit logs based on retention policy.
+   *
+   * Two cases are handled:
+   *  1. Logs that already have a computed `retentionExpiresAt` (set at creation
+   *     time by logEvent()) are deleted once that date has passed.
+   *  2. Legacy logs created before retentionExpiresAt existed (it is null) fall
+   *     back to the createdAt + retentionDays cutoff, same as before.
+   * Compliance events are always excluded and never auto-deleted.
+   *
+   * @param retentionDays Fallback retention window in days for legacy rows
+   * @returns Object containing deleted count and deleted ids
    */
   async cleanupExpiredLogs(retentionDays: number): Promise<{ deletedCount: number; deletedIds: string[] }> {
     if (retentionDays <= 0) {
       throw new Error('Retention days must be greater than 0');
     }
 
-    // Calculate the expiration date
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() - retentionDays);
+    const now = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
     this.logger.log(
-      `Starting cleanup of audit logs older than ${retentionDays} days (before ${expirationDate.toISOString()})`,
+      `Starting cleanup of audit logs (retentionExpiresAt <= now, or legacy logs before ${cutoffDate.toISOString()})`,
     );
 
     try {
-      // Find logs that are older than the retention period and exclude compliance events
-      const logsToDelete = await this.auditRepo.find({
-        where: {
-          createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
+      const whereClauses: FindOptionsWhere<AuditLog>[] = [
+        {
           isComplianceEvent: false,
-        } as any,
+          retentionExpiresAt: LessThanOrEqual(now),
+        },
+        {
+          isComplianceEvent: false,
+          retentionExpiresAt: IsNull(),
+          createdAt: LessThan(cutoffDate),
+        },
+      ];
+
+      const logsToDelete = await this.auditRepo.find({
+        where: whereClauses,
         select: ['id'],
       });
 
@@ -334,18 +387,14 @@ export class AuditService {
 
       const deletedIds = logsToDelete.map(log => log.id);
 
-      // Delete the logs
-      await this.auditRepo.delete({
-        createdAt: () => `created_at < '${expirationDate.toISOString()}'`,
-        isComplianceEvent: false,
-      } as any);
+      // Delete by explicit ids (safer than re-running the where clause,
+      // which could otherwise catch rows created between find() and delete()).
+      await this.auditRepo.delete(deletedIds);
 
-      this.logger.log(
-        `Successfully deleted ${logsToDelete.length} expired audit logs`,
-      );
+      this.logger.log(`Successfully deleted ${deletedIds.length} expired audit logs`);
 
       return {
-        deletedCount: logsToDelete.length,
+        deletedCount: deletedIds.length,
         deletedIds,
       };
     } catch (error) {
@@ -387,7 +436,7 @@ export class AuditService {
       order: { blockIndex: 'DESC' },
       select: ['blockIndex'],
     });
-    
+
     return (lastLog?.blockIndex || 0) + 1;
   }
 }

@@ -1,21 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from './enums/role.enum';
-
-@Controller('healer')
-@UseGuards(JwtAuthGuard, RolesGuard)
-export class HealerController {
-  @Get('dashboard')
-  @Roles(Role.HEALER, Role.ADMIN)
-  getDashboard() {
-    return { message: 'Welcome healer or admin' };
-  }
-
-  @Get('admin-only')
-  @Roles(Role.ADMIN)
-  getAdmin() {
-    return { message: 'Admin only endpoint' };
-  }
-}
+// #1082 – Reconcile duplicate auth controllers between auth trees.
+// The full implementation lives in src/modules/auth/healer.controller.ts.
+// This re-export points all imports from src/auth/ to that single source of truth.
+export { HealerController } from '../modules/auth/healer.controller';

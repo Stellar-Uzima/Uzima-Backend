@@ -26,7 +26,7 @@ import {
   ApiResponse,
   ApiParam,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
@@ -34,7 +34,7 @@ import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
 import { ActivityFeedService } from './services/activity-feed.service';
 import { QueueService } from '../../shared/queue/queue.service';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
-import { UpdateProfileDto, ProfileResponseDto } from '../../common/dtos/update-profile.dto';
+import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
 import { DataExportService } from './services/data-export.service';
 import { IsString, IsNotEmpty } from 'class-validator';
 

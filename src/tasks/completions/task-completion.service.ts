@@ -59,7 +59,7 @@ export class TaskCompletionService {
 
     if (existing) {
       const nextAvailableAt = new Date(
-        existing.completedAt.getTime() + 24 * 60 * 60 * 1000,
+        existing.completedAt!.getTime() + 24 * 60 * 60 * 1000,
       );
       throw new ConflictException({
         message: 'Task already completed within the last 24 hours',
@@ -141,5 +141,40 @@ export class TaskCompletionService {
       .where('c.userId = :userId', { userId })
       .orderBy('c.completedAt', 'DESC')
       .getMany();
+  }
+
+  async getUserCompletionStats(userId: string) {
+    const completions = await this.completionRepo.find({ where: { userId } });
+    const totalCompleted = completions.length;
+
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const weeklyCompletions = completions.filter(
+      (c) => c.completedAt && c.completedAt >= oneWeekAgo,
+    ).length;
+    const weeklyCompletionRate = totalCompleted
+      ? Number((weeklyCompletions / totalCompleted).toFixed(2))
+      : 0;
+
+    const categoryCounts = new Map<string, number>();
+    for (const c of completions) {
+      if (c.task && (c.task as any).category) {
+        const category = (c.task as any).category;
+        categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+      }
+    }
+    let mostCompletedCategory: string | null = null;
+    let maxCount = 0;
+    categoryCounts.forEach((count, category) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCompletedCategory = category;
+      }
+    });
+
+    return {
+      totalCompleted,
+      weeklyCompletionRate,
+      mostCompletedCategory: mostCompletedCategory ?? 'none',
+    };
   }
 }

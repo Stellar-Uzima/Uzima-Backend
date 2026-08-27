@@ -9,15 +9,17 @@ import {
   UseGuards,
   Request,
   Query,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '../auth/enums/role.enum';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 import {
   ApiTags,
   ApiOperation,
@@ -29,6 +31,7 @@ import {
 } from '@nestjs/swagger';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { HealthTask } from './entities/health-task.entity';
+import { TaskStatus } from './enums/task-status.enum';
 
 @ApiTags('tasks')
 @Controller('tasks')
@@ -82,6 +85,15 @@ export class TasksController {
     return this.tasksService.findAll(listTasksDto);
   }
 
+  @Get('status/:status')
+  @ApiOperation({ summary: 'Get tasks by status' })
+  @ApiParam({ name: 'status', enum: TaskStatus, description: 'Task status (e.g. ACTIVE, DRAFT, ARCHIVED)' })
+  @ApiResponse({ status: 200, description: 'Returns tasks matching the status' })
+  @ApiResponse({ status: 400, description: 'Invalid status value' })
+  findByStatus(@Param('status', new ParseEnumPipe(TaskStatus)) status: TaskStatus) {
+    return this.tasksService.findByStatus(status);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific health task by ID (public)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
@@ -131,19 +143,47 @@ export class TasksController {
     );
   }
 
+  @Patch(':id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.HEALER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a health task status (owner or ADMIN)' })
+  @ApiBody({
+    type: UpdateTaskStatusDto,
+    description: 'Payload to update the task status',
+  })
+  @ApiParam({ name: 'id', description: 'Task ID' })
+  @ApiResponse({ status: 200, description: 'Task status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Task not found' })
+  updateStatus(
+    @Param('id') id: string,
+    @Body() updateTaskStatusDto: UpdateTaskStatusDto,
+    @Request() req,
+  ) {
+    return this.tasksService.updateStatus(
+      id,
+      updateTaskStatusDto.status,
+      req.user.userId,
+      req.user.role,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.HEALER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Soft delete a health task (ADMIN only)' })
+  @ApiOperation({ summary: 'Soft delete a health task (owner or ADMIN)' })
   @ApiParam({ name: 'id', description: 'Task ID' })
   @ApiResponse({ status: 200, description: 'Task deleted successfully' })
   @ApiResponse({ status: 400, description: 'Invalid ID format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  async remove(@Param('id') id: string) {
-    await this.tasksService.remove(id);
+  async remove(@Param('id') id: string, @Request() req) {
+    await this.tasksService.remove(id, req.user.userId, req.user.role);
     return { message: 'Task deleted successfully' };
   }
 

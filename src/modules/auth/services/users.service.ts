@@ -1,0 +1,159 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
+import { Repository } from 'typeorm';
+import { LinkWalletDto } from '../dto/link-wallet.dto';
+import { User } from '../../../entities/user.entity';
+import { UserStatus } from '../enums/user-status.enum';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+    private eventEmitter: EventEmitter2
+  ) {}
+
+  async findByEmail(email: string): Promise<User | null> {
+    const normalized = email.trim().toLowerCase();
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .addSelect('user.twoFactorSecret')
+      .where('LOWER(user.email) = :normalized', { normalized })
+      .getOne();
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.twoFactorSecret')
+      .where('user.id = :id', { id })
+      .getOne();
+    if (!user) throw new Error('User not found');
+    return user;
+  }
+
+  async getProfile(userId: string): Promise<Omit<User, 'password'>> {
+    const user = await this.findById(userId);
+    const { password, ...profile } = user as User & { password?: string };
+    return profile;
+  }
+
+  async create(
+    userData: Partial<User> & {
+      name?: string;
+      fullName?: string;
+      country?: string;
+    }
+  ): Promise<User> {
+    if (!userData.password && !userData.phoneNumber) {
+      throw new Error('Password or phone number is required');
+    }
+
+    const hashedPassword = userData.password ? await bcrypt.hash(userData.password, 12) : null;
+    const fullName = (userData.fullName ?? userData.name ?? '').trim() || 'User';
+    const spaceIndex = fullName.indexOf(' ');
+    const firstName = spaceIndex > 0 ? fullName.slice(0, spaceIndex) : fullName;
+    const lastName = spaceIndex > 0 ? fullName.slice(spaceIndex + 1) : fullName;
+
+    const email =
+      userData.email != null && userData.email !== ''
+        ? userData.email.trim().toLowerCase()
+        : userData.email;
+
+    const user = this.usersRepository.create({
+      email,
+      phoneNumber: userData.phoneNumber,
+      firstName,
+      lastName,
+      password: hashedPassword,
+    });
+
+    return this.usersRepository.save(user);
+  }
+
+  async findByVerificationToken(token: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { emailVerificationToken: token },
+    });
+  }
+
+  async save(user: User): Promise<User> {
+    return this.usersRepository.save(user);
+  }
+
+  async linkWallet(userId: string, dto: LinkWalletDto): Promise<User> {
+    const { address } = dto;
+
+    // Check if address is already linked to another account
+    const existingUser = await this.usersRepository.findOne({
+      where: { stellarWalletAddress: address },
+    });
+    if (existingUser && existingUser.id !== userId) {
+      throw new BadRequestException('This Stellar address is already linked to another account');
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+
+    user.stellarWalletAddress = address;
+    const updatedUser = await this.usersRepository.save(user);
+
+    // Emit wallet linked event
+    this.eventEmitter.emit('wallet.linked', { userId: user.id, address });
+
+    return updatedUser;
+  }
+
+  async updateLastActiveAt(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { lastActiveAt: new Date() });
+  }
+
+  /**
+   * Track last login timestamp on successful authentication
+   * @param userId - User ID to update
+   */
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.usersRepository.update(userId, { lastLoginAt: new Date() });
+  }
+
+  async findByPhoneNumber(phoneNumber: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { phoneNumber } });
+  }
+
+  /**
+   * Check if user can login based on status
+   * @param userId - User ID to check
+   * @returns Login eligibility
+   */
+  async canUserLogin(userId: string): Promise<{ canLogin: boolean; reason?: string }> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      return { canLogin: false, reason: 'User not found' };
+    }
+
+    // Check the new status field first, fall back to isActive for backward compatibility
+    const userStatus = user.status || (user.isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE);
+
+    switch (userStatus) {
+      case UserStatus.ACTIVE:
+        return { canLogin: true };
+      case UserStatus.INACTIVE:
+        return { canLogin: false, reason: 'Account is inactive' };
+      case UserStatus.SUSPENDED:
+        return { canLogin: false, reason: 'Account is suspended' };
+      default:
+        return { canLogin: false, reason: 'Account status unknown' };
+    }
+  }
+
+  /**
+   * Fetches the profile data for the authenticated user payload response
+   * @param id - User ID
+   */
+  async getProfile(id: string): Promise<User> {
+    return this.findById(id);
+  }
+}

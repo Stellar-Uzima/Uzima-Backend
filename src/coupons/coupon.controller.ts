@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -16,7 +17,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { Coupon } from './entities/coupon.entity';
 import { CouponService, ValidateCouponResult } from './coupon.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
@@ -31,6 +32,17 @@ interface AuthenticatedRequest extends Request {
 @Controller('coupons')
 export class CouponController {
   constructor(private readonly couponService: CouponService) {}
+
+  @Get('available')
+  @ApiOperation({
+    summary: 'Get all available (non-expired, non-redeemed) coupons',
+    description: 'Returns coupons that are currently valid for the authenticated user.',
+  })
+  @ApiResponse({ status: 200, description: 'List of available coupons' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getAvailable(@Req() req: AuthenticatedRequest): Promise<Coupon[]> {
+    return this.couponService.getActiveForUser(req.user.sub);
+  }
 
   @Get('me')
   @ApiOperation({

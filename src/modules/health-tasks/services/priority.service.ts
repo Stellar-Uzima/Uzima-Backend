@@ -14,6 +14,7 @@ export type PrioritizableTask = {
   dueDate?: Date | string | null;
 };
 
+/** Resolves explicit and date-based priorities and orders health tasks for processing. */
 @Injectable()
 export class PriorityService {
   private static readonly PRIORITY_ORDER: Record<TaskPriority, number> = {

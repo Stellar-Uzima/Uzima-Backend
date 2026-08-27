@@ -9,16 +9,21 @@ import { CacheModule } from '@/shared/cache/cache.module';
 import { AdminController } from './admin.controller';
 import { AdminTasksController } from './admin-tasks.controller';
 import { AdminUsersController } from './admin-users.controller';
+import { FailedRewardJobController } from './rewards/failed-reward-job.controller';
 import { QueueModule } from '@/queue/queue.module';
 import { QueueService } from '@/shared/queue/queue.service';
 import { AdminService } from './services/admin.service';
 import { AdminUsersService } from './services/admin-users.service';
+import { AdminImpersonationService } from './services/admin-impersonation.service';
+import { FailedRewardJobService } from './rewards/failed-reward-job.service';
 import { User } from '@/entities/user.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
 import { TasksScheduler } from '@/tasks/tasks.scheduler';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
 import { ReportsModule } from '@modules/reports/reports.module';
+
+import { StreaksModule } from '@/streaks/streaks.module';
 
 @Module({
   imports: [
@@ -30,13 +35,16 @@ import { ReportsModule } from '@modules/reports/reports.module';
     AuthModule,
     ReportsModule,
     QueueModule,
+    StreaksModule,
   ],
-  controllers: [AdminController, AdminUsersController, AdminTasksController],
+  controllers: [AdminController, AdminUsersController, AdminTasksController, FailedRewardJobController],
   providers: [
     AdminService,
     AdminUsersService,
+    AdminImpersonationService,
     TasksScheduler,
     RewardsScheduler,
+    FailedRewardJobService,
     QueueService,
     CacheModule,
   ],

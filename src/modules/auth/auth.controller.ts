@@ -16,12 +16,12 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { VerifyEmailDto, ResendEmailVerificationDto } from '../../auth/dto/verify-email.dto';
-import { RefreshTokenDto } from '../../auth/dto/refresh-token.dto';
-import { LoginDto } from '../../auth/dto/login.dto';
-import { RegisterDto } from '../../auth/dto/register.dto';
-import { ForgotPasswordDto, ResetPasswordDto } from '../../auth/dto/reset-password.dto';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { VerifyEmailDto, ResendEmailVerificationDto } from './dto/verify-email.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';

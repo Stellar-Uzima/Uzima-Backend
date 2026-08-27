@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskActivity } from '../../../database/entities/task-activity.entity';
 
+/**
+ * Records and retrieves activity log entries for health tasks.
+ * Each change to a task (creation, edit, completion, etc.) is persisted as a
+ * {@link TaskActivity} record so users and admins can audit the task history.
+ */
 @Injectable()
 export class ActivityLogService {
   constructor(

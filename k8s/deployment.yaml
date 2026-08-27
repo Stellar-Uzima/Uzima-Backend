@@ -1,0 +1,86 @@
+# Kubernetes Deployment Manifest for Uzima-Backend
+# Demonstrates enhanced health check configuration for upstream orchestrators
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uzima-backend
+  labels:
+    app: uzima-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: uzima-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: uzima-backend
+    spec:
+      containers:
+      - name: uzima-backend
+        image: uzima-backend:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        # Liveness Probe - Checks if the application is running
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30    # Wait 30s before first check
+          periodSeconds: 30          # Check every 30s
+          timeoutSeconds: 10         # Timeout after 10s
+          failureThreshold: 3        # Restart after 3 failures
+        # Readiness Probe - Checks if the app can accept traffic
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10    # Wait 10s before first check
+          periodSeconds: 15          # Check every 15s
+          timeoutSeconds: 5          # Timeout after 5s
+          failureThreshold: 2        # Remove from rotation after 2 failures
+        # Resource limits
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        envFrom:
+        - configMapRef:
+            name: uzima-config
+        - secretRef:
+            name: uzima-secrets
+---
+# Service to expose the backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: uzima-backend-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: uzima-backend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+---
+# Pod Disruption Budget - Ensures high availability during voluntary disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: uzima-backend-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: uzima-backend

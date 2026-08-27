@@ -8,7 +8,7 @@ import {
   ManyToMany,
 } from 'typeorm';
 import { IsString, IsOptional, IsUrl, Length } from 'class-validator';
-import { User } from './user.entity';
+import { User } from '../../entities/user.entity';
 
 @Entity('organizations')
 export class Organization {

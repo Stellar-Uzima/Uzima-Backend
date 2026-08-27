@@ -18,23 +18,7 @@ jobs:
           node-version: "20.x"
           cache: "npm"
 
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        id: npm-cache
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies
-        if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm install
-
-      - name: Restore node_modules from cache
-        if: steps.npm-cache.outputs.cache-hit == 'true'
-        run: npm install
-
+      - run: npm install
       - run: npm run lint
 
   build:
@@ -51,7 +35,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
@@ -72,7 +56,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
@@ -123,7 +107,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
@@ -145,13 +129,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - run: npm install
       - name: Run tests with 70% coverage threshold
         run: >
-          npx jest --coverage
+          npx jest --config jest.config.js --coverage
           --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}'
           --passWithNoTests

@@ -6,8 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
-import { UpdateHealthTaskDto } from '../../common/dtos/update-health-task.dto';
-import { CreateHealthTaskDto } from '../../common/dtos/create-health-task.dto';
+import { UpdateHealthTaskDto } from '../../common/dto/update-health-task.dto';
+import { CreateHealthTaskDto } from '../../common/dto/create-health-task.dto';
 import {
   PriorityService,
   PrioritizableTask,

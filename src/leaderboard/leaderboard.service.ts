@@ -29,12 +29,18 @@ export interface LeaderboardCalculationRow {
 @Injectable()
 export class LeaderboardService {
   private readonly logger = new Logger(LeaderboardService.name);
-  private redis: Redis;
+  private readonly redis: Redis;
+
+  /** Cache performance counters for benchmark/regression tracking */
+  private cacheHits = 0;
+  private cacheMisses = 0;
+  private totalResponseTimeMs = 0;
+  private requestCount = 0;
 
   constructor(
     @InjectRepository(RewardTransaction)
-    private readonly rewardRepo: Repository<RewardTransaction>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly rewardTransactionRepository: Repository<RewardTransaction>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     this.redis = (this.cacheManager.stores as any).client;
   }
@@ -138,6 +144,7 @@ export class LeaderboardService {
     page: number = 1,
     period: LeaderboardPeriod = DEFAULT_LEADERBOARD_PERIOD,
   ): Promise<LeaderboardResponseDto> {
+    const startTime = performance.now();
     const setKey = buildLeaderboardSetKey(period, countryCode);
     const namesKey = `leaderboard:metadata:names`;
     const startIndex = Math.max(page - 1, 0) * limit;
@@ -151,8 +158,19 @@ export class LeaderboardService {
       'WITHSCORES',
     );
 
+    // Track cache hit/miss for benchmark monitoring.
+    // NOTE: An empty sorted set is treated as a "miss" — this is conservative
+    // because an empty-but-valid leaderboard (no users with rewards yet) is also
+    // counted as a miss. For accurate benchmarks, ensure the leaderboard is
+    // pre-populated before measuring cache performance.
+    if (rawTopUsers.length > 0) {
+      this.cacheHits++;
+    } else {
+      this.cacheMisses++;
+    }
+
     // Extract IDs to fetch names from our Hash in one go
-    const userIds = [];
+    const userIds: string[] = [];
     for (let i = 0; i < rawTopUsers.length; i += 2) {
       userIds.push(rawTopUsers[i]);
     }
@@ -175,6 +193,11 @@ export class LeaderboardService {
       totalXlm: parseFloat(rawTopUsers[index * 2 + 1]),
       country: countryCode || 'Global',
     }));
+
+    // Track response time for benchmarks
+    const elapsed = performance.now() - startTime;
+    this.totalResponseTimeMs += elapsed;
+    this.requestCount++;
 
     return {
       topRankings,
@@ -204,7 +227,7 @@ export class LeaderboardService {
       const globalKey = buildLeaderboardSetKey(period);
       pipeline.del(globalKey);
 
-      const queryBuilder = this.rewardRepo
+      const queryBuilder = this.rewardTransactionRepository
         .createQueryBuilder('rt')
         .select('rt.userId', 'userId')
         .addSelect('SUM(rt.amount)', 'totalXlm')
@@ -247,5 +270,47 @@ export class LeaderboardService {
     this.logger.log(
       `Leaderboard rebuild complete. Processed up to ${totalUsersProcessed} users per period.`,
     );
+  }
+
+  /**
+   * Returns cache performance metrics for benchmark and regression testing.
+   *
+   * Tracks hit/miss rates and average response times across all
+   * `getLeaderboard()` calls since the last reset.
+   *
+   * @returns Object with hits, misses, hit rate, and average response time.
+   */
+  getCachePerformanceMetrics(): {
+    hits: number;
+    misses: number;
+    hitRate: number;
+    avgResponseTimeMs: number;
+    totalRequests: number;
+  } {
+    const totalRequests = this.cacheHits + this.cacheMisses;
+    const hitRate = totalRequests > 0
+      ? Math.round((this.cacheHits / totalRequests) * 10000) / 100
+      : 0;
+    const avgResponseTimeMs = this.requestCount > 0
+      ? Math.round((this.totalResponseTimeMs / this.requestCount) * 100) / 100
+      : 0;
+
+    return {
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate,
+      avgResponseTimeMs,
+      totalRequests,
+    };
+  }
+
+  /**
+   * Reset cache performance counters. Useful between benchmark runs.
+   */
+  resetCacheMetrics(): void {
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
+    this.totalResponseTimeMs = 0;
+    this.requestCount = 0;
   }
 }

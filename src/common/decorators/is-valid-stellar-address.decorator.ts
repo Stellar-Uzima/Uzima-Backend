@@ -6,6 +6,10 @@ import {
   ValidationArguments,
 } from 'class-validator';
 
+  // beforeEach(async () => {
+  //   const module: TestingModule = await Test.createTestingModule({
+  //     controllers: [HealerController],
+  //   })
 /**
  * Stellar public key: starts with 'G', followed by 55 uppercase base32 characters (A-Z, 2-7)
  * Total length: 56 characters
