@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TaskCategory } from '../../../tasks/entities/health-task.entity';
 import { AnalyticsService } from './analytics.service';
-import { TaskTemplatesService } from './templates.service';
+import { TaskTemplatesService, TaskTemplate } from './templates.service';
 
 export interface RecommendedTask {
   id: string;
@@ -30,7 +30,7 @@ export class TaskRecommendationService {
       return this.getDefaultRecommendations(limit);
     }
 
-    const scored = availableTemplates.map((template: any) => {
+    const scored = availableTemplates.map((template: TaskTemplate) => {
       const score = this.calculateMatchScore(template, categoryEngagement);
       return {
         id: template.id,
@@ -53,7 +53,7 @@ export class TaskRecommendationService {
     return {};
   }
 
-  private calculateMatchScore(template: any, engagement: Record<TaskCategory, number>): number {
+  private calculateMatchScore(template: TaskTemplate, engagement: Record<TaskCategory, number>): number {
     const base = engagement[template.fields.category] || 0;
     return Math.min(1, base * 0.8 + (template.fields.xlmReward ? 0.15 : 0));
   }
