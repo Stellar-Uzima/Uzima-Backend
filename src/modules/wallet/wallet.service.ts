@@ -33,7 +33,7 @@ export class WalletService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async getWalletSummary(userId: string): Promise<WalletSummaryDto> {
+  async getWalletSummary(userId: string): Promise<Partial<WalletSummaryDto>> {
     const cacheKey = `wallet_summary:${userId}`;
     const cached = await this.cacheManager.get<WalletSummaryDto>(cacheKey);
     if (cached) {
@@ -42,21 +42,22 @@ export class WalletService {
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
-      return { walletLinked: false } as any;
+      return { walletLinked: false };
     }
 
     const walletAddress = user.stellarWalletAddress || user.walletAddress;
     if (!walletAddress) {
-      return { walletLinked: false } as any;
+      return { walletLinked: false };
     }
 
     // Fetch live balance
     let liveBalance = 'unavailable';
     try {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
       this.logger.warn(
-        `Failed to fetch balance for ${walletAddress}: ${error.message}`,
+        `Failed to fetch balance for ${walletAddress}: ${message}`,
       );
     }
 
@@ -162,7 +163,7 @@ export class WalletService {
   /**
    * Reconcile a user's wallet balances and return a summary object for accounting
    */
-  async reconcile(userId: string): Promise<any> {
+  async reconcile(userId: string): Promise<Partial<WalletSummaryDto>> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException('User not found');
@@ -170,14 +171,15 @@ export class WalletService {
 
     const walletAddress = user.stellarWalletAddress || user.walletAddress;
     if (!walletAddress) {
-      return { walletLinked: false } as any;
+      return { walletLinked: false };
     }
 
     let liveBalance = '0.00';
     try {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
-    } catch (error: any) {
-      this.logger.warn(`Failed to fetch balance for reconciliation: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`Failed to fetch balance for reconciliation: ${message}`);
     }
 
     const totalEarnedFromTasks = await this.rewardTransactionRepo
@@ -278,8 +280,9 @@ export class WalletService {
       this.logger.log(`Synced wallet balance for user ${userId}: ${liveBalance}`);
 
       return { liveBalance };
-    } catch (error: any) {
-      this.logger.error(`Failed to sync balance for user ${userId}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to sync balance for user ${userId}: ${message}`);
       throw new BadRequestException('Unable to sync wallet balance from Stellar network');
     }
   }
