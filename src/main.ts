@@ -1,5 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { VersioningType } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
@@ -36,6 +37,9 @@ function addSecurityHeaders(req, res, next) {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
+  // Retrieve ConfigService from the application context to safely read environment parameters
+  const configService = app.get(ConfigService);
+
   // API Versioning
   app.enableVersioning({
     type: VersioningType.URI,
@@ -64,7 +68,8 @@ async function bootstrap() {
   const monitoringInterceptor = app.get(MonitoringInterceptor);
   app.useGlobalInterceptors(monitoringInterceptor);
 
-  const corsOrigins = parseCorsOrigins(process.env);
+  // Use ConfigService for CORS parsing or fallback to process environment if needed
+  const corsOrigins = parseCorsOrigins(configService.get('CORS_ORIGINS') || process.env);
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || corsOrigins.includes(origin)) {
@@ -99,7 +104,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.APP_PORT || 3001;
+  // Replace direct process.env reference with configService.get
+  const port = configService.get<number>('APP_PORT') || 3001;
   await app.listen(port);
 
   console.log(`🚀 Stellar Uzima Backend running on http://localhost:${port}`);
