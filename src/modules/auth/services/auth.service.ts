@@ -9,6 +9,7 @@ import {
   Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
 import { AccountLockedException } from '../exceptions/account-locked.exception';
@@ -41,14 +42,8 @@ export class AuthService {
   private redisClient: RedisClientType;
   private readonly blacklistCache = new Map<string, { blacklisted: boolean; expiresAt: number }>();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly maxFailedLoginAttempts = parseInt(
-    process.env.MAX_FAILED_LOGIN_ATTEMPTS || '5',
-    10,
-  );
-  private readonly lockoutDurationMs = parseInt(
-    process.env.ACCOUNT_LOCKOUT_DURATION_MS || String(15 * 60 * 1000),
-    10,
-  );
+  private readonly maxFailedLoginAttempts: number;
+  private readonly lockoutDurationMs: number;
 
   constructor(
     private usersService: UsersService,
@@ -62,10 +57,13 @@ export class AuthService {
     @InjectRepository(TokenBlacklist)
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
     private readonly notifications: NotificationService,
+    private readonly configService: ConfigService,
     @Optional() private readonly referralService?: ReferralService,
   ) {
+    this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
+    this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
     this.redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
     });
     this.redisClient.connect();
   }
@@ -633,7 +631,7 @@ export class AuthService {
     this.logger.log(`Password reset requested for: ${email}`);
 
     try {
-      const resetLink = `${process.env.FRONTEND_URL || 'https://example.com'}/reset-password?token=${token}`;
+      const resetLink = `${this.configService.get<string>('FRONTEND_URL', 'https://example.com')}/reset-password?token=${token}`;
       await this.notifications.sendEmail(user.id, 'password-reset', {
         name: user.firstName || user.email,
         link: resetLink,
