@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { Logger } from '@nestjs/common';
 import { AppDataSource } from '../data-source';
 import { UserSeeder } from './user.seeder';
 import { TaskCategorySeeder } from './task-category.seeder';
@@ -12,15 +13,17 @@ import { HealthTaskSeeder } from './health-task.seeder';
  *   npx ts-node src/database/seeders/run-seeders.ts
  *   npm run seed
  */
+const logger = new Logger('SeederRunner');
+
 async function runSeeders() {
-  console.log('🚀 Starting database seeding...\n');
+  logger.log('🚀 Starting database seeding...');
 
   let dataSource;
 
   try {
     // Initialize DataSource
     dataSource = await AppDataSource.initialize();
-    console.log('✅ Database connection established\n');
+    logger.log('✅ Database connection established');
 
     // Run seeders in order
     const seeders = [
@@ -33,20 +36,17 @@ async function runSeeders() {
       await seeder.seed();
     }
 
-    console.log('\n🎉 Database seeding completed successfully!');
+    logger.log('🎉 Database seeding completed successfully!');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : '';
-    console.error('\n❌ Database seeding failed:', errorMessage);
-    if (errorStack) {
-      console.error(errorStack);
-    }
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error(`❌ Database seeding failed: ${errorMessage}`, errorStack);
     process.exit(1);
   } finally {
     // Close database connection
     if (dataSource && dataSource.isInitialized) {
       await dataSource.destroy();
-      console.log('\n🔌 Database connection closed');
+      logger.log('🔌 Database connection closed');
     }
   }
 }
