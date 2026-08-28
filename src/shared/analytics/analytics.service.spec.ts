@@ -72,5 +72,67 @@ describe('AnalyticsService', () => {
       expect(userActions).toEqual([]);
       expect(systemMetrics).toEqual([]);
     });
+
+    it('should clear both user action and system metric logs when clearLogs is called', () => {
+      service.trackUserAction('user-1', 'login');
+      service.trackSystemMetric('cpu', 50);
+
+      expect(service.queryUserActions({})).toHaveLength(1);
+      expect(service.querySystemMetrics({})).toHaveLength(1);
+
+      service.clearLogs();
+
+      expect(service.queryUserActions({})).toHaveLength(0);
+      expect(service.querySystemMetrics({})).toHaveLength(0);
+    });
+
+    it('should return empty results when querying with no filters on a fresh service', () => {
+      service.clearLogs();
+
+      const userActions = service.queryUserActions({});
+      const systemMetrics = service.querySystemMetrics({});
+
+      expect(userActions).toEqual([]);
+      expect(systemMetrics).toEqual([]);
+    });
+
+    it('should produce a report with valid structure when only user actions exist but no system metrics', () => {
+      service.clearLogs();
+      service.trackUserAction('user-1', 'login');
+      service.trackUserAction('user-1', 'login');
+
+      const start = new Date('2020-01-01T00:00:00.000Z');
+      const end = new Date('2030-12-31T23:59:59.999Z');
+      const report = service.generateAnalyticsReport(start, end);
+
+      expect(report.totalUserActions).toBe(2);
+      expect(report.totalMetricsRecorded).toBe(0);
+      expect(report.topActionPatterns).toEqual([{ action: 'login', count: 2 }]);
+      expect(report.averageSystemMetrics).toEqual({});
+    });
+
+    it('should produce a report with valid structure when only system metrics exist but no user actions', () => {
+      service.clearLogs();
+      service.trackSystemMetric('memory', 1024);
+
+      const start = new Date('2020-01-01T00:00:00.000Z');
+      const end = new Date('2030-12-31T23:59:59.999Z');
+      const report = service.generateAnalyticsReport(start, end);
+
+      expect(report.totalUserActions).toBe(0);
+      expect(report.totalMetricsRecorded).toBe(1);
+      expect(report.topActionPatterns).toEqual([]);
+      expect(report.averageSystemMetrics).toEqual({ memory: 1024 });
+    });
+
+    it('should filter out actions outside the timeframe and return empty for empty range', () => {
+      service.trackUserAction('user-1', 'click');
+
+      const pastStart = new Date('2020-01-01T00:00:00.000Z');
+      const pastEnd = new Date('2020-01-02T00:00:00.000Z');
+      const actions = service.queryUserActions({ start: pastStart, end: pastEnd });
+
+      expect(actions).toHaveLength(0);
+    });
   });
 });

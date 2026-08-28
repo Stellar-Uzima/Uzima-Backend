@@ -258,5 +258,93 @@ describe('TaskAnalyticsService', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('returns empty array for new user with no completions', async () => {
+      qbMock.getRawMany.mockResolvedValueOnce([]);
+
+      const result = await service.getCategoryBreakdown(
+        new Date('2025-01-01'),
+        new Date('2025-01-08'),
+        'brand-new-user',
+      );
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('empty dataset edge cases', () => {
+    it('should return 0 completion rate for negative input values', () => {
+      expect(service.calculateCompletionRate(-1, -1)).toBe(0);
+      expect(service.calculateCompletionRate(-5, 0)).toBe(0);
+      expect(service.calculateCompletionRate(0, -3)).toBe(0);
+    });
+
+    it('should return valid stats with default options when no data exists', async () => {
+      mockCompletionRepo.count.mockResolvedValue(0);
+      qbMock.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getStats();
+
+      expect(result).toBeDefined();
+      expect(result.period).toBe('weekly');
+      expect(result.totalAttempted).toBe(0);
+      expect(result.totalCompleted).toBe(0);
+      expect(result.completionRate).toBe(0);
+      expect(result.categoryBreakdown).toEqual([]);
+      expect(result.dateRange.startDate).toBeInstanceOf(Date);
+      expect(result.dateRange.endDate).toBeInstanceOf(Date);
+    });
+
+    it('should return valid weekly stats for a new user with zero completed tasks', async () => {
+      mockCompletionRepo.count.mockResolvedValue(0);
+      qbMock.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getWeeklyStats('new-user-id');
+
+      expect(result.period).toBe('weekly');
+      expect(result.totalAttempted).toBe(0);
+      expect(result.totalCompleted).toBe(0);
+      expect(result.completionRate).toBe(0);
+      expect(Number.isNaN(result.completionRate)).toBe(false);
+      expect(Number.isFinite(result.completionRate)).toBe(true);
+      expect(result.categoryBreakdown).toEqual([]);
+    });
+
+    it('should return valid daily stats for a new user with zero completed tasks', async () => {
+      mockCompletionRepo.count.mockResolvedValue(0);
+      qbMock.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getDailyStats('new-user-id');
+
+      expect(result.period).toBe('daily');
+      expect(result.totalAttempted).toBe(0);
+      expect(result.totalCompleted).toBe(0);
+      expect(result.completionRate).toBe(0);
+      expect(Number.isNaN(result.completionRate)).toBe(false);
+      expect(Number.isFinite(result.completionRate)).toBe(true);
+      expect(result.categoryBreakdown).toEqual([]);
+    });
+
+    it('should resolve date range without throwing when only startDate is provided', () => {
+      const start = new Date('2025-06-01T00:00:00.000Z');
+      const { startDate, endDate } = service.resolveDateRange({ startDate: start });
+
+      expect(startDate.toISOString()).toBe(start.toISOString());
+      expect(endDate).toBeInstanceOf(Date);
+      expect(endDate.getTime()).toBeGreaterThanOrEqual(startDate.getTime());
+    });
+
+    it('should return valid stats for monthly period with empty dataset', async () => {
+      mockCompletionRepo.count.mockResolvedValue(0);
+      qbMock.getRawMany.mockResolvedValue([]);
+
+      const result = await service.getStats({ period: 'monthly' });
+
+      expect(result.period).toBe('monthly');
+      expect(result.totalAttempted).toBe(0);
+      expect(result.totalCompleted).toBe(0);
+      expect(result.completionRate).toBe(0);
+      expect(result.categoryBreakdown).toEqual([]);
+    });
   });
 });
