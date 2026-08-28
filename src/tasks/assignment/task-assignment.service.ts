@@ -70,6 +70,23 @@ export class TaskAssignmentService {
     return assignment;
   }
 
+  // ─── Public: Get All Assignments For a User (admin lookup) ────────────
+
+  /**
+   * Returns every daily task assignment ever created for a user, most
+   * recent first, with each assignment's tasks eagerly loaded. Used by
+   * the admin "view a user's tasks" endpoint (#1015) - deliberately does
+   * not touch the Redis cache used by getTodayAssignment above, since
+   * this reads historical data rather than "today's" assignment.
+   */
+  async getAssignmentHistory(userId: string): Promise<DailyTaskAssignment[]> {
+    return this.assignmentRepo.find({
+      where: { user: { id: userId } },
+      relations: ['tasks'],
+      order: { assignedDate: 'DESC' },
+    });
+  }
+
   // ─── Private: Create Assignment ───────────────────────────────────────
 
   private async createAssignment(
