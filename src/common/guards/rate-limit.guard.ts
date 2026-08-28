@@ -10,6 +10,12 @@ import {
 } from '@nestjs/throttler';
 import { Request } from 'express';
 
+/**
+ * Guard that throttles incoming requests based on the client's real IP address.
+ * Extracts the IP from proxy headers (X-Forwarded-For, X-Real-IP) or falls back
+ * to the socket remote address. Denies access with HTTP 429 when the request
+ * threshold is exceeded within the configured time window.
+ */
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
   /**
