@@ -66,7 +66,24 @@ export class UsersService {
 
   async getSettings(userId: string): Promise<UserSettingsResponseDto> {
     const user = await this.findUserOrFail(userId);
-    return this.toSettingsResponse(user);
+    const baseSettings = this.toSettingsResponse(user);
+
+    // Enrich with preferences/notification/privacy data so this endpoint
+    // returns the user's *full* settings in one call (#1013). This only
+    // affects the GET response - updateSettings/patchPreferences below
+    // are unchanged and continue to return just the profile fields, since
+    // writing these preference fields through this endpoint is a
+    // separate, out-of-scope PATCH endpoint issue.
+    const preferences = await this.preferencesService.getPreferences(userId);
+
+    return {
+      ...baseSettings,
+      theme: preferences.theme,
+      emailNotifications: preferences.notifications?.email,
+      pushNotifications: preferences.notifications?.push,
+      smsNotifications: preferences.notifications?.sms,
+      privacy: preferences.privacy,
+    };
   }
 
   async updateSettings(

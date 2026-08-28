@@ -9,6 +9,11 @@ import {
 } from 'class-validator';
 
 import { Transform } from 'class-transformer';
+import { Theme } from '../../../database/entities/user-preferences.entity';
+import {
+    NotificationPreferencesDto,
+    PrivacyPreferencesDto,
+} from './preferences.dto';
 
 export const SUPPORTED_LANGUAGE_CODES = [
     'en',
@@ -88,6 +93,37 @@ export class UserSettingsResponseDto {
         default: null,
     })
     phoneNumber!: string | null;
+
+    @ApiPropertyOptional({
+        description: 'UI theme preference',
+        enum: Theme,
+        example: Theme.SYSTEM,
+    })
+    theme?: Theme;
+
+    @ApiPropertyOptional({
+        description: 'Email notification preferences',
+        type: NotificationPreferencesDto,
+    })
+    emailNotifications?: NotificationPreferencesDto;
+
+    @ApiPropertyOptional({
+        description: 'Push notification preferences',
+        type: NotificationPreferencesDto,
+    })
+    pushNotifications?: NotificationPreferencesDto;
+
+    @ApiPropertyOptional({
+        description: 'SMS notification preferences',
+        type: NotificationPreferencesDto,
+    })
+    smsNotifications?: NotificationPreferencesDto;
+
+    @ApiPropertyOptional({
+        description: 'Privacy settings',
+        type: PrivacyPreferencesDto,
+    })
+    privacy?: PrivacyPreferencesDto;
 }
 
 export class UpdateUserSettingsDto {

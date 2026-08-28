@@ -14,12 +14,12 @@ import { TaskCategory } from '../database/entities/task-category.entity';
 import { TaskTag } from '../database/entities/task-tag.entity';
 import { TaskDifficulty } from '../tasks/enums/task-difficulty.enum';
 
-@entity('health_tasks')
+@Entity('health_tasks')
 export class HealthTask {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne((): User, (user) => user.healthTasks, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.healthTasks, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -56,7 +56,7 @@ export class HealthTask {
   @Column({ default: true })
   isActive: boolean;
 
-  CCreateDateColumn()
+  @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
