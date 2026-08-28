@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import Redis, { RedisOptions } from 'ioredis';
 import { redisConfig } from '../../config/redis.config';
 
 /**
@@ -52,6 +52,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   private hitCount = 0;
   private missCount = 0;
 
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
   constructor(private readonly configService: ConfigService) {}
 
   /**
@@ -74,7 +78,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-    } as any);
+    } as RedisOptions);
 
     this.redis.on('connect', () => {
       this.logger.log('Redis connected successfully');
@@ -122,8 +126,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       this.logger.debug(`Cache set: ${key} (TTL: ${ttl}s)`);
-    } catch (error: any) {
-      this.logger.error(`Failed to set cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to set cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -139,9 +143,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
    * @param ttl   - TTL in seconds; defaults to the service-level default TTL.
    *                Use {@link CACHE_TTL} constants for category-appropriate lifetimes.
    */
-  async setIfNotExists(
+  async setIfNotExists<T>(
     key: string,
-    value: any,
+    value: T,
     ttl?: number,
   ): Promise<boolean> {
     const effectiveTtl = ttl ?? this.defaultTtl;
@@ -152,7 +156,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const wasSet = result === 'OK';
       this.logger.debug(`Cache setIfNotExists: ${key} (TTL: ${effectiveTtl}s) -> ${wasSet}`);
       return wasSet;
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(`Failed to setIfNotExists cache key ${key}:`, error);
       // In case of error, be conservative and allow sending (return true)
       return true;
@@ -176,8 +180,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       this.logger.debug(`Cache hit: ${key}`);
       
       return JSON.parse(value) as T;
-    } catch (error: any) {
-      this.logger.error(`Failed to get cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to get cache key ${key}: ${this.getErrorMessage(error)}`);
       return null;
     }
   }
@@ -189,8 +193,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.redis.del(key);
       this.logger.debug(`Cache deleted: ${key}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to delete cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to delete cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -202,8 +206,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       const result = await this.redis.exists(key);
       return result === 1;
-    } catch (error: any) {
-      this.logger.error(`Failed to check cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to check cache key ${key}: ${this.getErrorMessage(error)}`);
       return false;
     }
   }
@@ -215,8 +219,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.redis.expire(key, ttl);
       this.logger.debug(`Cache TTL set: ${key} (${ttl}s)`);
-    } catch (error: any) {
-      this.logger.error(`Failed to set TTL for cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to set TTL for cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -227,8 +231,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   async ttl(key: string): Promise<number> {
     try {
       return await this.redis.ttl(key);
-    } catch (error: any) {
-      this.logger.error(`Failed to get TTL for cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to get TTL for cache key ${key}: ${this.getErrorMessage(error)}`);
       return -1;
     }
   }
@@ -241,8 +245,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const result = await this.redis.incrby(key, amount);
       this.logger.debug(`Cache incremented: ${key} by ${amount}`);
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to increment cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to increment cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -255,8 +259,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const result = await this.redis.decrby(key, amount);
       this.logger.debug(`Cache decremented: ${key} by ${amount}`);
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to decrement cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to decrement cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -264,14 +268,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Add value to a list
    */
-  async lpush(key: string, ...values: any[]): Promise<number> {
+  async lpush<T>(key: string, ...values: T[]): Promise<number> {
     try {
       const serializedValues = values.map(v => JSON.stringify(v));
       const result = await this.redis.lpush(key, ...serializedValues);
       this.logger.debug(`Cache lpush: ${key} (${values.length} items)`);
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to lpush cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to lpush cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -283,8 +287,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       const values = await this.redis.lrange(key, start, stop);
       return values.map(v => JSON.parse(v)) as T[];
-    } catch (error: any) {
-      this.logger.error(`Failed to lrange cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to lrange cache key ${key}: ${this.getErrorMessage(error)}`);
       return [];
     }
   }
@@ -292,14 +296,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Add value to a set
    */
-  async sadd(key: string, ...values: any[]): Promise<number> {
+  async sadd<T>(key: string, ...values: T[]): Promise<number> {
     try {
       const serializedValues = values.map(v => JSON.stringify(v));
       const result = await this.redis.sadd(key, ...serializedValues);
       this.logger.debug(`Cache sadd: ${key} (${values.length} items)`);
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to sadd cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to sadd cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -311,8 +315,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       const values = await this.redis.smembers(key);
       return values.map(v => JSON.parse(v)) as T[];
-    } catch (error: any) {
-      this.logger.error(`Failed to smembers cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to smembers cache key ${key}: ${this.getErrorMessage(error)}`);
       return [];
     }
   }
@@ -330,8 +334,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const result = await this.redis.del(...keys);
       this.logger.log(`Cache cleared: ${keys.length} keys matching pattern "${pattern}"`);
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to clear cache pattern ${pattern}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to clear cache pattern ${pattern}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -342,8 +346,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   async keys(pattern: string): Promise<string[]> {
     try {
       return await this.redis.keys(pattern);
-    } catch (error: any) {
-      this.logger.error(`Failed to get keys for pattern ${pattern}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to get keys for pattern ${pattern}: ${this.getErrorMessage(error)}`);
       return [];
     }
   }
@@ -355,8 +359,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.redis.flushall();
       this.logger.log('Cache flushed all');
-    } catch (error: any) {
-      this.logger.error(`Failed to flush cache: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to flush cache: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -383,8 +387,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
         misses: this.missCount,
         hitRate: Math.round(hitRate * 100) / 100,
       };
-    } catch (error: any) {
-      this.logger.error(`Failed to get cache stats: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to get cache stats: ${this.getErrorMessage(error)}`);
       return {
         keys: 0,
         memory: '0B',
@@ -424,8 +428,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       await this.set(key, data, { ttl: effectiveTtl });
       
       return data;
-    } catch (error: any) {
-      this.logger.error(`Failed to remember cache key ${key}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to remember cache key ${key}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -490,8 +494,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
           return null;
         }
       });
-    } catch (error: any) {
-      this.logger.error(`Failed to mget cache keys: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to mget cache keys: ${this.getErrorMessage(error)}`);
       return keys.map(() => null);
     }
   }
@@ -499,7 +503,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Set multiple keys at once
    */
-  async mset(keyValuePairs: Record<string, any>, ttl?: number): Promise<void> {
+  async mset<T>(keyValuePairs: Record<string, T>, ttl?: number): Promise<void> {
     try {
       const serializedPairs: string[] = [];
       
@@ -519,8 +523,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       this.logger.debug(`Cache mset: ${Object.keys(keyValuePairs).length} keys`);
-    } catch (error: any) {
-      this.logger.error(`Failed to mset cache: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to mset cache: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -551,8 +555,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       await this.set(cacheKey, result, { ttl });
 
       return result;
-    } catch (error: any) {
-      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to get or compute leaderboard ${cacheKey}: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
@@ -565,8 +569,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const count = await this.clearPattern(pattern);
       this.logger.log(`Invalidated ${count} leaderboard cache keys`);
       return count;
-    } catch (error: any) {
-      this.logger.error(`Failed to invalidate leaderboard cache: ${error?.message || error}`);
+    } catch (error: unknown) {
+      this.logger.error(`Failed to invalidate leaderboard cache: ${this.getErrorMessage(error)}`);
       throw error;
     }
   }
