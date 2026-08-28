@@ -12,7 +12,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { HealerAvailabilityService } from './healer-availability.service';
 import { SetScheduleDto } from './dto/set-schedule.dto';
@@ -34,6 +34,9 @@ export class HealerAvailabilityController {
 
   @Post('schedule')
   @ApiOperation({ summary: 'Set weekly recurring availability schedule' })
+  @ApiResponse({ status: 201, description: 'Availability schedule created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid schedule data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async setWeeklySchedule(
     @Body() dto: SetScheduleDto,
     @Req() req: AuthenticatedRequest,
@@ -49,6 +52,9 @@ export class HealerAvailabilityController {
 
   @Post('block')
   @ApiOperation({ summary: 'Block a specific date' })
+  @ApiResponse({ status: 201, description: 'Date blocked successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid block data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async blockDate(
     @Body() dto: BlockDateDto,
     @Req() req: AuthenticatedRequest,
@@ -59,6 +65,8 @@ export class HealerAvailabilityController {
 
   @Get('slots/available')
   @ApiOperation({ summary: 'Get available slots for a healer within a date range' })
+  @ApiResponse({ status: 200, description: 'Available slots retrieved successfully' })
+  @ApiResponse({ status: 400, description: 'healerId, startDate, and endDate are required' })
   async getAvailableSlots(
     @Query('healerId') healerId: string,
     @Query('startDate') startDate: string,
@@ -77,6 +85,11 @@ export class HealerAvailabilityController {
 
   @Post('book')
   @ApiOperation({ summary: 'Book a slot with a healer' })
+  @ApiResponse({ status: 201, description: 'Slot booked successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid booking data or blocked slot' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Availability slot not found' })
+  @ApiResponse({ status: 409, description: 'Slot is already booked' })
   async bookSlot(@Body() dto: BookSlotDto, @Req() req: AuthenticatedRequest) {
     const userId = req.user.userId;
 
@@ -91,6 +104,10 @@ export class HealerAvailabilityController {
 
   @Post('appointments/:id/cancel')
   @ApiOperation({ summary: 'Cancel a booking' })
+  @ApiResponse({ status: 200, description: 'Booking cancelled successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Not authorized to cancel this booking' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
   async cancelBooking(
     @Param('id') id: string,
     @Body() dto: CancelBookingDto,
@@ -102,6 +119,8 @@ export class HealerAvailabilityController {
 
   @Get('appointments')
   @ApiOperation({ summary: 'Get my appointments' })
+  @ApiResponse({ status: 200, description: 'Appointments retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMyAppointments(
     @Req() req: AuthenticatedRequest,
     @Query('status') status?: string,
