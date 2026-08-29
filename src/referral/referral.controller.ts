@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ReferralService } from './referral.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RedeemReferralDto } from './dto/redeem-referral.dto';
 
+@ApiTags('Referral')
 @Controller('users/me')
 @UseGuards(JwtAuthGuard)
 export class ReferralController {
