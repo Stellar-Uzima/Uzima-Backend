@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { BaseSeeder } from './base.seeder';
 import { TaskCategory, NameTranslations } from '../../tasks/entities/task-category.entity';
@@ -145,6 +146,7 @@ export const categoriesData: CategorySeedData[] = [
   },
 ];
 
+@Injectable()
 export class TaskCategorySeeder extends BaseSeeder {
   constructor(dataSource: DataSource) {
     super(dataSource);
@@ -170,7 +172,7 @@ export class TaskCategorySeeder extends BaseSeeder {
       });
 
       if (existingCategory) {
-        console.log(`⏭️  Category already exists: ${categoryData.name}`);
+        this.logger.log(`Category already exists: ${categoryData.name}`);
         continue;
       }
 
@@ -181,10 +183,10 @@ export class TaskCategorySeeder extends BaseSeeder {
       });
 
       await categoryRepository.save(category);
-      console.log(`✅ Created category: ${categoryData.name}`);
+      this.logger.log(`Created category: ${categoryData.name}`);
     }
 
     const count = await categoryRepository.count();
-    console.log(`\n📊 Total categories in database: ${count}`);
+    this.logger.log(`Total categories in database: ${count}`);
   }
 }

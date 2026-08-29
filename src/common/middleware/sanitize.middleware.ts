@@ -9,7 +9,7 @@ export class SanitizeMiddleware implements NestMiddleware {
       req.body = this.sanitizeObject(req.body);
     }
     if (req.query) {
-      req.query = this.sanitizeObject(req.query);
+      req.query = this.sanitizeObject(req.query) as Request['query'];
     }
     next();
   }
@@ -17,7 +17,7 @@ export class SanitizeMiddleware implements NestMiddleware {
   /**
    * Recursively sanitizes all string fields in an object or array
    */
-  private sanitizeObject(obj: any): any {
+  private sanitizeObject(obj: unknown): unknown {
     if (obj === null || obj === undefined) {
       return obj;
     }
@@ -29,10 +29,11 @@ export class SanitizeMiddleware implements NestMiddleware {
 
     // Handle objects
     if (typeof obj === 'object') {
-      const sanitized: any = {};
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          sanitized[key] = this.sanitizeValue(obj[key]);
+      const source = obj as Record<string, unknown>;
+      const sanitized: Record<string, unknown> = {};
+      for (const key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          sanitized[key] = this.sanitizeValue(source[key]);
         }
       }
       return sanitized;
@@ -45,7 +46,7 @@ export class SanitizeMiddleware implements NestMiddleware {
   /**
    * Sanitizes a single value based on its type
    */
-  private sanitizeValue(value: any): any {
+  private sanitizeValue(value: unknown): unknown {
     if (typeof value === 'string') {
       return this.sanitizeString(value);
     }
