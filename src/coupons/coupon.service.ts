@@ -11,7 +11,7 @@ import Redis from 'ioredis';
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { redisConfig, getRedisUrl } from '../config/redis.config';
-import { Coupon, CouponStatus } from './entities/coupon.entity';
+import { Coupon, CouponStatus } from '../entities/coupon.entity';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 import {
   REWARD_MILESTONE_EVENT,

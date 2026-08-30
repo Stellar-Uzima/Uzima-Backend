@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestj/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import { CategoryService } from './category.service';
 
