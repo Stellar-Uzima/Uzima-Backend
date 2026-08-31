@@ -2,6 +2,33 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
+/**
+ * Narrows an unknown caught value to a human-readable message.
+ * Handles native Error instances as well as non-Error throwables
+ * (strings, objects with a `message` property, etc.) without
+ * relying on `any`.
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  return 'Unknown error';
+}
+
 @Injectable()
 export class PushNotificationService implements OnModuleInit {
   private readonly logger = new Logger(PushNotificationService.name);
@@ -40,10 +67,14 @@ export class PushNotificationService implements OnModuleInit {
         this.logger.log('FCM successfully initialized with in-memory service account credentials.');
       } else {
         // Fallback for local development or testing when no FCM credentials are present
-        this.logger.warn('No Firebase credentials provided. FCM push notification service is running in mock/offline mode.');
+        this.logger.warn(
+          'No Firebase credentials provided. FCM push notification service is running in mock/offline mode.'
+        );
       }
-    } catch (error: any) {
-      this.logger.error(`FCM initialization failed: ${error.message}. Running in offline/mock mode.`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `FCM initialization failed: ${getErrorMessage(error)}. Running in offline/mock mode.`
+      );
     }
   }
 
@@ -55,18 +86,22 @@ export class PushNotificationService implements OnModuleInit {
     token: string,
     title: string,
     body: string,
-    data: Record<string, string> = {},
+    data: Record<string, string> = {}
   ): Promise<boolean> {
     if (!token) {
       this.logger.warn('FCM token is empty, skipping push notification');
       return false;
     }
 
-    this.logger.log(`Attempting to send push notification via FCM to token: ${token.substring(0, 10)}...`);
+    this.logger.log(
+      `Attempting to send push notification via FCM to token: ${token.substring(0, 10)}...`
+    );
 
     if (!this.firebaseApp) {
       // Mock mode
-      this.logger.log(`[MOCK FCM] Push notification sent to token: ${token} - Title: ${title}, Body: ${body}`);
+      this.logger.log(
+        `[MOCK FCM] Push notification sent to token: ${token} - Title: ${title}, Body: ${body}`
+      );
       return true;
     }
 
@@ -81,8 +116,10 @@ export class PushNotificationService implements OnModuleInit {
       });
       this.logger.log(`FCM push notification sent successfully, messageId: ${response}`);
       return true;
-    } catch (error: any) {
-      this.logger.error(`FCM push notification delivery failed for token ${token}: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `FCM push notification delivery failed for token ${token}: ${getErrorMessage(error)}`
+      );
       // Failed pushes are logged and don't break the notification flow (returns false instead of throwing)
       return false;
     }

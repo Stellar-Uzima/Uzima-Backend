@@ -11,6 +11,7 @@ import {
   JoinTable,
 } from 'typeorm';
 import { TaskCategory as TaskCategoryEntity } from '../../database/entities/task-category.entity';
+import type { TaskTag } from '../../database/entities/task-tag.entity';
 
 export enum TaskCategory {
   NUTRITION = 'nutrition',
@@ -63,7 +64,7 @@ export class HealthTask {
     joinColumn: { name: 'healthTaskId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
   })
-  tags?: any[];
+  tags?: TaskTag[];
 
   @Column({ type: 'varchar', nullable: true })
   createdBy!: string | null;

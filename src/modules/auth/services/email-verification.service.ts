@@ -1,6 +1,7 @@
 import { GoneException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { EmailVerification } from '../../../database/entities/email-verification.entity';
 import { UsersService } from './users.service';
@@ -19,6 +20,7 @@ export class EmailVerificationService {
     private readonly repo: Repository<EmailVerification>,
     private readonly usersService: UsersService,
     private readonly notifications: NotificationService,
+    private readonly configService: ConfigService,
   ) {}
 
   async createForUser(userId: string) {
@@ -30,9 +32,10 @@ export class EmailVerificationService {
     const ev = this.repo.create({ token, expiresAt, user } as any);
     await this.repo.save(ev);
 
-    // Send email via notifications service (template can be adapted)
+    // Send email via notifications service using ConfigService for frontend URL retrieval
     try {
-      const verificationLink = `${process.env.FRONTEND_URL || 'https://example.com'}/verify-email?token=${token}`;
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://example.com';
+      const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
       await this.notifications.sendMultiChannel(user.id, {
         email: { template: 'email-verification', data: { name: user.firstName || user.email, link: verificationLink } },
       });

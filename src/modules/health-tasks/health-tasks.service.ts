@@ -15,6 +15,13 @@ import {
 import { ActivityLogService } from './services/activity-log.service';
 import { TaskCategory } from '../../database/entities/task-category.entity';
 import { TaskTag } from '../../database/entities/task-tag.entity';
+import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
+
+interface PriorityAlert {
+  type: string;
+  message: string;
+  createdAt: string;
+}
 
 @Injectable()
 export class HealthTasksService {
@@ -34,6 +41,48 @@ export class HealthTasksService {
       where: { id },
       relations: ['category', 'tags'],
     });
+  }
+
+  async findByDifficulty(difficulty: TaskDifficulty): Promise<HealthTask[]> {
+    return this.taskRepository.find({ where: { difficulty } });
+  }
+
+  async getUserTasks(userId: string, filters: {
+    status?: string;
+    category?: string;
+    priority?: string;
+    startDate?: Date;
+    endDate?: Date;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  } = {}): Promise<any> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', status, category, priority, startDate, endDate } = filters;
+    const qb = this.taskRepository.createQueryBuilder('task')
+      .where('task.userId = :userId', { userId })
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy(`task.${sortBy}`, sortOrder.toUpperCase() as 'ASC' | 'DESC');
+
+    if (status) {
+      qb.andWhere('task.isActive = :isActive', { isActive: status === 'active' });
+    }
+    if (category) {
+      qb.andWhere('task.categoryId = :category', { category });
+    }
+    if (priority) {
+      qb.andWhere("task.targetProfile->>'priority' = :priority", { priority });
+    }
+    if (startDate) {
+      qb.andWhere('task.createdAt >= :startDate', { startDate });
+    }
+    if (endDate) {
+      qb.andWhere('task.createdAt <= :endDate', { endDate });
+    }
+
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, page, limit, sortBy, sortOrder };
   }
 
   async create(dto: CreateHealthTaskDto): Promise<HealthTask> {
@@ -131,11 +180,14 @@ export class HealthTasksService {
     const alertMessage = this.priorityService.buildOverdueAlert(prioritizableTask);
     if (alertMessage) {
       const existingProfile = task.targetProfile ?? {};
-      const priorityAlerts = Array.isArray((existingProfile as any).priorityAlerts)
+      const priorityAlerts: PriorityAlert[] = Array.isArray(
+        (existingProfile as any).priorityAlerts,
+      )
         ? [...(existingProfile as any).priorityAlerts]
         : [];
       const alreadyPresent = priorityAlerts.some(
-        (alert: any) => alert?.type === 'overdue' && alert?.message === alertMessage,
+        (alert: PriorityAlert) =>
+          alert?.type === 'overdue' && alert?.message === alertMessage,
       );
       if (!alreadyPresent) {
         priorityAlerts.push({
@@ -183,7 +235,7 @@ export class HealthTasksService {
     await this.taskRepository.softDelete(id);
   }
 
-  async getTaskActivity(taskId: string): Promise<import('../../../database/entities/task-activity.entity').TaskActivity[]> {
+  async getTaskActivity(taskId: string): Promise<import('../../database/entities/task-activity.entity').TaskActivity[]> {
     return this.activityLogService.getActivityHistory(taskId);
   }
 

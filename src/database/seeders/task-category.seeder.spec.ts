@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TaskCategorySeeder } from './task-category.seeder';
 import { TaskCategory } from '../../tasks/entities/task-category.entity';
@@ -87,13 +88,13 @@ describe('TaskCategorySeeder', () => {
     it('should skip seeding when data already exists', async () => {
       mockCategoryRepository.count.mockResolvedValue(1);
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const loggerSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
       await seeder.seed();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Data already exists, skipping'),
       );
-      consoleSpy.mockRestore();
+      loggerSpy.mockRestore();
     });
 
     it('should log success when seeding completes', async () => {
@@ -101,12 +102,22 @@ describe('TaskCategorySeeder', () => {
       mockCategoryRepository.findOne.mockResolvedValue(null);
       mockCategoryRepository.create.mockReturnValue({});
 
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const loggerSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
       await seeder.seed();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Completed successfully'),
-      );
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Completed successfully'));
+      loggerSpy.mockRestore();
+    });
+
+    it('never falls back to console.log for its status messages', async () => {
+      mockCategoryRepository.count.mockResolvedValue(0);
+      mockCategoryRepository.findOne.mockResolvedValue(null);
+      mockCategoryRepository.create.mockReturnValue({});
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      await seeder.run();
+
+      expect(consoleSpy).not.toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });

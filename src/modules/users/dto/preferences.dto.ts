@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum, IsBoolean, IsObject, IsNumber, Matches, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Theme, NotificationType } from '../../database/entities/user-preferences.entity';
+import { Theme, NotificationType } from '../../../database/entities/user-preferences.entity';
 
 export class NotificationPreferencesDto {
   @ApiPropertyOptional({
