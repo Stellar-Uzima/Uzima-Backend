@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
+import { ApiResponse } from '@nestjs/swagger';
 import { RewardsService } from './rewards.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { GetPayoutHistoryDto, PaginatedPayoutHistoryDto } from './dto/payout-history.dto';
@@ -9,9 +10,15 @@ export class RewardsController {
 
   @Get('payouts')
   @UseGuards(JwtAuthGuard)
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated payout history returned successfully',
+    type: PaginatedPayoutHistoryDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getPayoutHistory(
     @Req() req,
-    @Query() query: GetPayoutHistoryDto,
+    @Query() query: GetPayoutHistoryDto
   ): Promise<PaginatedPayoutHistoryDto> {
     return this.rewardsService.getPayoutHistory(req.user.id, query);
   }

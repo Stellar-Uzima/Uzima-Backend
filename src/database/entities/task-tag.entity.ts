@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { IsString, IsOptional, Length, IsUUID, IsBoolean } from 'class-validator';
 import { User } from '../../entities/user.entity';
+import { HealthTask } from '../../entities/health-task.entity';
 
 @Entity('task_tags')
 @Index(['userId'])
@@ -43,7 +44,7 @@ export class TaskTag {
   user?: User;
 
   @ManyToMany('HealthTask', 'tags')
-  healthTasks?: any[];
+  healthTasks?: HealthTask[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
