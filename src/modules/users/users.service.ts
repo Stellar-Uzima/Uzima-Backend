@@ -23,7 +23,7 @@ import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { PhoneValidationUtil } from '../../common/utils/phone-validation.util';
 import { UpdateUserSettingsDto, UserSettingsResponseDto } from './dto/user-settings.dto';
-import { PreferencesService } from './services/preferences.service';
+import { PreferencesService, UpdatePreferencesDto } from './services/preferences.service';
 import { PreferencesResponseDto } from './dto/preferences.dto';
 
 
@@ -324,7 +324,14 @@ export class UsersService {
     await this.userRepository.softDelete(userId);
   }
 
-  async getUserStats(id: string): Promise<any> {
+  async getUserStats(id: string): Promise<{
+    userId: string;
+    totalTasksCompleted: number;
+    totalEarnings: number;
+    currentStreak: number;
+    referralCount: number;
+    dailyXlmEarned: number;
+  }> {
     const user = await this.findOne(id);
     if (!user) throw new ForbiddenException('User not found');
 
@@ -670,7 +677,7 @@ export class UsersService {
   /**
    * Update user preferences
    */
-  async updateUserPreferences(userId: string, updateData: any): Promise<PreferencesResponseDto> {
+  async updateUserPreferences(userId: string, updateData: UpdatePreferencesDto): Promise<PreferencesResponseDto> {
     const preferences = await this.preferencesService.updatePreferences(userId, updateData);
 
     return {
