@@ -14,7 +14,7 @@ import {
  */
 @ValidatorConstraint({ name: 'isValidCouponCode', async: false })
 export class IsValidCouponCodeConstraint implements ValidatorConstraintInterface {
-  validate(value: any, args: ValidationArguments) {
+  validate(value: unknown, args: ValidationArguments) {
     if (typeof value !== 'string') {
       return false;
     }
