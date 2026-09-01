@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
+type QueryParamValue = string | number | boolean | Date | null;
 
 interface SearchOptions {
   limit?: number;
   offset?: number;
-  filters?: Record<string, any>;
+  filters?: Record<string, QueryParamValue>;
   orderBy?: string;
   fuzzy?: boolean;
 }
@@ -15,14 +17,14 @@ export class SearchService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async searchUsers<T = any>(
+  async searchUsers<T = Record<string, unknown>>(
     query: string,
     options: SearchOptions = {},
   ): Promise<{ data: T[]; total: number }> {
     return this.searchTable<T>('users', ['email', 'first_name', 'last_name', 'full_name'], query, options);
   }
 
-  async searchTasks<T = any>(
+  async searchTasks<T = Record<string, unknown>>(
     query: string,
     options: SearchOptions = {},
   ): Promise<{ data: T[]; total: number }> {
@@ -36,7 +38,7 @@ export class SearchService {
     options: {
       limit?: number;
       offset?: number;
-      filters?: Record<string, any>;
+      filters?: Record<string, QueryParamValue>;
       orderBy?: string;
     } = {},
   ): Promise<{ data: T[]; total: number }> {
@@ -53,7 +55,7 @@ export class SearchService {
     const searchQuery = `to_tsquery('english', $1)`;
 
     let whereClause = `${searchVector} @@ ${searchQuery}`;
-    const parameters: any[] = [formattedQuery];
+    const parameters: QueryParamValue[] = [formattedQuery];
 
     let paramIndex = 2;
     for (const [key, value] of Object.entries(filters)) {
@@ -87,8 +89,9 @@ export class SearchService {
         data: results,
         total: parseInt(countResult[0].total, 10),
       };
-    } catch (error: any) {
-      this.logger.error(`Search failed for table ${tableName}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Search failed for table ${tableName}: ${message}`);
       throw error;
     }
   }
@@ -108,7 +111,7 @@ export class SearchService {
     } = options;
 
     const whereClauses: string[] = [];
-    const parameters: any[] = [];
+    const parameters: QueryParamValue[] = [];
     let rankExpression = '1';
 
     if (query?.trim()) {
@@ -167,8 +170,9 @@ export class SearchService {
         data: results,
         total: parseInt(countResult[0].total, 10),
       };
-    } catch (error: any) {
-      this.logger.error(`Search failed for table ${tableName}: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Search failed for table ${tableName}: ${message}`);
       throw error;
     }
   }
@@ -177,7 +181,7 @@ export class SearchService {
     searchFields: string[],
     query: string,
     startIndex: number,
-  ): { whereClause: string; parameters: any[]; rankExpression: string } {
+  ): { whereClause: string; parameters: QueryParamValue[]; rankExpression: string } {
     const trimmedQuery = query.trim();
     const fuzzyQuery = `%${trimmedQuery}%`;
     const prefixQuery = `${trimmedQuery}%`;
@@ -202,9 +206,9 @@ export class SearchService {
     };
   }
 
-  private buildFilterClause(filters: Record<string, any>, startIndex: number) {
+  private buildFilterClause(filters: Record<string, QueryParamValue>, startIndex: number) {
     const clauses: string[] = [];
-    const parameters: any[] = [];
+    const parameters: QueryParamValue[] = [];
 
     for (const [key, value] of Object.entries(filters)) {
       if (value === undefined || value === null) {
