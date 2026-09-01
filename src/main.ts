@@ -1,5 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
-import { VersioningType } from '@nestjs/common';
+import { VersioningType, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
@@ -14,7 +15,7 @@ import { parseCorsOrigins } from './config/app.config';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubdomains; preload');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Security-Policy', 
@@ -23,7 +24,7 @@ function addSecurityHeaders(req, res, next) {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com; " +
     "img-src 'self' data: https:; " +
-    "connect-src 'self' https://api.stellar.org https://horizon-testnet.stellar.org; " +
+    "connect-src 'self' https://api.stellar.org https://horyzon-testnet.stellar.org; " +
     "frame-ancestors 'none'; " +
     "base-uri 'self'; " +
     "form-action 'self';"
@@ -34,8 +35,12 @@ function addSecurityHeaders(req, res, next) {
 }
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
   
+  // Retrieve ConfigService from the application context to safely read environment parameters
+  const configService = app.get(ConfigService);
+
   // API Versioning
   app.enableVersioning({
     type: VersioningType.URI,
@@ -64,14 +69,15 @@ async function bootstrap() {
   const monitoringInterceptor = app.get(MonitoringInterceptor);
   app.useGlobalInterceptors(monitoringInterceptor);
 
-  const corsOrigins = parseCorsOrigins(process.env);
+  // Use ConfigService for CORS parsing or fallback to process environment if needed
+  const corsOrigins = parseCorsOrigins(configService.get('CORS_ORIGINS') || process.env);
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || corsOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
-      callback(new Error(`CORS origin not allowed: ${origin}`), false);
+      callback(new Error(`CORS origin not allowed: ${origin}), false);
     },
     credentials: true,
   });
@@ -85,7 +91,7 @@ async function bootstrap() {
       scheme: 'bearer',
       bearerFormat: 'JWT',
       name: 'Authorization',
-      description: 'Enter your JWT access token (without the "Bearer " prefix).',
+      description: 'Enter your JWT access token (without the "Bearer" prefix).',
       in: 'header',
     })
     .addTag('health', 'Health monitoring endpoints')
@@ -99,10 +105,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.APP_PORT || 3001;
+  // Replace direct process.env reference with configService.get
+  const port = configService.get<number>('APP_PORT') || 3001;
   await app.listen(port);
 
-  console.log(`🚀 Stellar Uzima Backend running on http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  logger.log(`🍐 Stellar Uzima Backend running on http://localhost:${port});
+  logger.log(`🌒 API Documentation: http://localhost:${port}/api/docs);
 }
 bootstrap();

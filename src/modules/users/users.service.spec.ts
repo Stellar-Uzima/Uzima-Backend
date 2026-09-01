@@ -200,4 +200,70 @@ describe('UsersService', () => {
       );
     });
   });
+
+  describe('getSettings', () => {
+    const mockPreferences = {
+      id: 'prefs-1',
+      theme: 'dark',
+      language: 'en',
+      notifications: {
+        email: { enabled: true, tasks: true, rewards: true, streaks: true, referrals: true, system: true },
+        push: { enabled: true, tasks: false, rewards: true, streaks: true, referrals: false, system: true },
+        sms: { enabled: false, tasks: false, rewards: false, streaks: false, referrals: false, system: false },
+      },
+      privacy: {
+        profileVisibility: 'private',
+        showStats: false,
+        showStreak: true,
+        showRank: false,
+      },
+    } as any;
+
+    it('returns full settings including preferences, notifications, and privacy (#1013)', async () => {
+      userRepository.findOne.mockResolvedValue(mockUser);
+      (service as any).preferencesService.getPreferences.mockResolvedValue(mockPreferences);
+
+      const result = await service.getSettings('user-id');
+
+      // Base profile fields (already covered before #1013).
+      expect(result.fullName).toBe('John Doe');
+      expect(result.preferredLanguage).toBe('en');
+      expect(result.country).toBe('US');
+
+      // Preferences / notification channels / privacy settings - the gap
+      // #1013 closes. Before this fix, getSettings never called
+      // preferencesService at all, so these were always missing.
+      expect(result.theme).toBe('dark');
+      expect(result.emailNotifications).toEqual(mockPreferences.notifications.email);
+      expect(result.pushNotifications).toEqual(mockPreferences.notifications.push);
+      expect(result.smsNotifications).toEqual(mockPreferences.notifications.sms);
+      expect(result.privacy).toEqual(mockPreferences.privacy);
+
+      expect((service as any).preferencesService.getPreferences).toHaveBeenCalledWith('user-id');
+    });
+
+    it('creates and returns default preferences for a user who never customized them', async () => {
+      userRepository.findOne.mockResolvedValue(mockUser);
+      // PreferencesService.getPreferences already creates defaults on first
+      // access internally, so a brand-new user still gets a full response
+      // here rather than missing/undefined preference fields.
+      const defaultPreferences = {
+        ...mockPreferences,
+        theme: 'system',
+      };
+      (service as any).preferencesService.getPreferences.mockResolvedValue(defaultPreferences);
+
+      const result = await service.getSettings('user-id');
+
+      expect(result.theme).toBe('system');
+      expect(result.privacy).toEqual(defaultPreferences.privacy);
+    });
+
+    it('throws when the user does not exist', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.getSettings('missing-user')).rejects.toThrow(NotFoundException);
+      expect((service as any).preferencesService.getPreferences).not.toHaveBeenCalled();
+    });
+  });
 });

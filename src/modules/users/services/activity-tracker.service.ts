@@ -17,10 +17,15 @@ interface ActivityMetadata {
   method?: string;
   statusCode?: number;
   responseTime?: number;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   taskId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+interface ActivityTypeCountRaw {
+  activityType: string;
+  count: string;
 }
 
 @Injectable()
@@ -78,8 +83,8 @@ export class ActivityTrackerService {
 
   async trackProfileUpdate(
     userId: string,
-    oldValues: Record<string, any>,
-    newValues: Record<string, any>,
+    oldValues: Record<string, unknown>,
+    newValues: Record<string, unknown>,
     request?: AuthenticatedRequest,
   ): Promise<UserActivity> {
     const changedFields = Object.keys(newValues).filter(
@@ -211,9 +216,9 @@ export class ActivityTrackerService {
       .where('activity.userId = :userId', { userId })
       .groupBy('activity.activityType');
 
-    const activitiesByTypeResult = await activitiesByTypeQuery.getRawMany();
+    const activitiesByTypeResult = await activitiesByTypeQuery.getRawMany() as ActivityTypeCountRaw[];
     const activitiesByType = activitiesByTypeResult.reduce(
-      (acc: Record<ActivityType, number>, item: any) => {
+      (acc: Record<ActivityType, number>, item: ActivityTypeCountRaw) => {
         if (item.activityType in ActivityType) {
           acc[item.activityType as ActivityType] = parseInt(item.count, 10);
         }

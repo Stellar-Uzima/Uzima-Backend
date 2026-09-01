@@ -10,6 +10,13 @@ import {
 } from '@nestjs/throttler';
 import { Request } from 'express';
 
+/**
+ * Guard that enforces the API rate-limiting rule by tracking requests per
+ * client IP address. It allows a request when the client is within the
+ * configured rate limit and denies access by throwing a 429 Too Many
+ * Requests exception when the client exceeds the allowed number of requests
+ * within the throttling window.
+ */
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
   /**

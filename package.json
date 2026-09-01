@@ -74,7 +74,8 @@
     "sharp": "^0.34.5",
     "stellar-sdk": "^11.0.0",
     "twilio": "^6.0.0",
-    "typeorm": "^0.3.0"
+    "typeorm": "^0.3.0",
+    "xss": "^1.0.15"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.2.0",

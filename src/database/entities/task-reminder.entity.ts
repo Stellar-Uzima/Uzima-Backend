@@ -25,6 +25,14 @@ export enum ReminderStatus {
   CANCELLED = 'cancelled',
 }
 
+export interface DeliveryTracking {
+  error?: string;
+  timestamp?: Date | string;
+  sentAt?: Date | string;
+  status?: 'delivered' | 'failed_by_notification_service';
+  backfill?: boolean;
+}
+
 @Entity('task_reminders')
 @Index(['userId', 'remindAt'])
 @Index(['status'])
@@ -65,7 +73,7 @@ export class TaskReminder {
   status: ReminderStatus;
 
   @Column({ type: 'jsonb', nullable: true })
-  deliveryTracking: any;
+  deliveryTracking: DeliveryTracking | null;
 
   @CreateDateColumn()
   createdAt: Date;

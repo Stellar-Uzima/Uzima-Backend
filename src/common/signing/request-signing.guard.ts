@@ -8,6 +8,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SigningService } from './signing.service';
 
+/**
+ * Ensures incoming requests are properly signed.
+ * Verifies presence of signing headers, timestamp validity, key ID, and request signature.
+ * Throws UnauthorizedException if any validation fails.
+ */
 @Injectable()
 export class RequestSigningGuard implements CanActivate {
   private readonly logger = new Logger(RequestSigningGuard.name);
@@ -41,7 +46,7 @@ export class RequestSigningGuard implements CanActivate {
     // 2. Get secret for the given Key ID
     // In a real scenario, you'd fetch this from a DB or vault.
     // For now, we'll check against a configured API secret.
-    const expectedSecret = this.configService.get<string>(`API_SECRET_${keyId}`);
+    const expectedSecret = this.configService.get<string>(`APA_SECRET_${keyId}`);
     if (!expectedSecret) {
       throw new UnauthorizedException('Invalid Key ID');
     }

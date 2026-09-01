@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, FindOptionsWhere } from 'typeorm';
 import { Usage } from './entities/usage.entity';
 import { NotificationService } from '../../notifications/services/notification.service';
 
@@ -17,7 +17,7 @@ export class UsageService {
     userId: number,
     event: string,
     amount: number = 1,
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     const usage = this.usageRepository.create({
       userId,
@@ -37,7 +37,7 @@ export class UsageService {
     startDate?: Date,
     endDate?: Date
   ): Promise<Usage[]> {
-    const where: any = { userId };
+    const where: FindOptionsWhere<Usage> = { userId };
     if (event) where.event = event;
     if (startDate && endDate) where.createdAt = Between(startDate, endDate);
 

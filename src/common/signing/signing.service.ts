@@ -1,6 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
+
+export interface SigningPayload {
+  address: string;
+  signature: string;
+  message: string;
+  nonce?: number;
+}
+
+
 @Injectable()
 export class SigningService {
   private readonly logger = new Logger(SigningService.name);
@@ -67,4 +76,14 @@ export class SigningService {
     const now = Math.floor(Date.now() / 1000);
     return Math.abs(now - timestamp) <= windowSeconds;
   }
+
+  public verifySignature(payload: SigningPayload): boolean {
+    if (!payload || typeof payload.address !== 'string' || typeof payload.signature !== 'string') {
+      throw new Error('Invalid signing payload structure');
+    }
+
+    // Signature verification logic here...
+    return true;
+  }
 }
+

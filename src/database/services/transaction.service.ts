@@ -12,6 +12,49 @@ import {
   ExecutionContext,
 } from '@nestjs/common';
 
+
+export interface TransactionPayload {
+  id: string;
+  amount: number;
+  currency: string;
+  sender: string;
+  recipient: string;
+}
+
+export interface TransactionResult {
+  success: boolean;
+  transactionHash: string;
+  timestamp: number;
+}
+
+export class TransactionExampleService {
+  /// Processes a transaction using strongly typed payloads instead of 'any'
+  public async processTransaction(payload: TransactionPayload): Promise<TransactionResult> {
+    // Explicit validation logic
+    if (!payload.id || payload.amount <= 0) {
+      throw new Error('Invalid transaction payload structure');
+    }
+
+    return {
+      success: true,
+      transactionHash: `tx_hash_${payload.id}`,
+      timestamp: Date.now(),
+    };
+  }
+
+  /// Parses raw external data using unknown with a type guard
+  public parseExternalData(rawInput: unknown): TransactionPayload {
+    if (
+      typeof rawInput === 'object' &&
+      rawInput !== null &&
+      'id' in rawInput &&
+      'amount' in rawInput
+    ) {
+      return rawInput as TransactionPayload;
+    }
+    throw new Error('Failed type guard validation for transaction payload');
+  }
+}
 /**
  * Interface for transaction options
  */

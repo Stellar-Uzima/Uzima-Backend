@@ -16,6 +16,7 @@ import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
 import { StreaksService } from '@/streaks/streaks.service';
+import { TaskAssignmentService } from '@/tasks/assignment/task-assignment.service';
 
 /**
  * Provides admin-level user management operations including user
@@ -30,6 +31,7 @@ export class AdminUsersService {
     private readonly usersRepository: Repository<User>,
     private readonly auditService: AuditService,
     private readonly streaksService: StreaksService,
+    private readonly taskAssignmentService: TaskAssignmentService,
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -263,8 +265,10 @@ export class AdminUsersService {
     });
 
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new NotFoundException('User not found');
     }
+
+    const assignments = await this.taskAssignmentService.getAssignmentHistory(userId);
 
     return {
       user: {
@@ -274,7 +278,11 @@ export class AdminUsersService {
         lastName: user.lastName,
         role: user.role,
       },
-      tasks: [],
+      tasks: assignments.map((assignment) => ({
+        assignmentId: assignment.id,
+        assignedDate: assignment.assignedDate,
+        tasks: assignment.tasks,
+      })),
     };
   }
 }

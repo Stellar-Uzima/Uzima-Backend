@@ -3,6 +3,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
+export interface JwtRefreshPayload {
+  sub: string;
+  email: string;
+  role: string;
+  tokenId: string;
+}
+
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(
   Strategy,
@@ -16,7 +23,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: JwtRefreshPayload) {
     if (!payload.tokenId) {
       throw new UnauthorizedException('Invalid refresh token');
     }
