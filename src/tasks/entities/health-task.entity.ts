@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { TaskCategory as TaskCategoryEntity } from '../../database/entities/task-category.entity';
 import type { TaskTag } from '../../database/entities/task-tag.entity';
+import { TaskStatus } from '../enums/task-status.enum';
 
 export enum TaskCategory {
   NUTRITION = 'nutrition',
@@ -69,8 +70,8 @@ export class HealthTask {
   @Column({ type: 'varchar', nullable: true })
   createdBy!: string | null;
 
-  @Column({ type: 'varchar', default: 'draft' })
-  status!: string;
+  @Column({ type: 'enum', enum: TaskStatus, default: TaskStatus.DRAFT })
+  status!: TaskStatus;
 
   // Changed to number for the application logic, TypeORM handles the decimal conversion
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })

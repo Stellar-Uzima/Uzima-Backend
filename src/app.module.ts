@@ -3,14 +3,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
-import { redisConfig } from './config/redis.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -58,17 +56,8 @@ import { HealthModule } from './health/health.module';
     HealthModule,
     AppCacheModule,
     ThrottlerModule.forRootAsync({
-      useFactory: (configService) => {
-        const config = redisConfig(configService);
+      useFactory: () => {
         return {
-          // Use Redis storage for distributed rate limiting across multiple instances
-          storage: new ThrottlerStorageRedisService({
-            host: config.host,
-            port: config.port,
-            password: config.password,
-            db: config.db,
-            tls: config.tls ? {} : undefined,
-          }),
           throttlers: [
             {
               name: 'default',
@@ -83,7 +72,6 @@ import { HealthModule } from './health/health.module';
           ],
         };
       },
-      inject: [ConfigService],
     }),
     EventEmitterModule.forRoot(),
     DatabaseModule,
