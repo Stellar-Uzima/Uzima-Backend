@@ -19,3 +19,4 @@ Acceptance Criteria
 Query logs include execution time and the related service or endpoint.
 Slow queries are flagged according to configured thresholds.
 Logging can be disabled or reduced in production without breaking diagnostics.
+Logging can be disabled or reduced in production without breaking diagnostics.
