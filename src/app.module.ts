@@ -46,6 +46,10 @@ import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
 
+// UX health & first-run experience (implemented against #1377 and #1378)
+import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -101,6 +105,9 @@ import { HealthModule } from './health/health.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+
+    UxMonitoringModule,
+    OnboardingModule,
   ],
   controllers: [AppController],
   providers: [
