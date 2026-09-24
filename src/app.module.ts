@@ -46,6 +46,10 @@ import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
 
+// Abuse protection & third-party resilience (implemented against #1373 and #1375)
+import { AntiAbuseModule } from './modules/anti-abuse/anti-abuse.module';
+import { ResilienceModule } from './shared/resilience/resilience.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -101,6 +105,9 @@ import { HealthModule } from './health/health.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+
+    AntiAbuseModule,
+    ResilienceModule,
   ],
   controllers: [AppController],
   providers: [

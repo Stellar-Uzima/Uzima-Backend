@@ -4,6 +4,10 @@ import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { ReferralRecord } from './entities/referral-record.entity';
 import { RedeemReferralDto } from './dto/redeem-referral.dto';
+import {
+  AntiAbuseService,
+} from '../modules/anti-abuse/anti-abuse.service';
+import { AttemptType, AttemptOutcome } from '../modules/anti-abuse/entities/claim-attempt-log.entity';
 
 @Injectable()
 export class ReferralService {
@@ -13,6 +17,8 @@ export class ReferralService {
 
     @InjectRepository(ReferralRecord)
     private referralRepo: Repository<ReferralRecord>,
+
+    private readonly antiAbuseService: AntiAbuseService,
   ) {}
 
   async getMyReferralCode(userId: string) {
@@ -51,6 +57,19 @@ export class ReferralService {
     if (existing) {
       throw new BadRequestException('User has already redeemed a referral code');
     }
+
+    // Anti-abuse guard: fresh-account, self-referral and burst rules run
+    // before any record is created; every attempt is audited.
+    await this.antiAbuseService.assertReferralClaimAllowed(referrer.id, user.id, {
+      referralCode: dto.referralCode,
+    });
+    await this.antiAbuseService.recordClaimAttempt(
+      AttemptType.REFERRAL_REDEMPTION,
+      userId,
+      AttemptOutcome.ALLOWED,
+      { referrerId: referrer.id, referralCode: dto.referralCode },
+      null,
+    );
 
     const record = this.referralRepo.create({
       referrer,
