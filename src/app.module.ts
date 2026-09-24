@@ -46,6 +46,10 @@ import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
 
+// User-facing schedules & records (implemented against #1371 and #1372)
+import { NotificationDigestModule } from './modules/notification-digest/notification-digest.module';
+import { UserConsentModule } from './modules/user-consent/user-consent.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -101,6 +105,9 @@ import { HealthModule } from './health/health.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+
+    NotificationDigestModule,
+    UserConsentModule,
   ],
   controllers: [AppController],
   providers: [
