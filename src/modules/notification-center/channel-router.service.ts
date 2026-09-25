@@ -9,7 +9,11 @@ import {
   NotificationDeliveryLog,
   DeliveryStatus,
 } from './entities/notification-delivery-log.entity';
-import { InAppNotification, DeliveryChannel } from './entities/in-app-notification.entity';
+import {
+  InAppNotification,
+  DeliveryChannel,
+  NotificationTypeEnum,
+} from './entities/in-app-notification.entity';
 import { SmsService } from '../../shared/sms/sms.service';
 import { PushNotificationService } from '../../shared/notifications/services/push-notification.service';
 import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
@@ -55,6 +59,36 @@ export class ChannelRouterService {
   ) {}
 
   /**
+   * Helper method to check if a channel is enabled for a notification type
+   * Uses granular preferences if available, falls back to global settings
+   */
+  private isChannelEnabled(
+    preferences: NotificationPreference | null,
+    notificationType: NotificationTypeEnum,
+    channel: 'email' | 'push' | 'sms'
+  ): boolean {
+    if (!preferences) return true;
+
+    // Check granular preference first
+    const typePrefs = preferences.channelPreferences?.[notificationType];
+    if (typePrefs && typePrefs[channel] !== undefined) {
+      return typePrefs[channel];
+    }
+
+    // Fallback to global channel settings
+    switch (channel) {
+      case 'email':
+        return preferences.emailNotifications ?? true;
+      case 'push':
+        return preferences.pushNotifications ?? true;
+      case 'sms':
+        return preferences.smsNotifications ?? true;
+      default:
+        return true;
+    }
+  }
+
+  /**
    * Routes a notification to all channels enabled in the user's preferences.
    * In-app is always delivered (done by the caller). This method handles
    * email, push, and SMS, logging each attempt.
@@ -69,17 +103,17 @@ export class ChannelRouterService {
     }> = [
       {
         channel: DeliveryChannel.EMAIL,
-        enabled: preferences?.emailNotifications ?? true,
+        enabled: this.isChannelEnabled(preferences, notification.type, 'email'),
         send: () => this.dispatchEmail(user, notification),
       },
       {
         channel: DeliveryChannel.PUSH,
-        enabled: preferences?.pushNotifications ?? true,
+        enabled: this.isChannelEnabled(preferences, notification.type, 'push'),
         send: () => this.dispatchPush(user, notification),
       },
       {
         channel: DeliveryChannel.SMS,
-        enabled: preferences?.smsNotifications ?? true,
+        enabled: this.isChannelEnabled(preferences, notification.type, 'sms'),
         send: () => this.dispatchSms(user, notification),
       },
     ];
