@@ -59,6 +59,10 @@ import { UserConsentModule } from './modules/user-consent/user-consent.module';
 import { AntiAbuseModule } from './modules/anti-abuse/anti-abuse.module';
 import { ResilienceModule } from './shared/resilience/resilience.module';
 
+// UX health & first-run experience (implemented against #1377 and #1378)
+import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -115,6 +119,8 @@ import { ResilienceModule } from './shared/resilience/resilience.module';
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
 
+    UxMonitoringModule,
+    OnboardingModule,
     AntiAbuseModule,
     ResilienceModule,
     NotificationDigestModule,

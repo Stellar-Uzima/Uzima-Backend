@@ -1,12 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { MetricsService } from '../metrics/metrics.service';
+import { UxHealthMonitorService } from '../../modules/ux-monitoring/ux-health-monitor.service';
 import * as os from 'os';
 
 @Injectable()
 export class MonitoringService {
   private readonly logger = new Logger(MonitoringService.name);
 
-  constructor(private readonly metricsService: MetricsService) {
+  constructor(
+    private readonly metricsService: MetricsService,
+    @Optional() private readonly uxHealthMonitor?: UxHealthMonitorService,
+  ) {
     this.startSystemMonitoring();
   }
 
@@ -35,6 +39,10 @@ export class MonitoringService {
   async monitorPerformance(route: string, method: string, duration: number, statusCode: number) {
     this.metricsService.incrementHttpRequests(method, route, statusCode);
     this.metricsService.recordHttpRequestDuration(method, route, duration / 1000);
+
+    // Feed the UX-degradation window so slow pages / error spikes are caught
+    // at the experience layer, not just in infrastructure metrics.
+    this.uxHealthMonitor?.observe(route, method, statusCode, duration);
 
     if (duration > 5000) {
       this.alert('Slow Request', `Request to ${method} ${route} took ${duration}ms`);
