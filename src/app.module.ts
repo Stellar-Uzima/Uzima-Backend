@@ -51,6 +51,10 @@ import { CurrencyModule } from './shared/currency/currency.module';
 import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
 import { DataQualityModule } from './modules/data-quality/data-quality.module';
 
+// User-facing schedules & records (implemented against #1371 and #1372)
+import { NotificationDigestModule } from './modules/notification-digest/notification-digest.module';
+import { UserConsentModule } from './modules/user-consent/user-consent.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -107,6 +111,8 @@ import { DataQualityModule } from './modules/data-quality/data-quality.module';
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
 
+    NotificationDigestModule,
+    UserConsentModule,
     DeliveryReliabilityModule,
     DataQualityModule,
     CurrencyModule,
