@@ -2,6 +2,8 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
+  BadRequestException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -185,5 +187,161 @@ export class CouponService implements OnModuleInit {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Admin: Create a new coupon for a specific user
+   */
+  async createCoupon(
+    userId: string,
+    payload: { discount?: number; specialistType?: string; daysValid?: number; expiresAt?: Date },
+  ): Promise<Coupon> {
+    const expiresAt = payload.expiresAt
+      ? new Date(payload.expiresAt)
+      : new Date(Date.now() + (payload.daysValid ?? DEFAULT_COUPON_DAYS_VALID) * 24 * 60 * 60 * 1000);
+
+    const coupon = this.couponRepository.create({
+      userId,
+      code: this.generateCouponCode(),
+      discount: payload.discount ?? DEFAULT_DISCOUNT_PERCENT,
+      specialistType: payload.specialistType ?? undefined,
+      expiresAt,
+      status: CouponStatus.ACTIVE,
+    });
+    const saved = await this.couponRepository.save(coupon);
+    this.logger.log(`Coupon created by admin: ${saved.code} for user ${userId}`);
+    return saved;
+  }
+
+  /**
+   * Admin: Bulk create coupons
+   */
+  async bulkCreateCoupons(
+    userIds: string[],
+    payload: { discount?: number; specialistType?: string; daysValid?: number },
+  ): Promise<Coupon[]> {
+    const coupons: Coupon[] = [];
+    for (const userId of userIds) {
+      const coupon = await this.createCoupon(userId, payload);
+      coupons.push(coupon);
+    }
+    return coupons;
+  }
+
+  /**
+   * Admin: Get coupon analytics
+   */
+  async getCouponAnalytics(): Promise<any> {
+    const totalCoupons = await this.couponRepository.count();
+    const activeCoupons = await this.couponRepository.count({
+      where: { status: CouponStatus.ACTIVE },
+    });
+    const redeemedCoupons = await this.couponRepository.count({
+      where: { status: CouponStatus.REDEEMED },
+    });
+    const expiredCoupons = await this.couponRepository.count({
+      where: { status: CouponStatus.EXPIRED },
+    });
+
+    const byStatus = await this.couponRepository
+      .createQueryBuilder('c')
+      .select('c.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('c.status')
+      .getRawMany();
+
+    const byDiscount = await this.couponRepository
+      .createQueryBuilder('c')
+      .select('c.discount', 'discount')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('c.discount')
+      .orderBy('c.discount', 'ASC')
+      .getRawMany();
+
+    const recentCoupons = await this.couponRepository
+      .createQueryBuilder('c')
+      .orderBy('c.createdAt', 'DESC')
+      .take(20)
+      .getMany();
+
+    const redemptionRate = totalCoupons > 0 ? (redeemedCoupons / totalCoupons) * 100 : 0;
+
+    return {
+      summary: {
+        totalCoupons,
+        activeCoupons,
+        redeemedCoupons,
+        expiredCoupons,
+        redemptionRate: Math.round(redemptionRate * 100) / 100,
+      },
+      byStatus,
+      byDiscount,
+      recentCoupons: recentCoupons.map((c) => ({
+        id: c.id,
+        code: c.code,
+        userId: c.userId,
+        discount: c.discount,
+        status: c.status,
+        expiresAt: c.expiresAt,
+        usedAt: c.usedAt,
+        createdAt: c.createdAt,
+      })),
+    };
+  }
+
+  /**
+   * Admin: Mark a coupon as redeemed (for manual redemption tracking)
+   */
+  async markAsRedeemed(couponCode: string, redeemedBy: string): Promise<Coupon> {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    const coupon = await this.couponRepository.findOne({ where: { code: normalizedCode } });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found');
+    }
+    if (coupon.status === CouponStatus.REDEEMED) {
+      throw new BadRequestException('Coupon already redeemed');
+    }
+    if (coupon.status === CouponStatus.EXPIRED || new Date() > coupon.expiresAt) {
+      throw new BadRequestException('Coupon has expired');
+    }
+
+    coupon.status = CouponStatus.REDEEMED;
+    coupon.usedAt = new Date();
+    await this.couponRepository.save(coupon);
+
+    this.logger.log(`Coupon manually marked as redeemed: ${normalizedCode} by ${redeemedBy}`);
+    return coupon;
+  }
+
+  /**
+   * Admin: Extend coupon expiration
+   */
+  async extendExpiration(couponCode: string, additionalDays: number): Promise<Coupon> {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    const coupon = await this.couponRepository.findOne({ where: { code: normalizedCode } });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found');
+    }
+    if (coupon.status === CouponStatus.REDEEMED) {
+      throw new BadRequestException('Cannot extend expiration of redeemed coupon');
+    }
+
+    coupon.expiresAt = new Date(coupon.expiresAt.getTime() + additionalDays * 24 * 60 * 60 * 1000);
+    if (coupon.status === CouponStatus.EXPIRED) {
+      coupon.status = CouponStatus.ACTIVE;
+    }
+    await this.couponRepository.save(coupon);
+
+    this.logger.log(`Coupon expiration extended: ${normalizedCode} by ${additionalDays} days`);
+    return coupon;
+  }
+
+  private generateCouponCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 12; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
   }
 }
