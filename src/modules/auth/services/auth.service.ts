@@ -37,6 +37,25 @@ import { TransactionService } from '@/database/services/transaction.service';
 import { ReferralService } from '../../../referral/referral.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
 
+/**
+ * Request-scoped details attached to an auth audit event. Passed in from the
+ * controller so the service never has to reach for the HTTP request itself,
+ * which keeps it unit-testable.
+ */
+export interface AuthRequestContext {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+}
+
+/** An auth event awaiting persistence, with its request context still attached. */
+export type AuthEventInput = Omit<
+  RecordAuthEventInput,
+  'ipAddress' | 'userAgent' | 'requestId'
+> & {
+  context?: AuthRequestContext;
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -45,6 +64,7 @@ export class AuthService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly maxFailedLoginAttempts: number;
   private readonly lockoutDurationMs: number;
+  private readonly jwtSecurity: JwtSecurityConfig;
 
   constructor(
     private usersService: UsersService,
@@ -59,10 +79,12 @@ export class AuthService {
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
     private readonly notifications: NotificationService,
     private readonly configService: ConfigService,
+    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
     @Optional() private readonly referralService?: ReferralService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
+    this.jwtSecurity = buildJwtSecurityConfig(process.env);
     this.redisClient = createClient({
       url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
     });
@@ -159,6 +181,13 @@ export class AuthService {
       user.lockedUntil = null;
       user.failedLoginAttempts = 0;
       await this.usersService.save(user);
+      await this.recordAuthEvent({
+        eventType: AuthEventType.ACCOUNT_UNLOCKED,
+        userId: user.id,
+        userEmail: user.email,
+        context,
+        metadata: { reason: 'lockout_window_elapsed' },
+      });
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
@@ -327,7 +356,11 @@ export class AuthService {
     return { message: 'Two-factor authentication disabled successfully' };
   }
 
-  private async recordFailedLogin(user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null }) {
+  private async recordFailedLogin(
+    user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null },
+    context?: AuthRequestContext,
+    reason: string = 'invalid_credentials',
+  ) {
     const fullUser = await this.usersService.findById(user.id);
     fullUser.failedLoginAttempts = (fullUser.failedLoginAttempts || 0) + 1;
 
@@ -354,16 +387,58 @@ export class AuthService {
 
     await this.usersService.save(fullUser);
 
+    await this.recordAuthEvent({
+      eventType:
+        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
+          ? AuthEventType.ACCOUNT_LOCKED
+          : AuthEventType.LOGIN_FAILURE,
+      outcome:
+        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
+          ? AuthEventOutcome.DENIED
+          : AuthEventOutcome.FAILURE,
+      reason,
+      userId: fullUser.id,
+      userEmail: fullUser.email,
+      context,
+      metadata: {
+        failedAttempts: fullUser.failedLoginAttempts,
+        maxFailedAttempts: this.maxFailedLoginAttempts,
+        lockedUntil: fullUser.lockedUntil
+          ? fullUser.lockedUntil.toISOString()
+          : null,
+      },
+    });
+
     if (fullUser.lockedUntil && fullUser.lockedUntil > new Date()) {
       throw new AccountLockedException(fullUser.lockedUntil);
     }
   }
 
+  /**
+   * Thin wrapper around the audit service so every call site benefits from the
+   * secret scrubber and the "never throw into the request path" guarantee.
+   * Silently no-ops when the audit module is not wired in (e.g. isolated unit
+   * tests that construct this service directly).
+   */
+  private async recordAuthEvent(event: AuthEventInput): Promise<void> {
+    if (!this.authEventAuditService) {
+      return;
+    }
+
+    const { context, ...rest } = event;
+    await this.authEventAuditService.record({
+      ...rest,
+      ipAddress: context?.ipAddress ?? null,
+      userAgent: context?.userAgent ?? null,
+      requestId: context?.requestId ?? null,
+    });
+  }
+
   // Refresh access token
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, requestContext?: AuthRequestContext) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const { sub: userId, tokenId } = payload;
+      const { sub: userId, tokenId, jti } = payload;
 
       // Check if token is blacklisted
       const isBlacklisted = await this.isTokenBlacklisted(refreshToken);
@@ -386,6 +461,13 @@ export class AuthService {
           userId,
           reason: 'Invalid or reused refresh token',
         });
+        await this.recordAuthEvent({
+          eventType: AuthEventType.TOKEN_REVOKED,
+          outcome: AuthEventOutcome.DENIED,
+          reason: 'refresh_token_reuse_detected',
+          userId,
+          context: requestContext,
+        });
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -398,6 +480,13 @@ export class AuthService {
         !(await bcrypt.compare(refreshToken, user.refreshToken))
       ) {
         await this.redisClient.del(key);
+        await this.recordAuthEvent({
+          eventType: AuthEventType.TOKEN_REVOKED,
+          outcome: AuthEventOutcome.FAILURE,
+          reason: 'refresh_token_not_recognised',
+          userId,
+          context: requestContext,
+        });
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -407,7 +496,17 @@ export class AuthService {
       user.refreshTokenExpiry = null;
       await this.usersService.save(user);
 
-      return this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+      await this.recordAuthEvent({
+        eventType: AuthEventType.TOKEN_REFRESH,
+        userId,
+        userEmail: user.email,
+        context: requestContext,
+        metadata: { rotatedTokenId: tokenId, revokedJti: jti ?? null },
+      });
+
+      return tokens;
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -434,7 +533,9 @@ export class AuthService {
 
     // Store in Redis for fast lookup
     const key = `refresh:${userId}:${tokenId}`;
-    await this.redisClient.set(key, refreshToken, { EX: 7 * 24 * 60 * 60 });
+    await this.redisClient.set(key, refreshToken, {
+      EX: this.jwtSecurity.refreshTokenTtl,
+    });
 
     // Persist hashed refresh token to user entity for durable rotation
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
@@ -587,6 +688,13 @@ export class AuthService {
         tokenId,
         timestamp: new Date(),
         duration,
+      });
+
+      await this.recordAuthEvent({
+        eventType: AuthEventType.LOGOUT,
+        userId,
+        context: requestContext,
+        metadata: { tokenId },
       });
 
     } catch (error: any) {
@@ -778,6 +886,11 @@ export class AuthService {
     });
 
     await this.auditService.logAction(user.id, `Email verified: ${user.email}`);
+    await this.recordAuthEvent({
+      eventType: AuthEventType.EMAIL_VERIFICATION,
+      userId: user.id,
+      userEmail: user.email,
+    });
 
     return { message: 'Email verified successfully' };
   }
@@ -817,9 +930,12 @@ export class AuthService {
   /**
    * Password Reset Flow
    */
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, requestContext?: AuthRequestContext) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      // Do not disclose whether the address exists, and do not record it as a
+      // user-attributable event either — the response is identical.
+      this.logger.debug(`Password reset requested for an unknown address`);
       return { message: 'If an account exists, a reset link has been sent' };
     }
 
@@ -831,6 +947,17 @@ export class AuthService {
 
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${email}`);
+
+    // Any outstanding session is invalidated the moment a reset is requested,
+    // so a stolen token cannot outlive the credential change (#1287).
+    await this.revokeAllSessionsForUser(user.id);
+
+    await this.recordAuthEvent({
+      eventType: AuthEventType.PASSWORD_RESET_REQUESTED,
+      userId: user.id,
+      userEmail: user.email,
+      context: requestContext,
+    });
 
     try {
       const resetLink = `${this.configService.get<string>('FRONTEND_URL', 'https://example.com')}/reset-password?token=${token}`;
@@ -845,7 +972,11 @@ export class AuthService {
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    requestContext?: AuthRequestContext,
+  ) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
     // Look up by token only — expiry is checked separately so we can return 410
@@ -859,6 +990,14 @@ export class AuthService {
     }
 
     if (!user.passwordResetExpiry || user.passwordResetExpiry <= new Date()) {
+      await this.recordAuthEvent({
+        eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+        outcome: AuthEventOutcome.FAILURE,
+        reason: 'token_expired',
+        userId: user.id,
+        userEmail: user.email,
+        context: requestContext,
+      });
       throw new GoneException('Password reset token has expired');
     }
 
@@ -866,6 +1005,12 @@ export class AuthService {
     user.password = hashedPassword;
     user.passwordResetToken = null;
     user.passwordResetExpiry = null;
+
+    // A password change invalidates every existing session, otherwise a
+    // previously stolen refresh token survives the reset (#1287).
+    await this.revokeAllSessionsForUser(user.id);
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
 
     await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });

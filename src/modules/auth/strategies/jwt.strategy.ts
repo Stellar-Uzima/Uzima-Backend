@@ -69,4 +69,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       exp: payload.exp,
     };
   }
+
+  private hasExpectedAudience(
+    aud: string | string[] | undefined,
+    expected: string,
+  ): boolean {
+    if (aud === undefined) {
+      return false;
+    }
+    return Array.isArray(aud) ? aud.includes(expected) : aud === expected;
+  }
 }
