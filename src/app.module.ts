@@ -55,6 +55,10 @@ import { DataQualityModule } from './modules/data-quality/data-quality.module';
 import { NotificationDigestModule } from './modules/notification-digest/notification-digest.module';
 import { UserConsentModule } from './modules/user-consent/user-consent.module';
 
+// Abuse protection & third-party resilience (implemented against #1373 and #1375)
+import { AntiAbuseModule } from './modules/anti-abuse/anti-abuse.module';
+import { ResilienceModule } from './shared/resilience/resilience.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -111,6 +115,8 @@ import { UserConsentModule } from './modules/user-consent/user-consent.module';
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
 
+    AntiAbuseModule,
+    ResilienceModule,
     NotificationDigestModule,
     UserConsentModule,
     DeliveryReliabilityModule,

@@ -15,6 +15,8 @@ import { DeadLetterProcessor } from './queues/dead-letter.processor';
 import { REWARD_QUEUE, REWARD_DEAD_LETTER_QUEUE } from '../queue/queue.constants';
 import { StellarModule } from '../stellar/stellar.module';
 import { BadgeModule } from './badges/badge.module';
+import { AntiAbuseModule } from '../modules/anti-abuse/anti-abuse.module';
+import { RewardClaimGuard } from '../modules/anti-abuse/reward-claim.guard';
 
 @Module({
   imports: [
@@ -44,9 +46,16 @@ import { BadgeModule } from './badges/badge.module';
       name: REWARD_DEAD_LETTER_QUEUE,
     }),
     BadgeModule,
+    AntiAbuseModule,
   ],
   controllers: [RewardController],
-  providers: [RewardService, RewardProcessor, DeadLetterProcessor, RewardsScheduler],
+  providers: [
+    RewardService,
+    RewardProcessor,
+    RewardClaimGuard,
+    DeadLetterProcessor,
+    RewardsScheduler,
+  ],
   exports: [RewardService, DeadLetterProcessor, RewardsScheduler, TypeOrmModule],
 })
 export class RewardModule {}
