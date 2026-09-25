@@ -36,6 +36,8 @@ import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.consta
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
 import { DataExportService, DataExportRequester } from './services/data-export.service';
 import { Role } from '@modules/auth/enums/role.enum';
+import { UserStatus } from '@modules/auth/enums/user-status.enum';
+import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { Cache } from '../../common/decorators/cache.decorator';
 import { CacheInvalidate } from '../../common/decorators/cache.decorator';
@@ -254,8 +256,81 @@ export class UsersController {
   @HttpCode(200)
   async deactivateUser(@Req() req: AuthenticatedRequest): Promise<{ message: string }> {
     const userId = this.extractUserId(req);
-    await this.usersService.deactivateUser(userId);
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers?.['user-agent'] as string | undefined;
+    await this.usersService.deactivateUser(userId, ipAddress, userAgent);
     return { message: 'Account successfully deactivated' };
+  }
+
+  @Post(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(200)
+  @ApiOperation({ 
+    summary: '[ADMIN] Change user account status',
+    description: 'Admin endpoint to activate, deactivate, or suspend a user account with audit logging'
+  })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'Status changed successfully', type: UserStatusResponseDto })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async changeUserStatus(
+    @Param('id') id: string,
+    @Body() statusChangeDto: UserStatusChangeDto,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<UserStatusResponseDto> {
+    const changedBy = this.extractUserId(req);
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers?.['user-agent'] as string | undefined;
+    return this.usersService.changeUserStatus(id, statusChangeDto, changedBy, ipAddress, userAgent);
+  }
+
+  @Post(':id/reactivate')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(200)
+  @ApiOperation({ 
+    summary: '[ADMIN] Reactivate a deactivated or suspended user account',
+    description: 'Admin endpoint to reactivate a user account with audit logging'
+  })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'Account reactivated successfully', type: UserStatusResponseDto })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'User is already active' })
+  async reactivateUser(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<UserStatusResponseDto> {
+    const changedBy = this.extractUserId(req);
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers?.['user-agent'] as string | undefined;
+    
+    const statusChangeDto: UserStatusChangeDto = {
+      status: UserStatus.ACTIVE,
+      reason: 'Account reactivated by admin',
+    };
+    
+    return this.usersService.changeUserStatus(id, statusChangeDto, changedBy, ipAddress, userAgent);
+  }
+
+  @Get(':id/status-history')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPPORT)
+  @ApiOperation({ 
+    summary: '[ADMIN/SUPPORT] Get user status change history',
+    description: 'Returns paginated audit log of user status changes'
+  })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'Status history retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN or SUPPORT role' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserStatusHistory(
+    @Param('id') id: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ): Promise<any> {
+    return this.usersService.getUserStatusHistory(id, page, limit);
   }
 
   @Post('data-export')
