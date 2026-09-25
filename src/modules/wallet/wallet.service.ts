@@ -4,6 +4,8 @@ import {
   Logger,
   BadRequestException,
   ConflictException,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,6 +19,8 @@ import { StellarService } from '../../stellar/stellar.service';
 import { XlmPriceService } from '../../stellar/xlm-price.service';
 import { User } from '../../entities/user.entity';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
+import { Withdrawal, WithdrawalStatus } from './entities/withdrawal.entity';
+import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalResponseDto } from './dto/withdrawal.dto';
 
 @Injectable()
 export class WalletService {
@@ -27,6 +31,8 @@ export class WalletService {
     private rewardTransactionRepo: Repository<RewardTransaction>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Withdrawal)
+    private withdrawalRepo: Repository<Withdrawal>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private stellarService: StellarService,
     private xlmPriceService: XlmPriceService,
@@ -285,5 +291,195 @@ export class WalletService {
       this.logger.error(`Failed to sync balance for user ${userId}: ${message}`);
       throw new BadRequestException('Unable to sync wallet balance from Stellar network');
     }
+  }
+
+  /**
+   * Create a new withdrawal request
+   */
+  async createWithdrawal(userId: string, dto: CreateWithdrawalDto): Promise<WithdrawalResponseDto> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
+      throw new BadRequestException('No wallet linked to this account');
+    }
+
+    // Verify destination address format
+    if (!StellarSdk.StrKey.isValidEd25519PublicKey(dto.destinationAddress)) {
+      throw new BadRequestException('Invalid destination address format');
+    }
+
+    // Prevent withdrawal to own linked address
+    if (dto.destinationAddress === walletAddress) {
+      throw new BadRequestException('Cannot withdraw to your own linked wallet address');
+    }
+
+    // Check live balance from Stellar network
+    let liveBalance = 0;
+    try {
+      const balanceStr = await this.stellarService.getAccountBalance(walletAddress);
+      liveBalance = parseFloat(balanceStr);
+    } catch (error) {
+      this.logger.warn(`Failed to fetch live balance for withdrawal check: ${error instanceof Error ? error.message : 'Unknown'}`);
+      throw new BadRequestException('Unable to verify balance for withdrawal');
+    }
+
+    // Check minimum balance (keep 0.5 XLM for account reserve)
+    const minReserve = 0.5;
+    const availableBalance = liveBalance - minReserve;
+    if (availableBalance < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance. Available: ${availableBalance.toFixed(7)} XLM (minimum reserve: ${minReserve} XLM)`
+      );
+    }
+
+    // Check for pending withdrawals
+    const pendingWithdrawals = await this.withdrawalRepo
+      .createQueryBuilder('w')
+      .select('SUM(w.amount)', 'total')
+      .where('w.userId = :userId', { userId })
+      .andWhere('w.status IN (:...statuses)', { statuses: [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSING] })
+      .getRawOne();
+
+    const pendingTotal = parseFloat(pendingWithdrawals?.total || '0');
+    if (availableBalance - pendingTotal < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance considering pending withdrawals. Available after pending: ${(availableBalance - pendingTotal).toFixed(7)} XLM`
+      );
+    }
+
+    // Create withdrawal record
+    const withdrawal = this.withdrawalRepo.create({
+      userId,
+      amount: dto.amount,
+      destinationAddress: dto.destinationAddress,
+      memo: dto.memo || null,
+      status: WithdrawalStatus.PENDING,
+    });
+
+    await this.withdrawalRepo.save(withdrawal);
+
+    // Emit event for admin notification
+    this.eventEmitter.emit('wallet.withdrawal.created', {
+      withdrawalId: withdrawal.id,
+      userId,
+      amount: dto.amount,
+      destinationAddress: dto.destinationAddress,
+    });
+
+    this.logger.log(`Withdrawal created: ${withdrawal.id} for user ${userId}, amount: ${dto.amount} XLM`);
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  /**
+   * Get user's withdrawal history with pagination and filters
+   */
+  async getWithdrawals(userId: string, query: WithdrawalListQueryDto): Promise<{
+    data: WithdrawalResponseDto[];
+    metadata: { totalCount: number; page: number; limit: number; totalPages: number };
+  }> {
+    const qb = this.withdrawalRepo
+      .createQueryBuilder('w')
+      .where('w.userId = :userId', { userId })
+      .orderBy('w.createdAt', 'DESC');
+
+    if (query.status) {
+      qb.andWhere('w.status = :status', { status: query.status });
+    }
+
+    const skip = (query.page! - 1) * query.limit!;
+    qb.skip(skip).take(query.limit!);
+
+    const [data, totalCount] = await qb.getManyAndCount();
+
+    return {
+      data: data.map(w => this.mapToResponseDto(w)),
+      metadata: {
+        totalCount,
+        page: query.page!,
+        limit: query.limit!,
+        totalPages: Math.ceil(totalCount / query.limit!),
+      },
+    };
+  }
+
+  /**
+   * Get a single withdrawal by ID (user can only see their own)
+   */
+  async getWithdrawalById(userId: string, withdrawalId: string): Promise<WithdrawalResponseDto> {
+    const withdrawal = await this.withdrawalRepo.findOne({
+      where: { id: withdrawalId, userId },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal not found');
+    }
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  /**
+   * Admin: Update withdrawal status (process/complete/reject)
+   */
+  async updateWithdrawalStatus(
+    withdrawalId: string,
+    status: WithdrawalStatus,
+    transactionHash?: string,
+    failureReason?: string,
+  ): Promise<WithdrawalResponseDto> {
+    const withdrawal = await this.withdrawalRepo.findOne({ where: { id: withdrawalId } });
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal not found');
+    }
+
+    if (withdrawal.status !== WithdrawalStatus.PENDING && withdrawal.status !== WithdrawalStatus.PROCESSING) {
+      throw new BadRequestException(`Cannot update withdrawal in ${withdrawal.status} status`);
+    }
+
+    const previousStatus = withdrawal.status;
+    withdrawal.status = status;
+
+    if (status === WithdrawalStatus.PROCESSING) {
+      // Moving to processing
+    } else if (status === WithdrawalStatus.COMPLETED) {
+      withdrawal.completedAt = new Date();
+      withdrawal.transactionHash = transactionHash || null;
+    } else if (status === WithdrawalStatus.FAILED || status === WithdrawalStatus.REJECTED) {
+      withdrawal.failureReason = failureReason || 'Withdrawal failed';
+    }
+
+    await this.withdrawalRepo.save(withdrawal);
+
+    // Emit event
+    this.eventEmitter.emit('wallet.withdrawal.status_changed', {
+      withdrawalId: withdrawal.id,
+      userId: withdrawal.userId,
+      previousStatus,
+      newStatus: status,
+      transactionHash,
+      failureReason,
+    });
+
+    this.logger.log(`Withdrawal ${withdrawal.id} status changed: ${previousStatus} -> ${status}`);
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  private mapToResponseDto(withdrawal: Withdrawal): WithdrawalResponseDto {
+    return {
+      id: withdrawal.id,
+      amount: parseFloat(withdrawal.amount.toString()),
+      destinationAddress: withdrawal.destinationAddress,
+      memo: withdrawal.memo || undefined,
+      status: withdrawal.status,
+      transactionHash: withdrawal.transactionHash || undefined,
+      createdAt: withdrawal.createdAt,
+      completedAt: withdrawal.completedAt || undefined,
+      failureReason: withdrawal.failureReason || undefined,
+    };
   }
 }

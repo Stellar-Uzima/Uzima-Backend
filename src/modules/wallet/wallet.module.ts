@@ -6,11 +6,12 @@ import { WalletController } from './wallet.controller';
 import { AdminWalletController } from './admin-wallet.controller';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { User } from '../../entities/user.entity';
+import { Withdrawal } from './entities/withdrawal.entity';
 import { StellarModule } from '../../stellar/stellar.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RewardTransaction, User]),
+    TypeOrmModule.forFeature([RewardTransaction, User, Withdrawal]),
     CacheModule.register(),
     StellarModule,
   ],
