@@ -36,7 +36,7 @@ function addSecurityHeaders(req, res, next) {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   
   // Retrieve ConfigService from the application context to safely read environment parameters
   const configService = app.get(ConfigService);
