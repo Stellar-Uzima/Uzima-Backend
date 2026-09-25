@@ -47,6 +47,10 @@ import { HealthProfileModule } from './modules/health-profile/health-profile.mod
 import { HealthModule } from './health/health.module';
 import { CurrencyModule } from './shared/currency/currency.module';
 
+// Reliability & data quality (implemented against #1368 and #1367)
+import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
+import { DataQualityModule } from './modules/data-quality/data-quality.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -102,6 +106,9 @@ import { CurrencyModule } from './shared/currency/currency.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+
+    DeliveryReliabilityModule,
+    DataQualityModule,
     CurrencyModule,
   ],
   controllers: [AppController],
