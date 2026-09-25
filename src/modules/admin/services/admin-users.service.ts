@@ -103,6 +103,52 @@ export class AdminUsersService {
       qb.andWhere('user.isActive = :active', { active: dto.isActive });
     }
 
+    if (dto.status !== undefined) {
+      qb.andWhere('user.status = :status', { status: dto.status });
+    }
+
+    if (dto.lastActiveFrom) {
+      qb.andWhere('user.lastActiveAt >= :lastActiveFrom', {
+        lastActiveFrom: new Date(dto.lastActiveFrom),
+      });
+    }
+
+    if (dto.lastActiveTo) {
+      qb.andWhere('user.lastActiveAt <= :lastActiveTo', {
+        lastActiveTo: new Date(dto.lastActiveTo),
+      });
+    }
+
+    if (dto.lastLoginFrom) {
+      qb.andWhere('user.lastLoginAt >= :lastLoginFrom', {
+        lastLoginFrom: new Date(dto.lastLoginFrom),
+      });
+    }
+
+    if (dto.minWalletBalance !== undefined) {
+      qb.andWhere('user.walletBalance >= :minWalletBalance', {
+        minWalletBalance: dto.minWalletBalance,
+      });
+    }
+
+    if (dto.maxWalletBalance !== undefined) {
+      qb.andWhere('user.walletBalance <= :maxWalletBalance', {
+        maxWalletBalance: dto.maxWalletBalance,
+      });
+    }
+
+    if (dto.minDailyEarnings !== undefined) {
+      qb.andWhere('user.dailyXlmEarned >= :minDailyEarnings', {
+        minDailyEarnings: dto.minDailyEarnings,
+      });
+    }
+
+    if (dto.maxDailyEarnings !== undefined) {
+      qb.andWhere('user.dailyXlmEarned <= :maxDailyEarnings', {
+        maxDailyEarnings: dto.maxDailyEarnings,
+      });
+    }
+
     qb.andWhere('user.deletedAt IS NULL');
 
     if (dto.search) {
@@ -117,13 +163,23 @@ export class AdminUsersService {
       'user.email',
       'user.firstName',
       'user.lastName',
+      'user.fullName',
       'user.role',
+      'user.status',
       'user.country',
       'user.isActive',
+      'user.isVerified',
       'user.stellarWalletAddress',
+      'user.walletBalance',
+      'user.dailyXlmEarned',
+      'user.lastActiveAt',
+      'user.lastLoginAt',
       'user.createdAt',
       'user.updatedAt',
     ]);
+
+    qb.orderBy('user.createdAt', 'DESC');
+    qb.addOrderBy('user.id', 'ASC');
 
     qb.skip((page - 1) * limit).take(limit);
 
@@ -136,6 +192,10 @@ export class AdminUsersService {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+        nextPage: page < Math.ceil(total / limit) ? page + 1 : undefined,
+        prevPage: page > 1 ? page - 1 : undefined,
       },
     };
   }

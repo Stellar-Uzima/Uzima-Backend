@@ -9,8 +9,15 @@ import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { Permission } from '@modules/auth/enums/permission.enum';
 
 /**
- * Guard that checks whether the authenticated user possesses
- * all required granular permissions for the requested endpoint.
+ * PermissionsGuard enforces granular permission-based access control on
+ * route handlers decorated with `@Permissions(...)`.
+ *
+ * On each incoming request it reads the list of required {@link Permission}
+ * values from the route/controller metadata and compares them against the
+ * `permissions` array on the authenticated user object.  Access is denied
+ * (throws `ForbiddenException`) when the user is missing one or more of the
+ * required permissions.  Routes that carry no `@Permissions` metadata are
+ * allowed through unconditionally.
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {

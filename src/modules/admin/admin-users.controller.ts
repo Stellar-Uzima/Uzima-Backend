@@ -53,6 +53,19 @@ export class AdminUsersController {
     return this.adminUsersService.searchUsers(q);
   }
 
+  @Get('discover')
+  @ApiOperation({
+    summary: '[Internal] Discover users by status, score, and activity windows',
+    description:
+      'Admin-internal endpoint. Filters users by account status, wallet balance (score), ' +
+      'earnings, and recent activity/login windows. Results are paginated and deterministically ordered.',
+  })
+  @ApiResponse({ status: 200, description: 'Discovery results returned' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  async discover(@Query() dto: ListUsersDto) {
+    return this.adminUsersService.listUsers(dto);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List users with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
