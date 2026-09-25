@@ -45,6 +45,7 @@ import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
+import { CurrencyModule } from './shared/currency/currency.module';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { HealthModule } from './health/health.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+    CurrencyModule,
   ],
   controllers: [AppController],
   providers: [

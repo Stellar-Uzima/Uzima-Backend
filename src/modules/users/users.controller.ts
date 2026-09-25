@@ -21,11 +21,18 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
 import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
 import { ActivityFeedService } from './services/activity-feed.service';
+import { UserTimelineService } from './services/user-timeline.service';
+import { UserTimelineQueryDto } from './dto/user-timeline.dto';
+import { QueueService } from '../../shared/queue/queue.service';
+import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
 import { DataExportService, DataExportRequester } from './services/data-export.service';
 import { Role } from '@modules/auth/enums/role.enum';
@@ -67,6 +74,9 @@ export class UsersController {
     private readonly usersService: UsersService,
     private readonly userSearchService: UserSearchService,
     private readonly dataExportService: DataExportService,
+    private readonly activityFeedService: ActivityFeedService,
+    private readonly userTimelineService: UserTimelineService,
+    private readonly queueService: QueueService
     private readonly activityFeedService: ActivityFeedService
   ) {}
 
@@ -139,6 +149,42 @@ export class UsersController {
   async getActivityFeed(@Query() query: ActivityFeedQueryDto, @Req() req: AuthenticatedRequest) {
     const userId = this.extractUserId(req);
     return this.activityFeedService.getActivityFeed(userId, query.page, query.limit);
+  }
+
+  @Get('timeline')
+  @ApiOperation({ summary: 'Get authenticated user activity timeline' })
+  @ApiResponse({ status: 200, description: 'Timeline retrieved successfully' })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  )
+  async getMyTimeline(@Query() query: UserTimelineQueryDto, @Req() req: AuthenticatedRequest) {
+    const userId = this.extractUserId(req);
+    return this.userTimelineService.getTimeline(userId, query);
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({ summary: '[ADMIN] Get any user activity timeline by id' })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
+  @ApiResponse({ status: 200, description: 'Timeline retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  )
+  async getUserTimeline(@Param('id') id: string, @Query() query: UserTimelineQueryDto) {
+    if (!id) {
+      throw new NotFoundException('User not found');
+    }
+    return this.userTimelineService.getTimeline(id, query);
   }
 
   @Get()
@@ -218,6 +264,12 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Not authorized to request export' })
   async requestDataExport(@Req() req: AuthenticatedRequest) {
     const userId = this.extractUserId(req);
+    await this.queueService.addJob(
+      DATA_PROCESSING_QUEUE,
+      DATA_EXPORT_JOB,
+      { userId },
+      { maxRetries: 3 }
+    );
     const ipAddress = this.extractIpAddress(req);
     const userAgent = req.headers?.['user-agent'] as string | undefined;
     const requestId = req.headers?.['x-request-id'] as string | undefined;
