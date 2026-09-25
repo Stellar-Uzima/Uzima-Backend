@@ -21,15 +21,21 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 import { UsersService } from './users.service';
 import { UserSearchService } from './services/user-search.service';
 import { UserSearchDto } from './dto/user-search.dto';
 import { ActivityFeedQueryDto } from './dto/activity-feed-query.dto';
 import { ActivityFeedService } from './services/activity-feed.service';
+import { UserTimelineService } from './services/user-timeline.service';
+import { UserTimelineQueryDto } from './dto/user-timeline.dto';
 import { QueueService } from '../../shared/queue/queue.service';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
-import { DataExportService } from './services/data-export.service';
+import { DataExportService, DataExportRequester } from './services/data-export.service';
+import { Role } from '@modules/auth/enums/role.enum';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { Cache } from '../../common/decorators/cache.decorator';
 import { CacheInvalidate } from '../../common/decorators/cache.decorator';
@@ -73,6 +79,9 @@ export class UsersController {
     private readonly dataExportService: DataExportService,
     private readonly activityFeedService: ActivityFeedService,
     private readonly queueService: QueueService
+    private readonly userTimelineService: UserTimelineService,
+    private readonly queueService: QueueService
+    private readonly activityFeedService: ActivityFeedService
   ) {}
 
   @Post('device-token')
@@ -148,6 +157,42 @@ export class UsersController {
     return this.activityFeedService.getActivityFeed(userId, query.page, query.limit);
   }
 
+  @Get('timeline')
+  @ApiOperation({ summary: 'Get authenticated user activity timeline' })
+  @ApiResponse({ status: 200, description: 'Timeline retrieved successfully' })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  )
+  async getMyTimeline(@Query() query: UserTimelineQueryDto, @Req() req: AuthenticatedRequest) {
+    const userId = this.extractUserId(req);
+    return this.userTimelineService.getTimeline(userId, query);
+  }
+
+  @Get(':id/timeline')
+  @ApiOperation({ summary: '[ADMIN] Get any user activity timeline by id' })
+  @ApiParam({ name: 'id', description: 'Target user UUID' })
+  @ApiResponse({ status: 200, description: 'Timeline retrieved successfully' })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    })
+  )
+  async getUserTimeline(@Param('id') id: string, @Query() query: UserTimelineQueryDto) {
+    if (!id) {
+      throw new NotFoundException('User not found');
+    }
+    return this.userTimelineService.getTimeline(id, query);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Search and list users' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -215,6 +260,14 @@ export class UsersController {
 
   @Post('data-export')
   @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request a GDPR/data export for the authenticated user',
+    description:
+      'Queues a personal data export. Exports are authorized only for the ' +
+      'requesting user, admin accounts, or service accounts with the exports:read scope.',
+  })
+  @ApiResponse({ status: 202, description: 'Export job queued' })
+  @ApiResponse({ status: 403, description: 'Not authorized to request export' })
   async requestDataExport(@Req() req: AuthenticatedRequest) {
     const userId = this.extractUserId(req);
     await this.queueService.addJob(
@@ -223,8 +276,21 @@ export class UsersController {
       { userId },
       { maxRetries: 3 }
     );
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers?.['user-agent'] as string | undefined;
+    const requestId = req.headers?.['x-request-id'] as string | undefined;
 
-    return { message: 'Export job queued' };
+    const requester: DataExportRequester = {
+      kind: (req as any).apiKey ? 'service' : 'user',
+      userId,
+      role: req.user?.role as Role | undefined,
+      scopes: (req as any).apiKey?.scopes as string[] | undefined,
+      ipAddress,
+      userAgent,
+      requestId,
+    };
+
+    return this.dataExportService.queueExport(userId, requester);
   }
 
   private extractUserId(req: AuthenticatedRequest): string {
