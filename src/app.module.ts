@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
+import jwtConfig from './config/jwt.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -68,7 +69,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig],
     }),
     HealthModule,
     AppCacheModule,
