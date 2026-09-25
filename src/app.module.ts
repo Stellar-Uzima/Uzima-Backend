@@ -45,6 +45,11 @@ import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
+import { CurrencyModule } from './shared/currency/currency.module';
+
+// Reliability & data quality (implemented against #1368 and #1367)
+import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
+import { DataQualityModule } from './modules/data-quality/data-quality.module';
 
 // User-facing schedules & records (implemented against #1371 and #1372)
 import { NotificationDigestModule } from './modules/notification-digest/notification-digest.module';
@@ -108,6 +113,9 @@ import { UserConsentModule } from './modules/user-consent/user-consent.module';
 
     NotificationDigestModule,
     UserConsentModule,
+    DeliveryReliabilityModule,
+    DataQualityModule,
+    CurrencyModule,
   ],
   controllers: [AppController],
   providers: [

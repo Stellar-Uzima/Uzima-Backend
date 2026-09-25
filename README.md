@@ -10,6 +10,7 @@ A robust, scalable NestJS backend for the Stellar Uzima health and wellness plat
 - [Getting Started](#getting-started)
 - [Development](#development)
 - [API Documentation](#api-documentation)
+- [Operational Runbooks](#operational-runbooks)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -286,6 +287,17 @@ To regenerate OpenAPI documentation:
 ```bash
 npm run swagger
 ```
+
+## 🚨 Operational Runbooks
+<arg_value><b88a6f17>Procedures for responding to incidents and monitoring alerts live in [`docs/runbooks/`](docs/runbooks/README.md):
+
+- [Database Outage](docs/runbooks/database-outage.md)
+- [Authentication Issues](docs/runbooks/auth-issues.md)
+- [Queue Failures](docs/runbooks/queue-failures.md)
+- [Reward Regressions](docs/runbooks/reward-regressions.md)
+
+Runbooks are versioned and reviewed as part of the release process — see the
+[versioning & review policy](docs/runbooks/README.md#versioning--release-review-policy).
 
 ## 🧪 Testing
 

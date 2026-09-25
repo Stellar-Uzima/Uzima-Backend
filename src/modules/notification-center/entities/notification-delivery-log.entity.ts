@@ -3,50 +3,43 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  ManyToOne,
-  JoinColumn,
+  UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { InAppNotification, DeliveryChannel } from './in-app-notification.entity';
 
+/**
+ * Delivery status of a per-channel notification attempt.
+ *
+ * - `pending`  - queued for (or being) attempted.
+ * - `sent`     - successfully delivered on this channel.
+ * - `failed`   - the channel rejected the delivery (retryable).
+ * - `escalated` - the delivery exhausted `MAX_DELIVERY_ATTEMPTS` and was
+ *   flagged for operational review by the `DeliverySweeperService`.
+ */
 export enum DeliveryStatus {
   PENDING = 'pending',
   SENT = 'sent',
   FAILED = 'failed',
+  ESCALATED = 'escalated',
 }
 
 @Entity('notification_delivery_logs')
-@Index(['notificationId', 'channel'])
+@Index(['notificationId'])
 @Index(['status', 'attemptedAt'])
 export class NotificationDeliveryLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'uuid' })
-  @Index()
   notificationId: string;
 
-  @ManyToOne(() => InAppNotification, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'notificationId' })
-  notification: InAppNotification;
+  @Column({ type: 'varchar', enum: ['in_app', 'email', 'push', 'sms'] })
+  channel: string;
 
-  @Column({
-    type: 'enum',
-    enum: DeliveryChannel,
-  })
-  channel: DeliveryChannel;
-
-  @Column({
-    type: 'enum',
-    enum: DeliveryStatus,
-    default: DeliveryStatus.PENDING,
-  })
+  @Column({ type: 'enum', enum: DeliveryStatus, default: DeliveryStatus.PENDING })
   status: DeliveryStatus;
 
-  /**
-   * How many times delivery has been attempted (including initial attempt).
-   */
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, name: 'attempts' })
   attempts: number;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -55,6 +48,21 @@ export class NotificationDeliveryLog {
   @Column({ type: 'text', nullable: true })
   errorMessage: string | null;
 
+  /**
+   * Set when the sweeper escalates an exhausted delivery for review.
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  escalatedAt: Date | null;
+
+  /**
+   * Human-readable reason recorded when the delivery was escalated.
+   */
+  @Column({ type: 'text', nullable: true })
+  escalatedReason: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
