@@ -37,6 +37,9 @@ import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-pr
 import { DataExportService, DataExportRequester } from './services/data-export.service';
 import { Role } from '@modules/auth/enums/role.enum';
 import { IsString, IsNotEmpty } from 'class-validator';
+import { Cache } from '../../common/decorators/cache.decorator';
+import { CacheInvalidate } from '../../common/decorators/cache.decorator';
+import { CACHE_TTL } from '../../shared/cache/cache.service';
 
 export class RegisterDeviceTokenDto {
   @IsString()
@@ -75,6 +78,7 @@ export class UsersController {
     private readonly userSearchService: UserSearchService,
     private readonly dataExportService: DataExportService,
     private readonly activityFeedService: ActivityFeedService,
+    private readonly queueService: QueueService
     private readonly userTimelineService: UserTimelineService,
     private readonly queueService: QueueService
     private readonly activityFeedService: ActivityFeedService
@@ -98,6 +102,7 @@ export class UsersController {
   }
 
   @Get('profile')
+  @Cache('user:profile:{userId}', CACHE_TTL.MEDIUM)
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({
     status: 200,
@@ -112,6 +117,7 @@ export class UsersController {
 
   @Put('profile')
   @HttpCode(200)
+  @CacheInvalidate(['user:profile:{userId}', 'user:{userId}:*'])
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
