@@ -45,6 +45,7 @@ import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
+import { CurrencyModule } from './shared/currency/currency.module';
 
 // Reliability & data quality (implemented against #1368 and #1367)
 import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
@@ -108,6 +109,7 @@ import { DataQualityModule } from './modules/data-quality/data-quality.module';
 
     DeliveryReliabilityModule,
     DataQualityModule,
+    CurrencyModule,
   ],
   controllers: [AppController],
   providers: [
