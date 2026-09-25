@@ -5,36 +5,55 @@ import {
   IsOptional,
   Length,
   Matches,
+  MaxLength,
+  Transform,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsStrongPassword } from '../decorators/strong-password.decorator';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  normalizeCountryCode,
+  normalizeEmail,
+} from '../services/credential-normalizer';
 
 export class RegisterDto {
   @ApiProperty({
-    description: 'User email address',
+    description: 'User email address. Stored lowercase and trimmed.',
     example: 'jane.doe@example.com',
     format: 'email',
   })
+  @Transform(({ value }) => (typeof value === 'string' ? normalizeEmail(value) : value))
   @IsEmail({}, { message: 'Invalid email format' })
   email: string;
 
   @ApiProperty({
-    description: '8-32 characters with at least one uppercase letter, one lowercase letter, one digit, and one special character.',
+    description:
+      'At least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. ' +
+      'Rejected outright above 72 bytes, because bcrypt silently discards input past that point and two ' +
+      'passwords sharing a 72-byte prefix would otherwise be interchangeable.',
     example: 'StrongP@ssw0rd!',
-    minLength: 8,
-    maxLength: 32,
+    minLength: PASSWORD_MIN_LENGTH,
+    maxLength: PASSWORD_MAX_LENGTH,
   })
   @IsString({ message: 'Password must be a string' })
   @IsNotEmpty({ message: 'Password is required' })
+  @Length(PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, {
+    message: `Password must be between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters`,
+  })
+  @IsStrongPassword({ message: 'Password does not meet the security policy' })
   password: string;
 
-  @ApiProperty({ description: 'User given name', example: 'Jane' })
+  @ApiProperty({ description: 'User given name', example: 'Jane', maxLength: 100 })
   @IsString({ message: 'First name must be a string' })
   @IsNotEmpty({ message: 'First name is required' })
+  @Length(1, 100, { message: 'First name must be between 1 and 100 characters' })
   firstName: string;
 
-  @ApiProperty({ description: 'User family name', example: 'Doe' })
+  @ApiProperty({ description: 'User family name', example: 'Doe', maxLength: 100 })
   @IsString({ message: 'Last name must be a string' })
   @IsNotEmpty({ message: 'Last name is required' })
+  @Length(1, 100, { message: 'Last name must be between 1 and 100 characters' })
   lastName: string;
 
   @ApiProperty({
@@ -43,6 +62,7 @@ export class RegisterDto {
     minLength: 2,
     maxLength: 2,
   })
+  @Transform(({ value }) => (typeof value === 'string' ? normalizeCountryCode(value) : value))
   @IsString()
   @Length(2, 2)
   @Matches(/^[A-Z]{2}$/, {
@@ -66,5 +86,6 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   @Length(6, 12)
+  @MaxLength(12, { message: 'referralCode must be at most 12 characters' })
   referralCode?: string;
 }

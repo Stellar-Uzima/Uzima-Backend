@@ -27,6 +27,9 @@ import { UsersService } from './services/users.service';
 import { DatabaseModule } from '../../database/database.module';
 import { ReferralModule } from '../../referral/referral.module';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
+import { PasswordPolicyService } from './services/password-policy.service';
+import { PasswordValidatorService } from './services/password-validator.service';
+import { AccountLockoutService } from './services/account-lockout.service';
 
 @Module({
   imports: [
@@ -61,6 +64,9 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     RolesGuard,
     PermissionsGuard,
     PasswordValidationPipe,
+    PasswordPolicyService,
+    PasswordValidatorService,
+    AccountLockoutService,
   ],
   exports: [
     AuthService,
@@ -71,6 +77,12 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     PermissionsGuard,
     JwtAuthGuard,
     JwtRefreshGuard,
+    // Exported so the admin and recovery flows apply the same policy and the
+    // same lockout rules as the public auth endpoints, rather than a second
+    // looser copy of each.
+    PasswordPolicyService,
+    PasswordValidatorService,
+    AccountLockoutService,
   ],
 })
 export class AuthModule {}
