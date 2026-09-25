@@ -34,7 +34,8 @@ import { UserTimelineQueryDto } from './dto/user-timeline.dto';
 import { QueueService } from '../../shared/queue/queue.service';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
-import { DataExportService } from './services/data-export.service';
+import { DataExportService, DataExportRequester } from './services/data-export.service';
+import { Role } from '@modules/auth/enums/role.enum';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 export class RegisterDeviceTokenDto {
@@ -76,6 +77,7 @@ export class UsersController {
     private readonly activityFeedService: ActivityFeedService,
     private readonly userTimelineService: UserTimelineService,
     private readonly queueService: QueueService
+    private readonly activityFeedService: ActivityFeedService
   ) {}
 
   @Post('device-token')
@@ -252,6 +254,14 @@ export class UsersController {
 
   @Post('data-export')
   @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Request a GDPR/data export for the authenticated user',
+    description:
+      'Queues a personal data export. Exports are authorized only for the ' +
+      'requesting user, admin accounts, or service accounts with the exports:read scope.',
+  })
+  @ApiResponse({ status: 202, description: 'Export job queued' })
+  @ApiResponse({ status: 403, description: 'Not authorized to request export' })
   async requestDataExport(@Req() req: AuthenticatedRequest) {
     const userId = this.extractUserId(req);
     await this.queueService.addJob(
@@ -260,8 +270,21 @@ export class UsersController {
       { userId },
       { maxRetries: 3 }
     );
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers?.['user-agent'] as string | undefined;
+    const requestId = req.headers?.['x-request-id'] as string | undefined;
 
-    return { message: 'Export job queued' };
+    const requester: DataExportRequester = {
+      kind: (req as any).apiKey ? 'service' : 'user',
+      userId,
+      role: req.user?.role as Role | undefined,
+      scopes: (req as any).apiKey?.scopes as string[] | undefined,
+      ipAddress,
+      userAgent,
+      requestId,
+    };
+
+    return this.dataExportService.queueExport(userId, requester);
   }
 
   private extractUserId(req: AuthenticatedRequest): string {

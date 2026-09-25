@@ -32,6 +32,11 @@ import { StorageService } from '../../storage/storage.service';
 import { StellarModule } from '../../stellar/stellar.module';
 import { CurrencyModule } from '../../shared/currency/currency.module';
 import { CurrencyService } from '../../shared/currency/currency.service';
+import { ActivityFeedService } from './services/activity-feed.service';
+import { StorageService } from '../../shared/storage/storage.service';
+import { Coupon } from '../../entities/coupon.entity';
+import { HealthTask } from '../../entities/health-task.entity';
+import { AuditModule } from '../../audit/audit.module';
 
 @Module({
   controllers: [UsersController, SettingsController, DataExportDownloadController],
@@ -74,6 +79,7 @@ import { CurrencyService } from '../../shared/currency/currency.service';
     PhoneVerificationService,
     SmsService,
     ActivityTrackerService,
+    ActivityFeedService,
     AvatarService,
     ActivityFeedService,
     UserTimelineService,
