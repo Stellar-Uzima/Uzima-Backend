@@ -12,6 +12,8 @@ import { User } from '../../entities/user.entity';
 import { Coupon } from '../../entities/coupon.entity';
 import { HealthTask } from '../../entities/health-task.entity';
 import { UsersController } from './users.controller';
+import { MeProfileController } from './controllers/me-profile.controller';
+import { MeProfileService } from './services/me-profile.service';
 import { DataExportDownloadController } from './controllers/data-export-download.controller';
 import { UsersService } from './users.service';
 import { QueueModule } from '../../queue/queue.module';
@@ -39,7 +41,12 @@ import { HealthTask } from '../../entities/health-task.entity';
 import { AuditModule } from '../../audit/audit.module';
 
 @Module({
-  controllers: [UsersController, SettingsController, DataExportDownloadController],
+  controllers: [
+    UsersController,
+    SettingsController,
+    DataExportDownloadController,
+    MeProfileController,
+  ],
   imports: [
     TypeOrmModule.forFeature([
       User,
@@ -72,6 +79,7 @@ import { AuditModule } from '../../audit/audit.module';
     UserTimelineService,
     DataExportService,
     CurrencyService,
+    MeProfileService,
   ],
   providers: [
     UsersService,
@@ -88,6 +96,7 @@ import { AuditModule } from '../../audit/audit.module';
     QueueService,
     StorageService,
     CurrencyService,
+    MeProfileService,
   ],
 })
 export class UsersModule {}
