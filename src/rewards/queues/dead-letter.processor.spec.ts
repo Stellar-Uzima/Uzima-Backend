@@ -1,249 +1,201 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, CallHandler } from '@nestjs/common';
-import { DeadLetterProcessor, DeadLetterJobData } from './dead-letter.processor';
-import { Repository } from 'typeorm';
-import { FailedRewardJob } from '../entities/failed-reward-job.entity';
-import { Queue } from 'bull';
+import { DeadLetterJobData, DeadLetterProcessor } from './dead-letter.processor';
+import { REWARD_DISTRIBUTION_JOB } from '../../queue/queue.constants';
+import { DEFAULT_BACKOFF_MS, DEFAULT_JOB_ATTEMPTS } from '../../queue/queue-policy';
 
 describe('DeadLetterProcessor', () => {
   let processor: DeadLetterProcessor;
-  let failedRewardJobRepository: Repository<FailedRewardJob>;
-  let rewardQueue: Queue;
 
-  const mockFailedRewardJobRepository = {
+  const failedRewardJobRepository = {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
+    find: jest.fn(),
     delete: jest.fn(),
   };
+  const rewardQueue = { add: jest.fn() };
+  const logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
 
-  const mockRewardQueue = {
-    add: jest.fn(),
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DeadLetterProcessor,
-        {
-          provide: Repository,
-          useValue: mockFailedRewardJobRepository,
-        },
-        {
-          provide: 'BullQueue',
-          useValue: mockRewardQueue,
-        },
-      ],
-    }).compile();
-
-    processor = module.get<DeadLetterProcessor>(DeadLetterProcessor);
-    failedRewardJobRepository = module.get<Repository<FailedRewardJob>>(Repository);
-    rewardQueue = module.get<Queue>('BullQueue');
+  const baseJobData = (
+    overrides: Partial<DeadLetterJobData> = {},
+  ): DeadLetterJobData => ({
+    userId: 'user-123',
+    xlmAmount: 100,
+    taskCompletionId: 'completion-123',
+    errorMessage: 'Payment failed',
+    jobId: 'job-456',
+    attemptsMade: 3,
+    jobType: REWARD_DISTRIBUTION_JOB,
+    jobData: { taskId: 'task-789' },
+    ...overrides,
   });
 
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
+    processor = new DeadLetterProcessor(
+      failedRewardJobRepository as any,
+      rewardQueue as any,
+    );
+    (processor as any).logger = logger;
   });
 
   describe('handleDeadLetter', () => {
-    it('should capture failed job data and save to DB', async () => {
-      const jobData: DeadLetterJobData = {
+    it('captures the failed reward job and returns its id', async () => {
+      failedRewardJobRepository.create.mockReturnValue({ id: 'failed-123' });
+      failedRewardJobRepository.save.mockResolvedValue({ id: 'failed-123' });
+
+      const result = await processor.handleDeadLetter({
+        id: 'job-789',
+        data: baseJobData(),
+      } as any);
+
+      expect(failedRewardJobRepository.create).toHaveBeenCalledWith({
         userId: 'user-123',
         xlmAmount: 100,
         taskCompletionId: 'completion-123',
         errorMessage: 'Payment failed',
         jobId: 'job-456',
         attemptsMade: 3,
-        jobType: 'reward_distribution',
-        jobData: { taskId: 'task-789' },
-      };
-
-      const mockJob = {
-        id: 'job-789',
-        data: jobData,
-      } as any;
-
-      const mockFailedJob = {
-        id: 'failed-123',
-        userId: jobData.userId,
-      };
-      mockFailedRewardJobRepository.create.mockReturnValue(mockFailedJob);
-      mockFailedRewardJobRepository.save.mockResolvedValue(mockFailedJob);
-
-      const result = await processor.handleDeadLetter(mockJob);
-
-      expect(mockFailedRewardJobRepository.create).toHaveBeenCalledWith({
-        userId: jobData.userId,
-        xlmAmount: jobData.xlmAmount,
-        taskCompletionId: jobData.taskCompletionId,
-        errorMessage: jobData.errorMessage,
-        jobId: jobData.jobId || mockJob.id?.toString(),
-        attemptsMade: jobData.attemptsMade,
-        jobType: jobData.jobType,
-        jobData: jobData.jobData,
+        jobType: REWARD_DISTRIBUTION_JOB,
+        jobData: { taskId: 'task-789', failureCategory: 'unknown' },
       });
-      expect(mockFailedRewardJobRepository.save).toHaveBeenCalledWith(mockFailedJob);
+      expect(failedRewardJobRepository.save).toHaveBeenCalledWith({ id: 'failed-123' });
       expect(result).toEqual({ success: true, failedJobId: 'failed-123' });
     });
 
-    it('should use job.id as fallback when jobId is not provided', async () => {
-      const jobData: DeadLetterJobData = {
-        userId: 'user-123',
-        xlmAmount: 100,
-        errorMessage: 'Payment failed',
-        attemptsMade: 3,
-        jobType: 'reward_distribution',
-        jobData: {},
-      };
+    it('falls back to the queue job id when the payload has none', async () => {
+      failedRewardJobRepository.create.mockReturnValue({ id: 'failed-1' });
+      failedRewardJobRepository.save.mockResolvedValue({ id: 'failed-1' });
 
-      const mockJob = {
+      await processor.handleDeadLetter({
         id: 'job-999',
-        data: jobData,
-      } as any;
+        data: baseJobData({ jobId: undefined }),
+      } as any);
 
-      const mockFailedJob = {
-        id: 'failed-123',
-        userId: jobData.userId,
-      };
-      mockFailedRewardJobRepository.create.mockReturnValue(mockFailedJob);
-      mockFailedRewardJobRepository.save.mockResolvedValue(mockFailedJob);
-
-      await processor.handleDeadLetter(mockJob);
-
-      expect(mockFailedRewardJobRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          jobId: 'job-999',
-        }),
+      expect(failedRewardJobRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ jobId: 'job-999' }),
       );
     });
 
-    it('should log warning and error for failed job', async () => {
-      const jobData: DeadLetterJobData = {
-        userId: 'user-123',
-        xlmAmount: 100,
-        taskCompletionId: 'completion-123',
-        errorMessage: 'Payment failed',
-        jobId: 'job-456',
-        attemptsMade: 3,
-        jobType: 'reward_distribution',
-        jobData: {},
-      };
+    it('keeps the classified root cause supplied by the producer', async () => {
+      failedRewardJobRepository.create.mockReturnValue({ id: 'failed-2' });
+      failedRewardJobRepository.save.mockResolvedValue({ id: 'failed-2' });
 
-      const mockJob = {
-        id: 'job-789',
-        data: jobData,
-      } as any;
+      await processor.handleDeadLetter({
+        id: 'job-1',
+        data: baseJobData({
+          errorMessage: 'connect ECONNREFUSED 127.0.0.1:6379',
+          failureCategory: 'network',
+        }),
+      } as any);
 
-      const mockFailedJob = { id: 'failed-123', userId: jobData.userId };
-      mockFailedRewardJobRepository.create.mockReturnValue(mockFailedJob);
-      mockFailedRewardJobRepository.save.mockResolvedValue(mockFailedJob);
-
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      await processor.handleDeadLetter(mockJob);
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Processing dead letter job'),
+      expect(failedRewardJobRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobData: { taskId: 'task-789', failureCategory: 'network' },
+        }),
       );
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Dead letter recorded'),
-      );
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('[network]'));
+    });
+  });
 
-      consoleSpy.mockRestore();
-      consoleErrorSpy.mockRestore();
+  describe('getFailureSummary', () => {
+    it('groups dead letters by root cause and repeats', async () => {
+      failedRewardJobRepository.find.mockResolvedValue([
+        { errorMessage: 'Request timed out' },
+        { errorMessage: 'Request timed out' },
+        { errorMessage: 'ETIMEDOUT while calling Stellar' },
+        { errorMessage: 'Validation failed: userId must be a uuid' },
+        { errorMessage: 'unknown weather' },
+      ]);
+
+      const summary = await processor.getFailureSummary(10);
+
+      expect(failedRewardJobRepository.find).toHaveBeenCalledWith({
+        order: { failedAt: 'DESC' },
+        take: 10,
+      });
+      expect(summary.total).toBe(5);
+      expect(summary.byCategory).toMatchObject({ timeout: 3, validation: 1, unknown: 1 });
+      expect(summary.topErrors[0]).toEqual({ message: 'Request timed out', count: 2 });
+      expect(summary.topErrors).toHaveLength(4);
+    });
+
+    it('returns zeroed counters when nothing has been dead-lettered', async () => {
+      failedRewardJobRepository.find.mockResolvedValue([]);
+
+      const summary = await processor.getFailureSummary();
+
+      expect(failedRewardJobRepository.find).toHaveBeenCalledWith({
+        order: { failedAt: 'DESC' },
+        take: 500,
+      });
+      expect(summary).toEqual({
+        total: 0,
+        byCategory: {
+          timeout: 0,
+          network: 0,
+          'rate-limit': 0,
+          validation: 0,
+          contract: 0,
+          unknown: 0,
+        },
+        topErrors: [],
+      });
     });
   });
 
   describe('replayFailedJob', () => {
-    it('should replay failed job by re-adding to reward queue and deleting from DB', async () => {
-      const mockFailedJob = {
+    it('replays with the shared retry policy and deletes the record', async () => {
+      failedRewardJobRepository.findOne.mockResolvedValue({
         id: 'failed-123',
         userId: 'user-123',
         taskCompletionId: 'completion-123',
         xlmAmount: 100,
-      };
-      mockFailedRewardJobRepository.findOne.mockResolvedValue(mockFailedJob);
-
-      const mockReplayJob = {
-        id: 'replay-456',
-      };
-      mockRewardQueue.add.mockResolvedValue(mockReplayJob);
-      mockFailedRewardJobRepository.delete.mockResolvedValue({ affected: 1 });
+      });
+      rewardQueue.add.mockResolvedValue({ id: 'replay-456' });
+      failedRewardJobRepository.delete.mockResolvedValue({ affected: 1 });
 
       const result = await processor.replayFailedJob('failed-123');
 
-      expect(mockFailedRewardJobRepository.findOne).toHaveBeenCalledWith({
+      expect(failedRewardJobRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'failed-123' },
       });
-      expect(mockRewardQueue.add).toHaveBeenCalledWith(
-        'REWARD_DISTRIBUTION_JOB',
+      expect(rewardQueue.add).toHaveBeenCalledWith(
+        REWARD_DISTRIBUTION_JOB,
         {
-          completionId: mockFailedJob.taskCompletionId,
-          userId: mockFailedJob.userId,
-          xlmAmount: mockFailedJob.xlmAmount,
+          completionId: 'completion-123',
+          userId: 'user-123',
+          xlmAmount: 100,
         },
         {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000,
-          },
+          attempts: DEFAULT_JOB_ATTEMPTS,
+          backoff: { type: 'exponential', delay: DEFAULT_BACKOFF_MS },
           removeOnComplete: true,
           removeOnFail: false,
         },
       );
-      expect(mockFailedRewardJobRepository.delete).toHaveBeenCalledWith('failed-123');
+      expect(failedRewardJobRepository.delete).toHaveBeenCalledWith('failed-123');
       expect(result).toEqual({ jobId: 'replay-456' });
     });
 
-    it('should throw error if failed job not found', async () => {
-      mockFailedRewardJobRepository.findOne.mockResolvedValue(null);
+    it('throws when the failed job does not exist', async () => {
+      failedRewardJobRepository.findOne.mockResolvedValue(null);
 
       await expect(processor.replayFailedJob('non-existent')).rejects.toThrow(
         'Failed reward job non-existent not found',
       );
     });
 
-    it('should not delete from DB if re-adding to queue fails', async () => {
-      const mockFailedJob = {
+    it('does not delete the record when re-enqueueing fails', async () => {
+      failedRewardJobRepository.findOne.mockResolvedValue({
         id: 'failed-123',
         userId: 'user-123',
         taskCompletionId: 'completion-123',
         xlmAmount: 100,
-      };
-      mockFailedRewardJobRepository.findOne.mockResolvedValue(mockFailedJob);
-      mockRewardQueue.add.mockRejectedValue(new Error('Queue error'));
-      mockFailedRewardJobRepository.delete.mockResolvedValue({ affected: 1 });
+      });
+      rewardQueue.add.mockRejectedValue(new Error('Queue error'));
 
       await expect(processor.replayFailedJob('failed-123')).rejects.toThrow('Queue error');
-      expect(mockFailedRewardJobRepository.delete).not.toHaveBeenCalled();
-    });
-
-    it('should log replay action', async () => {
-      const mockFailedJob = {
-        id: 'failed-123',
-        userId: 'user-123',
-        taskCompletionId: 'completion-123',
-        xlmAmount: 100,
-      };
-      mockFailedRewardJobRepository.findOne.mockResolvedValue(mockFailedJob);
-
-      const mockReplayJob = {
-        id: 'replay-456',
-      };
-      mockRewardQueue.add.mockResolvedValue(mockReplayJob);
-      mockFailedRewardJobRepository.delete.mockResolvedValue({ affected: 1 });
-
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-
-      await processor.replayFailedJob('failed-123');
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Replayed failed job failed-123 as replay-456'),
-      );
-
-      consoleSpy.mockRestore();
+      expect(failedRewardJobRepository.delete).not.toHaveBeenCalled();
     });
   });
 });

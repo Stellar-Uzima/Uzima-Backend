@@ -14,6 +14,11 @@ export const DATA_PROCESSING_QUEUE = 'data-processing-queue' as const;
 // Dead Letter Queue for failed reward jobs
 export const REWARD_DEAD_LETTER_QUEUE = 'reward-dead-letter-queue' as const;
 
+// Job name for entries on the dead letter queue. The producer (reward
+// processor) and the consumer (dead letter processor) must agree on it, so it
+// is a shared constant instead of two matching string literals.
+export const REWARD_DEAD_LETTER_JOB = 'process' as const;
+
 // Queue Job Types for Reward Queue
 export const REWARD_DISTRIBUTION_JOB = 'reward-distribution' as const;
 export const REWARD_CALCULATION_JOB = 'reward-calculation' as const;
