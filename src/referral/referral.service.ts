@@ -8,6 +8,8 @@ import {
   AntiAbuseService,
 } from '../modules/anti-abuse/anti-abuse.service';
 import { AttemptType, AttemptOutcome } from '../modules/anti-abuse/entities/claim-attempt-log.entity';
+import { ReferralRewardSettlementService } from './referral-reward-settlement.service';
+import { ReferralQualifyingAction } from './referral-reward.constants';
 
 @Injectable()
 export class ReferralService {
@@ -19,6 +21,8 @@ export class ReferralService {
     private referralRepo: Repository<ReferralRecord>,
 
     private readonly antiAbuseService: AntiAbuseService,
+
+    private readonly referralRewardSettlementService: ReferralRewardSettlementService,
   ) {}
 
   async getMyReferralCode(userId: string) {
@@ -80,29 +84,16 @@ export class ReferralService {
     return this.referralRepo.save(record);
   }
 
+  /**
+   * Qualifying-action hook: the referred user completed their first health
+   * task. Delegates to the settlement service, which owns the reward criteria
+   * and guarantees the referral is paid exactly once (idempotent), so repeated
+   * completions or retries never double-pay.
+   */
   async handleFirstHealthTaskCompletion(userId: string) {
-    const user = await this.userRepo.findOne({
-      where: { id: userId },
-      relations: ['referredBy'],
+    return this.referralRewardSettlementService.settleReferralReward({
+      referredUserId: userId,
+      qualifyingAction: ReferralQualifyingAction.FIRST_HEALTH_TASK_COMPLETION,
     });
-
-    if (!user || !user.referredBy) return;
-
-    const existingRecord = await this.referralRepo.findOne({
-      where: {
-        referred: { id: userId },
-      },
-    });
-
-    if (existingRecord) return;
-
-    const record = this.referralRepo.create({
-      referrer: user.referredBy,
-      referred: user,
-      rewardPaid: true,
-      rewardPaidAt: new Date(),
-    });
-
-    await this.referralRepo.save(record);
   }
 }
