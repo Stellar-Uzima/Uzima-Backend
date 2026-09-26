@@ -6,10 +6,21 @@ import { Repository } from 'typeorm';
 import { WalletService } from './wallet.service';
 import { RewardTransaction } from '../../rewards/entities/reward-transaction.entity';
 import { User } from '../../entities/user.entity';
+import { TaskCompletion, TaskCompletionStatus } from '../../tasks/entities/task-completion.entity';
 import { StellarService } from '../../stellar/stellar.service';
 import { XlmPriceService } from '../../stellar/xlm-price.service';
 import { RewardStatus } from '../../rewards/enums/reward-status.enum';
 import { formatCurrency } from './format';
+import { AuditService } from '@/audit/audit.service';
+import { NotificationService } from '../notification-center/notification.service';
+import { getDataSourceToken } from '@nestjs/typeorm';
+
+jest.mock('../../stellar/xlm-price.service', () => ({
+  XlmPriceService: class XlmPriceService {},
+}));
+jest.mock('../notification-center/notification.service', () => ({
+  NotificationService: class NotificationService {},
+}));
 
 const mockRewardTransactionRepo = {
   createQueryBuilder: jest.fn().mockReturnThis(),
@@ -21,6 +32,15 @@ const mockRewardTransactionRepo = {
   take: jest.fn().mockReturnThis(),
   getRawOne: jest.fn(),
   getManyAndCount: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn((value) => value),
+  save: jest.fn(async (value) => ({ ...value, id: 'recovered-tx-1' })),
+};
+
+const mockTaskCompletionRepo = {
+  find: jest.fn(),
+  findOne: jest.fn(),
 };
 
 const mockUserRepo = {
@@ -44,6 +64,27 @@ const mockXlmPriceService = {
 
 const mockEventEmitter = {
   emit: jest.fn(),
+};
+
+const mockAuditService = {
+  logEvent: jest.fn(),
+};
+
+const mockNotificationService = {
+  createNotification: jest.fn(),
+};
+
+const mockDataSource = {
+  transaction: jest.fn(async (callback) =>
+    callback({
+      getRepository: (entity) => {
+        if (entity === User) return mockUserRepo;
+        if (entity === RewardTransaction) return mockRewardTransactionRepo;
+        if (entity === TaskCompletion) return mockTaskCompletionRepo;
+        throw new Error('Unexpected repository');
+      },
+    })
+  ),
 };
 
 describe('WalletService', () => {
@@ -78,6 +119,9 @@ describe('WalletService', () => {
           provide: EventEmitter2,
           useValue: mockEventEmitter,
         },
+        { provide: getDataSourceToken(), useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 
@@ -95,9 +139,7 @@ describe('WalletService', () => {
 
       const result = await service.getWalletSummary('user-id');
 
-      expect(mockCacheManager.get).toHaveBeenCalledWith(
-        'wallet_summary:user-id',
-      );
+      expect(mockCacheManager.get).toHaveBeenCalledWith('wallet_summary:user-id');
       expect(result).toEqual(cachedSummary);
     });
 
@@ -142,7 +184,7 @@ describe('WalletService', () => {
       expect(mockCacheManager.set).toHaveBeenCalledWith(
         'wallet_summary:user-id',
         expect.any(Object),
-        180000,
+        180000
       );
     });
 
@@ -152,9 +194,7 @@ describe('WalletService', () => {
         id: 'user-id',
         walletAddress: 'GABCDE...',
       });
-      mockStellarService.getAccountBalance.mockRejectedValue(
-        new Error('Network error'),
-      );
+      mockStellarService.getAccountBalance.mockRejectedValue(new Error('Network error'));
       mockXlmPriceService.getXlmUsdRate.mockResolvedValue(0.12);
       mockRewardTransactionRepo.getRawOne
         .mockResolvedValueOnce({ total: null })
@@ -171,9 +211,7 @@ describe('WalletService', () => {
     it('should delete cache on reward.earned event', async () => {
       await service.invalidateCache({ userId: 'user-id' });
 
-      expect(mockCacheManager.del).toHaveBeenCalledWith(
-        'wallet_summary:user-id',
-      );
+      expect(mockCacheManager.del).toHaveBeenCalledWith('wallet_summary:user-id');
     });
   });
 
@@ -181,14 +219,16 @@ describe('WalletService', () => {
     it('should fetch paginated transactions', async () => {
       const mockData = [{ id: 'tx1' }];
       mockRewardTransactionRepo.getManyAndCount = jest.fn().mockResolvedValue([mockData, 1]);
-      
+
       const result = await service.getTransactionHistory('user-id', 1, 10);
-      
+
       expect(mockRewardTransactionRepo.createQueryBuilder).toHaveBeenCalledWith('rt');
-      expect(mockRewardTransactionRepo.where).toHaveBeenCalledWith('rt.userId = :userId', { userId: 'user-id' });
+      expect(mockRewardTransactionRepo.where).toHaveBeenCalledWith('rt.userId = :userId', {
+        userId: 'user-id',
+      });
       expect(mockRewardTransactionRepo.skip).toHaveBeenCalledWith(0);
       expect(mockRewardTransactionRepo.take).toHaveBeenCalledWith(10);
-      
+
       expect(result).toEqual({
         data: mockData,
         metadata: {
@@ -202,12 +242,19 @@ describe('WalletService', () => {
 
     it('should apply filters if provided', async () => {
       mockRewardTransactionRepo.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
-      
+
       await service.getTransactionHistory('user-id', 1, 10, '2023-01-01', '2023-12-31', 'SUCCESS');
-      
-      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.createdAt >= :startDate', { startDate: '2023-01-01' });
-      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.createdAt <= :endDate', { endDate: '2023-12-31' });
-      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.status = :type', { type: 'SUCCESS' });
+
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith(
+        'rt.createdAt >= :startDate',
+        { startDate: '2023-01-01' }
+      );
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.createdAt <= :endDate', {
+        endDate: '2023-12-31',
+      });
+      expect(mockRewardTransactionRepo.andWhere).toHaveBeenCalledWith('rt.status = :type', {
+        type: 'SUCCESS',
+      });
     });
   });
 
@@ -219,9 +266,9 @@ describe('WalletService', () => {
         walletBalance: 0,
       });
       mockStellarService.getAccountBalance.mockResolvedValue('100.50');
-      
+
       const result = await service.syncBalance('user-id');
-      
+
       expect(mockStellarService.getAccountBalance).toHaveBeenCalledWith('GABCDE...');
       expect(mockUserRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ walletBalance: 100.5 })
@@ -241,7 +288,9 @@ describe('WalletService', () => {
         walletAddress: null,
         stellarWalletAddress: null,
       });
-      await expect(service.syncBalance('user-id')).rejects.toThrow('No wallet linked to this account');
+      await expect(service.syncBalance('user-id')).rejects.toThrow(
+        'No wallet linked to this account'
+      );
     });
 
     it('should throw BadRequestException on stellar network error', async () => {
@@ -250,7 +299,9 @@ describe('WalletService', () => {
         walletAddress: 'GABCDE...',
       });
       mockStellarService.getAccountBalance.mockRejectedValue(new Error('Network error'));
-      await expect(service.syncBalance('user-id')).rejects.toThrow('Unable to sync wallet balance from Stellar network');
+      await expect(service.syncBalance('user-id')).rejects.toThrow(
+        'Unable to sync wallet balance from Stellar network'
+      );
     });
   });
 });
@@ -295,6 +346,9 @@ describe('reconcile', () => {
           provide: EventEmitter2,
           useValue: mockEventEmitter,
         },
+        { provide: getDataSourceToken(), useValue: mockDataSource },
+        { provide: AuditService, useValue: mockAuditService },
+        { provide: NotificationService, useValue: mockNotificationService },
       ],
     }).compile();
 
@@ -312,5 +366,125 @@ describe('reconcile', () => {
     expect(res.walletLinked).toBe(true);
     expect(res.liveBalance).toBe('5.00');
     expect(res.totalEarnedFromTasks).toBe('10.00');
+  });
+
+  describe('recoverTransactions', () => {
+    it('reconstructs missing verified rewards, identifies suspicious entries, audits, and notifies the user', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'u1' });
+      mockRewardTransactionRepo.find.mockResolvedValue([
+        {
+          id: 'failed-tx',
+          taskCompletionId: 'failed-completion',
+          amount: 2,
+          status: RewardStatus.FAILED,
+          createdAt: new Date(),
+        },
+        {
+          id: 'stale-tx',
+          taskCompletionId: 'stale-completion',
+          amount: 1,
+          status: RewardStatus.PENDING,
+          createdAt: new Date(Date.now() - 16 * 60 * 1000),
+        },
+        {
+          id: 'hashless-tx',
+          taskCompletionId: 'hashless-completion',
+          amount: 3,
+          status: RewardStatus.SUCCESS,
+          stellarTxHash: null,
+          createdAt: new Date(),
+        },
+      ]);
+      mockTaskCompletionRepo.find.mockResolvedValue([
+        { id: 'missing-completion', xlmRewarded: 4.5 },
+      ]);
+      mockTaskCompletionRepo.findOne.mockResolvedValue({
+        id: 'missing-completion',
+        xlmRewarded: 4.5,
+      });
+      mockRewardTransactionRepo.findOne.mockResolvedValue(null);
+      mockAuditService.logEvent.mockResolvedValue({} as any);
+      mockNotificationService.createNotification.mockResolvedValue({} as any);
+
+      const result = await service.recoverTransactions('u1', 'admin-1');
+
+      expect(mockRewardTransactionRepo.create).toHaveBeenCalledWith({
+        userId: 'u1',
+        taskCompletionId: 'missing-completion',
+        amount: 4.5,
+        status: RewardStatus.FAILED,
+        attempts: 0,
+      });
+      expect(result.recoveredTransactions).toEqual([
+        expect.objectContaining({
+          taskCompletionId: 'missing-completion',
+          amount: 4.5,
+          status: RewardStatus.FAILED,
+        }),
+      ]);
+      expect(result.suspiciousTransactions).toHaveLength(3);
+      expect(result.paymentsSubmitted).toBe(0);
+      expect(mockAuditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'admin-1',
+          resourceId: 'u1',
+          complianceCategory: 'WALLET_RECOVERY',
+          metadata: expect.objectContaining({
+            recoveredTransactionIds: ['recovered-tx-1'],
+          }),
+        })
+      );
+      expect(mockNotificationService.createNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'u1',
+          title: 'Wallet activity reviewed',
+          body: expect.stringContaining('restored 1 missing reward record'),
+        })
+      );
+    });
+
+    it('does not create duplicate rows or notify when all verified completions already have entries', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'u1' });
+      mockRewardTransactionRepo.find.mockResolvedValue([]);
+      mockTaskCompletionRepo.find.mockResolvedValue([
+        { id: 'existing-completion', xlmRewarded: 2 },
+      ]);
+      mockTaskCompletionRepo.findOne.mockResolvedValue({
+        id: 'existing-completion',
+        xlmRewarded: 2,
+      });
+      mockRewardTransactionRepo.findOne.mockResolvedValue({
+        id: 'existing-tx',
+        status: RewardStatus.SUCCESS,
+      });
+      mockAuditService.logEvent.mockResolvedValue({} as any);
+
+      const result = await service.recoverTransactions('u1', 'admin-1');
+
+      expect(result.recoveredTransactions).toEqual([]);
+      expect(result.suspiciousTransactions).toEqual([]);
+      expect(mockRewardTransactionRepo.save).not.toHaveBeenCalled();
+      expect(mockNotificationService.createNotification).not.toHaveBeenCalled();
+    });
+
+    it('does not repeatedly notify for suspicious rows unless recovery changes the ledger', async () => {
+      mockUserRepo.findOne.mockResolvedValue({ id: 'u1' });
+      mockRewardTransactionRepo.find.mockResolvedValue([
+        {
+          id: 'failed-tx',
+          taskCompletionId: 'failed-completion',
+          amount: 2,
+          status: RewardStatus.FAILED,
+          createdAt: new Date(),
+        },
+      ]);
+      mockTaskCompletionRepo.find.mockResolvedValue([]);
+      mockAuditService.logEvent.mockResolvedValue({} as any);
+
+      const result = await service.recoverTransactions('u1', 'admin-1');
+
+      expect(result.suspiciousTransactions).toHaveLength(1);
+      expect(mockNotificationService.createNotification).not.toHaveBeenCalled();
+    });
   });
 });
