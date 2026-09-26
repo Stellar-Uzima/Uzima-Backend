@@ -1,6 +1,20 @@
-import { Controller, Post, Get, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
+import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
 
 @ApiTags('Wallet')
 @Controller('wallets')
@@ -13,6 +27,23 @@ export class AdminWalletController {
   @ApiResponse({ status: 200, description: 'Reconciliation summary returned' })
   async reconcile(@Param('userId') userId: string) {
     return this.walletService.reconcile(userId);
+  }
+
+  @Post(':userId/recover-transactions')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Recover missing wallet ledger entries and identify suspicious transactions',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet recovery report returned and missing entries restored for review',
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async recoverTransactions(@Req() req: any, @Param('userId') userId: string) {
+    return this.walletService.recoverTransactions(userId, req.user.sub);
   }
 
   @Post(':userId/sync')
@@ -35,7 +66,7 @@ export class AdminWalletController {
     @Query('limit') limit: number = 10,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @Query('type') type?: string,
+    @Query('type') type?: string
   ) {
     return this.walletService.getTransactionHistory(
       userId,
@@ -43,7 +74,7 @@ export class AdminWalletController {
       Number(limit),
       startDate,
       endDate,
-      type,
+      type
     );
   }
 }

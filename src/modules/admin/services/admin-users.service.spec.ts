@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AdminUsersService } from './admin-users.service';
 import { User } from '@/entities/user.entity';
 import { AuditService } from '@/audit/audit.service';
@@ -13,22 +13,31 @@ describe('AdminUsersService', () => {
   let service: AdminUsersService;
   let usersRepository: jest.Mocked<Repository<User>>;
   let taskAssignmentService: jest.Mocked<TaskAssignmentService>;
+  let auditService: jest.Mocked<AuditService>;
 
   const mockUser = {
     id: 'user-1',
     email: 'user1@example.com',
+    phoneNumber: '+254700000000',
     firstName: 'Jane',
     lastName: 'Doe',
     role: Role.USER,
+    status: 'SUSPENDED',
+    isVerified: true,
+    isActive: false,
+    deletedAt: new Date('2026-01-01T00:00:00.000Z'),
+    walletBalance: '12.5000000',
   } as any;
 
   beforeEach(async () => {
     const mockUsersRepository = {
       findOne: jest.fn(),
+      save: jest.fn(),
     };
 
     const mockAuditService = {
       logAction: jest.fn(),
+      logEvent: jest.fn(),
     };
 
     const mockStreaksService = {
@@ -64,6 +73,7 @@ describe('AdminUsersService', () => {
     service = module.get(AdminUsersService);
     usersRepository = module.get(getRepositoryToken(User));
     taskAssignmentService = module.get(TaskAssignmentService);
+    auditService = module.get(AuditService);
   });
 
   it('should be defined', () => {
@@ -128,6 +138,79 @@ describe('AdminUsersService', () => {
 
       // Must not query assignment history for a user that doesn't exist.
       expect(taskAssignmentService.getAssignmentHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recoverUser (#1384)', () => {
+    it('validates the existing identity, reactivates the same account, preserves balance, and audits the admin reason', async () => {
+      const recoverableUser = { ...mockUser };
+      usersRepository.findOne.mockResolvedValueOnce(recoverableUser).mockResolvedValueOnce(null);
+      usersRepository.save.mockImplementation(async (user) => user as User);
+      const dto = {
+        identityEmail: 'USER1@example.com',
+        email: 'jane.corrected@example.com',
+        reason: 'User confirmed ownership with identity documents',
+      };
+
+      const result = await service.recoverUser('admin-1', 'user-1', dto);
+
+      expect(usersRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'user-1',
+          email: 'jane.corrected@example.com',
+          walletBalance: '12.5000000',
+          isActive: true,
+          status: 'active',
+          isVerified: false,
+          deletedAt: null,
+        })
+      );
+      expect(result).toMatchObject({
+        id: 'user-1',
+        email: 'jane.corrected@example.com',
+        status: 'active',
+        isVerified: false,
+      });
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'admin-1',
+          resourceId: 'user-1',
+          description: expect.stringContaining(dto.reason),
+          oldValues: expect.objectContaining({ email: 'user1@example.com' }),
+          newValues: expect.objectContaining({ email: 'jane.corrected@example.com' }),
+          isSensitive: true,
+          isComplianceEvent: true,
+        })
+      );
+    });
+
+    it('rejects identity that does not match the verified account', async () => {
+      usersRepository.findOne.mockResolvedValue({ ...mockUser });
+
+      await expect(
+        service.recoverUser('admin-1', 'user-1', {
+          identityEmail: 'someone-else@example.com',
+          reason: 'User reported being locked out of account',
+        })
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(usersRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects a replacement identity already used by another account', async () => {
+      usersRepository.findOne
+        .mockResolvedValueOnce({ ...mockUser })
+        .mockResolvedValueOnce({ id: 'other-user' });
+
+      await expect(
+        service.recoverUser('admin-1', 'user-1', {
+          identityEmail: 'user1@example.com',
+          email: 'taken@example.com',
+          reason: 'User reported being locked out of account',
+        })
+      ).rejects.toThrow(ConflictException);
+
+      expect(usersRepository.save).not.toHaveBeenCalled();
     });
   });
 });
