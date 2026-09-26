@@ -17,6 +17,8 @@ import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { AuditService } from '@/audit/audit.service';
 import { StreaksService } from '@/streaks/streaks.service';
 import { TaskAssignmentService } from '@/tasks/assignment/task-assignment.service';
+import { RecoverUserDto } from '../dto/recover-user.dto';
+import { AuditAction, AuditResource } from '@/audit/entities/audit-log.entity';
 
 /**
  * Provides admin-level user management operations including user
@@ -31,7 +33,7 @@ export class AdminUsersService {
     private readonly usersRepository: Repository<User>,
     private readonly auditService: AuditService,
     private readonly streaksService: StreaksService,
-    private readonly taskAssignmentService: TaskAssignmentService,
+    private readonly taskAssignmentService: TaskAssignmentService
   ) {
     this.redisClient = createClient({
       url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -71,14 +73,22 @@ export class AdminUsersService {
     if (!query || query.trim().length === 0) {
       return { data: [], total: 0 };
     }
-    const qb = this.usersRepository.createQueryBuilder('user')
-      .where('(user.firstName ILIKE :q OR user.lastName ILIKE :q OR user.email ILIKE :q)',
-        { q: `%${query.trim()}%` })
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .where('(user.firstName ILIKE :q OR user.lastName ILIKE :q OR user.email ILIKE :q)', {
+        q: `%${query.trim()}%`,
+      })
       .andWhere('user.deletedAt IS NULL')
       .select([
-        'user.id', 'user.email', 'user.firstName', 'user.lastName',
-        'user.role', 'user.country', 'user.isActive',
-        'user.createdAt', 'user.updatedAt',
+        'user.id',
+        'user.email',
+        'user.firstName',
+        'user.lastName',
+        'user.role',
+        'user.country',
+        'user.isActive',
+        'user.createdAt',
+        'user.updatedAt',
       ])
       .take(20);
     const [users, total] = await qb.getManyAndCount();
@@ -108,7 +118,7 @@ export class AdminUsersService {
     if (dto.search) {
       qb.andWhere(
         '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${dto.search}%` },
+        { search: `%${dto.search}%` }
       );
     }
 
@@ -166,13 +176,13 @@ export class AdminUsersService {
   async getUserStreaks(id: string) {
     // verify user exists, which returns 404 (or throws BadRequest/NotFound depending on service)
     // Wait, the instructions say "Returns 404 if user not found".
-    // getUserById throws BadRequestException in AdminUsersService. 
+    // getUserById throws BadRequestException in AdminUsersService.
     // We can just use userRepo to check if user exists.
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     return this.streaksService.getStreakHistory(id);
   }
 
@@ -240,6 +250,127 @@ export class AdminUsersService {
     const updatedUser = await this.usersRepository.save(user);
     await this.auditService.logAction(adminId, `Reactivated user ${userId}`);
     return updatedUser;
+  }
+
+  async recoverUser(adminId: string, userId: string, dto: RecoverUserDto) {
+    if (adminId === userId) {
+      throw new ForbiddenException('Admins cannot recover their own account');
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      withDeleted: true,
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const identityEmail = dto.identityEmail?.trim().toLowerCase();
+    const identityPhoneNumber = dto.identityPhoneNumber?.replace(/\s+/g, '');
+    if (!identityEmail && !identityPhoneNumber) {
+      throw new BadRequestException(
+        'Provide a verified email or phone number to validate identity'
+      );
+    }
+
+    const emailMatches =
+      identityEmail !== undefined && identityEmail === user.email?.trim().toLowerCase();
+    const phoneMatches =
+      identityPhoneNumber !== undefined &&
+      identityPhoneNumber === user.phoneNumber?.replace(/\s+/g, '');
+    const allProvidedIdentifiersMatch =
+      (identityEmail === undefined || emailMatches) &&
+      (identityPhoneNumber === undefined || phoneMatches);
+
+    if (!user.isVerified || !allProvidedIdentifiersMatch || (!emailMatches && !phoneMatches)) {
+      throw new ForbiddenException('Identity could not be verified');
+    }
+
+    const oldIdentity = { email: user.email, phoneNumber: user.phoneNumber };
+    const oldStatus = user.status;
+    const oldDeletedAt = user.deletedAt ?? null;
+    const email = dto.email?.trim().toLowerCase();
+    const phoneNumber = dto.phoneNumber?.replace(/\s+/g, '');
+    const identityChanged =
+      (email !== undefined && email !== user.email) ||
+      (phoneNumber !== undefined && phoneNumber !== user.phoneNumber);
+
+    if (email !== undefined) {
+      const existingEmail = await this.usersRepository.findOne({
+        where: { email },
+        withDeleted: true,
+      });
+      if (existingEmail && existingEmail.id !== userId) {
+        throw new ConflictException('Email already in use');
+      }
+      user.email = email;
+    }
+
+    if (phoneNumber !== undefined) {
+      const existingPhone = await this.usersRepository.findOne({
+        where: { phoneNumber },
+        withDeleted: true,
+      });
+      if (existingPhone && existingPhone.id !== userId) {
+        throw new ConflictException('Phone number already in use');
+      }
+      user.phoneNumber = phoneNumber;
+    }
+
+    user.isActive = true;
+    user.status = UserStatus.ACTIVE;
+    user.deletedAt = null;
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.refreshToken = null;
+    user.refreshTokenExpiry = null;
+    user.passwordResetToken = null;
+    user.passwordResetExpiry = null;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpiry = null;
+    if (identityChanged) {
+      user.isVerified = false;
+    }
+
+    const updatedUser = await this.usersRepository.save(user);
+    if (this.redisClient.isReady) {
+      await this.redisClient.del(`refresh:${userId}`).catch(() => undefined);
+    }
+    await this.auditService.logEvent({
+      userId: adminId,
+      userRole: Role.ADMIN,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.USER,
+      resourceId: userId,
+      description: `Admin-assisted account recovery: ${dto.reason.trim()}`,
+      oldValues: {
+        ...oldIdentity,
+        status: oldStatus,
+        deletedAt: oldDeletedAt,
+      },
+      newValues: {
+        email: updatedUser.email,
+        phoneNumber: updatedUser.phoneNumber,
+        status: updatedUser.status,
+        isVerified: updatedUser.isVerified,
+      },
+      isSensitive: true,
+      isComplianceEvent: true,
+      complianceCategory: 'ACCOUNT_RECOVERY',
+      metadata: { reason: dto.reason.trim(), identityCorrected: identityChanged },
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      phoneNumber: updatedUser.phoneNumber,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      status: updatedUser.status,
+      isActive: updatedUser.isActive,
+      isVerified: updatedUser.isVerified,
+      deletedAt: updatedUser.deletedAt,
+    };
   }
 
   async deleteUser(adminId: string, userId: string) {
