@@ -6,6 +6,11 @@ import {
   Index,
 } from 'typeorm';
 
+export enum TokenType {
+  ACCESS = 'access',
+  REFRESH = 'refresh',
+}
+
 @Entity('token_blacklist')
 export class TokenBlacklist {
   @PrimaryGeneratedColumn('uuid')
@@ -15,8 +20,8 @@ export class TokenBlacklist {
   @Index()
   token: string;
 
-  @Column({ type: 'varchar' })
-  tokenType: 'access' | 'refresh';
+  @Column({ type: 'enum', enum: TokenType })
+  tokenType: TokenType;
 
   @Column({ type: 'varchar' })
   userId: string;

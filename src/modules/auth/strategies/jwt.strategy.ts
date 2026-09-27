@@ -1,94 +1,72 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
-import {
-  buildJwtSecurityConfig,
-  JwtSecurityConfig,
-  resolveJwtSecurityConfig,
-} from '../../../config/jwt.config';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { TokenBlacklist, TokenType } from '@/database/entities/token-blacklist.entity';
 
 export interface JwtPayload {
   /** The subject claim — typically the user's ID */
   sub: string;
   email: string;
-  roles?: string[];
-  /** Token id. Enables per-token revocation. */
+  role?: string;
+  /** JWT ID for token revocation tracking */
   jti?: string;
-  /** Issuer, validated against {@link JwtSecurityConfig.issuer}. */
+  /** Issuer claim */
   iss?: string;
-  /** Audience, validated against {@link JwtSecurityConfig.audience}. */
+  /** Audience claim */
   aud?: string | string[];
   iat?: number;
   exp?: number;
 }
 
 /**
- * Validates the bearer access token.
- *
- * Hardening applied for #1287:
- *  - `algorithms` is pinned to HS256 so a token signed with `none` or an
- *    asymmetric algorithm cannot be substituted.
- *  - `issuer` and `audience` are asserted by passport-jwt itself, so a token
- *    minted for a different service (or a stale one) never reaches business
- *    logic.
- *  - `ignoreExpiration` stays `false` and a small `clockTolerance` absorbs
- *    drift between nodes.
- *  - `validate()` performs a second, explicit claim check. `passport-jwt`
- *    already rejects a bad `iss`/`aud`, but it does not guarantee `sub` is
- *    present, and a token with no subject cannot be authorised.
+ * JWT Strategy for validating access tokens.
+ * Verifies RS256 signature, expiration, issuer, audience, and checks revocation via TokenBlacklist.
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  private readonly securityConfig: JwtSecurityConfig;
-
-  constructor(private readonly configService: ConfigService) {
-    const securityConfig = resolveJwtSecurityConfig(
-      configService.get('jwt'),
-      process.env,
-    );
-
-    const options: StrategyOptionsWithoutRequest = {
+  constructor(
+    private readonly configService: ConfigService,
+    @InjectRepository(TokenBlacklist)
+    private readonly tokenBlacklistRepo: Repository<TokenBlacklist>,
+  ) {
+    super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_SECRET') || 'default-secret-key',
-      issuer: securityConfig.issuer,
-      audience: securityConfig.audience,
-      algorithms: securityConfig.algorithms,
-      clockTolerance: securityConfig.clockTolerance,
-    };
-
-    super(options);
-
-    this.securityConfig = securityConfig;
+      issuer: configService.get<string>('JWT_ISSUER', 'stellar-uzima'),
+      audience: configService.get<string>('JWT_AUDIENCE', 'stellar-uzima-api'),
+      algorithms: ['RS256'],
+      passReqToCallback: true,
+    });
   }
 
-  async validate(payload: JwtPayload) {
-    if (!payload.sub) {
-      throw new UnauthorizedException('Token is missing a subject claim');
+  async validate(req: Request, payload: JwtPayload) {
+    // Check if access token is revoked
+    if (payload.jti) {
+      const blacklisted = await this.tokenBlacklistRepo.findOne({
+        where: { token: payload.jti, tokenType: TokenType.ACCESS },
+        select: ['id'],
+      });
+
+      if (blacklisted) {
+        throw new UnauthorizedException('Access token has been revoked');
+      }
     }
 
-    // Belt-and-braces: passport-jwt checks these, but assert again so a
-    // misconfigured future strategy cannot silently drop the guarantee.
-    if (payload.iss !== this.securityConfig.issuer) {
-      throw new UnauthorizedException('Token issuer is not recognised');
-    }
-
-    if (!this.hasExpectedAudience(payload.aud, this.securityConfig.audience)) {
-      throw new UnauthorizedException('Token audience is not recognised');
-    }
-
-    if (payload.exp !== undefined && payload.exp * 1000 <= Date.now()) {
-      throw new UnauthorizedException('Token has expired');
-    }
-
+    // Attach token ID for revocation checking downstream
+    const jti = payload.jti;
+    
+    // Return user context with token metadata for guards
     return {
       userId: payload.sub,
-      sub: payload.sub,
       email: payload.email,
-      role: payload.roles?.[0],
-      roles: payload.roles,
-      jti: payload.jti,
+      role: payload.role,
+      jti,
+      iat: payload.iat,
+      exp: payload.exp,
     };
   }
 

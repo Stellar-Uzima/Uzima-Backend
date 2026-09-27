@@ -21,6 +21,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
@@ -86,8 +87,11 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 423, description: 'Account temporarily locked' })
   @ApiResponse({ status: 429, description: 'Too many login attempts' })
-  async login(@Body() dto: LoginDto, @Req() req: RequestWithContext) {
-    return this.authService.login(dto, this.contextFrom(req));
+  async login(@Body() dto: LoginDto, @Req() req: any) {
+    return this.authService.login(dto, {
+      ip: req.ip,
+      headers: req.headers,
+    });
   }
 
   @Post('2fa/enable')
@@ -139,9 +143,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
-  async logout(@Req() req: RequestWithContext, @Body() dto: RefreshTokenDto) {
-    const userId = req.user.sub;
-    await this.authService.logout(dto.refreshToken, this.contextFrom(req));
+  async logout(@Req() req: { user: { sub: string }; headers: { authorization?: string } }, @Body() dto: RefreshTokenDto) {
+    const accessToken = req.headers.authorization?.replace('Bearer ', '');
+    await this.authService.logout(dto.refreshToken, accessToken);
     return { message: 'User logged out successfully' };
   }
 
@@ -186,5 +190,23 @@ export class AuthController {
       userAgent: (req.headers?.['user-agent'] as string | undefined) ?? null,
       requestId: (req.headers?.['x-request-id'] as string | undefined) ?? null,
     };
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  async updateProfile(
+    @Req() req: { user: { sub: string }; headers: { authorization?: string }; ip?: string },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(req.user.sub, dto, {
+      ip: req.ip,
+      headers: req.headers,
+    });
   }
 }
