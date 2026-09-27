@@ -27,6 +27,7 @@ import { Role } from '@modules/auth/enums/role.enum';
 import { ListUsersDto } from './dto/list-users.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
+import { RecoverUserDto } from './dto/recover-user.dto';
 
 @ApiTags('Admin - User Management')
 @ApiBearerAuth()
@@ -94,11 +95,7 @@ export class AdminUsersController {
   @Patch(':id/role')
   @ApiOperation({ summary: 'Change user role' })
   @ApiResponse({ status: 200, description: 'Role updated successfully' })
-  async changeRole(
-    @Req() req: any,
-    @Param('id') id: string,
-    @Body() dto: ChangeRoleDto,
-  ) {
+  async changeRole(@Req() req: any, @Param('id') id: string, @Body() dto: ChangeRoleDto) {
     return this.adminUsersService.changeRole(req.user.sub, id, dto.role);
   }
 
@@ -116,6 +113,15 @@ export class AdminUsersController {
     return this.adminUsersService.reactivateUser(req.user.sub, id);
   }
 
+  @Post(':id/recover')
+  @ApiOperation({ summary: 'Recover an account or correct its identity details' })
+  @ApiResponse({ status: 200, description: 'Account recovered successfully' })
+  @ApiResponse({ status: 403, description: 'Identity could not be verified' })
+  @ApiResponse({ status: 409, description: 'Replacement identity is already in use' })
+  async recover(@Req() req: any, @Param('id') id: string, @Body() dto: RecoverUserDto) {
+    return this.adminUsersService.recoverUser(req.user.sub, id, dto);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user account' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
@@ -131,5 +137,4 @@ export class AdminUsersController {
   async getUserTasks(@Param('id') id: string) {
     return this.adminUsersService.getUserTasks(id);
   }
-
 }
