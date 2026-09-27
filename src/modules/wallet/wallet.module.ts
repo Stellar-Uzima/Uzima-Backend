@@ -12,6 +12,7 @@ import { User } from '../../entities/user.entity';
 import { SavingsGoal } from '../../database/entities/savings-goal.entity';
 import { SavingsContribution } from '../../database/entities/savings-goal.entity';
 import { WalletTransaction } from '../../database/entities/wallet-transaction.entity';
+import { Withdrawal } from './entities/withdrawal.entity';
 import { StellarModule } from '../../stellar/stellar.module';
 
 @Module({
@@ -29,5 +30,12 @@ import { StellarModule } from '../../stellar/stellar.module';
   controllers: [WalletController, AdminWalletController, SavingsWalletController],
   providers: [WalletService, SavingsService, WalletTransactionService],
   exports: [WalletService, SavingsService, WalletTransactionService],
+    TypeOrmModule.forFeature([RewardTransaction, User, Withdrawal]),
+    CacheModule.register(),
+    StellarModule,
+  ],
+  controllers: [WalletController, AdminWalletController],
+  providers: [WalletService],
+  exports: [WalletService],
 })
 export class WalletModule {}

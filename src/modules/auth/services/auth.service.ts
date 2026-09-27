@@ -22,19 +22,39 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { Role } from '../enums/role.enum';
 import { UsersService } from './users.service';
 import { OtpService } from '../../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
-import { AuditService } from '../../../audit/audit.service';
+import { AuditService, AuditAction, AuditResource } from '../../../audit/audit.service';
 import { EmailVerificationService } from './email-verification.service';
 import { SessionService } from './session.service';
-import { TokenBlacklist } from '@/database/entities/token-blacklist.entity';
+import { TokenBlacklist, TokenType } from '@/database/entities/token-blacklist.entity';
 import { TransactionService } from '@/database/services/transaction.service';
 import { ReferralService } from '../../../referral/referral.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
+
+/**
+ * Request-scoped details attached to an auth audit event. Passed in from the
+ * controller so the service never has to reach for the HTTP request itself,
+ * which keeps it unit-testable.
+ */
+export interface AuthRequestContext {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+}
+
+/** An auth event awaiting persistence, with its request context still attached. */
+export type AuthEventInput = Omit<
+  RecordAuthEventInput,
+  'ipAddress' | 'userAgent' | 'requestId'
+> & {
+  context?: AuthRequestContext;
+};
 
 @Injectable()
 export class AuthService {
@@ -44,6 +64,7 @@ export class AuthService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly maxFailedLoginAttempts: number;
   private readonly lockoutDurationMs: number;
+  private readonly jwtSecurity: JwtSecurityConfig;
 
   constructor(
     private usersService: UsersService,
@@ -58,10 +79,12 @@ export class AuthService {
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
     private readonly notifications: NotificationService,
     private readonly configService: ConfigService,
+    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
     @Optional() private readonly referralService?: ReferralService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
+    this.jwtSecurity = buildJwtSecurityConfig(process.env);
     this.redisClient = createClient({
       url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
     });
@@ -120,11 +143,37 @@ export class AuthService {
   }
 
   // Login user
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req?: { ip?: string; headers?: { 'user-agent'?: string } }) {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    
+    // Audit failed login - user not found
+    if (!user) {
+      await this.auditService.logEvent({
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: 'Login failed: user not found',
+        userEmail: dto.email,
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: 'user_not_found' },
+      });
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      await this.auditService.logEvent({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: 'Login failed: account locked',
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: 'account_locked', lockedUntil: user.lockedUntil },
+      });
       throw new AccountLockedException(user.lockedUntil);
     }
 
@@ -132,11 +181,32 @@ export class AuthService {
       user.lockedUntil = null;
       user.failedLoginAttempts = 0;
       await this.usersService.save(user);
+      await this.recordAuthEvent({
+        eventType: AuthEventType.ACCOUNT_UNLOCKED,
+        userId: user.id,
+        userEmail: user.email,
+        context,
+        metadata: { reason: 'lockout_window_elapsed' },
+      });
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
       await this.recordFailedLogin(user);
+      
+      // Audit failed login - invalid password
+      await this.auditService.logEvent({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: 'Login failed: invalid password',
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: 'invalid_password', failedAttempts: user.failedLoginAttempts + 1 },
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -144,10 +214,36 @@ export class AuthService {
     const loginCheck = await this.usersService.canUserLogin(user.id);
     if (!loginCheck.canLogin) {
       this.logger.warn(`Login attempt blocked for user ${user.id}: ${loginCheck.reason}`);
+      
+      // Audit failed login - account status
+      await this.auditService.logEvent({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: `Login blocked: ${loginCheck.reason}`,
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: loginCheck.reason },
+      });
       throw new UnauthorizedException(loginCheck.reason || 'Account access denied');
     }
 
     if (!user.isVerified) {
+      await this.auditService.logEvent({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: 'Login failed: email not verified',
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: 'email_not_verified' },
+      });
       throw new UnauthorizedException('Email not verified');
     }
 
@@ -155,10 +251,34 @@ export class AuthService {
     await this.usersService.updateLastLogin(user.id);
     if (user.twoFactorEnabled) {
       if (!dto.totpCode) {
+        await this.auditService.logEvent({
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          action: AuditAction.LOGIN,
+          resourceType: AuditResource.USER,
+          description: 'Login failed: missing 2FA code',
+          isSensitive: true,
+          ipAddress: req?.ip,
+          userAgent: req?.headers?.['user-agent'],
+          metadata: { reason: 'missing_2fa_code' },
+        });
         throw new UnauthorizedException('Two-factor authentication code is required');
       }
       if (!user.twoFactorSecret || !authenticator.check(dto.totpCode, user.twoFactorSecret)) {
         await this.recordFailedLogin(user);
+        await this.auditService.logEvent({
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          action: AuditAction.LOGIN,
+          resourceType: AuditResource.USER,
+          description: 'Login failed: invalid 2FA code',
+          isSensitive: true,
+          ipAddress: req?.ip,
+          userAgent: req?.headers?.['user-agent'],
+          metadata: { reason: 'invalid_2fa_code' },
+        });
         throw new UnauthorizedException('Invalid two-factor authentication code');
       }
     }
@@ -171,6 +291,19 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const profile = await this.usersService.getProfile(user.id);
+
+    // Audit successful login
+    await this.auditService.logEvent({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.LOGIN,
+      resourceType: AuditResource.USER,
+      description: 'User logged in successfully',
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+      metadata: { twoFactorUsed: user.twoFactorEnabled },
+    });
 
     return {
       ...tokens,
@@ -223,27 +356,89 @@ export class AuthService {
     return { message: 'Two-factor authentication disabled successfully' };
   }
 
-  private async recordFailedLogin(user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null }) {
+  private async recordFailedLogin(
+    user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null },
+    context?: AuthRequestContext,
+    reason: string = 'invalid_credentials',
+  ) {
     const fullUser = await this.usersService.findById(user.id);
     fullUser.failedLoginAttempts = (fullUser.failedLoginAttempts || 0) + 1;
 
     if (fullUser.failedLoginAttempts >= this.maxFailedLoginAttempts) {
       fullUser.lockedUntil = new Date(Date.now() + this.lockoutDurationMs);
       this.logger.warn(`Account locked for user ${fullUser.id} until ${fullUser.lockedUntil.toISOString()}`);
+      
+      // Audit account lockout
+      await this.auditService.logEvent({
+        userId: fullUser.id,
+        userEmail: fullUser.email,
+        userRole: fullUser.role,
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: `Account locked after ${this.maxFailedLoginAttempts} failed login attempts`,
+        isSensitive: true,
+        isComplianceEvent: true,
+        metadata: { 
+          failedAttempts: fullUser.failedLoginAttempts, 
+          lockedUntil: fullUser.lockedUntil,
+        },
+      });
     }
 
     await this.usersService.save(fullUser);
+
+    await this.recordAuthEvent({
+      eventType:
+        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
+          ? AuthEventType.ACCOUNT_LOCKED
+          : AuthEventType.LOGIN_FAILURE,
+      outcome:
+        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
+          ? AuthEventOutcome.DENIED
+          : AuthEventOutcome.FAILURE,
+      reason,
+      userId: fullUser.id,
+      userEmail: fullUser.email,
+      context,
+      metadata: {
+        failedAttempts: fullUser.failedLoginAttempts,
+        maxFailedAttempts: this.maxFailedLoginAttempts,
+        lockedUntil: fullUser.lockedUntil
+          ? fullUser.lockedUntil.toISOString()
+          : null,
+      },
+    });
 
     if (fullUser.lockedUntil && fullUser.lockedUntil > new Date()) {
       throw new AccountLockedException(fullUser.lockedUntil);
     }
   }
 
+  /**
+   * Thin wrapper around the audit service so every call site benefits from the
+   * secret scrubber and the "never throw into the request path" guarantee.
+   * Silently no-ops when the audit module is not wired in (e.g. isolated unit
+   * tests that construct this service directly).
+   */
+  private async recordAuthEvent(event: AuthEventInput): Promise<void> {
+    if (!this.authEventAuditService) {
+      return;
+    }
+
+    const { context, ...rest } = event;
+    await this.authEventAuditService.record({
+      ...rest,
+      ipAddress: context?.ipAddress ?? null,
+      userAgent: context?.userAgent ?? null,
+      requestId: context?.requestId ?? null,
+    });
+  }
+
   // Refresh access token
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, requestContext?: AuthRequestContext) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const { sub: userId, tokenId } = payload;
+      const { sub: userId, tokenId, jti } = payload;
 
       // Check if token is blacklisted
       const isBlacklisted = await this.isTokenBlacklisted(refreshToken);
@@ -266,6 +461,13 @@ export class AuthService {
           userId,
           reason: 'Invalid or reused refresh token',
         });
+        await this.recordAuthEvent({
+          eventType: AuthEventType.TOKEN_REVOKED,
+          outcome: AuthEventOutcome.DENIED,
+          reason: 'refresh_token_reuse_detected',
+          userId,
+          context: requestContext,
+        });
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -278,6 +480,13 @@ export class AuthService {
         !(await bcrypt.compare(refreshToken, user.refreshToken))
       ) {
         await this.redisClient.del(key);
+        await this.recordAuthEvent({
+          eventType: AuthEventType.TOKEN_REVOKED,
+          outcome: AuthEventOutcome.FAILURE,
+          reason: 'refresh_token_not_recognised',
+          userId,
+          context: requestContext,
+        });
         throw new UnauthorizedException('Invalid refresh token');
       }
 
@@ -287,7 +496,17 @@ export class AuthService {
       user.refreshTokenExpiry = null;
       await this.usersService.save(user);
 
-      return this.generateTokens(user.id, user.email, user.role);
+      const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+      await this.recordAuthEvent({
+        eventType: AuthEventType.TOKEN_REFRESH,
+        userId,
+        userEmail: user.email,
+        context: requestContext,
+        metadata: { rotatedTokenId: tokenId, revokedJti: jti ?? null },
+      });
+
+      return tokens;
     } catch (error: any) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -299,16 +518,24 @@ export class AuthService {
   private async generateTokens(userId: string, email: string, role: Role) {
     const tokenId = crypto.randomUUID();
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const accessTokenId = crypto.randomUUID();
+    const issuer = this.configService.get<string>('JWT_ISSUER', 'stellar-uzima');
+    const audience = this.configService.get<string>('JWT_AUDIENCE', 'stellar-uzima-api');
 
-    const accessToken = this.jwtService.sign({ sub: userId, email, role }, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(
+      { sub: userId, email, role, jti: accessTokenId },
+      { expiresIn: '15m', issuer, audience }
+    );
     const refreshToken = this.jwtService.sign(
       { sub: userId, email, role, tokenId },
-      { expiresIn: '7d' }
+      { expiresIn: '7d', issuer, audience }
     );
 
     // Store in Redis for fast lookup
     const key = `refresh:${userId}:${tokenId}`;
-    await this.redisClient.set(key, refreshToken, { EX: 7 * 24 * 60 * 60 });
+    await this.redisClient.set(key, refreshToken, {
+      EX: this.jwtSecurity.refreshTokenTtl,
+    });
 
     // Persist hashed refresh token to user entity for durable rotation
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
@@ -324,15 +551,17 @@ export class AuthService {
       this.logger.warn('Failed to record session in DB', err as any);
     }
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, accessTokenId };
   }
 
   // Logout with optimized transaction handling
-  async logout(refreshToken: string): Promise<void> {
+  async logout(refreshToken: string, accessToken?: string): Promise<void> {
     const startTime = Date.now();
     let userId: string | undefined;
     let tokenId: string;
     let expiresAt = 0;
+    let accessTokenId: string | undefined;
+    let accessExpiresAt = 0;
 
     try {
       const payload = this.jwtService.verify(refreshToken) as { sub: string; tokenId: string; exp: number };
@@ -342,6 +571,17 @@ export class AuthService {
 
       if (!userId || !tokenId) {
         throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Parse access token for JTI and expiry if provided
+      if (accessToken) {
+        try {
+          const accessPayload = this.jwtService.verify(accessToken) as { jti?: string; exp?: number };
+          accessTokenId = accessPayload.jti;
+          accessExpiresAt = accessPayload.exp || 0;
+        } catch {
+          // Ignore access token parsing errors
+        }
       }
 
       const contextId = `logout-${userId}-${Date.now()}`;
@@ -361,7 +601,7 @@ export class AuthService {
           if (!isAlreadyBlacklisted) {
             await queryRunner.manager.save(TokenBlacklist, {
               token: refreshToken,
-              tokenType: 'refresh',
+              tokenType: TokenType.REFRESH,
               userId,
               expiresAt: new Date(expiresAt * 1000),
             });
@@ -373,6 +613,24 @@ export class AuthService {
             });
 
             this.logger.debug(`Refresh token blacklisted for user ${userId}`);
+          }
+
+          // Blacklist the access token if we have its JTI
+          if (accessTokenId && accessExpiresAt) {
+            const isAccessBlacklisted = await this.isTokenBlacklisted(accessToken || '');
+            if (!isAccessBlacklisted) {
+              await queryRunner.manager.save(TokenBlacklist, {
+                token: accessToken || accessTokenId,
+                tokenType: TokenType.ACCESS,
+                userId,
+                expiresAt: new Date(accessExpiresAt * 1000),
+              });
+              this.blacklistCache.set(accessToken || accessTokenId, {
+                blacklisted: true,
+                expiresAt: Date.now() + this.CACHE_TTL,
+              });
+              this.logger.debug(`Access token blacklisted for user ${userId}`);
+            }
           }
 
           // Clear the session
@@ -411,6 +669,15 @@ export class AuthService {
         this.logger.warn(`Failed to clear user refresh token fields: ${err.message}`);
       }
 
+      // Audit successful logout
+      await this.auditService.logEvent({
+        userId,
+        action: AuditAction.LOGOUT,
+        resourceType: AuditResource.USER,
+        description: 'User logged out successfully',
+        metadata: { sessionId: tokenId },
+      });
+
       // Log successful logout with performance metrics
       const duration = Date.now() - startTime;
       this.logger.log(`User ${userId} logged out successfully in ${duration}ms`);
@@ -421,6 +688,13 @@ export class AuthService {
         tokenId,
         timestamp: new Date(),
         duration,
+      });
+
+      await this.recordAuthEvent({
+        eventType: AuthEventType.LOGOUT,
+        userId,
+        context: requestContext,
+        metadata: { tokenId },
       });
 
     } catch (error: any) {
@@ -511,12 +785,23 @@ export class AuthService {
     return this.otpService.requestOtp(phoneLoginDto.phoneNumber);
   }
 
-  async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto) {
+  async verifyPhoneOtp(verifyOtpDto: VerifyOtpDto, req?: { ip?: string; headers?: { 'user-agent'?: string } }) {
     const verificationResult = await this.otpService.verifyOtp(
       verifyOtpDto.phoneNumber,
       verifyOtpDto.otp
     );
     if (!verificationResult.success) {
+      // Audit failed phone OTP
+      await this.auditService.logEvent({
+        action: AuditAction.LOGIN,
+        resourceType: AuditResource.USER,
+        description: 'Phone OTP verification failed',
+        userEmail: verifyOtpDto.phoneNumber,
+        isSensitive: true,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        metadata: { reason: verificationResult.message, method: 'phone_otp' },
+      });
       throw new UnauthorizedException(verificationResult.message);
     }
 
@@ -533,6 +818,17 @@ export class AuthService {
         password: undefined,
       });
       this.logger.log(`New user registered via phone: ${verifyOtpDto.phoneNumber}`);
+      
+      // Audit new user registration via phone
+      await this.auditService.logEvent({
+        userId: user.id,
+        action: AuditAction.CREATE,
+        resourceType: AuditResource.USER,
+        description: 'New user registered via phone OTP',
+        userEmail: user.phoneNumber,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+      });
     }
 
     // Type Guard to reassure TypeScript compiler that 'user' is guaranteed to exist
@@ -544,6 +840,20 @@ export class AuthService {
     await this.usersService.updateLastLogin(user.id);
 
     const tokens = await this.generateTokens(user.id, user.email || user.phoneNumber, user.role);
+
+    // Audit successful phone login
+    await this.auditService.logEvent({
+      userId: user.id,
+      userEmail: user.email || user.phoneNumber,
+      userRole: user.role,
+      action: AuditAction.LOGIN,
+      resourceType: AuditResource.USER,
+      description: 'User logged in via phone OTP',
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+      metadata: { method: 'phone_otp', isNewUser },
+    });
+
     return {
       success: true,
       message: 'Authentication successful',
@@ -576,6 +886,11 @@ export class AuthService {
     });
 
     await this.auditService.logAction(user.id, `Email verified: ${user.email}`);
+    await this.recordAuthEvent({
+      eventType: AuthEventType.EMAIL_VERIFICATION,
+      userId: user.id,
+      userEmail: user.email,
+    });
 
     return { message: 'Email verified successfully' };
   }
@@ -615,9 +930,12 @@ export class AuthService {
   /**
    * Password Reset Flow
    */
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, requestContext?: AuthRequestContext) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      // Do not disclose whether the address exists, and do not record it as a
+      // user-attributable event either — the response is identical.
+      this.logger.debug(`Password reset requested for an unknown address`);
       return { message: 'If an account exists, a reset link has been sent' };
     }
 
@@ -629,6 +947,17 @@ export class AuthService {
 
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${email}`);
+
+    // Any outstanding session is invalidated the moment a reset is requested,
+    // so a stolen token cannot outlive the credential change (#1287).
+    await this.revokeAllSessionsForUser(user.id);
+
+    await this.recordAuthEvent({
+      eventType: AuthEventType.PASSWORD_RESET_REQUESTED,
+      userId: user.id,
+      userEmail: user.email,
+      context: requestContext,
+    });
 
     try {
       const resetLink = `${this.configService.get<string>('FRONTEND_URL', 'https://example.com')}/reset-password?token=${token}`;
@@ -643,7 +972,11 @@ export class AuthService {
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+    requestContext?: AuthRequestContext,
+  ) {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
     // Look up by token only — expiry is checked separately so we can return 410
@@ -657,6 +990,14 @@ export class AuthService {
     }
 
     if (!user.passwordResetExpiry || user.passwordResetExpiry <= new Date()) {
+      await this.recordAuthEvent({
+        eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+        outcome: AuthEventOutcome.FAILURE,
+        reason: 'token_expired',
+        userId: user.id,
+        userEmail: user.email,
+        context: requestContext,
+      });
       throw new GoneException('Password reset token has expired');
     }
 
@@ -665,11 +1006,103 @@ export class AuthService {
     user.passwordResetToken = null;
     user.passwordResetExpiry = null;
 
+    // A password change invalidates every existing session, otherwise a
+    // previously stolen refresh token survives the reset (#1287).
+    await this.revokeAllSessionsForUser(user.id);
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+
     await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
-    await this.auditService.logAction(user.id, `Password reset completed for: ${user.email}`);
+    // Audit password reset
+    await this.auditService.logEvent({
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.USER,
+      description: 'Password reset completed',
+      isSensitive: true,
+      isComplianceEvent: true,
+      metadata: { method: 'password_reset_token' },
+    });
 
     return { message: 'Password reset successful' };
+  }
+
+  /**
+   * Update user profile information.
+   * Sensitive fields (email, password, role, verification status) cannot be modified.
+   */
+  async updateProfile(userId: string, dto: UpdateProfileDto, req?: { ip?: string; headers?: { 'user-agent'?: string } }): Promise<any> {
+    const user = await this.usersService.findById(userId);
+    
+    const oldValues: Record<string, any> = {};
+    const newValues: Record<string, any> = {};
+
+    if (dto.firstName !== undefined && dto.firstName !== user.firstName) {
+      oldValues.firstName = user.firstName;
+      newValues.firstName = dto.firstName;
+      user.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined && dto.lastName !== user.lastName) {
+      oldValues.lastName = user.lastName;
+      newValues.lastName = dto.lastName;
+      user.lastName = dto.lastName;
+    }
+    if (dto.phoneNumber !== undefined && dto.phoneNumber !== user.phoneNumber) {
+      oldValues.phoneNumber = user.phoneNumber;
+      newValues.phoneNumber = dto.phoneNumber;
+      user.phoneNumber = dto.phoneNumber;
+    }
+    if (dto.country !== undefined && dto.country !== user.country) {
+      oldValues.country = user.country;
+      newValues.country = dto.country;
+      user.country = dto.country;
+    }
+    if (dto.city !== undefined && dto.city !== user.city) {
+      oldValues.city = user.city;
+      newValues.city = dto.city;
+      user.city = dto.city;
+    }
+    if (dto.postalCode !== undefined && dto.postalCode !== user.postalCode) {
+      oldValues.postalCode = user.postalCode;
+      newValues.postalCode = dto.postalCode;
+      user.postalCode = dto.postalCode;
+    }
+    if (dto.avatar !== undefined && dto.avatar !== user.avatar) {
+      oldValues.avatar = user.avatar;
+      newValues.avatar = dto.avatar;
+      user.avatar = dto.avatar;
+    }
+    if (dto.preferredLanguage !== undefined && dto.preferredLanguage !== user.preferredLanguage) {
+      oldValues.preferredLanguage = user.preferredLanguage;
+      newValues.preferredLanguage = dto.preferredLanguage;
+      user.preferredLanguage = dto.preferredLanguage;
+    }
+
+    // Only save if there are changes
+    if (Object.keys(newValues).length > 0) {
+      await this.usersService.save(user);
+
+      // Audit profile update
+      await this.auditService.logEvent({
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        action: AuditAction.UPDATE,
+        resourceType: AuditResource.USER,
+        description: 'User profile updated',
+        oldValues,
+        newValues,
+        ipAddress: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+      });
+    }
+
+    // Return updated profile (without sensitive fields)
+    const { password, twoFactorSecret, refreshToken, ...profile } = user;
+    return profile;
   }
 }

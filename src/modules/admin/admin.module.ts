@@ -16,7 +16,12 @@ import { AdminService } from './services/admin.service';
 import { AdminUsersService } from './services/admin-users.service';
 import { AdminImpersonationService } from './services/admin-impersonation.service';
 import { FailedRewardJobService } from './rewards/failed-reward-job.service';
+import { UserDirectoryService } from './services/user-directory.service';
+import { UserDeactivationService } from './services/user-deactivation.service';
+import { UserDirectoryController } from './controllers/user-directory.controller';
 import { User } from '@/entities/user.entity';
+import { UserStatusLog } from '@/entities/user-status-log.entity';
+import { Session } from '@/database/entities/session.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
 import { TasksScheduler } from '@/tasks/tasks.scheduler';
@@ -27,7 +32,7 @@ import { StreaksModule } from '@/streaks/streaks.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, TaskCompletion, RewardTransaction]),
+    TypeOrmModule.forFeature([User, UserStatusLog, Session, TaskCompletion, RewardTransaction]),
     AuditModule,
     TaskAssignmentModule,
     HealthTasksModule,
@@ -37,11 +42,19 @@ import { StreaksModule } from '@/streaks/streaks.module';
     QueueModule,
     StreaksModule,
   ],
-  controllers: [AdminController, AdminUsersController, AdminTasksController, FailedRewardJobController],
+  controllers: [
+    AdminController,
+    AdminUsersController,
+    AdminTasksController,
+    FailedRewardJobController,
+    UserDirectoryController,
+  ],
   providers: [
     AdminService,
     AdminUsersService,
     AdminImpersonationService,
+    UserDirectoryService,
+    UserDeactivationService,
     TasksScheduler,
     RewardsScheduler,
     FailedRewardJobService,

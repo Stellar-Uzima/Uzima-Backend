@@ -712,12 +712,13 @@ export class UsersService {
   /**
    * Deactivate a user (self-service deactivation)
    */
-  async deactivateUser(userId: string): Promise<void> {
+  async deactivateUser(userId: string, ipAddress?: string, userAgent?: string): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
+    const previousStatus = user.status;
     user.isActive = false;
     user.status = UserStatus.INACTIVE;
     await this.userRepository.softRemove(user);
@@ -725,5 +726,17 @@ export class UsersService {
     if (this.cacheManager) {
       await this.cacheManager.del(`user:profile:${userId}`);
     }
+
+    // Audit log for self-service deactivation
+    const statusLog = this.userStatusLogRepository.create({
+      userId: user.id,
+      previousStatus,
+      newStatus: UserStatus.INACTIVE,
+      changedBy: userId, // Self-service
+      reason: 'Self-service account deactivation',
+      ipAddress,
+      userAgent,
+    });
+    await this.userStatusLogRepository.save(statusLog);
   }
 }
