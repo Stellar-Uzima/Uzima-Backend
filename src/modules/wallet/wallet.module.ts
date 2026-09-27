@@ -17,5 +17,6 @@ import { StellarModule } from '../../stellar/stellar.module';
   ],
   controllers: [WalletController, AdminWalletController],
   providers: [WalletService],
+  exports: [WalletService],
 })
 export class WalletModule {}
