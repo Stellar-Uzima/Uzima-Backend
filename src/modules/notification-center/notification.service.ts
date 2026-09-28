@@ -19,8 +19,10 @@ export interface MultiChannelInput {
 
 /**
  * Backwards-compatible application API backed by NotificationCenterService.
- * Every legacy call now persists an in-app notification and enters the same
- * preference-aware channel router, delivery log, and retry pipeline.
+ * Responsible for exposing the legacy notification entry points (sendEmail,
+ * sendSMS, sendPush, sendMultiChannel, and the inbox helpers) to existing
+ * callers. Every legacy call now persists an in-app notification and enters
+ * the same preference-aware channel router, delivery log, and retry pipeline.
  */
 @Injectable()
 export class NotificationService {

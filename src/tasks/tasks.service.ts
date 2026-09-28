@@ -10,7 +10,6 @@ import { TaskStatus } from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
-import { Role } from '@modules/auth/enums/role.enum';
 import { PaginatedResponseDto } from 'src/common/dto/paginated-response.dto';
 import { QueueService } from '../shared/queue/queue.service';
 import {
@@ -95,9 +94,9 @@ export class TasksService {
       status: TaskStatus.DRAFT,
     });
 
-    const saved = await this.healthTaskRepository.save(task);
-    await this.scheduleReminderJob(saved);
-    return saved;
+    const saved = await this.healthTaskRepository.save([task]);
+    await this.scheduleReminderJob(saved[0]);
+    return saved[0];
   }
 
   async findAll(
@@ -129,6 +128,21 @@ export class TasksService {
       relations: ['creator'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async updateStatus(
+    id: string,
+    status: TaskStatus,
+    userId: string,
+  ): Promise<HealthTask> {
+    const task = await this.findOne(id);
+    
+    if (task.createdBy !== userId) {
+      throw new ForbiddenException('You can only update your own tasks');
+    }
+
+    task.status = status;
+    return this.healthTaskRepository.save(task);
   }
 
   async findOne(id: string): Promise<HealthTask> {

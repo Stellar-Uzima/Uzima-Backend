@@ -4,6 +4,8 @@ import { LeaderboardService } from './leaderboard.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { LeaderboardResponseDto } from './dto/leaderboard.dto';
 import { parseLeaderboardPeriod } from './leaderboard-period.enum';
+import { Cache } from '../../common/decorators/cache.decorator';
+import { CACHE_TTL } from '../../shared/cache/cache.service';
 
 @Controller('leaderboard')
 @ApiTags('leaderboard')
@@ -16,6 +18,7 @@ export class LeaderboardController {
    * Get global leaderboard with optional pagination
    */
   @Get()
+  @Cache('leaderboard:global:limit:{limit}:page:{page}:period:{period}', CACHE_TTL.LEADERBOARD)
   @ApiOperation({
     summary: 'Get global leaderboard rankings',
     description: 'Retrieve the global leaderboard with optional limit and offset for pagination',
@@ -37,14 +40,14 @@ export class LeaderboardController {
     @Req() req,
     @Query('limit') limit?: number,
     @Query('page') page?: number,
-    @Query('period') period?: string,
+    @Query('period') period?: string
   ): Promise<LeaderboardResponseDto> {
     return this.leaderboardService.getLeaderboard(
       req.user.id,
       limit || 10,
       undefined,
       page || 1,
-      parseLeaderboardPeriod(period),
+      parseLeaderboardPeriod(period)
     );
   }
 
@@ -52,6 +55,7 @@ export class LeaderboardController {
    * Get global leaderboard (alias for getRanking)
    */
   @Get('global')
+  @Cache('leaderboard:global:limit:{limit}:page:{page}', CACHE_TTL.LEADERBOARD)
   @ApiOperation({
     summary: 'Get global leaderboard rankings',
     description: 'Retrieve the global leaderboard with caching optimization',
@@ -71,6 +75,7 @@ export class LeaderboardController {
    * Get country-specific leaderboard
    */
   @Get('country/:countryCode')
+  @Cache('leaderboard:country:{countryCode}:limit:{limit}:page:{page}', CACHE_TTL.LEADERBOARD)
   @ApiOperation({
     summary: 'Get leaderboard by country',
     description: 'Retrieve leaderboard rankings filtered by country code',
@@ -86,13 +91,8 @@ export class LeaderboardController {
     @Req() req,
     @Param('countryCode') countryCode: string,
     @Query('limit') limit?: number,
-    @Query('page') page?: number,
+    @Query('page') page?: number
   ) {
-    return this.leaderboardService.getLeaderboard(
-      req.user.id,
-      limit || 10,
-      countryCode,
-      page || 1,
-    );
+    return this.leaderboardService.getLeaderboard(req.user.id, limit || 10, countryCode, page || 1);
   }
 }

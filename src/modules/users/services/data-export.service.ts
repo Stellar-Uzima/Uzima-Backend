@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../../entities/user.entity';
@@ -9,15 +9,29 @@ import { ReferralRecord } from '../../../referral/entities/referral-record.entit
 import { StorageService } from '../../../shared/storage/storage.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
 import { QueueService } from '../../../shared/queue/queue.service';
-import {
-  DATA_PROCESSING_QUEUE,
-  USER_DATA_EXPORT_JOB,
-} from '../../../queue/queue.constants';
+import { DATA_PROCESSING_QUEUE, USER_DATA_EXPORT_JOB } from '../../../queue/queue.constants';
+import { Role } from '../../../modules/auth/enums/role.enum';
+import { AuditService, AuditEventOptions } from '../../../audit/audit.service';
+import { AuditAction, AuditResource } from '../../../audit/entities/audit-log.entity';
+
+export interface DataExportRequester {
+  kind: 'user' | 'service';
+  userId: string;
+  role?: Role;
+  scopes?: string[];
+  ipAddress?: string;
+  userAgent?: string;
+  requestId?: string;
+}
 
 export interface DataExportJobPayload {
   userId: string;
   email?: string;
+  requester?: DataExportRequester;
 }
+
+const EXPORT_SENSITIVE_SCOPE = 'exports:read-sensitive';
+const EXPORT_SCOPE = 'exports:read';
 
 @Injectable()
 export class DataExportService {
@@ -37,18 +51,76 @@ export class DataExportService {
     private readonly storageService: StorageService,
     private readonly notificationService: NotificationService,
     private readonly queueService: QueueService,
+    private readonly auditService: AuditService
   ) {}
 
-  async queueExport(userId: string): Promise<{ jobId: string; status: string }> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+  private isServiceAccountAuthorized(requester: DataExportRequester): boolean {
+    if (requester.kind !== 'service') return false;
+    const scopes = requester.scopes ?? [];
+    return scopes.includes(EXPORT_SCOPE) || scopes.includes(EXPORT_SENSITIVE_SCOPE);
+  }
+
+  private canRequestExportFor(targetUserId: string, requester: DataExportRequester): boolean {
+    if (requester.userId === targetUserId) return true;
+    if (requester.role === Role.ADMIN) return true;
+    if (this.isServiceAccountAuthorized(requester)) return true;
+    return false;
+  }
+
+  private hasSensitiveAccess(requester: DataExportRequester | undefined): boolean {
+    if (!requester) return false;
+    if (requester.role === Role.ADMIN) return true;
+    if (requester.kind === 'service' && (requester.scopes ?? []).includes(EXPORT_SENSITIVE_SCOPE)) {
+      return true;
+    }
+    return false;
+  }
+
+  private isSelfExport(targetUserId: string, requester: DataExportRequester | undefined): boolean {
+    return !!requester && requester.userId === targetUserId;
+  }
+
+  async queueExport(
+    targetUserId: string,
+    requester: DataExportRequester
+  ): Promise<{ jobId: string; status: string }> {
+    if (!this.canRequestExportFor(targetUserId, requester)) {
+      throw new ForbiddenException('You are not authorized to request exports for this user');
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: targetUserId } });
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
+    const auditOptions: AuditEventOptions = {
+      userId: requester.userId,
+      userRole: requester.role,
+      action: AuditAction.EXPORT,
+      resourceType: AuditResource.USER,
+      resourceId: targetUserId,
+      resourceName: user.email ?? targetUserId,
+      description: this.isSelfExport(targetUserId, requester)
+        ? 'Requested own data export'
+        : `Requested data export for user ${targetUserId} (${requester.kind} account)`,
+      ipAddress: requester.ipAddress,
+      userAgent: requester.userAgent,
+      requestId: requester.requestId,
+      isComplianceEvent: true,
+      complianceCategory: 'DATA_EXPORT',
+      isSensitive: !this.isSelfExport(targetUserId, requester),
+      metadata: {
+        requesterKind: requester.kind,
+        scopes: requester.scopes,
+        targetUserId,
+      },
+    };
+    await this.auditService.logEvent(auditOptions);
+
     const job = await this.queueService.addJob<DataExportJobPayload>(
       DATA_PROCESSING_QUEUE,
       USER_DATA_EXPORT_JOB,
-      { userId, email: user.email ?? undefined },
+      { userId: targetUserId, email: user.email ?? undefined, requester }
     );
 
     return {
@@ -57,8 +129,23 @@ export class DataExportService {
     };
   }
 
+  private redactIfNeeded<T extends Record<string, any>>(
+    record: T,
+    sensitiveFields: (keyof T)[],
+    shouldRedact: boolean
+  ): T {
+    if (!shouldRedact) return record;
+    const out = { ...record };
+    for (const field of sensitiveFields) {
+      if (out[field] !== undefined && out[field] !== null) {
+        (out as any)[field] = '[REDACTED]';
+      }
+    }
+    return out;
+  }
+
   async processExport(payload: DataExportJobPayload): Promise<void> {
-    const { userId } = payload;
+    const { userId, requester } = payload;
     const user = await this.userRepo.findOne({
       where: { id: userId },
       relations: ['referredBy'],
@@ -67,6 +154,9 @@ export class DataExportService {
     if (!user) {
       throw new NotFoundException(`User ${userId} not found for export`);
     }
+
+    const isSelf = this.isSelfExport(userId, requester);
+    const showSensitive = isSelf || this.hasSensitiveAccess(requester);
 
     const [tasks, rewards, notifications, referralsAsReferrer, referralsAsReferred] =
       await Promise.all([
@@ -83,58 +173,134 @@ export class DataExportService {
         }),
       ]);
 
+    const rawProfile = {
+      id: user.id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      country: user.country,
+      preferredLanguage: user.preferredLanguage,
+      walletAddress: user.walletAddress,
+      stellarWalletAddress: user.stellarWalletAddress,
+      referralCode: user.referralCode,
+      referredById: user.referredBy?.id ?? null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    const profile = this.redactIfNeeded(
+      rawProfile,
+      ['phoneNumber', 'walletAddress', 'stellarWalletAddress', 'referralCode'],
+      !showSensitive
+    );
+
+    const safeNotifications = notifications.map((n) =>
+      this.redactIfNeeded(n as any, ['payload', 'body'], !showSensitive)
+    );
+
+    const safeReferralsAsReferrer = referralsAsReferrer.map((r) =>
+      this.redactIfNeeded(r as any, ['referredRewardAmount'], !showSensitive)
+    );
+    const safeReferralsAsReferred = referralsAsReferred.map((r) =>
+      this.redactIfNeeded(r as any, ['referredRewardAmount'], !showSensitive)
+    );
+
     const exportPayload = {
       exportedAt: new Date().toISOString(),
-      profile: {
-        id: user.id,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        country: user.country,
-        preferredLanguage: user.preferredLanguage,
-        walletAddress: user.walletAddress,
-        stellarWalletAddress: user.stellarWalletAddress,
-        referralCode: user.referralCode,
-        referredById: user.referredBy?.id ?? null,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      generatedFor: isSelf ? 'self' : (requester?.kind ?? 'unknown'),
+      redacted: !showSensitive,
+      profile,
       tasks,
       rewards,
-      notifications,
+      notifications: safeNotifications,
       referrals: {
-        asReferrer: referralsAsReferrer,
-        asReferred: referralsAsReferred,
+        asReferrer: safeReferralsAsReferrer,
+        asReferred: safeReferralsAsReferred,
       },
     };
 
-    const { downloadToken } = await this.storageService.saveDataExport(
-      userId,
-      exportPayload,
+    const { downloadToken } = await this.storageService.saveDataExport(userId, exportPayload);
+
+    const downloadUrl = this.storageService.buildDataExportDownloadUrl(downloadToken);
+
+    if (isSelf) {
+      await this.notificationService.sendEmail(userId, 'data-export-ready', {
+        downloadUrl,
+        expiresInHours: 24,
+      });
+    }
+
+    this.logger.log(
+      `Data export ready for user ${userId} (self=${isSelf}, redacted=${!showSensitive})`
     );
-
-    const downloadUrl = this.storageService.buildDataExportDownloadUrl(
-      downloadToken,
-    );
-
-    await this.notificationService.sendEmail(userId, 'data-export-ready', {
-      downloadUrl,
-      expiresInHours: 24,
-    });
-
-    this.logger.log(`Data export ready for user ${userId}`);
   }
 
-  async readExportFile(downloadToken: string): Promise<{
+  async readExportFile(
+    downloadToken: string,
+    downloader?: DataExportRequester
+  ): Promise<{
     content: Buffer;
     userId: string;
     exportId: string;
   }> {
-    const resolved =
-      await this.storageService.resolveDataExportDownload(downloadToken);
+    const resolved = await this.storageService.resolveDataExportDownload(downloadToken);
     if (!resolved) {
       throw new NotFoundException('Export link is invalid or expired');
+    }
+
+    if (downloader) {
+      const isOwn = downloader.userId === resolved.userId;
+      const isAdmin = downloader.role === Role.ADMIN;
+      const serviceOk =
+        downloader.kind === 'service' &&
+        ((downloader.scopes ?? []).includes(EXPORT_SCOPE) ||
+          (downloader.scopes ?? []).includes(EXPORT_SENSITIVE_SCOPE));
+
+      if (!isOwn && !isAdmin && !serviceOk) {
+        throw new ForbiddenException('You are not authorized to download this export');
+      }
+
+      await this.auditService.logEvent({
+        userId: downloader.userId,
+        userRole: downloader.role,
+        action: AuditAction.VIEW,
+        resourceType: AuditResource.USER,
+        resourceId: resolved.userId,
+        resourceName: resolved.exportId,
+        description: isOwn
+          ? 'Downloaded own data export'
+          : `Downloaded data export for user ${resolved.userId}`,
+        ipAddress: downloader.ipAddress,
+        userAgent: downloader.userAgent,
+        requestId: downloader.requestId,
+        isComplianceEvent: true,
+        complianceCategory: 'DATA_EXPORT',
+        isSensitive: !isOwn,
+        metadata: {
+          requesterKind: downloader.kind,
+          scopes: downloader.scopes,
+          targetUserId: resolved.userId,
+          exportId: resolved.exportId,
+          event: 'download',
+        },
+      });
+    } else {
+      await this.auditService.logEvent({
+        action: AuditAction.VIEW,
+        resourceType: AuditResource.USER,
+        resourceId: resolved.userId,
+        resourceName: resolved.exportId,
+        description: `Data export downloaded via token link (exportId: ${resolved.exportId})`,
+        isComplianceEvent: true,
+        complianceCategory: 'DATA_EXPORT',
+        metadata: {
+          targetUserId: resolved.userId,
+          exportId: resolved.exportId,
+          event: 'download-token',
+          authenticated: false,
+        },
+      });
     }
 
     const { readFile } = await import('fs/promises');

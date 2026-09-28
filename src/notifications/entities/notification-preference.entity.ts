@@ -49,6 +49,14 @@ export class NotificationPreference {
   @Column({ default: 'Africa/Lagos' })
   timezone: string;
 
+  /**
+   * Granular channel preferences per notification type.
+   * Structure: { [notification_type]: { email: boolean, push: boolean, sms: boolean } }
+   * Example: { "task_reminder": { email: true, push: true, sms: false } }
+   */
+  @Column({ type: 'jsonb', default: {} })
+  channelPreferences: Record<string, Record<string, boolean>>;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

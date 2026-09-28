@@ -22,10 +22,10 @@ Closes #<!-- issue number -->
 - [ ] My code follows the project's style guidelines (`npm run lint` passes)
 - [ ] I have performed a self-review of my code
 - [ ] I have added or updated tests that cover my changes
-- [ ] All existing tests pass (`npm run test`)
-- [ ] I have updated relevant documentation (README, JSDoc, etc.)
-- [ ] No secrets or sensitive data are included in this PR
-- [ ] The branch is up to date with `main`
+- [ ] All existing tests pass (`npm run test`)   - [ ] I have updated relevant documentation (README, JSDoc, etc.)
+   - [ ] If this PR changes operational behavior (queues, alerts, auth, database, rewards, admin tooling): the affected runbook(s) in `docs/runbooks/` have been reviewed/updated and their `Version` bumped with a changelog entry
+   - [ ] No secrets or sensitive data are included in this PR
+   - [ ] The branch is up to date with `main`
 
 ## Screenshots / Logs (if applicable)
 <!-- Attach any relevant screenshots, API responses, or log output. -->

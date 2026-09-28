@@ -1,0 +1,204 @@
+name: Security Review
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: false
+
+      - name: Check for outdated dependencies
+        run: npm outdated || true
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  check-security-checklist:
+    name: Security Checklist Verification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for security review checklist
+        run: |
+          if [ ! -f "docs/SECURITY_REVIEW_CHECKLIST.md" ]; then
+            echo "❌ Security review checklist not found"
+            exit 1
+          fi
+          echo "✅ Security review checklist exists"
+
+      - name: Check for security changes
+        id: security-changes
+        run: |
+          git diff --name-only origin/${{ github.base_ref }} HEAD | grep -E '\.(ts|js|json)$' > /tmp/changed-files.txt
+          if [ -s /tmp/changed-files.txt ]; then
+            echo "has_security_changes=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Security-sensitive files changed"
+            cat /tmp/changed-files.txt
+          else
+            echo "has_security_changes=false" >> $GITHUB_OUTPUT
+            echo "✅ No security-sensitive files changed"
+          fi
+
+      - name: Require security review label
+        if: steps.security-changes.outputs.has_security_changes == 'true'
+        run: |
+          if ! gh pr view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name' | grep -q "security-review"; then
+            echo "❌ PR requires 'security-review' label for security-sensitive changes"
+            echo "Please add the 'security-review' label and complete the security review checklist"
+            exit 1
+          fi
+          echo "✅ Security review label present"
+        env:
+          GH_TOKEN: ${{ github.GITHUB_TOKEN }}
+
+      - name: Comment with security review reminder
+        if: steps.security-changes.outputs.has_security_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Security Review Required\n\nThis PR contains security-sensitive changes. Please complete the security review checklist:\n\n- [ ] Review [docs/SECURITY_REVIEW_CHECKLIST.md](https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/docs/SECURITY_REVIEW_CHECKLIST.md)\n- [ ] Ensure all security checks pass\n- [ ] Get approval from at least two security reviewers\n- [ ] Document any security implications in the PR description\n\nOnce complete, maintainers will review and approve the security review.`
+            })
+
+  production-release-gate:
+    name: Production Release Gate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [security-audit, dependency-review, codeql-analysis, secret-scan]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for security approval
+        run: |
+          echo "⚠️ Production deployment requires security review approval"
+          echo "Please ensure:"
+          echo "1. Security review checklist is completed"
+          echo "2. All security checks have passed"
+          echo "3. At least two authorized reviewers have approved"
+          echo "4. No blocking security issues remain"
+          echo ""
+          echo "To proceed with production deployment, add the 'security-approved' label to this commit"
+
+      - name: Verify security approval label
+        id: check-approval
+        run: |
+          if gh api repos/${{ github.repository }}/commits/${{ github.sha }}/status | grep -q "security-approved"; then
+            echo "✅ Security approval verified"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Security approval not found"
+            echo "approved=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.GITHUB_TOKEN }}
+
+      - name: Block deployment without approval
+        if: steps.check-approval.outputs.approved != 'true'
+        run: |
+          echo "❌ Deployment blocked: Security approval required"
+          echo "Add the 'security-approved' label to proceed with production deployment"
+          exit 1
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [security-audit, dependency-review, codeql-analysis, secret-scan]
+    if: always()
+    steps:
+      - name: Generate security summary
+        run: |
+          echo "## 🔒 Security Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Audit | ${{ needs.security-audit.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Review | ${{ needs.dependency-review.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL Analysis | ${{ needs.codeql-analysis.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scanning | ${{ needs.secret-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "For detailed results, check the individual job logs." >> $GITHUB_STEP_SUMMARY

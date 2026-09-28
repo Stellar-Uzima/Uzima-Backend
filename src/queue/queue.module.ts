@@ -11,6 +11,7 @@ import {
   DATA_PROCESSING_QUEUE,
   REWARD_DEAD_LETTER_QUEUE,
 } from './queue.constants';
+import { DEFAULT_BACKOFF_MS, DEFAULT_JOB_ATTEMPTS } from './queue-policy';
 
 @Module({
   imports: [
@@ -28,10 +29,10 @@ import {
             tls: redisConfigObj.tls ? {} : undefined,
           },
           defaultJobOptions: {
-            attempts: 3,
+            attempts: DEFAULT_JOB_ATTEMPTS,
             backoff: {
               type: 'exponential',
-              delay: 1000,
+              delay: DEFAULT_BACKOFF_MS,
             },
             removeOnComplete: true,
             removeOnFail: false,

@@ -3,14 +3,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from '@nestjs/throttler-storage-redis';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
-import { redisConfig } from './config/redis.config';
+import jwtConfig from './config/jwt.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -47,28 +46,40 @@ import { RewardModule } from './rewards/reward.module';
 import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
+import { CurrencyModule } from './shared/currency/currency.module';
+import { WebhookModule } from './modules/webhooks/webhook.module';
+import { SupportModule } from './modules/support/support.module';
+import { BackfillModule } from './modules/backfill/backfill.module';
+import { RetentionModule } from './modules/retention/retention.module';
+
+// Reliability & data quality (implemented against #1368 and #1367)
+import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
+import { DataQualityModule } from './modules/data-quality/data-quality.module';
+
+// User-facing schedules & records (implemented against #1371 and #1372)
+import { NotificationDigestModule } from './modules/notification-digest/notification-digest.module';
+import { UserConsentModule } from './modules/user-consent/user-consent.module';
+
+// Abuse protection & third-party resilience (implemented against #1373 and #1375)
+import { AntiAbuseModule } from './modules/anti-abuse/anti-abuse.module';
+import { ResilienceModule } from './shared/resilience/resilience.module';
+
+// UX health & first-run experience (implemented against #1377 and #1378)
+import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig],
     }),
     HealthModule,
     AppCacheModule,
     ThrottlerModule.forRootAsync({
-      useFactory: (configService) => {
-        const config = redisConfig(configService);
+      useFactory: () => {
         return {
-          // Use Redis storage for distributed rate limiting across multiple instances
-          storage: new ThrottlerStorageRedisService({
-            host: config.host,
-            port: config.port,
-            password: config.password,
-            db: config.db,
-            tls: config.tls ? {} : undefined,
-          }),
           throttlers: [
             {
               name: 'default',
@@ -83,7 +94,6 @@ import { HealthModule } from './health/health.module';
           ],
         };
       },
-      inject: [ConfigService],
     }),
     EventEmitterModule.forRoot(),
     DatabaseModule,
@@ -113,6 +123,20 @@ import { HealthModule } from './health/health.module';
     ReferralModule,
     HealthProfileModule,
     CouponModule, // <-- Registered CouponModule in active application imports tree
+
+    UxMonitoringModule,
+    OnboardingModule,
+    AntiAbuseModule,
+    ResilienceModule,
+    NotificationDigestModule,
+    UserConsentModule,
+    DeliveryReliabilityModule,
+    DataQualityModule,
+    CurrencyModule,
+    WebhookModule,
+    SupportModule,
+    BackfillModule,
+    RetentionModule,
   ],
   controllers: [AppController],
   providers: [

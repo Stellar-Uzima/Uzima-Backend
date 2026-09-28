@@ -1,17 +1,16 @@
-import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
+import { Processor, Process, OnQueueFailed, OnQueueCompleted } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import type { Job } from 'bullmq';
+import { Job } from 'bull';
 import { PROOF_VERIFICATION_QUEUE } from '../../../queue/queue.constants';
 import { ProofVerificationService } from './proof-verification.service';
 
 @Processor(PROOF_VERIFICATION_QUEUE)
-export class ProofVerificationProcessor extends WorkerHost {
+export class ProofVerificationProcessor {
   private readonly logger = new Logger(ProofVerificationProcessor.name);
 
-  constructor(private proofVerificationService: ProofVerificationService) {
-    super();
-  }
+  constructor(private proofVerificationService: ProofVerificationService) {}
 
+  @Process()
   async process(job: Job<{ completionId: string }>): Promise<void> {
     const { completionId } = job.data;
 
@@ -22,17 +21,15 @@ export class ProofVerificationProcessor extends WorkerHost {
     await this.proofVerificationService.verifyProof(completionId);
   }
 
-  @OnWorkerEvent('completed')
+  @OnQueueCompleted()
   onCompleted(job: Job) {
     this.logger.log(`Proof verification completed for job ${job.id}`);
   }
 
-  @OnWorkerEvent('failed')
+  @OnQueueFailed()
   onFailed(job: Job, err: Error) {
     this.logger.error(
       `Proof verification failed for job ${job.id}: ${err.message}`,
     );
   }
 }
-
-

@@ -8,7 +8,14 @@ import {
   REWARD_QUEUE,
   REWARD_DISTRIBUTION_JOB,
   REWARD_DEAD_LETTER_QUEUE,
+  REWARD_DEAD_LETTER_JOB,
 } from '../queue/queue.constants';
+import {
+  DEFAULT_JOB_ATTEMPTS,
+  FailureCategory,
+  classifyFailure,
+  isRetryExhausted,
+} from '../queue/queue-policy';
 import { RewardService } from './reward.service';
 
 interface RewardJobData {
@@ -22,8 +29,11 @@ interface DeadLetterJobData {
   xlmAmount: number;
   taskCompletionId?: string;
   errorMessage: string;
+  /** Classified root cause, so dead letters can be grouped by failure kind. */
+  failureCategory?: FailureCategory;
   jobId?: string;
   attemptsMade: number;
+  maxAttempts?: number;
   jobType: string;
   jobData: Record<string, unknown>;
 }
@@ -51,24 +61,31 @@ export class RewardProcessor {
 
   @OnQueueFailed()
   async onFailed(job: Job<RewardJobData>, error: Error) {
+    const maxAttempts = job.opts.attempts ?? DEFAULT_JOB_ATTEMPTS;
+
     this.logger.error(
-      `Job ${job.id} failed: ${error.message}. Attempts made: ${job.attemptsMade}`,
+      `Job ${job.id} failed: ${error.message}. Attempts made: ${job.attemptsMade}/${maxAttempts}`,
     );
 
     // If we've reached max attempts limit, move to dead letter queue
-    if (job.attemptsMade >= (job.opts.attempts || 3)) {
+    if (isRetryExhausted(job.attemptsMade, maxAttempts)) {
+      const failureCategory = classifyFailure(error.message);
+
       await this.rewardService.handleRewardFailure(job.data.completionId);
 
-      // Add to dead letter queue for persistence and admin review
-      await this.dlq.add('process', {
+      // Add to dead letter queue for persistence and admin review. The
+      // category is what lets on-call group a burst of failures by root cause
+      // instead of reading every stack trace.
+      await this.dlq.add(REWARD_DEAD_LETTER_JOB, {
         userId: job.data.userId,
         xlmAmount: job.data.xlmAmount,
         taskCompletionId: job.data.completionId,
         errorMessage: error.message,
+        failureCategory,
         jobId: job.id?.toString(),
         attemptsMade: job.attemptsMade,
+        maxAttempts,
         jobType: REWARD_DISTRIBUTION_JOB,
-       
         jobData: job.data as unknown as Record<string, unknown>,
       });
 
@@ -80,7 +97,7 @@ export class RewardProcessor {
       });
 
       this.logger.warn(
-        `Job ${job.id} moved to dead letter queue after ${job.attemptsMade} attempts`,
+        `Job ${job.id} moved to dead letter queue after ${job.attemptsMade}/${maxAttempts} attempts [${failureCategory}]`,
       );
     }
   }

@@ -2,7 +2,8 @@
 import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { TaskAssignmentService } from './task-assignment.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { User } from '../../entities/user.entity';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -15,7 +16,12 @@ export class TaskAssignmentController {
   @ApiOperation({
     summary: "Get or generate today's personalized task assignment",
   })
-  async getTodayTasks(@Request() req) {
+  @ApiResponse({
+    status: 200,
+    description: "Today's task assignment retrieved successfully",
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getTodayTasks(@Request() req: { user: User }) {
     return this.assignmentService.getTodayAssignment(req.user);
   }
 }

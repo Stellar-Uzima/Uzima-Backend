@@ -15,15 +15,14 @@ import {
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dto/update-health-task.dto';
 import { CreateHealthTaskDto } from '../../common/dto/create-health-task.dto';
 import { ArchiveService } from './services/archive.service';
-import { CompletionService, MarkCompleteDto, MarkIncompleteDro from './services/completion.service';
+import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
 import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
@@ -36,6 +35,9 @@ import {
   AnalyticsPeriod,
 } from '../../shared/analytics/task-analytics.service';
 import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
+import { Cache } from '../../common/decorators/cache.decorator';
+import { CacheInvalidate } from '../../common/decorators/cache.decorator';
+import { CACHE_TTL } from '../../shared/cache/cache.service';
 
 // Interface to ensure type safety for the request user
 interface AuthenticatedRequest extends Request {
@@ -68,6 +70,7 @@ export class HealthTasksController {
   ) {}
 
   @Get()
+  @Cache('tasks:user:{userId}:status:{status}:category:{category}:priority:{priority}:page:{page}:limit:{limit}:sortBy:{sortBy}:sortOrder:{sortOrder}', CACHE_TTL.SHORT)
   @ApiOperation({ summary: 'Get user health tasks with filters and pagination' })
   @ApiResponse({ status: 200, description: 'Paginated list of the caller\'s health tasks' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
@@ -208,6 +211,7 @@ export class HealthTasksController {
   }
 
   @Post(':id/complete')
+  @CacheInvalidate(['tasks:user:{userId}:*', 'task:{taskId}:*'])
   @ApiOperation({ summary: 'Mark task as completed by user' })
   @ApiResponse({ status: 200, description: 'Task marked as complete' })
   @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
@@ -277,6 +281,7 @@ export class HealthTasksController {
   }
 
   @Put(':id')
+  @CacheInvalidate(['task:{id}:*', 'tasks:user:{userId}:*'])
   @ApiOperation({ summary: 'Update task (admin only)' })
   @ApiResponse({ status: 200, description: 'Task updated successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed on the request body' })

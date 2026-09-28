@@ -1,5 +1,6 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsObject, ValidateNested } from 'class-validator';
 import { ApiProperty, PartialType } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 // List of valid IANA timezones for validation
 const VALID_TIMEZONES = [
@@ -168,6 +169,49 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @ApiProperty({
+    description: 'Granular channel preferences per notification type',
+    example: {
+      task_reminder: { email: true, push: true, sms: false },
+      reward_alert: { email: true, push: true, sms: true },
+    },
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ChannelPreferencesDto)
+  channelPreferences?: Record<string, ChannelPreferencesDto>;
+}
+
+export class ChannelPreferencesDto {
+  @ApiProperty({
+    description: 'Enable email for this notification type',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  email?: boolean;
+
+  @ApiProperty({
+    description: 'Enable push notifications for this notification type',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  push?: boolean;
+
+  @ApiProperty({
+    description: 'Enable SMS for this notification type',
+    example: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  sms?: boolean;
 }
 
 // Validator function to check timezone

@@ -4,11 +4,16 @@ import { BadRequestException } from '@nestjs/common';
 import { ReferralService } from './referral.service';
 import { User } from '../entities/user.entity';
 import { ReferralRecord } from './entities/referral-record.entity';
+import { AntiAbuseService } from '../modules/anti-abuse/anti-abuse.service';
+import { ReferralRewardSettlementService } from './referral-reward-settlement.service';
+import { ReferralQualifyingAction } from './referral-reward.constants';
 
-describe('ReferralService & DTO Validation (Issue #1055)', () => {
+describe('ReferralService & DTO Validation (Issue #1055, #1305)', () => {
   let service: ReferralService;
   let userRepoMock: any;
   let referralRepoMock: any;
+  let antiAbuseServiceMock: any;
+  let settlementServiceMock: any;
 
   beforeEach(async () => {
     userRepoMock = {
@@ -19,6 +24,13 @@ describe('ReferralService & DTO Validation (Issue #1055)', () => {
       find: jest.fn(),
       create: jest.fn((val) => val),
       save: jest.fn((val) => Promise.resolve({ id: 'ref-1', ...val })),
+    };
+    antiAbuseServiceMock = {
+      assertReferralClaimAllowed: jest.fn().mockResolvedValue(undefined),
+      recordClaimAttempt: jest.fn().mockResolvedValue(undefined),
+    };
+    settlementServiceMock = {
+      settleReferralReward: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -31,6 +43,14 @@ describe('ReferralService & DTO Validation (Issue #1055)', () => {
         {
           provide: getRepositoryToken(ReferralRecord),
           useValue: referralRepoMock,
+        },
+        {
+          provide: AntiAbuseService,
+          useValue: antiAbuseServiceMock,
+        },
+        {
+          provide: ReferralRewardSettlementService,
+          useValue: settlementServiceMock,
         },
       ],
     }).compile();
@@ -94,6 +114,32 @@ describe('ReferralService & DTO Validation (Issue #1055)', () => {
 
       expect(result).toBeDefined();
       expect(referralRepoMock.save).toHaveBeenCalled();
+      expect(antiAbuseServiceMock.assertReferralClaimAllowed).toHaveBeenCalledWith(
+        referrerId,
+        userId,
+        { referralCode: 'REF456' },
+      );
+    });
+  });
+
+  describe('handleFirstHealthTaskCompletion', () => {
+    it('delegates settlement to the referral reward settlement service', async () => {
+      settlementServiceMock.settleReferralReward.mockResolvedValue({
+        settled: true,
+        reason: 'SETTLED',
+        settlementId: 'settlement-1',
+      });
+
+      const result = await service.handleFirstHealthTaskCompletion('user-789');
+
+      expect(
+        settlementServiceMock.settleReferralReward,
+      ).toHaveBeenCalledWith({
+        referredUserId: 'user-789',
+        qualifyingAction:
+          ReferralQualifyingAction.FIRST_HEALTH_TASK_COMPLETION,
+      });
+      expect(result.settled).toBe(true);
     });
   });
 });

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsISO8601,
   MaxLength,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -32,11 +33,11 @@ export class CreateTaskDto {
 
   @ApiProperty({
     description: 'Category ID',
-    example: 2,
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @IsNumber()
+  @IsUUID()
   @IsNotEmpty()
-  categoryId: number;
+  categoryId: string;
 
   @ApiProperty({
     description: 'XLM reward amount (between 0.1 and 5.0)',
