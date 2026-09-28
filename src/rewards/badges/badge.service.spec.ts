@@ -13,6 +13,7 @@ const mockBadgeRepo = {
 const mockUserBadgeRepo = {
   findOne: jest.fn(),
   find: jest.fn(),
+  count: jest.fn(),
   save: jest.fn(),
   create: jest.fn((d) => d),
 };
@@ -75,6 +76,27 @@ describe('BadgeService', () => {
         badgeType: BadgeType.FIRST_TASK,
         awardedAt: awardedAt.toISOString(),
       });
+    });
+  });
+
+  describe('getMyBadgeCount', () => {
+    it('returns the count from a COUNT query scoped to the user', async () => {
+      mockUserBadgeRepo.count.mockResolvedValue(3);
+      const result = await service.getMyBadgeCount('user-1');
+      expect(mockUserBadgeRepo.count).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+      expect(result).toEqual({ count: 3 });
+    });
+
+    it('returns zero when the user has no badges', async () => {
+      mockUserBadgeRepo.count.mockResolvedValue(0);
+      const result = await service.getMyBadgeCount('user-2');
+      expect(result).toEqual({ count: 0 });
+    });
+
+    it('does not load badge records to count them', async () => {
+      mockUserBadgeRepo.count.mockResolvedValue(2);
+      await service.getMyBadgeCount('user-1');
+      expect(mockUserBadgeRepo.find).not.toHaveBeenCalled();
     });
   });
 
