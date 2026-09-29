@@ -8,7 +8,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, MoreThan, Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
@@ -37,7 +38,135 @@ export class WalletService {
     private stellarService: StellarService,
     private xlmPriceService: XlmPriceService,
     private eventEmitter: EventEmitter2,
+    @InjectDataSource() private dataSource: DataSource,
+    private auditService: AuditService,
+    private notificationService: NotificationService
   ) {}
+
+  async recoverTransactions(userId: string, adminId: string) {
+    const recovery = await this.dataSource.transaction(async (manager) => {
+      const users = manager.getRepository(User);
+      const transactions = manager.getRepository(RewardTransaction);
+      const completions = manager.getRepository(TaskCompletion);
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const transactionRows = await transactions.find({ where: { userId } });
+      const suspiciousTransactions = transactionRows
+        .filter((transaction) => {
+          if (transaction.status === RewardStatus.FAILED) {
+            return true;
+          }
+          if (transaction.status === RewardStatus.SUCCESS && !transaction.stellarTxHash) {
+            return true;
+          }
+          return (
+            transaction.status === RewardStatus.PENDING &&
+            Date.now() - new Date(transaction.createdAt).getTime() > 15 * 60 * 1000
+          );
+        })
+        .map((transaction) => ({
+          id: transaction.id,
+          taskCompletionId: transaction.taskCompletionId,
+          amount: transaction.amount,
+          status: transaction.status,
+          reason:
+            transaction.status === RewardStatus.FAILED
+              ? 'Payout processing failed'
+              : transaction.status === RewardStatus.SUCCESS
+                ? 'Successful transaction is missing its Stellar transaction hash'
+                : 'Transaction has remained pending for more than 15 minutes',
+        }));
+
+      const completedTasks = await completions.find({
+        where: {
+          userId,
+          status: TaskCompletionStatus.VERIFIED,
+          xlmRewarded: MoreThan(0),
+        },
+      });
+      const recoveredTransactions: RewardTransaction[] = [];
+
+      for (const completion of completedTasks) {
+        const lockedCompletion = await completions.findOne({
+          where: { id: completion.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedCompletion) {
+          continue;
+        }
+
+        const existing = await transactions.findOne({
+          where: { userId, taskCompletionId: lockedCompletion.id },
+        });
+        if (existing) {
+          continue;
+        }
+
+        const recovered = transactions.create({
+          userId,
+          taskCompletionId: lockedCompletion.id,
+          amount: lockedCompletion.xlmRewarded,
+          status: RewardStatus.FAILED,
+          attempts: 0,
+        });
+        recoveredTransactions.push(await transactions.save(recovered));
+      }
+
+      return { user, suspiciousTransactions, recoveredTransactions };
+    });
+
+    const recoveredCount = recovery.recoveredTransactions.length;
+    const suspiciousCount = recovery.suspiciousTransactions.length;
+    this.logger.warn(
+      `Wallet recovery for user ${userId}: restored ${recoveredCount} missing ledger row(s); found ${suspiciousCount} suspicious transaction(s). No Stellar payments were submitted.`
+    );
+
+    await this.auditService.logEvent({
+      userId: adminId,
+      userRole: Role.ADMIN,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: userId,
+      description: `Wallet transaction recovery: restored ${recoveredCount} missing ledger row(s); found ${suspiciousCount} suspicious transaction(s). No funds were transferred.`,
+      isSensitive: true,
+      isComplianceEvent: true,
+      complianceCategory: 'WALLET_RECOVERY',
+      metadata: {
+        recoveredTransactionIds: recovery.recoveredTransactions.map(({ id }) => id),
+        suspiciousTransactions: recovery.suspiciousTransactions,
+      },
+    });
+
+    if (recoveredCount > 0) {
+      await this.notificationService.createNotification({
+        userId,
+        type: NotificationTypeEnum.REWARD_ALERT,
+        title: 'Wallet activity reviewed',
+        body: `We restored ${recoveredCount} missing reward record(s) to your wallet history. These records are under review and have not been paid by this recovery. We also identified ${suspiciousCount} transaction(s) that need review.`,
+        data: {
+          action: 'WALLET_RECOVERY',
+          recoveredCount,
+          suspiciousCount,
+        },
+      });
+    }
+
+    return {
+      userId,
+      recoveredTransactions: recovery.recoveredTransactions.map((transaction) => ({
+        id: transaction.id,
+        taskCompletionId: transaction.taskCompletionId,
+        amount: transaction.amount,
+        status: transaction.status,
+      })),
+      suspiciousTransactions: recovery.suspiciousTransactions,
+      paymentsSubmitted: 0,
+    };
+  }
 
   async getWalletSummary(userId: string): Promise<Partial<WalletSummaryDto>> {
     const cacheKey = `wallet_summary:${userId}`;
@@ -62,9 +191,7 @@ export class WalletService {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.warn(
-        `Failed to fetch balance for ${walletAddress}: ${message}`,
-      );
+      this.logger.warn(`Failed to fetch balance for ${walletAddress}: ${message}`);
     }
 
     // Total earned from tasks
@@ -91,9 +218,7 @@ export class WalletService {
 
     // Calculate balance in USD
     const balanceUsd =
-      liveBalance !== 'unavailable'
-        ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2)
-        : '0.00';
+      liveBalance !== 'unavailable' ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2) : '0.00';
 
     const summary: WalletSummaryDto = {
       walletAddress,
@@ -132,7 +257,7 @@ export class WalletService {
     const exists = await this.stellarService.accountExists(address);
     if (!exists) {
       throw new BadRequestException(
-        'Stellar account not found on the network. Please ensure it is funded.',
+        'Stellar account not found on the network. Please ensure it is funded.'
       );
     }
 
@@ -145,9 +270,7 @@ export class WalletService {
       if (alreadyLinked.id === userId) {
         return alreadyLinked; // Already linked to this user
       }
-      throw new ConflictException(
-        'This Stellar address is already linked to another account',
-      );
+      throw new ConflictException('This Stellar address is already linked to another account');
     }
 
     // 4. Update user
@@ -224,7 +347,7 @@ export class WalletService {
     limit: number = 10,
     startDate?: string,
     endDate?: string,
-    type?: string,
+    type?: string
   ) {
     const query = this.rewardTransactionRepo
       .createQueryBuilder('rt')
