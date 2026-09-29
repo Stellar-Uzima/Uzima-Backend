@@ -84,6 +84,12 @@ export class UserBadgesResponseDto {
   totalBadges: number;
 }
 
+export class BadgeCountResponseDto {
+  @ApiProperty({ description: 'Total number of badges earned by the user', example: 3 })
+  @IsInt()
+  count: number;
+}
+
 export class BadgeListResponseDto {
   @ApiProperty({ description: 'List of all badges', type: [BadgeDto] })
   badges: BadgeDto[];
