@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RewardController } from './reward.controller';
 import { RewardService } from './reward.service';
+import { RewardCatalogController } from './reward-catalog.controller';
+import { RewardCatalogService } from './reward-catalog.service';
 import { RewardTransaction } from './entities/reward-transaction.entity';
+import { RewardCatalog } from './entities/reward-catalog.entity';
 import { FailedRewardJob } from './entities/failed-reward-job.entity';
 import { TaskCompletion } from '../tasks/entities/task-completion.entity';
 import { HealthTask } from '../entities/health-task.entity';
@@ -17,12 +20,14 @@ import { StellarModule } from '../stellar/stellar.module';
 import { BadgeModule } from './badges/badge.module';
 import { AntiAbuseModule } from '../modules/anti-abuse/anti-abuse.module';
 import { RewardClaimGuard } from '../modules/anti-abuse/reward-claim.guard';
+import { WalletModule } from '../../modules/wallet/wallet.module';
 
 @Module({
   imports: [
     StellarModule,
     TypeOrmModule.forFeature([
       RewardTransaction,
+      RewardCatalog,
       FailedRewardJob,
       TaskCompletion,
       HealthTask,
@@ -48,14 +53,15 @@ import { RewardClaimGuard } from '../modules/anti-abuse/reward-claim.guard';
     BadgeModule,
     AntiAbuseModule,
   ],
-  controllers: [RewardController],
+  controllers: [RewardController, RewardCatalogController],
   providers: [
     RewardService,
+    RewardCatalogService,
     RewardProcessor,
     RewardClaimGuard,
     DeadLetterProcessor,
     RewardsScheduler,
   ],
-  exports: [RewardService, DeadLetterProcessor, RewardsScheduler, TypeOrmModule],
+  exports: [RewardService, RewardCatalogService, DeadLetterProcessor, RewardsScheduler, TypeOrmModule],
 })
 export class RewardModule {}

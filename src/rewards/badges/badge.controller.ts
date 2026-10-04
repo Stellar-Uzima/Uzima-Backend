@@ -2,10 +2,10 @@ import { Controller, Get, Param, UseGuards, Request, HttpStatus, HttpCode } from
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { BadgeService } from './badge.service';
-import { UserBadgesResponseDto } from './dto/badge.dto';
+import { BadgeCountResponseDto, UserBadgesResponseDto } from './dto/badge.dto';
 
 @ApiTags('badges')
-@Controller('badges')
+@Controller(['badges', 'users/me/badges'])
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class BadgeController {
@@ -28,6 +28,22 @@ export class BadgeController {
   async getMyBadges(@Request() req: { user: { sub: string; id?: string } }): Promise<UserBadgesResponseDto> {
     const userId = req.user.sub ?? req.user.id;
     return this.badgeService.getMyBadges(userId);
+  }
+
+  @Get('count')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get the total number of badges earned by the current user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Badge count retrieved successfully',
+    type: BadgeCountResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMyBadgeCount(
+    @Request() req: { user: { sub: string; id?: string } }
+  ): Promise<BadgeCountResponseDto> {
+    const userId = req.user.sub ?? req.user.id;
+    return this.badgeService.getMyBadgeCount(userId);
   }
 
   @Get('user/:userId')

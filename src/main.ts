@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { MonitoringInterceptor } from './common/interceptors/monitoring.interceptor';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { StandardizedExceptionFilter } from './common/filters/standardized-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { CustomValidationPipe } from './common/pipes/validation.pipe';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -36,7 +36,7 @@ function addSecurityHeaders(req, res, next) {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   
   // Retrieve ConfigService from the application context to safely read environment parameters
   const configService = app.get(ConfigService);
@@ -55,7 +55,11 @@ async function bootstrap() {
 
   app.useGlobalPipes(new CustomValidationPipe());
 
-  app.useGlobalFilters(new HttpExceptionFilter());
+  // Single global error contract (#1292). The previous filter is retained in
+  // the tree for reference but is no longer registered: two global filters
+  // would race, and the first one to write the response wins, so clients would
+  // see two different error shapes depending on which threw.
+  app.useGlobalFilters(new StandardizedExceptionFilter());
 
   const reflector = app.get(Reflector);
   // Apply RateLimitGuard first to ensure all requests are rate limited before any other processing

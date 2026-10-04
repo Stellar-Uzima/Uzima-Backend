@@ -10,15 +10,22 @@ import {
   UseGuards,
   UsePipes,
   ValidationPipe,
+  Put,
+  Param,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
+  ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { Coupon } from './entities/coupon.entity';
+import { RolesGuard } from '@modules/auth/guards/roles.guard';
+import { Roles } from '@modules/auth/decorators/roles.decorator';
+import { Role } from '@modules/auth/enums/role.enum';
+import { Coupon, CouponStatus } from './entities/coupon.entity';
 import { CouponService, ValidateCouponResult } from './coupon.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 
@@ -98,5 +105,79 @@ export class CouponController {
     @Body() dto: ValidateCouponDto,
   ): Promise<ValidateCouponResult> {
     return this.couponService.validate(dto, req.user.sub);
+  }
+
+  // ========== Admin Endpoints ==========
+
+  @Post('admin/create')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '[ADMIN] Create a coupon for a specific user' })
+  @ApiResponse({ status: 201, description: 'Coupon created', type: Coupon })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  async createCoupon(
+    @Body() dto: { userId: string; discount?: number; specialistType?: string; daysValid?: number },
+  ): Promise<Coupon> {
+    return this.couponService.createCoupon(dto.userId, {
+      discount: dto.discount,
+      specialistType: dto.specialistType,
+      daysValid: dto.daysValid,
+    });
+  }
+
+  @Post('admin/bulk-create')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '[ADMIN] Bulk create coupons for multiple users' })
+  @ApiResponse({ status: 201, description: 'Coupons created', type: [Coupon] })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  async bulkCreateCoupons(
+    @Body() dto: { userIds: string[]; discount?: number; specialistType?: string; daysValid?: number },
+  ): Promise<Coupon[]> {
+    return this.couponService.bulkCreateCoupons(dto.userIds, {
+      discount: dto.discount,
+      specialistType: dto.specialistType,
+      daysValid: dto.daysValid,
+    });
+  }
+
+  @Get('admin/analytics')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '[ADMIN] Get coupon usage analytics' })
+  @ApiResponse({ status: 200, description: 'Coupon analytics' })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  async getCouponAnalytics() {
+    return this.couponService.getCouponAnalytics();
+  }
+
+  @Post('admin/:code/redeem')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[ADMIN] Manually mark a coupon as redeemed' })
+  @ApiParam({ name: 'code', description: 'Coupon code' })
+  @ApiResponse({ status: 200, description: 'Coupon marked as redeemed', type: Coupon })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'Coupon not found' })
+  async markAsRedeemed(@Param('code') code: string, @Req() req: AuthenticatedRequest): Promise<Coupon> {
+    return this.couponService.markAsRedeemed(code, req.user.sub);
+  }
+
+  @Put('admin/:code/extend')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '[ADMIN] Extend coupon expiration' })
+  @ApiParam({ name: 'code', description: 'Coupon code' })
+  @ApiResponse({ status: 200, description: 'Coupon expiration extended', type: Coupon })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'Coupon not found' })
+  async extendExpiration(
+    @Param('code') code: string,
+    @Body() dto: { days: number },
+  ): Promise<Coupon> {
+    return this.couponService.extendExpiration(code, dto.days);
   }
 }

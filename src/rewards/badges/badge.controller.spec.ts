@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 const mockBadgeService = {
   getAllBadges: jest.fn(),
   getMyBadges: jest.fn(),
+  getMyBadgeCount: jest.fn(),
 };
 
 describe('BadgeController', () => {
@@ -71,5 +72,25 @@ describe('BadgeController', () => {
       await controller.getMyBadges({ user: { sub: 'user-123', id: 'other-id' } });
       expect(mockBadgeService.getMyBadges).toHaveBeenCalledWith('user-123');
     });
+  });
+
+  describe('GET /users/me/badges/count', () => {
+    it('returns the badge count for the authenticated user', async () => {
+      mockBadgeService.getMyBadgeCount.mockResolvedValue({ count: 3 });
+
+      const result = await controller.getMyBadgeCount({ user: { sub: 'user-123' } });
+
+      expect(mockBadgeService.getMyBadgeCount).toHaveBeenCalledWith('user-123');
+      expect(result).toEqual({ count: 3 });
+    });
+
+    it('returns zero when the user has no badges', async () => {
+      mockBadgeService.getMyBadgeCount.mockResolvedValue({ count: 0 });
+
+      const result = await controller.getMyBadgeCount({ user: { sub: 'user-123' } });
+
+      expect(result).toEqual({ count: 0 });
+    });
+
   });
 });

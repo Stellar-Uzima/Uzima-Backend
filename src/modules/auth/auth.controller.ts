@@ -15,17 +15,25 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService } from './auth.service';
+import { AuthService, AuthRequestContext } from './services/auth.service';
 import { VerifyEmailDto, ResendEmailVerificationDto } from './dto/verify-email.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';
 import { ClientIp } from './decorators/client-ip.decorator';
+
+/** Minimal request shape the auth controller reads audit context from. */
+interface RequestWithContext {
+  user?: { sub: string; [key: string]: unknown };
+  headers?: Record<string, string | string[] | undefined>;
+  ip?: string;
+}
 
 @ApiTags('auth')
 @Version('1')
@@ -121,8 +129,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh authentication token' })
   @ApiResponse({ status: 200, description: 'New access and refresh tokens returned' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+  async refresh(@Body() dto: RefreshTokenDto, @Req() req: RequestWithContext) {
+    return this.authService.refresh(dto.refreshToken, this.contextFrom(req));
   }
 
   @Post('logout')
@@ -133,9 +141,9 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   @ApiResponse({ status: 429, description: 'Too many requests' })
-  async logout(@Req() req: { user: { sub: string } }, @Body() dto: RefreshTokenDto) {
-    const userId = req.user.sub;
-    await this.authService.logout(dto.refreshToken);
+  async logout(@Req() req: { user: { sub: string }; headers: { authorization?: string } }, @Body() dto: RefreshTokenDto) {
+    const accessToken = req.headers.authorization?.replace('Bearer ', '');
+    await this.authService.logout(dto.refreshToken, accessToken);
     return { message: 'User logged out successfully' };
   }
 
@@ -156,7 +164,47 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Password reset successful' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
   @ApiResponse({ status: 429, description: 'Too many reset attempts' })
-  async resetPassword(@Body(PasswordValidationPipe) dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.password);
+  async resetPassword(
+    @Body(PasswordValidationPipe) dto: ResetPasswordDto,
+    @Req() req: RequestWithContext,
+  ) {
+    return this.authService.resetPassword(dto.token, dto.password, this.contextFrom(req));
+  }
+
+  /**
+   * Extracts the request-scoped fields the auth audit trail records. Kept here
+   * so the service never needs the raw Express request object.
+   */
+  private contextFrom(req: RequestWithContext): AuthRequestContext {
+    const forwardedFor = req.headers?.['x-forwarded-for'];
+    const ipAddress =
+      req.ip ??
+      (typeof forwardedFor === 'string'
+        ? forwardedFor.split(',')[0]?.trim()
+        : undefined);
+
+    return {
+      ipAddress: ipAddress ?? null,
+      userAgent: (req.headers?.['user-agent'] as string | undefined) ?? null,
+      requestId: (req.headers?.['x-request-id'] as string | undefined) ?? null,
+    };
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update user profile' })
+  @ApiResponse({ status: 200, description: 'Profile updated successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  async updateProfile(
+    @Req() req: { user: { sub: string }; headers: { authorization?: string }; ip?: string },
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(req.user.sub, dto, {
+      ip: req.ip,
+      headers: req.headers,
+    });
   }
 }

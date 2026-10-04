@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
+import jwtConfig from './config/jwt.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -46,6 +47,10 @@ import { ReferralModule } from './referral/referral.module';
 import { HealthProfileModule } from './modules/health-profile/health-profile.module';
 import { HealthModule } from './health/health.module';
 import { CurrencyModule } from './shared/currency/currency.module';
+import { WebhookModule } from './modules/webhooks/webhook.module';
+import { SupportModule } from './modules/support/support.module';
+import { BackfillModule } from './modules/backfill/backfill.module';
+import { RetentionModule } from './modules/retention/retention.module';
 
 // Reliability & data quality (implemented against #1368 and #1367)
 import { DeliveryReliabilityModule } from './modules/notification-center/delivery-reliability.module';
@@ -68,7 +73,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig],
     }),
     HealthModule,
     AppCacheModule,
@@ -128,6 +133,10 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     DeliveryReliabilityModule,
     DataQualityModule,
     CurrencyModule,
+    WebhookModule,
+    SupportModule,
+    BackfillModule,
+    RetentionModule,
   ],
   controllers: [AppController],
   providers: [

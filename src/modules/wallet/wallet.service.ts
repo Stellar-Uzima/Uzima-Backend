@@ -4,9 +4,12 @@ import {
   Logger,
   BadRequestException,
   ConflictException,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, MoreThan, Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
@@ -17,6 +20,8 @@ import { StellarService } from '../../stellar/stellar.service';
 import { XlmPriceService } from '../../stellar/xlm-price.service';
 import { User } from '../../entities/user.entity';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
+import { Withdrawal, WithdrawalStatus } from './entities/withdrawal.entity';
+import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalResponseDto } from './dto/withdrawal.dto';
 
 @Injectable()
 export class WalletService {
@@ -27,11 +32,141 @@ export class WalletService {
     private rewardTransactionRepo: Repository<RewardTransaction>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(Withdrawal)
+    private withdrawalRepo: Repository<Withdrawal>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private stellarService: StellarService,
     private xlmPriceService: XlmPriceService,
     private eventEmitter: EventEmitter2,
+    @InjectDataSource() private dataSource: DataSource,
+    private auditService: AuditService,
+    private notificationService: NotificationService
   ) {}
+
+  async recoverTransactions(userId: string, adminId: string) {
+    const recovery = await this.dataSource.transaction(async (manager) => {
+      const users = manager.getRepository(User);
+      const transactions = manager.getRepository(RewardTransaction);
+      const completions = manager.getRepository(TaskCompletion);
+
+      const user = await users.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const transactionRows = await transactions.find({ where: { userId } });
+      const suspiciousTransactions = transactionRows
+        .filter((transaction) => {
+          if (transaction.status === RewardStatus.FAILED) {
+            return true;
+          }
+          if (transaction.status === RewardStatus.SUCCESS && !transaction.stellarTxHash) {
+            return true;
+          }
+          return (
+            transaction.status === RewardStatus.PENDING &&
+            Date.now() - new Date(transaction.createdAt).getTime() > 15 * 60 * 1000
+          );
+        })
+        .map((transaction) => ({
+          id: transaction.id,
+          taskCompletionId: transaction.taskCompletionId,
+          amount: transaction.amount,
+          status: transaction.status,
+          reason:
+            transaction.status === RewardStatus.FAILED
+              ? 'Payout processing failed'
+              : transaction.status === RewardStatus.SUCCESS
+                ? 'Successful transaction is missing its Stellar transaction hash'
+                : 'Transaction has remained pending for more than 15 minutes',
+        }));
+
+      const completedTasks = await completions.find({
+        where: {
+          userId,
+          status: TaskCompletionStatus.VERIFIED,
+          xlmRewarded: MoreThan(0),
+        },
+      });
+      const recoveredTransactions: RewardTransaction[] = [];
+
+      for (const completion of completedTasks) {
+        const lockedCompletion = await completions.findOne({
+          where: { id: completion.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!lockedCompletion) {
+          continue;
+        }
+
+        const existing = await transactions.findOne({
+          where: { userId, taskCompletionId: lockedCompletion.id },
+        });
+        if (existing) {
+          continue;
+        }
+
+        const recovered = transactions.create({
+          userId,
+          taskCompletionId: lockedCompletion.id,
+          amount: lockedCompletion.xlmRewarded,
+          status: RewardStatus.FAILED,
+          attempts: 0,
+        });
+        recoveredTransactions.push(await transactions.save(recovered));
+      }
+
+      return { user, suspiciousTransactions, recoveredTransactions };
+    });
+
+    const recoveredCount = recovery.recoveredTransactions.length;
+    const suspiciousCount = recovery.suspiciousTransactions.length;
+    this.logger.warn(
+      `Wallet recovery for user ${userId}: restored ${recoveredCount} missing ledger row(s); found ${suspiciousCount} suspicious transaction(s). No Stellar payments were submitted.`
+    );
+
+    await this.auditService.logEvent({
+      userId: adminId,
+      userRole: Role.ADMIN,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: userId,
+      description: `Wallet transaction recovery: restored ${recoveredCount} missing ledger row(s); found ${suspiciousCount} suspicious transaction(s). No funds were transferred.`,
+      isSensitive: true,
+      isComplianceEvent: true,
+      complianceCategory: 'WALLET_RECOVERY',
+      metadata: {
+        recoveredTransactionIds: recovery.recoveredTransactions.map(({ id }) => id),
+        suspiciousTransactions: recovery.suspiciousTransactions,
+      },
+    });
+
+    if (recoveredCount > 0) {
+      await this.notificationService.createNotification({
+        userId,
+        type: NotificationTypeEnum.REWARD_ALERT,
+        title: 'Wallet activity reviewed',
+        body: `We restored ${recoveredCount} missing reward record(s) to your wallet history. These records are under review and have not been paid by this recovery. We also identified ${suspiciousCount} transaction(s) that need review.`,
+        data: {
+          action: 'WALLET_RECOVERY',
+          recoveredCount,
+          suspiciousCount,
+        },
+      });
+    }
+
+    return {
+      userId,
+      recoveredTransactions: recovery.recoveredTransactions.map((transaction) => ({
+        id: transaction.id,
+        taskCompletionId: transaction.taskCompletionId,
+        amount: transaction.amount,
+        status: transaction.status,
+      })),
+      suspiciousTransactions: recovery.suspiciousTransactions,
+      paymentsSubmitted: 0,
+    };
+  }
 
   async getWalletSummary(userId: string): Promise<Partial<WalletSummaryDto>> {
     const cacheKey = `wallet_summary:${userId}`;
@@ -56,9 +191,7 @@ export class WalletService {
       liveBalance = await this.stellarService.getAccountBalance(walletAddress);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.warn(
-        `Failed to fetch balance for ${walletAddress}: ${message}`,
-      );
+      this.logger.warn(`Failed to fetch balance for ${walletAddress}: ${message}`);
     }
 
     // Total earned from tasks
@@ -85,9 +218,7 @@ export class WalletService {
 
     // Calculate balance in USD
     const balanceUsd =
-      liveBalance !== 'unavailable'
-        ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2)
-        : '0.00';
+      liveBalance !== 'unavailable' ? (parseFloat(liveBalance) * xlmUsdRate).toFixed(2) : '0.00';
 
     const summary: WalletSummaryDto = {
       walletAddress,
@@ -126,7 +257,7 @@ export class WalletService {
     const exists = await this.stellarService.accountExists(address);
     if (!exists) {
       throw new BadRequestException(
-        'Stellar account not found on the network. Please ensure it is funded.',
+        'Stellar account not found on the network. Please ensure it is funded.'
       );
     }
 
@@ -139,9 +270,7 @@ export class WalletService {
       if (alreadyLinked.id === userId) {
         return alreadyLinked; // Already linked to this user
       }
-      throw new ConflictException(
-        'This Stellar address is already linked to another account',
-      );
+      throw new ConflictException('This Stellar address is already linked to another account');
     }
 
     // 4. Update user
@@ -218,7 +347,7 @@ export class WalletService {
     limit: number = 10,
     startDate?: string,
     endDate?: string,
-    type?: string,
+    type?: string
   ) {
     const query = this.rewardTransactionRepo
       .createQueryBuilder('rt')
@@ -285,5 +414,195 @@ export class WalletService {
       this.logger.error(`Failed to sync balance for user ${userId}: ${message}`);
       throw new BadRequestException('Unable to sync wallet balance from Stellar network');
     }
+  }
+
+  /**
+   * Create a new withdrawal request
+   */
+  async createWithdrawal(userId: string, dto: CreateWithdrawalDto): Promise<WithdrawalResponseDto> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const walletAddress = user.stellarWalletAddress || user.walletAddress;
+    if (!walletAddress) {
+      throw new BadRequestException('No wallet linked to this account');
+    }
+
+    // Verify destination address format
+    if (!StellarSdk.StrKey.isValidEd25519PublicKey(dto.destinationAddress)) {
+      throw new BadRequestException('Invalid destination address format');
+    }
+
+    // Prevent withdrawal to own linked address
+    if (dto.destinationAddress === walletAddress) {
+      throw new BadRequestException('Cannot withdraw to your own linked wallet address');
+    }
+
+    // Check live balance from Stellar network
+    let liveBalance = 0;
+    try {
+      const balanceStr = await this.stellarService.getAccountBalance(walletAddress);
+      liveBalance = parseFloat(balanceStr);
+    } catch (error) {
+      this.logger.warn(`Failed to fetch live balance for withdrawal check: ${error instanceof Error ? error.message : 'Unknown'}`);
+      throw new BadRequestException('Unable to verify balance for withdrawal');
+    }
+
+    // Check minimum balance (keep 0.5 XLM for account reserve)
+    const minReserve = 0.5;
+    const availableBalance = liveBalance - minReserve;
+    if (availableBalance < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance. Available: ${availableBalance.toFixed(7)} XLM (minimum reserve: ${minReserve} XLM)`
+      );
+    }
+
+    // Check for pending withdrawals
+    const pendingWithdrawals = await this.withdrawalRepo
+      .createQueryBuilder('w')
+      .select('SUM(w.amount)', 'total')
+      .where('w.userId = :userId', { userId })
+      .andWhere('w.status IN (:...statuses)', { statuses: [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSING] })
+      .getRawOne();
+
+    const pendingTotal = parseFloat(pendingWithdrawals?.total || '0');
+    if (availableBalance - pendingTotal < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance considering pending withdrawals. Available after pending: ${(availableBalance - pendingTotal).toFixed(7)} XLM`
+      );
+    }
+
+    // Create withdrawal record
+    const withdrawal = this.withdrawalRepo.create({
+      userId,
+      amount: dto.amount,
+      destinationAddress: dto.destinationAddress,
+      memo: dto.memo || null,
+      status: WithdrawalStatus.PENDING,
+    });
+
+    await this.withdrawalRepo.save(withdrawal);
+
+    // Emit event for admin notification
+    this.eventEmitter.emit('wallet.withdrawal.created', {
+      withdrawalId: withdrawal.id,
+      userId,
+      amount: dto.amount,
+      destinationAddress: dto.destinationAddress,
+    });
+
+    this.logger.log(`Withdrawal created: ${withdrawal.id} for user ${userId}, amount: ${dto.amount} XLM`);
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  /**
+   * Get user's withdrawal history with pagination and filters
+   */
+  async getWithdrawals(userId: string, query: WithdrawalListQueryDto): Promise<{
+    data: WithdrawalResponseDto[];
+    metadata: { totalCount: number; page: number; limit: number; totalPages: number };
+  }> {
+    const qb = this.withdrawalRepo
+      .createQueryBuilder('w')
+      .where('w.userId = :userId', { userId })
+      .orderBy('w.createdAt', 'DESC');
+
+    if (query.status) {
+      qb.andWhere('w.status = :status', { status: query.status });
+    }
+
+    const skip = (query.page! - 1) * query.limit!;
+    qb.skip(skip).take(query.limit!);
+
+    const [data, totalCount] = await qb.getManyAndCount();
+
+    return {
+      data: data.map(w => this.mapToResponseDto(w)),
+      metadata: {
+        totalCount,
+        page: query.page!,
+        limit: query.limit!,
+        totalPages: Math.ceil(totalCount / query.limit!),
+      },
+    };
+  }
+
+  /**
+   * Get a single withdrawal by ID (user can only see their own)
+   */
+  async getWithdrawalById(userId: string, withdrawalId: string): Promise<WithdrawalResponseDto> {
+    const withdrawal = await this.withdrawalRepo.findOne({
+      where: { id: withdrawalId, userId },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal not found');
+    }
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  /**
+   * Admin: Update withdrawal status (process/complete/reject)
+   */
+  async updateWithdrawalStatus(
+    withdrawalId: string,
+    status: WithdrawalStatus,
+    transactionHash?: string,
+    failureReason?: string,
+  ): Promise<WithdrawalResponseDto> {
+    const withdrawal = await this.withdrawalRepo.findOne({ where: { id: withdrawalId } });
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal not found');
+    }
+
+    if (withdrawal.status !== WithdrawalStatus.PENDING && withdrawal.status !== WithdrawalStatus.PROCESSING) {
+      throw new BadRequestException(`Cannot update withdrawal in ${withdrawal.status} status`);
+    }
+
+    const previousStatus = withdrawal.status;
+    withdrawal.status = status;
+
+    if (status === WithdrawalStatus.PROCESSING) {
+      // Moving to processing
+    } else if (status === WithdrawalStatus.COMPLETED) {
+      withdrawal.completedAt = new Date();
+      withdrawal.transactionHash = transactionHash || null;
+    } else if (status === WithdrawalStatus.FAILED || status === WithdrawalStatus.REJECTED) {
+      withdrawal.failureReason = failureReason || 'Withdrawal failed';
+    }
+
+    await this.withdrawalRepo.save(withdrawal);
+
+    // Emit event
+    this.eventEmitter.emit('wallet.withdrawal.status_changed', {
+      withdrawalId: withdrawal.id,
+      userId: withdrawal.userId,
+      previousStatus,
+      newStatus: status,
+      transactionHash,
+      failureReason,
+    });
+
+    this.logger.log(`Withdrawal ${withdrawal.id} status changed: ${previousStatus} -> ${status}`);
+
+    return this.mapToResponseDto(withdrawal);
+  }
+
+  private mapToResponseDto(withdrawal: Withdrawal): WithdrawalResponseDto {
+    return {
+      id: withdrawal.id,
+      amount: parseFloat(withdrawal.amount.toString()),
+      destinationAddress: withdrawal.destinationAddress,
+      memo: withdrawal.memo || undefined,
+      status: withdrawal.status,
+      transactionHash: withdrawal.transactionHash || undefined,
+      createdAt: withdrawal.createdAt,
+      completedAt: withdrawal.completedAt || undefined,
+      failureReason: withdrawal.failureReason || undefined,
+    };
   }
 }

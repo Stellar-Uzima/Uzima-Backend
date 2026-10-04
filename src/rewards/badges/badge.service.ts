@@ -53,6 +53,11 @@ export class BadgeService {
     };
   }
 
+  async getMyBadgeCount(userId: string): Promise<{ count: number }> {
+    const count = await this.userBadgeRepository.count({ where: { userId } });
+    return { count };
+  }
+
   async awardBadge(userId: string, badgeType: BadgeType): Promise<UserBadge | null> {
     const badge = await this.badgeRepository.findOne({ where: { type: badgeType } });
     if (!badge) return null;
