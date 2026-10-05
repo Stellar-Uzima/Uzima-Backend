@@ -26,6 +26,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';
+import { ClientIp } from './decorators/client-ip.decorator';
 
 /** Minimal request shape the auth controller reads audit context from. */
 interface RequestWithContext {
@@ -87,11 +88,8 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 423, description: 'Account temporarily locked' })
   @ApiResponse({ status: 429, description: 'Too many login attempts' })
-  async login(@Body() dto: LoginDto, @Req() req: any) {
-    return this.authService.login(dto, {
-      ip: req.ip,
-      headers: req.headers,
-    });
+  async login(@Body() dto: LoginDto, @ClientIp() clientIp: string) {
+    return this.authService.login(dto, clientIp);
   }
 
   @Post('2fa/enable')
@@ -155,8 +153,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
   @ApiResponse({ status: 429, description: 'Too many password reset requests' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: RequestWithContext) {
-    return this.authService.forgotPassword(dto.email, this.contextFrom(req));
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @ClientIp() clientIp: string) {
+    return this.authService.forgotPassword(dto.email, clientIp);
   }
 
   @Post('password/reset')

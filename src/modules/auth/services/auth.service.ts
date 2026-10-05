@@ -5,8 +5,8 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
-  NotFoundException,
   Optional,
+  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,7 +17,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { MoreThan, LessThan, Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createClient, RedisClientType } from 'redis';
 import { LoginDto } from '../dto/login.dto';
@@ -36,6 +36,10 @@ import { TokenBlacklist, TokenType } from '@/database/entities/token-blacklist.e
 import { TransactionService } from '@/database/services/transaction.service';
 import { ReferralService } from '../../../referral/referral.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
+import { PasswordPolicyService } from './password-policy.service';
+import { AccountLockoutService } from './account-lockout.service';
+import { normalizeEmail } from './credential-normalizer';
+import { ClientIp } from '../decorators/client-ip.decorator';
 
 /**
  * Request-scoped details attached to an auth audit event. Passed in from the
@@ -81,6 +85,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     @Optional() private readonly authEventAuditService?: AuthEventAuditService,
     @Optional() private readonly referralService?: ReferralService,
+    private readonly passwordPolicy: PasswordPolicyService,
+    private readonly lockout: AccountLockoutService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
@@ -93,7 +99,13 @@ export class AuthService {
 
   // Register user
   async register(dto: RegisterDto) {
-    const existingUser = await this.usersService.findByEmail(dto.email);
+    // Defence in depth: the DTO already enforces the policy, but this service is
+    // also called from internal flows and tests. A rule that lives only in the
+    // validation layer is one refactor from writing a weak credential to the DB.
+    this.passwordPolicy.assert(dto.password);
+
+    const email = normalizeEmail(dto.email);
+    const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('An account with this email already exists');
     }
@@ -103,6 +115,7 @@ export class AuthService {
 
     const user = await this.usersService.create({
       ...dto,
+      email,
       password: hashedPassword,
     });
 
@@ -143,70 +156,35 @@ export class AuthService {
   }
 
   // Login user
-  async login(dto: LoginDto, req?: { ip?: string; headers?: { 'user-agent'?: string } }) {
-    const user = await this.usersService.findByEmail(dto.email);
-    
-    // Audit failed login - user not found
+  async login(dto: LoginDto, clientIp?: string) {
+    const email = normalizeEmail(dto.email);
+    const user = await this.usersService.findByEmail(email);
+
+    // A miss costs a bcrypt comparison against a dummy hash, so the response
+    // time does not reveal whether the address is registered.
     if (!user) {
-      await this.auditService.logEvent({
-        action: AuditAction.LOGIN,
-        resourceType: AuditResource.USER,
-        description: 'Login failed: user not found',
-        userEmail: dto.email,
-        isSensitive: true,
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
-        metadata: { reason: 'user_not_found' },
-      });
+      await this.spendConstantTime();
+      if (clientIp) {
+        await this.lockout.recordIpFailure(clientIp);
+      }
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      await this.auditService.logEvent({
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        action: AuditAction.LOGIN,
-        resourceType: AuditResource.USER,
-        description: 'Login failed: account locked',
-        isSensitive: true,
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
-        metadata: { reason: 'account_locked', lockedUntil: user.lockedUntil },
-      });
-      throw new AccountLockedException(user.lockedUntil);
-    }
-
-    if (user.lockedUntil && user.lockedUntil <= new Date()) {
-      user.lockedUntil = null;
-      user.failedLoginAttempts = 0;
-      await this.usersService.save(user);
-      await this.recordAuthEvent({
-        eventType: AuthEventType.ACCOUNT_UNLOCKED,
-        userId: user.id,
-        userEmail: user.email,
-        context,
-        metadata: { reason: 'lockout_window_elapsed' },
-      });
-    }
+    // Checked before the password so a locked account is reported as locked
+    // rather than as a bad password, which would otherwise invite the user to
+    // keep guessing.
+    this.lockout.assertNotLocked(user);
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
-      await this.recordFailedLogin(user);
-      
-      // Audit failed login - invalid password
-      await this.auditService.logEvent({
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        action: AuditAction.LOGIN,
-        resourceType: AuditResource.USER,
-        description: 'Login failed: invalid password',
-        isSensitive: true,
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
-        metadata: { reason: 'invalid_password', failedAttempts: user.failedLoginAttempts + 1 },
-      });
+      const outcome = await this.lockout.recordPasswordFailure(user.id);
+      if (clientIp) {
+        await this.lockout.recordIpFailure(clientIp);
+      }
+      if (outcome.justLocked && outcome.lockedUntil) {
+        await this.lockout.notifyLocked(user, outcome.lockedUntil);
+        throw new AccountLockedException(outcome.lockedUntil, 0);
+      }
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -249,7 +227,15 @@ export class AuthService {
 
     // Update last login timestamp tracking on successful email login
     await this.usersService.updateLastLogin(user.id);
+
     if (user.twoFactorEnabled) {
+      const cooldown = await this.lockout.twoFactorCooldownRemaining(user.id);
+      if (cooldown > 0) {
+        throw new TooManyRequestsException(
+          `Too many incorrect codes. Try again in ${cooldown} seconds.`,
+        );
+      }
+
       if (!dto.totpCode) {
         await this.auditService.logEvent({
           userId: user.id,
@@ -265,28 +251,32 @@ export class AuthService {
         });
         throw new UnauthorizedException('Two-factor authentication code is required');
       }
+
       if (!user.twoFactorSecret || !authenticator.check(dto.totpCode, user.twoFactorSecret)) {
-        await this.recordFailedLogin(user);
-        await this.auditService.logEvent({
-          userId: user.id,
-          userEmail: user.email,
-          userRole: user.role,
-          action: AuditAction.LOGIN,
-          resourceType: AuditResource.USER,
-          description: 'Login failed: invalid 2FA code',
-          isSensitive: true,
-          ipAddress: req?.ip,
-          userAgent: req?.headers?.['user-agent'],
-          metadata: { reason: 'invalid_2fa_code' },
-        });
+        // Counted separately from the password counter on purpose: sharing one
+        // counter let anyone who already knew the password lock the real owner
+        // out with five wrong codes, while still not being able to log in.
+        const failure = await this.lockout.recordTwoFactorFailure(user.id);
+        if (failure.cooldownSeconds > 0) {
+          throw new TooManyRequestsException(
+            `Too many incorrect codes. Try again in ${failure.cooldownSeconds} seconds.`,
+          );
+        }
         throw new UnauthorizedException('Invalid two-factor authentication code');
       }
+
+      await this.lockout.clearTwoFactorFailures(user.id);
     }
 
+    // A successful login clears the lockout state, which is also how a lock
+    // that has expired is released.
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.lockout.clear(user.id);
       user.failedLoginAttempts = 0;
       user.lockedUntil = null;
-      await this.usersService.save(user);
+    }
+    if (clientIp) {
+      await this.lockout.clearIpFailures(clientIp);
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -309,6 +299,26 @@ export class AuthService {
       ...tokens,
       user: profile,
     };
+  }
+
+  /**
+   * Burns roughly the same time as a real bcrypt comparison.
+   *
+   * Without it, a login for an unknown address returns immediately while a
+   * login for a known address spends ~100ms in bcrypt, so response time alone
+   * enumerates every registered address.
+   */
+  private async spendConstantTime(): Promise<void> {
+    try {
+      await bcrypt.compare(
+        'a-placeholder-password-used-only-for-timing-equalisation',
+        '$2a$12$C6UzMDM.H6dfI/f/IKcEe.7QvbpBt1nJ5vHnJf0dGmDcbEHqfTqZ9C',
+      );
+    } catch {
+      // A failure here only means the dummy hash was unusable; the timing
+      // budget still needs consuming, so the real comparison runs regardless.
+      await bcrypt.compare('x', '$2a$12$abcdefghijklmnopqrstuv123456789012345678901234567890123');
+    }
   }
 
   async enableTwoFactor(userId: string, code?: string) {
@@ -354,84 +364,6 @@ export class AuthService {
     await this.usersService.save(user);
 
     return { message: 'Two-factor authentication disabled successfully' };
-  }
-
-  private async recordFailedLogin(
-    user: { id: string; failedLoginAttempts?: number; lockedUntil?: Date | null },
-    context?: AuthRequestContext,
-    reason: string = 'invalid_credentials',
-  ) {
-    const fullUser = await this.usersService.findById(user.id);
-    fullUser.failedLoginAttempts = (fullUser.failedLoginAttempts || 0) + 1;
-
-    if (fullUser.failedLoginAttempts >= this.maxFailedLoginAttempts) {
-      fullUser.lockedUntil = new Date(Date.now() + this.lockoutDurationMs);
-      this.logger.warn(`Account locked for user ${fullUser.id} until ${fullUser.lockedUntil.toISOString()}`);
-      
-      // Audit account lockout
-      await this.auditService.logEvent({
-        userId: fullUser.id,
-        userEmail: fullUser.email,
-        userRole: fullUser.role,
-        action: AuditAction.LOGIN,
-        resourceType: AuditResource.USER,
-        description: `Account locked after ${this.maxFailedLoginAttempts} failed login attempts`,
-        isSensitive: true,
-        isComplianceEvent: true,
-        metadata: { 
-          failedAttempts: fullUser.failedLoginAttempts, 
-          lockedUntil: fullUser.lockedUntil,
-        },
-      });
-    }
-
-    await this.usersService.save(fullUser);
-
-    await this.recordAuthEvent({
-      eventType:
-        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
-          ? AuthEventType.ACCOUNT_LOCKED
-          : AuthEventType.LOGIN_FAILURE,
-      outcome:
-        fullUser.lockedUntil && fullUser.lockedUntil > new Date()
-          ? AuthEventOutcome.DENIED
-          : AuthEventOutcome.FAILURE,
-      reason,
-      userId: fullUser.id,
-      userEmail: fullUser.email,
-      context,
-      metadata: {
-        failedAttempts: fullUser.failedLoginAttempts,
-        maxFailedAttempts: this.maxFailedLoginAttempts,
-        lockedUntil: fullUser.lockedUntil
-          ? fullUser.lockedUntil.toISOString()
-          : null,
-      },
-    });
-
-    if (fullUser.lockedUntil && fullUser.lockedUntil > new Date()) {
-      throw new AccountLockedException(fullUser.lockedUntil);
-    }
-  }
-
-  /**
-   * Thin wrapper around the audit service so every call site benefits from the
-   * secret scrubber and the "never throw into the request path" guarantee.
-   * Silently no-ops when the audit module is not wired in (e.g. isolated unit
-   * tests that construct this service directly).
-   */
-  private async recordAuthEvent(event: AuthEventInput): Promise<void> {
-    if (!this.authEventAuditService) {
-      return;
-    }
-
-    const { context, ...rest } = event;
-    await this.authEventAuditService.record({
-      ...rest,
-      ipAddress: context?.ipAddress ?? null,
-      userAgent: context?.userAgent ?? null,
-      requestId: context?.requestId ?? null,
-    });
   }
 
   // Refresh access token
@@ -869,12 +801,24 @@ export class AuthService {
 
   // Verify email
   async verifyEmail(dto: VerifyEmailDto) {
-    const record = await this.emailVerificationService.consume(dto.token);
-    if (!record) {
-      throw new BadRequestException('Invalid or expired verification token');
+    const outcome = await this.emailVerificationService.consume(dto.token);
+
+    // The outcome union distinguishes a replay from an unknown token from an
+    // expired one. The previous implementation returned null for all three, so
+    // a user who clicked a link twice was told the token was "invalid or
+    // expired" and had no way to tell a working link from a spent one.
+    if (outcome.status !== 'OK') {
+      switch (outcome.status) {
+        case 'EXPIRED':
+          throw new GoneException('Email verification token has expired');
+        case 'ALREADY_USED':
+          throw new BadRequestException('This verification link has already been used');
+        default:
+          throw new BadRequestException('Invalid verification token');
+      }
     }
 
-    const user: any = record.user;
+    const user: any = outcome.record.user;
     user.isVerified = true;
     user.emailVerificationToken = null;
     user.emailVerificationExpiry = null;
@@ -897,21 +841,30 @@ export class AuthService {
 
   // Resend email verification
   async resendEmailVerification(dto: ResendEmailVerificationDto) {
-    const user = await this.usersService.findByEmail(dto.email);
+    const email = normalizeEmail(dto.email);
+    const user = await this.usersService.findByEmail(email);
+
+    // The response is identical whether or not the address is registered.
+    // Throwing NotFound here previously turned this endpoint into an oracle
+    // that confirmed which addresses had accounts, which is the raw material
+    // for a credential-stuffing list.
+    const GENERIC_RESPONSE = { message: 'Verification email sent if the address needs it' };
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      return GENERIC_RESPONSE;
     }
 
     if (user.isVerified) {
-      throw new BadRequestException('Email is already verified');
+      return GENERIC_RESPONSE;
     }
 
     const rateLimitKey = `email_verify:${user.email}`;
     const currentCount = await this.redisClient.get(rateLimitKey);
 
     if (currentCount && parseInt(String(currentCount), 10) >= 3) {
-      throw new BadRequestException('Too many verification requests. Please try again later.');
+      // 429 rather than 400: it is a throttle, and the status is what a client
+      // uses to decide whether to back off.
+      throw new TooManyRequestsException('Too many verification requests. Please try again later.');
     }
 
     await this.emailVerificationService.createForUser(user.id);
@@ -924,18 +877,42 @@ export class AuthService {
 
     this.logger.log(`Resent verification email to: ${user.email}`);
 
-    return { message: 'Verification email sent' };
+    return GENERIC_RESPONSE;
   }
 
   /**
    * Password Reset Flow
    */
-  async forgotPassword(email: string, requestContext?: AuthRequestContext) {
-    const user = await this.usersService.findByEmail(email);
+  async forgotPassword(email: string, clientIp?: string) {
+    const normalized = normalizeEmail(email);
+
+    // Throttled per address so this cannot be used to flood someone's inbox.
+    const throttleKey = `pwd_reset:${normalized}`;
+    const attempts = Number((await this.redisClient.get(throttleKey)) ?? 0);
+    if (attempts >= 3) {
+      throw new TooManyRequestsException(
+        'Too many password reset requests. Please try again later.',
+      );
+    }
+    await this.redisClient.set(throttleKey, String(attempts + 1), { EX: 3600 });
+
+    // Also throttled per source IP, otherwise the per-address limit is defeated
+    // by spreading requests across addresses from one host.
+    if (clientIp) {
+      const ipKey = `pwd_reset_ip:${clientIp}`;
+      const ipAttempts = Number((await this.redisClient.get(ipKey)) ?? 0);
+      if (ipAttempts >= 10) {
+        throw new TooManyRequestsException(
+          'Too many password reset requests. Please try again later.',
+        );
+      }
+      await this.redisClient.set(ipKey, String(ipAttempts + 1), { EX: 3600 });
+    }
+
+    const user = await this.usersService.findByEmail(normalized);
     if (!user) {
-      // Do not disclose whether the address exists, and do not record it as a
-      // user-attributable event either — the response is identical.
-      this.logger.debug(`Password reset requested for an unknown address`);
+      // Identical response for a known and an unknown address, for the same
+      // enumeration reason as resendEmailVerification.
       return { message: 'If an account exists, a reset link has been sent' };
     }
 
@@ -945,8 +922,11 @@ export class AuthService {
     user.passwordResetToken = hash;
     user.passwordResetExpiry = new Date(Date.now() + 3600 * 1000);
 
+    // Only one outstanding reset token per account. The token column already
+    // holds only the newest hash, so an earlier link stops working the moment a
+    // newer one is issued.
     await this.usersService.save(user);
-    this.logger.log(`Password reset requested for: ${email}`);
+    this.logger.log(`Password reset requested for: ${normalized}`);
 
     // Any outstanding session is invalidated the moment a reset is requested,
     // so a stolen token cannot outlive the credential change (#1287).
@@ -972,11 +952,12 @@ export class AuthService {
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
-  async resetPassword(
-    token: string,
-    newPassword: string,
-    requestContext?: AuthRequestContext,
-  ) {
+  async resetPassword(token: string, newPassword: string) {
+    // Same policy as registration, enforced here because resetPassword is also
+    // called from the admin recovery path. Skipping it would let a reset set a
+    // password that registration would have rejected.
+    this.passwordPolicy.assert(newPassword);
+
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
     // Look up by token only — expiry is checked separately so we can return 410
@@ -1006,9 +987,14 @@ export class AuthService {
     user.passwordResetToken = null;
     user.passwordResetExpiry = null;
 
-    // A password change invalidates every existing session, otherwise a
-    // previously stolen refresh token survives the reset (#1287).
-    await this.revokeAllSessionsForUser(user.id);
+    // A password change must invalidate every outstanding session. Without
+    // this, the person who triggered the reset is locked out while whoever
+    // prompted it keeps a working refresh token and simply re-mints an access
+    // token — which is the opposite of what "reset my password" is for.
+    await this.lockout.clear(user.id);
+    await this.clearAllUserRefreshTokens(user.id);
+    user.refreshToken = null;
+    user.refreshTokenExpiry = null;
     user.failedLoginAttempts = 0;
     user.lockedUntil = null;
 

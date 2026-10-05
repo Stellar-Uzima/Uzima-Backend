@@ -33,6 +33,9 @@ import { UsersService } from './services/users.service';
 import { DatabaseModule } from '../../database/database.module';
 import { ReferralModule } from '../../referral/referral.module';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
+import { PasswordPolicyService } from './services/password-policy.service';
+import { PasswordValidatorService } from './services/password-validator.service';
+import { AccountLockoutService } from './services/account-lockout.service';
 
 @Module({
   imports: [
@@ -69,6 +72,8 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     PermissionsGuard,
     TokenRevocationGuard,
     PasswordValidationPipe,
+    PasswordPolicyService,
+    PasswordValidatorService,
     // Registered globally so role/permission declarations on a handler are
     // always enforced, even on routes that forget `@UseGuards(RolesGuard)`.
     // Routes without `@Roles`/`@Permissions` metadata are unaffected.
@@ -89,6 +94,12 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
     TokenRevocationGuard,
     JwtAuthGuard,
     JwtRefreshGuard,
+    // Exported so the admin and recovery flows apply the same policy and the
+    // same lockout rules as the public auth endpoints, rather than a second
+    // looser copy of each.
+    PasswordPolicyService,
+    PasswordValidatorService,
+    AccountLockoutService,
     TokenRevocationGuard,
     JwtModule,
   ],
