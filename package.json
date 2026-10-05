@@ -37,7 +37,7 @@
     "@nestjs-modules/ioredis": "^2.2.1",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^3.1.0",
-    "@nestjs/common": "^10.2.0",
+    "@nestjs/common": "^12.1.2",
     "@nestjs/config": "^3.0.0",
     "@nestjs/core": "^10.2.0",
     "@nestjs/event-emitter": "^3.0.1",
