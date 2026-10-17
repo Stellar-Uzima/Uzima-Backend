@@ -1,5 +1,6 @@
 import { DataSource, MigrationInterface, QueryRunner } from 'typeorm';
 import { TestDatabaseManager } from './database-manager';
+import { InitialSchema1700000000000 } from '../src/database/migrations/1700000000000-InitialSchema';
 
 class FailingSchema1700000000000 implements MigrationInterface {
   async up(_runner: QueryRunner): Promise<void> {
@@ -39,6 +40,35 @@ describe('test database lifecycle (real PostgreSQL)', () => {
     ]);
     return rows.length === 1;
   }
+
+  it('repeats real initial-schema fixtures across an application connection without losing migration history', async () => {
+    const target = manager([InitialSchema1700000000000]);
+    const source = await target.initialize();
+    const application = new DataSource({ ...target.settings.connection, entities: [] });
+    try {
+      await application.initialize();
+      for (let run = 0; run < 3; run++) {
+        await target.cleanDatabase();
+        expect(await application.query('SELECT count(*)::int AS count FROM users')).toEqual([
+          { count: 0 },
+        ]);
+        await application.query(
+          'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
+          ['00000000-0000-4000-8000-000000000001', 'fixture@example.test', 'fixture-only-hash']
+        );
+        expect(await source.query('SELECT id, email FROM users')).toEqual([
+          { id: '00000000-0000-4000-8000-000000000001', email: 'fixture@example.test' },
+        ]);
+        expect(await source.query('SELECT name FROM migrations')).toEqual([
+          { name: 'InitialSchema1700000000000' },
+        ]);
+      }
+    } finally {
+      if (application.isInitialized) await application.destroy();
+    }
+    await target.close();
+    expect(await exists(target.settings.database)).toBe(false);
+  });
 
   it('isolates simultaneous suites and resets FK fixtures and sequences deterministically', async () => {
     const left = manager();
