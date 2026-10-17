@@ -94,11 +94,13 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_HOST: localhost
-      DATABASE_PORT: 5432
-      DATABASE_USERNAME: postgres
-      DATABASE_PASSWORD: postgres
-      DATABASE_NAME: stellar_uzima_test
+      NODE_ENV: test
+      TEST_DATABASE_TYPE: postgres
+      TEST_DB_HOST: localhost
+      TEST_DB_PORT: 5432
+      TEST_DB_USERNAME: postgres
+      TEST_DB_PASSWORD: postgres
+      TEST_DB_NAME: stellar_uzima_test
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       JWT_SECRET: testsecret
@@ -118,7 +120,7 @@ jobs:
             ${{ runner.os }}-node-
 
       - run: npm install
-      - run: npm run migrate
+      - run: npm run test:db
       - run: npm run test:e2e
 
   coverage:

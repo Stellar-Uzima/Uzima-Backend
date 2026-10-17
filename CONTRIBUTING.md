@@ -4,7 +4,7 @@ This section documents the database migration creation, application, and seeding
 
 ## Overview
 
-The project uses **TypeORM** (v0.3.x) for database management with PostgreSQL in production and SQLite for testing. All database changes are managed through explicit migrations, and seeders provide idempotent test/production data initialization.
+The project uses **TypeORM** (v0.3.x) for database management with PostgreSQL in production and for E2E tests. All database changes are managed through explicit migrations, and seeders provide idempotent test/production data initialization.
 
 ---
 
@@ -172,11 +172,15 @@ Always test migrations in a local development environment before creating a PR:
 ---
 
 ## 5. Test Database Isolation
-For E2E and integration tests, the project uses `TestDatabaseManager` from `test/setup.ts` which:
-- Creates a transaction before each test
-- Rolls back the transaction after test completion
-- Maintains test isolation without recreating the entire schema
-- Works with the same migration structure as development databases
+
+E2E tests use PostgreSQL 15 and require explicit `TEST_DB_*` settings. Each test
+file gets a newly created database; setup fails rather than falling back to
+configuration for development. Teardown removes only that suite's database.
+Independent cases can explicitly reset tables and sequences; journey steps may
+share fixtures within a file. Unit tests do not start the database harness.
+
+See [Isolated E2E databases](docs/e2e-database.md) for local setup, permissions,
+fixture lifecycle and `npm run test:db` regression checks.
 
 ## Available npm Scripts
 | Command | Description |
