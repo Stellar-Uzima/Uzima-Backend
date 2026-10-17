@@ -25,8 +25,11 @@ export class TestDatabaseManager {
     Object.freeze(this.settings);
   }
 
-  static getInstance(): TestDatabaseManager {
-    if (!this.instance) this.instance = new TestDatabaseManager();
+  static getInstance(schema?: SchemaOptions): TestDatabaseManager {
+    if (this.instance && schema) {
+      throw new Error('Configure the test schema before initializing the suite environment');
+    }
+    if (!this.instance) this.instance = new TestDatabaseManager(schema);
     return this.instance;
   }
 

@@ -1,17 +1,5 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
-  "testEnvironment": "node",
-  "testRegex": "database-(config\\.spec|manager\\.integration-spec)\\.ts$",
-  "testTimeout": 30000,
-  "transform": {
-    "^.+\\.ts$": [
-      "ts-jest",
-      {
-        "tsconfig": {
-          "isolatedModules": true
-        }
-      }
-    ]
-  }
+  "projects": ["<rootDir>/jest-database-integration.json", "<rootDir>/jest-database-e2e.json"],
+  "testTimeout": 30000
 }

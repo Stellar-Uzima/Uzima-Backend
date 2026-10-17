@@ -27,8 +27,8 @@ export TEST_DB_PORT=55432
 export TEST_DB_USERNAME=postgres
 export TEST_DB_PASSWORD=e2e-local-only
 export TEST_DB_NAME=uzima_test
-npm run test:db
-npm run test:db
+npm run test:db -- --maxWorkers=2
+npm run test:db -- --runInBand --detectOpenHandles
 npm run test:e2e
 ```
 
@@ -42,8 +42,9 @@ maintenance database and create/drop databases on this disposable server.
 
 The existing application E2E suites may also need Redis and other application
 dependencies. Configure those separately for testing. `test:db` exercises the
-database harness against real PostgreSQL without booting the application or
-calling external services. Unit tests (`npm test`) do not run database lifecycle
+database harness against real PostgreSQL, including a focused Nest HTTP fixture
+application that uses the existing initial migration. It does not boot the full
+application or call external services. Unit tests (`npm test`) do not run database lifecycle
 hooks; real database lifecycle tests run explicitly through `test:db` in CI.
 
 Stop the disposable server when finished:
@@ -76,3 +77,19 @@ Normal teardown closes the manager pool and uses PostgreSQL 15 `DROP DATABASE
 A forcibly killed test process cannot run teardown; on the disposable local
 server, stop/recreate the container to discard such databases. No generic
 cleanup command is run against development or production servers.
+
+## Focused HTTP lifecycle checks
+
+`test:db` runs both manager/configuration checks and two independent HTTP suites.
+A fixture setup configures the existing `InitialSchema1700000000000` migration
+before the standard E2E environment and lifecycle hooks run. Both suites insert
+the same fixed user ID/email through a separate Nest application connection;
+sharing a database would cause a collision. They also check that journey state
+survives between cases and that all application database aliases match the owned
+database. Teardown closes each HTTP application and its pool before dropping
+the suite database. The test endpoints exist only in test fixtures.
+
+This scoped fixture-schema check is not a claim that the full application or
+its complete historical migration chain is healthy. `npm run test:e2e` still
+uses its original application entities and migration list. Failures in those
+files remain visible rather than being skipped or silently normalized.
