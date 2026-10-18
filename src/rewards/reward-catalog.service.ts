@@ -5,7 +5,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, LessThan } from 'typeorm';
+import { DataSource, Repository, In, LessThan } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RewardCatalog, RewardType, RewardCatalogStatus } from './entities/reward-catalog.entity';
 import { RewardTransaction } from './entities/reward-transaction.entity';
@@ -55,6 +56,7 @@ export class RewardCatalogService {
     private readonly userRepo: Repository<User>,
     private readonly eventEmitter: EventEmitter2,
     private readonly walletService: WalletService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -196,49 +198,76 @@ export class RewardCatalogService {
       }
     }
 
-    // Create reward transaction record
-    const transaction = this.rewardRepo.create({
-      userId,
-      amount: reward.cost,
-      currency: 'XLM',
-      status: 'SUCCESS', // Assuming instant for catalog redemptions
-      metadata: {
-        rewardCatalogId: reward.id,
-        rewardTitle: reward.title,
-        rewardType: reward.type,
-      },
+    const redemption = await this.dataSource.transaction(async (manager) => {
+      const rewards = manager.getRepository(RewardCatalog);
+      const rewardTransactions = manager.getRepository(RewardTransaction);
+      const users = manager.getRepository(User);
+      const lockedReward = await rewards.findOne({
+        where: { id: dto.rewardId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !lockedReward ||
+        lockedReward.status !== RewardCatalogStatus.ACTIVE ||
+        (lockedReward.stock !== -1 && lockedReward.stock <= 0)
+      ) {
+        throw new BadRequestException('Reward is no longer available for redemption');
+      }
+
+      const lockedUser = await users.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      const transaction = rewardTransactions.create({
+        userId,
+        amount: lockedReward.cost,
+        currency: 'XLM',
+        status: 'SUCCESS',
+        metadata: {
+          rewardCatalogId: lockedReward.id,
+          rewardTitle: lockedReward.title,
+          rewardType: lockedReward.type,
+        },
+      });
+      await rewardTransactions.save(transaction);
+
+      if (lockedReward.type === RewardType.XLM) {
+        lockedUser.walletBalance = parseFloat(
+          (lockedUser.walletBalance - lockedReward.cost).toFixed(7),
+        );
+        await users.save(lockedUser);
+      }
+
+      if (lockedReward.stock !== -1) {
+        lockedReward.stock -= 1;
+      }
+      lockedReward.redeemedCount += 1;
+      await rewards.save(lockedReward);
+
+      return { reward: lockedReward, transaction, user: lockedUser };
     });
-    await this.rewardRepo.save(transaction);
-
-    // Deduct cost from user balance (for XLM type)
-    if (reward.type === RewardType.XLM) {
-      user.walletBalance = parseFloat((user.walletBalance - reward.cost).toFixed(7));
-      await this.userRepo.save(user);
-    }
-
-    // Update reward stock
-    if (reward.stock !== -1) {
-      reward.stock -= 1;
-    }
-    reward.redeemedCount += 1;
-    await this.catalogRepo.save(reward);
+    const { reward: redeemedReward, transaction, user: redeemedUser } = redemption;
 
     // Emit event
     this.eventEmitter.emit('reward.redeemed', {
       userId,
-      rewardId: reward.id,
-      rewardTitle: reward.title,
+      rewardId: redeemedReward.id,
+      rewardTitle: redeemedReward.title,
       transactionId: transaction.id,
-      cost: reward.cost,
+      cost: redeemedReward.cost,
     });
 
-    this.logger.log(`Reward redeemed: ${reward.id} by user ${userId}`);
+    this.logger.log(`Reward redeemed: ${redeemedReward.id} by user ${userId}`);
 
     return {
       success: true,
       message: 'Reward redeemed successfully',
-      reward,
-      newBalance: user.walletBalance,
+      reward: redeemedReward,
+      newBalance: redeemedUser.walletBalance,
       transactionId: transaction.id,
     };
   }

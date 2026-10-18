@@ -115,7 +115,7 @@ export class ReferralRewardSettlementService {
     const currency = params.currency ?? DEFAULT_REFERRAL_REWARD_CURRENCY;
 
     try {
-      return await runAtomicMoneyMovement(this.dataSource, (manager) =>
+      const result = await runAtomicMoneyMovement(this.dataSource, (manager) =>
         this.settleWithinTransaction(manager, {
           referredUserId,
           qualifyingAction,
@@ -124,6 +124,16 @@ export class ReferralRewardSettlementService {
           referenceId,
         }),
       );
+      if (result.settled) {
+        this.eventEmitter.emit('reward.earned', {
+          userId: result.referrerId,
+          amount: result.amount,
+          currency: result.currency,
+          settlementId: result.settlementId,
+          rewardTransactionId: result.rewardTransactionId,
+        });
+      }
+      return result;
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         this.logger.warn(
@@ -292,14 +302,6 @@ export class ReferralRewardSettlementService {
     referral.rewardPaid = true;
     referral.rewardPaidAt = referral.rewardPaidAt ?? savedSettlement.settledAt;
     await referralRepo.save(referral);
-
-    this.eventEmitter.emit('reward.earned', {
-      userId: referrerId,
-      amount: input.amount,
-      currency: input.currency,
-      settlementId: savedSettlement.id,
-      rewardTransactionId: savedReward.id,
-    });
 
     this.logger.log(
       `Settled referral ${referral.id}: referrer=${referrerId} amount=${input.amount} ${input.currency} tx=${savedReward.id}`,

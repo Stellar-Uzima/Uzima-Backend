@@ -113,10 +113,19 @@ export class ProofVerificationService {
   }
 
   private extractFileKeyFromUrl(url: string): string {
-    // Assuming the proofUrl is something like https://bucket.s3.amazonaws.com/proofs/user/task/timestamp
-    // Extract the key after the bucket
-    const urlParts = url.split('/');
-    const keyIndex = urlParts.findIndex((part) => part.includes('proofs'));
-    return urlParts.slice(keyIndex).join('/');
+    if (url.startsWith('proofs/')) {
+      return url;
+    }
+
+    try {
+      const pathname = new URL(url).pathname;
+      const match = pathname.match(/(?:^|\/)(proofs\/[^/]+\/[^/]+\/[^/]+)$/);
+      if (match?.[1]) {
+        return decodeURIComponent(match[1]);
+      }
+    } catch {
+      this.logger.warn('Stored proof reference is not a valid storage URL');
+    }
+    throw new Error('Stored proof reference is invalid');
   }
 }

@@ -14,7 +14,6 @@ import { SavingsContribution } from '../../database/entities/savings-goal.entity
 import { WalletTransaction } from '../../database/entities/wallet-transaction.entity';
 import { Withdrawal } from './entities/withdrawal.entity';
 import { StellarModule } from '../../stellar/stellar.module';
-import { TaskCompletion } from '../../tasks/entities/task-completion.entity';
 import { AuditModule } from '@/audit/audit.module';
 import { NotificationCenterModule } from '../notification-center/notification-center.module';
 
@@ -26,21 +25,15 @@ import { NotificationCenterModule } from '../notification-center/notification-ce
       SavingsGoal,
       SavingsContribution,
       WalletTransaction,
+      Withdrawal,
     ]),
-    CacheModule.register(),
-    StellarModule,
-  ],
-  controllers: [WalletController, AdminWalletController, SavingsWalletController],
-  providers: [WalletService, SavingsService, WalletTransactionService],
-  exports: [WalletService, SavingsService, WalletTransactionService],
-    TypeOrmModule.forFeature([RewardTransaction, User, Withdrawal]),
     CacheModule.register(),
     StellarModule,
     AuditModule,
     NotificationCenterModule,
   ],
-  controllers: [WalletController, AdminWalletController],
-  providers: [WalletService],
-  exports: [WalletService],
+  controllers: [WalletController, AdminWalletController, SavingsWalletController],
+  providers: [WalletService, SavingsService, WalletTransactionService],
+  exports: [WalletService, SavingsService, WalletTransactionService],
 })
 export class WalletModule {}

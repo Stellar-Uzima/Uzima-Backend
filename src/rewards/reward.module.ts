@@ -52,6 +52,7 @@ import { WalletModule } from '../../modules/wallet/wallet.module';
     }),
     BadgeModule,
     AntiAbuseModule,
+    WalletModule,
   ],
   controllers: [RewardController, RewardCatalogController],
   providers: [
