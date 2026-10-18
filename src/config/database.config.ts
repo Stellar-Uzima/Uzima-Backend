@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { registerAs } from '@nestjs/config';
 import { Logger as TypeOrmLogger, QueryRunner } from 'typeorm';
+import { MetricsService } from '../shared/metrics/metrics.service';
 
 interface DatabasePoolConfig {
   max: number;
@@ -29,27 +30,26 @@ export class SlowQueryLogger implements TypeOrmLogger {
   constructor(
     private readonly thresholdMs: number,
     private readonly production: boolean,
+    private readonly metrics?: MetricsService,
   ) {}
 
   logQuerySlow(time: number, query: string, parameters?: unknown[], _queryRunner?: QueryRunner) {
+    const operation = getQueryOperation(query);
+    this.metrics?.recordDbQueryDuration(operation, time / 1000);
     if (time < this.thresholdMs) {
       return;
     }
-    this.logger.warn(
-      `Slow query (${time}ms): ${query}${parameters?.length ? ` -- params: ${JSON.stringify(parameters)}` : ''}`,
-    );
+    this.metrics?.incrementSlowDbQueries(operation);
+    this.logger.warn(`Slow database query: operation=${operation} duration_ms=${Math.round(time)} threshold_ms=${this.thresholdMs}`);
   }
 
-  logQuery(): void {
-    if (!this.production) {
-      return;
-    }
+  logQuery(query: string): void {
+    this.metrics?.incrementDbQueries(getQueryOperation(query));
   }
 
-  logQueryError(error: string | Error, query: string, parameters?: unknown[]) {
-    this.logger.error(
-      `Query error: ${error instanceof Error ? error.message : error} | ${query}${parameters?.length ? ` -- params: ${JSON.stringify(parameters)}` : ''}`,
-    );
+  logQueryError(error: string | Error, query: string, _parameters?: unknown[]) {
+    const errorType = error instanceof Error ? error.name : 'QueryError';
+    this.logger.error(`Database query failed: operation=${getQueryOperation(query)} error_type=${errorType}`);
   }
 
   logSchemaBuild(message: string) {
@@ -81,6 +81,7 @@ export function getDatabasePoolConfig(env: NodeJS.ProcessEnv = process.env): Dat
 
 export function buildDatabaseTypeOrmOptions(
   env: NodeJS.ProcessEnv = process.env,
+  metrics?: MetricsService,
 ): Pick<TypeOrmModuleOptions, 'logging' | 'maxQueryExecutionTime' | 'logger' | 'extra'> {
   const isProduction = env.NODE_ENV === 'production';
   const thresholdMs = getSlowQueryThresholdMs(env);
@@ -94,10 +95,17 @@ export function buildDatabaseTypeOrmOptions(
    */
   return {
     maxQueryExecutionTime: thresholdMs,
-    logging: isProduction ? false : verboseLogging,
-    logger: new SlowQueryLogger(thresholdMs, isProduction),
+    // Keep TypeORM's query callback enabled so it can count operations. The
+    // custom logger never emits the SQL text or its bound parameters.
+    logging: isProduction ? ['query', 'error'] : verboseLogging,
+    logger: new SlowQueryLogger(thresholdMs, isProduction, metrics),
     extra: getDatabasePoolConfig(env),
   };
+}
+
+export function getQueryOperation(query: string): string {
+  const operation = /^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.exec(query)?.[1]?.toUpperCase();
+  return operation ?? 'OTHER';
 }
 
 export const databaseConfig = registerAs(
@@ -107,7 +115,7 @@ export const databaseConfig = registerAs(
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
     username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
+    password: process.env.DB_PASSWORD || process.env.DATABASE_PASSWORD,
     database: process.env.DB_DATABASE || 'uzima_dev',
     entities: ['dist/**/*.entity{.ts,.js}'],
     migrations: ['dist/database/migrations/*{.ts,.js}'],

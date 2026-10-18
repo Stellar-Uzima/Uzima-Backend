@@ -15,6 +15,8 @@ export class MetricsService {
     private readonly httpRequestDuration: Histogram<string>,
     @InjectMetric('database_queries_total')
     private readonly dbQueriesTotal: Counter<string>,
+    @InjectMetric('database_slow_queries_total')
+    private readonly dbSlowQueriesTotal: Counter<string>,
     @InjectMetric('database_query_duration_seconds')
     private readonly dbQueryDuration: Histogram<string>,
     @InjectMetric('cache_hits_total')
@@ -28,6 +30,9 @@ export class MetricsService {
   ) {}
 
   incrementHttpRequests(method: string, route: string, statusCode: number) {
+    method = normalizeHttpMethod(method);
+    route = normalizeRoute(route);
+    statusCode = normalizeStatusCode(statusCode);
     this.httpRequestsTotal.inc({ method, route, status_code: statusCode.toString() });
     if (statusCode >= 400) {
       this.incrementHttpFailedRequests(method, route, statusCode);
@@ -37,27 +42,31 @@ export class MetricsService {
   }
 
   incrementHttpSuccessRequests(method: string, route: string) {
-    this.httpRequestsSuccessTotal.inc({ method, route });
+    this.httpRequestsSuccessTotal.inc({ method: normalizeHttpMethod(method), route: normalizeRoute(route) });
   }
 
   incrementHttpFailedRequests(method: string, route: string, statusCode: number) {
     this.httpRequestsFailedTotal.inc({
-      method,
-      route,
-      status_code: statusCode.toString(),
+      method: normalizeHttpMethod(method),
+      route: normalizeRoute(route),
+      status_code: normalizeStatusCode(statusCode).toString(),
     });
   }
 
   recordHttpRequestDuration(method: string, route: string, durationSeconds: number) {
-    this.httpRequestDuration.observe({ method, route }, durationSeconds);
+    this.httpRequestDuration.observe({ method: normalizeHttpMethod(method), route: normalizeRoute(route) }, durationSeconds);
   }
 
   incrementDbQueries(operation: string) {
-    this.dbQueriesTotal.inc({ operation });
+    this.dbQueriesTotal.inc({ operation: normalizeDbOperation(operation) });
   }
 
   recordDbQueryDuration(operation: string, duration: number) {
-    this.dbQueryDuration.observe({ operation }, duration);
+    this.dbQueryDuration.observe({ operation: normalizeDbOperation(operation) }, duration);
+  }
+
+  incrementSlowDbQueries(operation: string) {
+    this.dbSlowQueriesTotal.inc({ operation: normalizeDbOperation(operation) });
   }
 
   incrementCacheHits(cacheName: string = 'default') {
@@ -75,4 +84,39 @@ export class MetricsService {
   setCpuUsage(percent: number) {
     this.cpuUsage.set(percent);
   }
+}
+
+const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
+const DB_OPERATIONS = new Set(['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'OTHER']);
+
+export function normalizeHttpMethod(method: string): string {
+  const normalized = (method || '').toUpperCase();
+  return HTTP_METHODS.has(normalized) ? normalized : 'OTHER';
+}
+
+/** Route labels must be route templates (or a bounded fallback), never URLs/IDs. */
+export function normalizeRoute(route: string): string {
+  if (!route || route.length > 200 || !route.startsWith('/')) return 'unmatched';
+  const path = route.split(/[?#]/, 1)[0];
+  if (!path || /%[0-9a-f]{2}/i.test(path)) return 'unmatched';
+  return path
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment;
+      if (segment.startsWith(':')) return ':param';
+      if (/^[0-9]+$/.test(segment) || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(segment)) return ':param';
+      return segment;
+    })
+    .join('/');
+}
+
+export function normalizeStatusCode(statusCode: number): number {
+  return Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599
+    ? statusCode
+    : 500;
+}
+
+export function normalizeDbOperation(operation: string): string {
+  const candidate = (operation || '').toUpperCase();
+  return DB_OPERATIONS.has(candidate) ? candidate : 'OTHER';
 }

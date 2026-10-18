@@ -39,8 +39,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
 
     const options: StrategyOptionsWithoutRequest = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET') ||
-        configService.get<string>('JWT_SECRET') || 'secretKey',
+      secretOrKey: getRefreshSecret(configService),
       ignoreExpiration: false,
       issuer: securityConfig.issuer,
       audience: securityConfig.refreshAudience,
@@ -69,4 +68,13 @@ export class JwtRefreshStrategy extends PassportStrategy(
       jti: payload.jti,
     };
   }
+}
+
+function getRefreshSecret(configService: ConfigService): string {
+  const secret = configService.get<string>('JWT_REFRESH_SECRET') ||
+    configService.get<string>('JWT_SECRET');
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_REFRESH_SECRET or JWT_SECRET must be configured with at least 32 characters');
+  }
+  return secret;
 }

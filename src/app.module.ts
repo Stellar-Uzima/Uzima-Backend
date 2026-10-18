@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import Joi from 'joi';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
@@ -74,6 +75,19 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
       isGlobal: true,
       envFilePath: '.env',
       load: [secretsConfig, passwordConfig, jwtConfig],
+      validationSchema: Joi.object({
+        JWT_SECRET: Joi.string().min(32).invalid('your_jwt_secret_key_here_min_32_chars').optional(),
+        JWT_REFRESH_SECRET: Joi.string().min(32).invalid('your_refresh_secret_key_here_min_32_chars').optional(),
+        SECRETS_VAULT_KEY: Joi.string().min(32).optional(),
+        DATABASE_PASSWORD: Joi.string().optional(),
+        DB_PASSWORD: Joi.string().invalid('postgres', 'password').optional(),
+        REDIS_PASSWORD: Joi.string().optional(),
+        TWILIO_AUTH_TOKEN: Joi.string().optional(),
+        STELLAR_TREASURY_SECRET_KEY: Joi.string().optional(),
+        STELLAR_FUNDING_SECRET: Joi.string().invalid('your_stellar_account_secret_key').optional(),
+        SLOW_QUERY_THRESHOLD_MS: Joi.number().integer().positive().optional(),
+        SLOW_REQUEST_THRESHOLD_MS: Joi.number().integer().positive().optional(),
+      }).unknown(true),
     }),
     HealthModule,
     AppCacheModule,

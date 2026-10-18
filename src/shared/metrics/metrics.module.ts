@@ -46,6 +46,11 @@ import { MonitoringController } from '../monitoring/monitoring.controller';
       help: 'Total number of database queries',
       labelNames: ['operation'],
     }),
+    makeCounterProvider({
+      name: 'database_slow_queries_total',
+      help: 'Number of database queries exceeding the configured slow-query threshold',
+      labelNames: ['operation'],
+    }),
     makeHistogramProvider({
       name: 'database_query_duration_seconds',
       help: 'Duration of database queries in seconds',

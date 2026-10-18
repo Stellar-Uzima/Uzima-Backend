@@ -44,7 +44,7 @@ export default registerAs('app', () => {
     version: '1.0.0',
     corsOrigin: corsOrigins[0],
     corsOrigins,
-    jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+    jwtSecret: process.env.JWT_SECRET,
     jwtExpiration: process.env.JWT_EXPIRATION || '7d',
     isDevelopment: process.env.NODE_ENV !== 'production',
     isProduction: process.env.NODE_ENV === 'production',

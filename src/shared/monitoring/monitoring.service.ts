@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MetricsService } from '../metrics/metrics.service';
 import { UxHealthMonitorService } from '../../modules/ux-monitoring/ux-health-monitor.service';
 import * as os from 'os';
@@ -10,6 +11,7 @@ export class MonitoringService {
   constructor(
     private readonly metricsService: MetricsService,
     @Optional() private readonly uxHealthMonitor?: UxHealthMonitorService,
+    private readonly configService?: ConfigService,
   ) {
     this.startSystemMonitoring();
   }
@@ -44,8 +46,9 @@ export class MonitoringService {
     // at the experience layer, not just in infrastructure metrics.
     this.uxHealthMonitor?.observe(route, method, statusCode, duration);
 
-    if (duration > 5000) {
-      this.alert('Slow Request', `Request to ${method} ${route} took ${duration}ms`);
+    const threshold = this.getPositiveThreshold('SLOW_REQUEST_THRESHOLD_MS', 5000);
+    if (duration >= threshold) {
+      this.alert('Slow Request', `Request to ${method} ${route} took ${Math.round(duration)}ms (threshold ${threshold}ms)`);
     }
   }
 
@@ -53,9 +56,15 @@ export class MonitoringService {
     this.metricsService.incrementDbQueries(operation);
     this.metricsService.recordDbQueryDuration(operation, duration / 1000);
 
-    if (duration > 1000) {
-      this.alert('Slow Database Query', `Query ${operation} took ${duration}ms`);
+    const threshold = this.getPositiveThreshold('SLOW_QUERY_THRESHOLD_MS', 1000);
+    if (duration >= threshold) {
+      this.alert('Slow Database Query', `Query ${operation} took ${Math.round(duration)}ms (threshold ${threshold}ms)`);
     }
+  }
+
+  private getPositiveThreshold(key: string, fallback: number): number {
+    const value = Number(this.configService?.get<string>(key));
+    return Number.isFinite(value) && value > 0 ? value : fallback;
   }
 
   private alert(title: string, message: string) {
