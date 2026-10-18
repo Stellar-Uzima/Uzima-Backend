@@ -17,10 +17,12 @@ import { EmailTemplateService } from '../../shared/notifications/services/email-
 import { NOTIFICATION_CENTER_QUEUE } from './constants/notification-center.constants';
 import { NotificationService } from './notification.service';
 import { NotificationPreferencesModule } from '../../notifications/preferences/preferences.module';
+import { MetricsModule } from '../../shared/metrics/metrics.module';
 
 @Module({
   imports: [
     ConfigModule,
+    MetricsModule,
     QueueModule,
     TypeOrmModule.forFeature([
       InAppNotification,
