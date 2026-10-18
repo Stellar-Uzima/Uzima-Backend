@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,6 +23,7 @@ export interface DataExportResult {
 @Injectable()
 export class StorageService {
   private readonly uploadDir = join(process.cwd(), 'uploads');
+  private readonly logger = new Logger(StorageService.name);
 
   constructor() {
     this.ensureUploadDir();
@@ -67,7 +68,10 @@ export class StorageService {
     try {
       await fs.unlink(filePath);
     } catch (error) {
-      console.error('Failed to delete file:', error);
+      this.logger.error(
+        'Failed to delete file',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 

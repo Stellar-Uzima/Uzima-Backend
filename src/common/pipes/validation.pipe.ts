@@ -34,8 +34,8 @@ function formatNestedErrors(errors: ValidationError[]): Record<string, string[]>
  * Global validation pipe that leverages NestJS's built-in ValidationPipe
  * with whitelist, transform, and custom error formatting.
  *
- * - `whitelist: true` — strips unknown properties from payloads
- * - `forbidNonWhitelisted: true` — throws if unknown properties are present
+ * - `whitelist: true` — only DTO-decorated properties are accepted
+ * - `forbidNonWhitelisted: true` — rejects unknown properties with a 400
  * - `transform: true` — auto-transforms payloads to typed DTO instances
  */
 @Injectable()
