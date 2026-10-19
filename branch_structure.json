@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/issue-1560-issue-095-add-notification-template-versioning",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/issue-1560-issue-095-add-notification-template-versioning": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/issue-1560-issue-095-add-notification-template-versioning",
+    "origin"
+  ]
+}
