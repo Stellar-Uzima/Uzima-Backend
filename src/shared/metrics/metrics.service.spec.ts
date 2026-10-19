@@ -15,6 +15,9 @@ describe('MetricsService', () => {
   const dbQueryDuration = histogram();
   const cacheHitsTotal = counter();
   const cacheMissesTotal = counter();
+  const notificationDeliveriesTotal = counter();
+  const notificationDeliveryRetriesTotal = counter();
+  const notificationCircuitState = gauge();
   const memoryUsage = gauge();
   const cpuUsage = gauge();
 
@@ -28,6 +31,9 @@ describe('MetricsService', () => {
       dbQueryDuration as any,
       cacheHitsTotal as any,
       cacheMissesTotal as any,
+      notificationDeliveriesTotal as any,
+      notificationDeliveryRetriesTotal as any,
+      notificationCircuitState as any,
       memoryUsage as any,
       cpuUsage as any,
     );

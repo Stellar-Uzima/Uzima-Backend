@@ -62,6 +62,21 @@ import { MonitoringController } from '../monitoring/monitoring.controller';
       help: 'Total number of cache misses',
       labelNames: ['cache_name'],
     }),
+    makeCounterProvider({
+      name: 'notification_deliveries_total',
+      help: 'Notification provider delivery attempts by channel and outcome',
+      labelNames: ['channel', 'outcome'],
+    }),
+    makeCounterProvider({
+      name: 'notification_delivery_retries_total',
+      help: 'Notification delivery retries enqueued by channel',
+      labelNames: ['channel'],
+    }),
+    makeGaugeProvider({
+      name: 'notification_provider_circuit_state',
+      help: 'Notification provider circuit state (1=open, 0=closed)',
+      labelNames: ['channel'],
+    }),
     makeGaugeProvider({
       name: 'system_memory_usage_bytes',
       help: 'Current memory usage in bytes',

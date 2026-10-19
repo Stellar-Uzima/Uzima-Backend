@@ -21,6 +21,12 @@ export class MetricsService {
     private readonly cacheHitsTotal: Counter<string>,
     @InjectMetric('cache_misses_total')
     private readonly cacheMissesTotal: Counter<string>,
+    @InjectMetric('notification_deliveries_total')
+    private readonly notificationDeliveriesTotal: Counter<string>,
+    @InjectMetric('notification_delivery_retries_total')
+    private readonly notificationDeliveryRetriesTotal: Counter<string>,
+    @InjectMetric('notification_provider_circuit_state')
+    private readonly notificationCircuitState: Gauge<string>,
     @InjectMetric('system_memory_usage_bytes')
     private readonly memoryUsage: Gauge<string>,
     @InjectMetric('system_cpu_usage_percent')
@@ -66,6 +72,18 @@ export class MetricsService {
 
   incrementCacheMisses(cacheName: string = 'default') {
     this.cacheMissesTotal.inc({ cache_name: cacheName });
+  }
+
+  recordNotificationDelivery(channel: string, outcome: 'success' | 'failure' | 'circuit_open') {
+    this.notificationDeliveriesTotal.inc({ channel, outcome });
+  }
+
+  incrementNotificationDeliveryRetries(channel: string) {
+    this.notificationDeliveryRetriesTotal.inc({ channel });
+  }
+
+  setNotificationCircuitOpen(channel: string, isOpen: boolean) {
+    this.notificationCircuitState.set({ channel }, isOpen ? 1 : 0);
   }
 
   setMemoryUsage(bytes: number) {
