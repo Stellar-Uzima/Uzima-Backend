@@ -5,7 +5,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
-import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
+import { PayoutHistoryQueryDto } from '../otp/payout-history-query.dto';
 import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 
 @Injectable()
