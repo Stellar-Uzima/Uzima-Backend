@@ -122,12 +122,14 @@ describe('CustomLogger', () => {
         timestamp: new Date().toISOString(),
         level: LogLevel.INFO,
         message: 'test message',
+        service: 'uzima-backend',
       };
       const formatted = (logger as any).formatLogEntry(logEntry);
       expect(() => JSON.parse(formatted)).not.toThrow();
       expect(JSON.parse(formatted)).toEqual({
         timestamp: logEntry.timestamp,
         level: 'INFO',
+        service: 'uzima-backend',
         message: 'test message',
       });
     });
@@ -137,6 +139,7 @@ describe('CustomLogger', () => {
         timestamp: new Date().toISOString(),
         level: LogLevel.INFO,
         message: 'test',
+        service: 'uzima-backend',
         context: 'MyContext',
       };
       const formatted = JSON.parse((logger as any).formatLogEntry(logEntry));
@@ -148,6 +151,7 @@ describe('CustomLogger', () => {
         timestamp: new Date().toISOString(),
         level: LogLevel.ERROR,
         message: 'test error',
+        service: 'uzima-backend',
         metadata: { userId: 'user-123', action: 'login' },
       };
       const formatted = JSON.parse((logger as any).formatLogEntry(logEntry));
@@ -159,6 +163,7 @@ describe('CustomLogger', () => {
         timestamp: new Date().toISOString(),
         level: LogLevel.ERROR,
         message: 'test error',
+        service: 'uzima-backend',
         trace: 'Error: something broke\\n    at Object.<anonymous>',
       };
       const formatted = JSON.parse((logger as any).formatLogEntry(logEntry));
@@ -170,11 +175,36 @@ describe('CustomLogger', () => {
         timestamp: new Date().toISOString(),
         level: LogLevel.INFO,
         message: 'plain message',
+        service: 'uzima-backend',
       };
       const formatted = JSON.parse((logger as any).formatLogEntry(logEntry));
       expect(formatted.context).toBeUndefined();
       expect(formatted.metadata).toBeUndefined();
       expect(formatted.trace).toBeUndefined();
+    });
+
+    it('includes service and correlation IDs and redacts sensitive metadata', () => {
+      const entry = (logger as any).createLogEntry(
+        LogLevel.INFO,
+        'Request received',
+        'HTTP',
+        undefined,
+        {
+          requestId: 'req-123',
+          password: 'plaintext',
+          nested: { accessToken: 'secret-token' },
+        },
+      );
+
+      const formatted = JSON.parse((logger as any).formatLogEntry(entry));
+      expect(formatted.service).toBe('uzima-backend');
+      expect(formatted.requestId).toBe('req-123');
+      expect(formatted.correlationId).toBe('req-123');
+      expect(formatted.metadata).toEqual({
+        requestId: 'req-123',
+        password: '[REDACTED]',
+        nested: { accessToken: '[REDACTED]' },
+      });
     });
   });
 
@@ -258,8 +288,7 @@ describe('CustomLogger', () => {
 
       expect(() => logger.log('test message')).not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to write to log file:',
-        expect.any(Error),
+        expect.stringContaining('"message":"Failed to write to log file: Disk full"'),
       );
     });
 
@@ -426,6 +455,32 @@ describe('CustomLogger', () => {
       const formatted = JSON.parse((logger as any).formatLogEntry(entry));
       expect(formatted.metadata.userId).toBe('u1');
       expect(formatted.metadata.requestId).toBe('r1');
+    });
+
+    it('writes structured, redacted JSON to stdout and the log file', () => {
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+      logger.log('Password=password123', 'Auth', {
+        requestId: 'req-42',
+        nested: { refreshToken: 'refresh-secret' },
+      });
+
+      const stdoutEntry = JSON.parse(consoleLogSpy.mock.calls[0][0]);
+      const fileEntry = JSON.parse(
+        (fs.appendFileSync as jest.Mock).mock.calls[0][1],
+      );
+      expect(stdoutEntry).toEqual(fileEntry);
+      expect(stdoutEntry).toMatchObject({
+        timestamp: expect.any(String),
+        level: 'INFO',
+        service: 'uzima-backend',
+        requestId: 'req-42',
+        correlationId: 'req-42',
+        message: 'Password=[REDACTED]',
+        metadata: {
+          nested: { refreshToken: '[REDACTED]' },
+        },
+      });
+      consoleLogSpy.mockRestore();
     });
   });
 

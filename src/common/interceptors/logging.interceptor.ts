@@ -11,6 +11,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RequestLog } from '../../database/entities/request-log.entity';
 import { CustomLogger } from '../../shared/logging/logger.service';
+import {
+  redactSensitiveFields,
+  redactSensitiveText,
+} from '../utils/log-redactor.util';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -31,8 +35,10 @@ export class LoggingInterceptor implements NestInterceptor {
     const userId = this.extractUserId(request);
 
     // Mask sensitive data
-    const maskedHeaders = this.maskSensitiveData(headers);
-    const maskedBody = this.maskSensitiveData(body);
+    const maskedHeaders = redactSensitiveFields(headers as Record<string, unknown>);
+    const maskedBody = body
+      ? redactSensitiveFields(body as Record<string, unknown>)
+      : body;
 
     this.logger.logApiRequest(method, url, userId, requestId, { ip, userAgent });
 
@@ -50,7 +56,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
         await this.storeLog({
           method,
-          path: url,
+          path: redactSensitiveText(url),
           headers: maskedHeaders,
           body: maskedBody,
           userAgent,
@@ -58,7 +64,14 @@ export class LoggingInterceptor implements NestInterceptor {
           userId,
           requestId,
           statusCode,
-          response: this.maskSensitiveData(responseData),
+          response:
+            typeof responseData === 'string'
+              ? redactSensitiveText(responseData)
+              : responseData && typeof responseData === 'object'
+                ? redactSensitiveFields(
+                    responseData as Record<string, unknown>,
+                  )
+                : responseData,
           responseTime,
         });
       }),
@@ -74,7 +87,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
         await this.storeLog({
           method,
-          path: url,
+          path: redactSensitiveText(url),
           headers: maskedHeaders,
           body: maskedBody,
           userAgent,
@@ -84,47 +97,12 @@ export class LoggingInterceptor implements NestInterceptor {
           statusCode,
           response: undefined,
           responseTime,
-          error: error.message,
+          error: redactSensitiveText(error.message),
         });
 
         throw error;
       }),
     );
-  }
-
-  private maskSensitiveData(data: any): any {
-    if (!data || typeof data !== 'object') {
-      return data;
-    }
-
-    const sensitiveFields = [
-      'password',
-      'token',
-      'secret',
-      'key',
-      'authorization',
-      'cookie',
-      'session',
-      'creditCard',
-      'ssn',
-      'apiKey',
-    ];
-
-    const masked = { ...data };
-
-    for (const field of sensitiveFields) {
-      if (masked[field]) {
-        masked[field] = '***MASKED***';
-      }
-    }
-
-    for (const key in masked) {
-      if (typeof masked[key] === 'object' && masked[key] !== null) {
-        masked[key] = this.maskSensitiveData(masked[key]);
-      }
-    }
-
-    return masked;
   }
 
   private extractUserId(request: Request): string | undefined {

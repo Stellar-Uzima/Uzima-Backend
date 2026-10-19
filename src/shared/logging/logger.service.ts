@@ -1,37 +1,11 @@
-import { Injectable, LoggerService, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { writeFileSync, existsSync, mkdirSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
-
-
-export interface LogContext {
-  [key: string]: unknown;
-}
-
-export class LoggerService {
-  /// Logs messages with structured metadata using explicit types instead of 'any'
-  public log(message: string, context?: LogContext): void {
-    const sanitizedContext = this.sanitizeContext(context);
-    console.log(`[INFO] ${message}`, JSON.stringify(sanitizedContext));
-  }
-
-  /// Ensures context metadata values are safely handled without resorting to 'any'
-  private sanitizeContext(context?: LogContext): LogContext {
-    if (!context) {
-      return {};
-    }
-
-    const sanitized: LogContext = {};
-    for (const [key, value] of Object.entries(context)) {
-      if (typeof value === 'function') {
-        sanitized[key] = '[Function]';
-      } else {
-        sanitized[key] = value;
-      }
-    }
-    return sanitized;
-  }
-}
+import {
+  redactSensitiveFields,
+  redactSensitiveText,
+} from '../../common/utils/log-redactor.util';
 
 export enum LogLevel {
   ERROR = 'error',
@@ -45,26 +19,30 @@ export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
+  service: string;
   context?: string;
   trace?: string;
   userId?: string;
   requestId?: string;
+  correlationId?: string;
   metadata?: Record<string, any>;
 }
 
 @Injectable()
-export class CustomLogger implements LoggerService {
+export class CustomLogger {
   private logDir: string;
   private maxFileSize: number;
   private maxFiles: number;
   private currentLogFile: string;
   private logLevel: LogLevel;
+  private readonly serviceName: string;
 
   constructor(@Inject(ConfigService) private configService: ConfigService) {
     this.logDir = this.configService.get<string>('LOG_DIR', 'logs');
     this.maxFileSize = this.configService.get<number>('LOG_MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
     this.maxFiles = this.configService.get<number>('LOG_MAX_FILES', 5);
     this.logLevel = this.configService.get<LogLevel>('LOG_LEVEL', LogLevel.INFO);
+    this.serviceName = this.configService.get<string>('SERVICE_NAME', 'uzima-backend');
     
     this.ensureLogDirectory();
     this.currentLogFile = this.getCurrentLogFile();
@@ -141,10 +119,12 @@ export class CustomLogger implements LoggerService {
     const logObject = {
       timestamp: entry.timestamp,
       level: entry.level.toUpperCase(),
+      service: entry.service,
       message: entry.message,
       ...(entry.context && { context: entry.context }),
       ...(entry.userId && { userId: entry.userId }),
       ...(entry.requestId && { requestId: entry.requestId }),
+      ...(entry.correlationId && { correlationId: entry.correlationId }),
       ...(entry.trace && { trace: entry.trace }),
       ...(entry.metadata && { metadata: entry.metadata }),
     };
@@ -159,32 +139,33 @@ export class CustomLogger implements LoggerService {
 
     this.rotateLogFile();
 
-    const formattedEntry = this.formatLogEntry(entry);
+    const safeEntry: LogEntry = {
+      ...entry,
+      message: redactSensitiveText(entry.message),
+      context: entry.context ? redactSensitiveText(entry.context) : undefined,
+      trace: entry.trace ? redactSensitiveText(entry.trace) : undefined,
+      metadata: entry.metadata
+        ? redactSensitiveFields(entry.metadata)
+        : undefined,
+    };
+    const formattedEntry = this.formatLogEntry(safeEntry);
     const logLine = formattedEntry + '\n';
 
     try {
       appendFileSync(this.currentLogFile, logLine, 'utf8');
     } catch (error) {
-      console.error('Failed to write to log file:', error);
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: LogLevel.ERROR.toUpperCase(),
+          service: this.serviceName,
+          message: redactSensitiveText(`Failed to write to log file: ${detail}`),
+        }),
+      );
     }
 
-    // Also output to console for development
-    if (this.configService.get<string>('NODE_ENV') !== 'production') {
-      const colorMap = {
-        [LogLevel.ERROR]: '\x1b[31m', // Red
-        [LogLevel.WARN]: '\x1b[33m',  // Yellow
-        [LogLevel.INFO]: '\x1b[36m',  // Cyan
-        [LogLevel.DEBUG]: '\x1b[35m', // Magenta
-        [LogLevel.VERBOSE]: '\x1b[37m', // White
-      };
-      
-      const reset = '\x1b[0m';
-      const color = colorMap[entry.level] || reset;
-      
-      console.log(`${color}[${entry.timestamp}] ${entry.level.toUpperCase()}: ${entry.message}${reset}`);
-      if (entry.context) console.log(`Context: ${entry.context}`);
-      if (entry.metadata) console.log('Metadata:', entry.metadata);
-    }
+    console.log(formattedEntry);
   }
 
   private createLogEntry(
@@ -197,10 +178,18 @@ export class CustomLogger implements LoggerService {
     return {
       timestamp: new Date().toISOString(),
       level,
-      message,
+      message: redactSensitiveText(message),
+      service: this.serviceName,
       context,
-      trace,
-      metadata,
+      trace: trace ? redactSensitiveText(trace) : undefined,
+      requestId: typeof metadata?.requestId === 'string' ? metadata.requestId : undefined,
+      correlationId:
+        typeof metadata?.correlationId === 'string'
+          ? metadata.correlationId
+          : typeof metadata?.requestId === 'string'
+            ? metadata.requestId
+            : undefined,
+      metadata: metadata ? redactSensitiveFields(metadata) : undefined,
     };
   }
 

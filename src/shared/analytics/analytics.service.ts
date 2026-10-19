@@ -36,12 +36,13 @@ export class ConsoleAnalyticsProvider implements AnalyticsProvider {
   private readonly logger = new Logger(ConsoleAnalyticsProvider.name);
 
   async trackEvent(eventName: string, payload: Record<string, unknown> = {}): Promise<void> {
-    this.logger.log(`Analytics event tracked: ${eventName}`);
-    console.log(`[Analytics] ${eventName}`, payload);
+    this.logger.log(`Analytics event tracked: ${eventName}`, payload);
   }
 }
 
 export class ExternalAnalyticsProvider implements AnalyticsProvider {
+  private readonly logger = new Logger(ExternalAnalyticsProvider.name);
+
   constructor(
     private readonly apiKey?: string,
     private readonly endpoint: string = 'https://analytics.example.com/track',
@@ -52,10 +53,12 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
       return;
     }
     try {
-      console.log(`[ExternalAnalytics] sending event ${eventName} to ${this.endpoint}`);
-      console.log({ apiKey: this.apiKey, eventName, payload });
+      this.logger.log(`Sending analytics event ${eventName} to ${this.endpoint}`);
     } catch (error) {
-      console.error('[ExternalAnalytics] failed to track event', error);
+      this.logger.error(
+        'Failed to track external analytics event',
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 }
@@ -64,6 +67,7 @@ export class ExternalAnalyticsProvider implements AnalyticsProvider {
 export class AnalyticsService {
   private userActionsLog: UserActionPayload[] = [];
   private systemMetricsLog: SystemMetricPayload[] = [];
+  private readonly logger = new Logger(AnalyticsService.name);
 
   constructor(
     @Inject(ANALYTICS_PROVIDERS)
@@ -74,8 +78,11 @@ export class AnalyticsService {
     await Promise.all(
       this.providers.map((provider) =>
         provider.trackEvent(eventName, payload).catch((error) => {
-          console.error(`[AnalyticsService] provider failed to track ${eventName}`, error);
-        }),
+        this.logger.error(
+          `Analytics provider failed to track ${eventName}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }),
       ),
     );
   }

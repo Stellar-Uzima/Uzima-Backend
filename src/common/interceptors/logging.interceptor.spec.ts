@@ -79,7 +79,7 @@ describe('LoggingInterceptor', () => {
           expect(mockLogger.log).toHaveBeenCalled();
           expect(mockRequestLogRepository.save).toHaveBeenCalled();
           const savedLog = mockRequestLogRepository.save.mock.calls[0][0];
-          expect(savedLog.body.password).toBe('***MASKED***');
+          expect(savedLog.body.password).toBe('[REDACTED]');
         },
         complete: () => done(),
       });
@@ -102,7 +102,7 @@ describe('LoggingInterceptor', () => {
           expect(mockLogger.logApiError).toHaveBeenCalled();
           expect(mockRequestLogRepository.save).toHaveBeenCalled();
           const savedLog = mockRequestLogRepository.save.mock.calls[0][0];
-          expect(savedLog.headers.authorization).toBe('***MASKED***');
+          expect(savedLog.headers.authorization).toBe('[REDACTED]');
           expect(savedLog.error).toBe('Test error');
           done();
         },

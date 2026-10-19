@@ -12,6 +12,7 @@ import { CustomValidationPipe } from './common/pipes/validation.pipe';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { parseCorsOrigins } from './config/app.config';
+import { StructuredNestLogger } from './shared/logging/nest-logger.adapter';
 
 // Security headers middleware
 function addSecurityHeaders(req, res, next) {
@@ -37,6 +38,7 @@ function addSecurityHeaders(req, res, next) {
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  app.useLogger(app.get(StructuredNestLogger));
   
   // Retrieve ConfigService from the application context to safely read environment parameters
   const configService = app.get(ConfigService);
@@ -81,7 +83,7 @@ async function bootstrap() {
         callback(null, true);
         return;
       }
-      callback(new Error(`CORS origin not allowed: ${origin}), false);
+      callback(new Error(`CORS origin not allowed: ${origin}`), false);
     },
     credentials: true,
   });
@@ -113,7 +115,7 @@ async function bootstrap() {
   const port = configService.get<number>('APP_PORT') || 3001;
   await app.listen(port);
 
-  logger.log(`🍐 Stellar Uzima Backend running on http://localhost:${port});
-  logger.log(`🌒 API Documentation: http://localhost:${port}/api/docs);
+  logger.log(`🍐 Stellar Uzima Backend running on http://localhost:${port}`);
+  logger.log(`🌒 API Documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();
