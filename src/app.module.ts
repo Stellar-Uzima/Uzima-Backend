@@ -35,6 +35,7 @@ import { DatabaseModule } from '@database/database.module';
 
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
+import { IdempotencyModule } from '@common/idempotency/idempotency.module';
 import { LoggingModule as SharedLoggingModule } from './shared/logging/logging.module';
 import { SigningModule } from './common/signing/signing.module';
 
@@ -115,6 +116,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     OtpModule,
     LoggingModule,
     SharedLoggingModule,
+    IdempotencyModule,
     // 2. Add it to the imports list
     StorageModule,
     CacheModule,
