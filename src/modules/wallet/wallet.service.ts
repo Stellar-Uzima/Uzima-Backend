@@ -378,6 +378,7 @@ export class WalletService {
     }
 
     query.orderBy('rt.createdAt', 'DESC');
+    query.addOrderBy('rt.id', 'DESC');
 
     const skip = (page - 1) * limit;
     query.skip(skip).take(limit);

@@ -17,6 +17,11 @@ import { User } from '../../entities/user.entity';
 import { WalletService } from './wallet.service';
 import { StellarService } from '../../stellar/stellar.service';
 import { SavingsService } from './savings.service';
+import { AuditService } from '@/audit/audit.service';
+import { AuditAction, AuditResource } from '@/audit/entities/audit-log.entity';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { assertValidStatusTransition } from './wallet-transaction-status';
+import { assertValidWalletAmount } from './wallet-amount.util';
 import {
   WalletTransactionResponseDto,
   WalletTransactionListQueryDto,
@@ -38,16 +43,19 @@ export class WalletTransactionService {
     private readonly walletService: WalletService,
     private readonly stellarService: StellarService,
     private readonly savingsService: SavingsService,
+    private readonly auditService: AuditService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
-   * Get user's wallet transaction history with pagination and filters
+   * Get user's wallet transaction history with pagination, filters and
+   * stable ordering (createdAt, id). User-scoped: only the caller's own
+   * transactions are ever returned.
    */
-  async getTransactions(userId: string, query: WalletTransactionListQueryDto): Promise<{
-    data: WalletTransactionResponseDto[];
-    metadata: { totalCount: number; page: number; limit: number; totalPages: number };
-  }> {
+  async getTransactions(
+    userId: string,
+    query: WalletTransactionListQueryDto,
+  ): Promise<PaginatedResponseDto<WalletTransactionResponseDto>> {
     const qb = this.transactionRepo
       .createQueryBuilder('tx')
       .where('tx.userId = :userId', { userId });
@@ -68,22 +76,24 @@ export class WalletTransactionService {
       qb.andWhere('tx.createdAt <= :endDate', { endDate: new Date(query.endDate) });
     }
 
-    qb.orderBy('tx.createdAt', 'DESC');
+    const sortDirection: 'ASC' | 'DESC' = query.sort === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy('tx.createdAt', sortDirection);
+    // Tie-break on id keeps pagination stable when createdAt collides.
+    qb.addOrderBy('tx.id', 'DESC');
 
-    const skip = (query.page! - 1) * query.limit!;
-    qb.skip(skip).take(query.limit!);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const skip = (page - 1) * limit;
+    qb.skip(skip).take(limit);
 
     const [transactions, totalCount] = await qb.getManyAndCount();
 
-    return {
-      data: transactions.map(t => this.mapTransactionToResponse(t)),
-      metadata: {
-        totalCount,
-        page: query.page!,
-        limit: query.limit!,
-        totalPages: Math.ceil(totalCount / query.limit!),
-      },
-    };
+    return new PaginatedResponseDto<WalletTransactionResponseDto>(
+      transactions.map((t) => this.mapTransactionToResponse(t)),
+      totalCount,
+      page,
+      limit,
+    );
   }
 
   /**
@@ -101,6 +111,8 @@ export class WalletTransactionService {
    * Initiate a wallet top-up
    */
   async topUp(userId: string, dto: TopUpDto): Promise<TopUpResponseDto> {
+    assertValidWalletAmount(dto.amount);
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -171,6 +183,7 @@ export class WalletTransactionService {
     if (transaction.status !== WalletTransactionStatus.PENDING) {
       throw new BadRequestException(`Transaction is not pending (current: ${transaction.status})`);
     }
+    assertValidStatusTransition(transaction.status, WalletTransactionStatus.COMPLETED);
 
     const user = await this.userRepo.findOne({ where: { id: transaction.userId } });
     if (!user) {
@@ -206,6 +219,10 @@ export class WalletTransactionService {
           `Transaction is not pending (current: ${lockedTransaction.status})`,
         );
       }
+      assertValidStatusTransition(
+        lockedTransaction.status,
+        WalletTransactionStatus.COMPLETED,
+      );
 
       const lockedUser = await userRepository.findOne({
         where: { id: lockedTransaction.userId },
@@ -220,7 +237,7 @@ export class WalletTransactionService {
       );
       await userRepository.save(lockedUser);
 
-      lockedTransaction.status = WalletTransactionStatus.CONFIRMED;
+      lockedTransaction.status = WalletTransactionStatus.COMPLETED;
       lockedTransaction.balanceAfter = lockedUser.walletBalance;
       if (stellarTxHash) {
         lockedTransaction.stellarTxHash = stellarTxHash;
@@ -257,6 +274,7 @@ export class WalletTransactionService {
     if (transaction.status !== WalletTransactionStatus.PENDING) {
       throw new BadRequestException(`Transaction is not pending (current: ${transaction.status})`);
     }
+    assertValidStatusTransition(transaction.status, WalletTransactionStatus.FAILED);
 
     transaction.status = WalletTransactionStatus.FAILED;
     transaction.failureReason = reason;
@@ -281,6 +299,8 @@ export class WalletTransactionService {
     destinationAddress?: string;
     metadata?: Record<string, any>;
   }): Promise<WalletTransactionResponseDto> {
+    assertValidWalletAmount(params.amount, { allowNegative: true });
+
     const { transaction, user } = await this.dataSource.transaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const transactionRepository = manager.getRepository(WalletTransaction);
@@ -304,7 +324,7 @@ export class WalletTransactionService {
         amount: params.amount,
         balanceBefore,
         balanceAfter,
-        status: WalletTransactionStatus.CONFIRMED,
+        status: WalletTransactionStatus.COMPLETED,
         referenceId: params.referenceId || null,
         referenceType: params.referenceType || null,
         description: params.description || null,
@@ -345,7 +365,9 @@ export class WalletTransactionService {
       .addSelect('SUM(tx.amount)', 'totalAmount')
       .addSelect('COUNT(*)', 'count')
       .where('tx.userId = :userId', { userId })
-      .andWhere('tx.status = :status', { status: WalletTransactionStatus.CONFIRMED })
+      .andWhere('tx.status IN (:...statuses)', {
+        statuses: [WalletTransactionStatus.CONFIRMED, WalletTransactionStatus.COMPLETED],
+      })
       .groupBy('tx.type')
       .getRawMany();
 
@@ -387,6 +409,184 @@ export class WalletTransactionService {
     return result;
   }
 
+  /**
+   * Cancel a pending wallet transaction. Only the owner may cancel their own
+   * PENDING transaction; no balance is adjusted because pending rows never
+   * moved funds. The original row is kept for audit (status -> CANCELLED).
+   */
+  async cancelTransaction(userId: string, transactionId: string): Promise<WalletTransactionResponseDto> {
+    const cancelled = await this.dataSource.transaction(async (manager) => {
+      const transactionRepository = manager.getRepository(WalletTransaction);
+      const lockedTransaction = await transactionRepository.findOne({
+        where: { id: transactionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedTransaction || lockedTransaction.userId !== userId) {
+        throw new NotFoundException('Transaction not found');
+      }
+      if (lockedTransaction.status !== WalletTransactionStatus.PENDING) {
+        throw new BadRequestException(
+          `Only pending transactions can be cancelled (current: ${lockedTransaction.status})`,
+        );
+      }
+      assertValidStatusTransition(lockedTransaction.status, WalletTransactionStatus.CANCELLED);
+
+      lockedTransaction.status = WalletTransactionStatus.CANCELLED;
+      lockedTransaction.failureReason = lockedTransaction.failureReason ?? 'Cancelled by user';
+      return transactionRepository.save(lockedTransaction);
+    });
+
+    await this.walletService.invalidateCache({ userId });
+
+    await this.auditService.logEvent({
+      userId,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: cancelled.id,
+      description: 'Wallet transaction cancelled by owner',
+      newValues: { status: WalletTransactionStatus.CANCELLED },
+    });
+
+    this.logger.log(`Transaction cancelled: ${cancelled.id} by user ${userId}`);
+
+    return this.mapTransactionToResponse(cancelled);
+  }
+
+  /**
+   * Reverse a settled wallet transaction via a compensating ledger entry.
+   *
+   * The original row is never deleted: it is locked, transitioned to
+   * REVERSED and stamped with the actor. A single COMPLETED compensating row
+   * (same type, negated amount, originalTransactionId set) moves the balance
+   * back; a unique index on original_transaction_id guarantees at most one
+   * reversal per transaction. Reversing a credit debits the wallet and fails
+   * with 400 when funds are insufficient.
+   */
+  async reverseTransaction(
+    transactionId: string,
+    params: { reversedByUserId: string; reversedByRole?: string; reason?: string },
+  ): Promise<{ original: WalletTransactionResponseDto; reversal: WalletTransactionResponseDto }> {
+    const { original, reversal, subjectUserId, previousStatus } = await this.dataSource.transaction(async (manager) => {
+      const transactionRepository = manager.getRepository(WalletTransaction);
+      const userRepository = manager.getRepository(User);
+
+      const lockedOriginal = await transactionRepository.findOne({
+        where: { id: transactionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedOriginal) {
+        throw new NotFoundException('Transaction not found');
+      }
+      const previousStatus = lockedOriginal.status;
+      if (lockedOriginal.status === WalletTransactionStatus.REVERSED) {
+        throw new BadRequestException('Transaction has already been reversed');
+      }
+      assertValidStatusTransition(lockedOriginal.status, WalletTransactionStatus.REVERSED);
+
+      const existingReversal = await transactionRepository.findOne({
+        where: { originalTransactionId: lockedOriginal.id },
+      });
+      if (existingReversal) {
+        throw new BadRequestException('Transaction has already been reversed');
+      }
+
+      const lockedUser = await userRepository.findOne({
+        where: { id: lockedOriginal.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      const originalAmount = Number(lockedOriginal.amount);
+      const reversalAmount = parseFloat((-originalAmount).toFixed(7));
+      assertValidWalletAmount(reversalAmount, { allowNegative: true });
+
+      const balanceBefore = Number(lockedUser.walletBalance);
+      const balanceAfter = parseFloat((balanceBefore + reversalAmount).toFixed(7));
+      if (balanceAfter < 0) {
+        throw new BadRequestException(
+          'Insufficient balance: cannot reverse a credit whose funds are no longer available',
+        );
+      }
+
+      const reversalRow = transactionRepository.create({
+        userId: lockedOriginal.userId,
+        type: lockedOriginal.type,
+        amount: reversalAmount,
+        balanceBefore,
+        balanceAfter,
+        status: WalletTransactionStatus.COMPLETED,
+        originalTransactionId: lockedOriginal.id,
+        referenceId: lockedOriginal.referenceId,
+        referenceType: 'wallet_transaction_reversal',
+        description: params.reason
+          ? `Reversal of transaction ${lockedOriginal.id}: ${params.reason}`
+          : `Reversal of transaction ${lockedOriginal.id}`,
+        metadata: {
+          reversalOf: lockedOriginal.id,
+          reversedBy: params.reversedByUserId,
+          reason: params.reason ?? null,
+        },
+      });
+      const savedReversal = await transactionRepository.save(reversalRow);
+
+      lockedOriginal.status = WalletTransactionStatus.REVERSED;
+      lockedOriginal.reversedById = params.reversedByUserId;
+      const savedOriginal = await transactionRepository.save(lockedOriginal);
+
+      lockedUser.walletBalance = balanceAfter;
+      await userRepository.save(lockedUser);
+
+      return {
+        original: savedOriginal,
+        reversal: savedReversal,
+        subjectUserId: lockedOriginal.userId,
+        previousStatus,
+      };
+    });
+
+    await this.walletService.invalidateCache({ userId: subjectUserId });
+
+    this.eventEmitter.emit('wallet.transaction.reversed', {
+      transactionId: original.id,
+      reversalTransactionId: reversal.id,
+      userId: subjectUserId,
+      amount: Number(reversal.amount),
+      reversedBy: params.reversedByUserId,
+    });
+
+    await this.auditService.logEvent({
+      userId: params.reversedByUserId,
+      userRole: params.reversedByRole,
+      action: AuditAction.UPDATE,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: original.id,
+      description: `Wallet transaction reversed via compensating entry ${reversal.id}`,
+      oldValues: { status: previousStatus },
+      newValues: {
+        status: WalletTransactionStatus.REVERSED,
+        reversalTransactionId: reversal.id,
+      },
+      metadata: {
+        subjectUserId,
+        amount: Number(reversal.amount),
+        reason: params.reason ?? null,
+      },
+      isComplianceEvent: true,
+      complianceCategory: 'WALLET_REVERSAL',
+    });
+
+    this.logger.log(
+      `Transaction reversed: ${original.id} -> ${reversal.id} by ${params.reversedByUserId}`,
+    );
+
+    return {
+      original: this.mapTransactionToResponse(original),
+      reversal: this.mapTransactionToResponse(reversal),
+    };
+  }
+
   private mapTransactionToResponse(tx: WalletTransaction): WalletTransactionResponseDto {
     return {
       id: tx.id,
@@ -402,6 +602,8 @@ export class WalletTransactionService {
       destinationAddress: tx.destinationAddress,
       stellarTxHash: tx.stellarTxHash,
       failureReason: tx.failureReason,
+      originalTransactionId: tx.originalTransactionId ?? undefined,
+      reversedById: tx.reversedById ?? undefined,
       metadata: tx.metadata,
       createdAt: tx.createdAt,
       updatedAt: tx.updatedAt,
