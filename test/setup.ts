@@ -1,372 +1,48 @@
-/**
- * Test Database Setup Module
- * 
- * This module provides comprehensive test database configuration including:
- * - Test database initialization and connection
- * - Test data seeding
- * - Cleanup and isolation between tests
- * - Transaction-based isolation for test independence
- */
+/** Shared E2E helpers. Database lifecycle lives in database-manager.ts. */
+import { ObjectLiteral, Repository } from 'typeorm';
+import { TestDatabaseManager } from './database-manager';
+export { TestDatabaseManager } from './database-manager';
 
-import 'dotenv/config';
-import { DataSource, Repository, ObjectLiteral } from 'typeorm';
-import { Logger } from '@nestjs/common';
-import { userFactory, taskFactory } from './fixtures/factories';
-
-// Adjust entity imports
-import { User } from '../src/entities/user.entity';
-import { HealthTask } from '../src/entities/health-task.entity';
-
-let dataSource: DataSource;
-
-
-export async function setupTestDB() {
-  dataSource = new DataSource({
-    type: "postgres",
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-
-    entities: [User, HealthTask],
-    synchronize: true, // safe ONLY for test
-    dropSchema: true,  // ensures clean DB
-  });
-
-  await dataSource.initialize();
+export async function setupTestDB(): Promise<void> {
+  await setupTestDatabase();
 }
-
-export async function teardownTestDB() {
-  if (dataSource) {
-    await dataSource.destroy();
-  }
+export async function teardownTestDB(): Promise<void> {
+  await teardownTestDatabase();
 }
-
-export async function clearTestDB() {
-  const entities = dataSource.entityMetadatas;
-
-  for (const entity of entities) {
-    const repository = dataSource.getRepository(entity.name);
-    await repository.query(`TRUNCATE TABLE "${entity.tableName}" CASCADE;`);
-  }
+export async function clearTestDB(): Promise<void> {
+  await beforeEachTest();
 }
-
-// Test database configuration - separate from production
-const testDatabaseType =
-  (process.env.TEST_DATABASE_TYPE as any) ||
-  'postgres';
-
-const isSqliteTest = testDatabaseType === 'sqlite';
-
-export const testDatabaseConfig = {
-  type: testDatabaseType,
-  host: isSqliteTest
-    ? undefined
-    : process.env.TEST_DB_HOST ||
-      process.env.DB_HOST ||
-      process.env.DATABASE_HOST ||
-      'localhost',
-  port: isSqliteTest
-    ? undefined
-    : parseInt(
-        process.env.TEST_DB_PORT ||
-          process.env.DB_PORT ||
-          process.env.DATABASE_PORT ||
-          '5432',
-        10,
-      ),
-  username: isSqliteTest
-    ? undefined
-    : process.env.TEST_DB_USERNAME ||
-      process.env.DB_USER ||
-      process.env.DB_USERNAME ||
-      process.env.DATABASE_USERNAME ||
-      process.env.DATABASE_USER ||
-      'postgres',
-  password: isSqliteTest
-    ? undefined
-    : process.env.TEST_DB_PASSWORD ||
-      process.env.DB_PASSWORD ||
-      process.env.DATABASE_PASSWORD ||
-      'password',
-  database: isSqliteTest
-    ? ':memory:'
-    : process.env.TEST_DB_NAME ||
-      process.env.DB_DATABASE ||
-      process.env.DATABASE_NAME ||
-      'uzima_test',
-  entities: [process.cwd() + '/src/**/*.entity.{ts,js}'],
-  migrations: isSqliteTest ? [] : ['src/database/migrations/*{.ts,.js}'],
-  migrationsTableName: 'migrations',
-  synchronize: isSqliteTest,
-  dropSchema: isSqliteTest,
-  logging: process.env.TEST_DB_LOGGING === 'true',
-  ssl: false,
-  extra: {
-    max: 5, // Smaller pool for tests
-    min: 1,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 5000,
-  },
-};
-
-/**
- * Test Database Manager
- * Handles database connection, setup, and cleanup for tests
- */
-export class TestDatabaseManager {
-  private static instance: TestDatabaseManager;
-  private dataSource: DataSource | null = null;
-  private readonly logger = new Logger('TestDatabaseManager');
-  private isInitialized = false;
-
-  private constructor() {}
-
-  /**
-   * Get singleton instance
-   */
-  static getInstance(): TestDatabaseManager {
-    if (!this.instance) {
-      this.instance = new TestDatabaseManager();
-    }
-    return this.instance;
-  }
-
-  /**
-   * Initialize database connection and setup test schema
-   */
-  async initialize(): Promise<DataSource> {
-    if (this.isInitialized && this.dataSource) {
-      return this.dataSource;
-    }
-
-    try {
-      this.logger.log('Initializing test database...');
-      
-      this.dataSource = new DataSource(testDatabaseConfig);
-      await this.dataSource.initialize();
-      
-      // Run migrations to set up schema
-      if (this.dataSource.migrations && this.dataSource.migrations.length > 0) {
-        this.logger.log('Running migrations...');
-        await this.dataSource.runMigrations();
-      } else {
-        this.logger.log('No migrations found, using synchronize for schema setup');
-      }
-
-      this.isInitialized = true;
-      this.logger.log('Test database initialized successfully');
-      return this.dataSource;
-    } catch (error) {
-      this.logger.error('Failed to initialize test database', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get database connection
-   */
-  getDataSource(): DataSource {
-    if (!this.dataSource) {
-      throw new Error('Database not initialized. Call initialize() first.');
-    }
-    return this.dataSource;
-  }
-
-  /**
-   * Get repository instance
-   */
-  getRepository<Entity extends ObjectLiteral>(entityClass: new () => Entity): Repository<Entity> {
-    return this.getDataSource().getRepository(entityClass);
-  }
-
-  /**
-   * Clean all tables and reset sequences
-   */
-  async cleanDatabase(): Promise<void> {
-    if (!this.dataSource) {
-      throw new Error('Database not initialized');
-    }
-
-    try {
-      this.logger.log('Cleaning database...');
-      
-      const queryRunner = this.dataSource.createQueryRunner();
-      await queryRunner.connect();
-
-      try {
-        // Disable foreign key constraints
-        await queryRunner.query('SET CONSTRAINTS ALL DEFERRED');
-
-        // Get all tables
-        const tables = await queryRunner.query(`
-          SELECT tablename FROM pg_tables 
-          WHERE schemaname = 'public' 
-          AND tablename NOT IN ('migrations')
-          ORDER BY tablename DESC
-        `);
-
-        // Truncate all tables
-        for (const { tablename } of tables) {
-          try {
-            await queryRunner.query(`TRUNCATE TABLE "${tablename}" CASCADE`);
-          } catch (error) {
-            this.logger.warn(`Failed to truncate ${tablename}: ${error}`);
-          }
-        }
-
-        // Re-enable foreign key constraints
-        await queryRunner.query('SET CONSTRAINTS ALL IMMEDIATE');
-        
-        this.logger.log('Database cleaned successfully');
-      } finally {
-        await queryRunner.release();
-      }
-    } catch (error) {
-      this.logger.error('Failed to clean database', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Clear specific table
-   */
-  async clearTable(tableName: string): Promise<void> {
-    if (!this.dataSource) {
-      throw new Error('Database not initialized');
-    }
-
-    try {
-      await this.dataSource.query(`TRUNCATE TABLE "${tableName}" CASCADE`);
-      this.logger.log(`Table ${tableName} cleared`);
-    } catch (error) {
-      this.logger.error(`Failed to clear table ${tableName}`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Clear tables in specific order for data dependency
-   */
-  async clearTablesByDependency(tables: string[]): Promise<void> {
-    for (const table of tables) {
-      await this.clearTable(table);
-    }
-  }
-
-  /**
-   * Wrap test in a transaction for isolation
-   * This allows operations to be rolled back after each test
-   */
-  async withTransaction<T>(
-    callback: (queryRunner: any) => Promise<T>,
-  ): Promise<T> {
-    if (!this.dataSource) {
-      throw new Error('Database not initialized');
-    }
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const result = await callback(queryRunner);
-      await queryRunner.commitTransaction();
-      return result;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  /**
-   * Close database connection
-   */
-  async close(): Promise<void> {
-    if (this.dataSource) {
-      try {
-        if (this.dataSource.isInitialized) {
-          this.logger.log('Closing test database connection...');
-          await this.dataSource.destroy();
-          this.logger.log('Test database connection closed');
-        }
-      } catch (error) {
-        this.logger.error('Failed to close database connection', error);
-        throw error;
-      } finally {
-        this.dataSource = null;
-        this.isInitialized = false;
-      }
-    }
-  }
-
-  /**
-   * Reset database to initial state
-   * Cleans all data and optionally reseeds
-   */
-  async reset(reseed: boolean = false): Promise<void> {
-    await this.cleanDatabase();
-    if (reseed) {
-      this.logger.log('Reseeding test data...');
-      // Seeding will be handled by factories
-    }
-  }
-}
-
-/**
- * Jest setup hooks
- * Run before and after all tests
- */
 export async function setupTestDatabase(): Promise<void> {
-  const manager = TestDatabaseManager.getInstance();
-  await manager.initialize();
+  await TestDatabaseManager.getInstance().initialize();
 }
-
 export async function teardownTestDatabase(): Promise<void> {
-  const manager = TestDatabaseManager.getInstance();
-  await manager.close();
+  await TestDatabaseManager.getInstance().close();
 }
-
-/**
- * Per-test setup/cleanup
- * Cleans database before each test for isolation
- */
 export async function beforeEachTest(): Promise<void> {
-  const manager = TestDatabaseManager.getInstance();
-  await manager.cleanDatabase();
+  await TestDatabaseManager.getInstance().cleanDatabase();
 }
-
 export async function afterEachTest(): Promise<void> {
-  // Additional cleanup if needed
+  await TestDatabaseManager.getInstance().cleanDatabase();
 }
 
-/**
- * Transaction helper for test isolation
- * Allows each test to run in an isolated transaction
- */
+/** Explicit isolation for independent cases, including application repositories. */
 export class IsolatedTestRunner {
   private dbManager = TestDatabaseManager.getInstance();
-
   async runTest<T>(testFn: () => Promise<T>): Promise<T> {
-    return this.dbManager.withTransaction(async () => {
-      return testFn();
-    });
+    await this.dbManager.cleanDatabase();
+    try {
+      return await testFn();
+    } finally {
+      await this.dbManager.cleanDatabase();
+    }
   }
-
-  /**
-   * Run multiple isolated tests in sequence
-   */
   async runTests<T>(
-    tests: Array<{ name: string; fn: () => Promise<T> }>,
+    tests: Array<{ name: string; fn: () => Promise<T> }>
   ): Promise<Array<{ name: string; result?: T; error?: Error }>> {
     const results: Array<{ name: string; result?: T; error?: Error }> = [];
     for (const test of tests) {
       try {
-        const result = await this.runTest(test.fn);
-        results.push({ name: test.name, result });
+        results.push({ name: test.name, result: await this.runTest(test.fn) });
       } catch (error) {
         results.push({ name: test.name, error: error as Error });
       }
@@ -405,7 +81,7 @@ export class TestFixtureManager {
    */
   async loadFixture<Entity extends ObjectLiteral>(
     name: string,
-    repository: Repository<Entity>,
+    repository: Repository<Entity>
   ): Promise<Entity[]> {
     const data = this.getFixture<Entity>(name);
     return repository.save(data);
@@ -415,7 +91,7 @@ export class TestFixtureManager {
    * Load multiple fixtures
    */
   async loadFixtures(
-    fixtures: Array<{ name: string; repository: Repository<any> }>,
+    fixtures: Array<{ name: string; repository: Repository<any> }>
   ): Promise<Map<string, any[]>> {
     const results = new Map<string, any[]>();
     for (const { name, repository } of fixtures) {
@@ -432,4 +108,3 @@ export class TestFixtureManager {
     this.fixtures.clear();
   }
 }
-

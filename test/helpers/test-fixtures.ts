@@ -1,5 +1,5 @@
 export const testUser = {
-  email: `e2e-${Date.now()}@example.com`,
+  email: 'e2e-user@example.test',
   password: 'S3cureP@ssw0rd!',
   firstName: 'E2E',
   lastName: 'Tester',

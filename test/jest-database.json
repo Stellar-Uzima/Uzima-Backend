@@ -1,0 +1,5 @@
+{
+  "rootDir": ".",
+  "projects": ["<rootDir>/jest-database-integration.json", "<rootDir>/jest-database-e2e.json"],
+  "testTimeout": 30000
+}

@@ -1,0 +1,17 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": "database-(config\\.spec|manager\\.integration-spec)\\.ts$",
+  "transform": {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "isolatedModules": true
+        }
+      }
+    ]
+  },
+  "displayName": "database-integration"
+}

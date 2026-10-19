@@ -1,0 +1,19 @@
+{
+  "displayName": "database-http-e2e",
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": "database-harness-[ab]\\.e2e-test\\.ts$",
+  "setupFiles": ["<rootDir>/fixtures/database-harness.env.ts", "<rootDir>/jest-e2e.env.ts"],
+  "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
+  "transform": {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "isolatedModules": true
+        }
+      }
+    ]
+  }
+}

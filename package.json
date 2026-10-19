@@ -22,6 +22,7 @@
     "test:watch": "jest --config jest.config.js --watch",
     "test:cov": "jest --config jest.config.js --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --config jest.config.js --runInBand",
+    "test:db": "jest --config ./test/jest-database.json",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate": "typeorm migration:run -d src/database/data-source.ts",
     "migration:run": "npm run migrate",
