@@ -1,3 +1,7 @@
+export type LeaderboardPeriod = 'weekly' | 'monthly' | 'all-time';
+
+export const LEADERBOARD_PERIODS: LeaderboardPeriod[] = ['weekly', 'monthly', 'all-time'];
+
 export class LeaderboardEntryDto {
   rank: number;
   userId: string;
@@ -6,10 +10,21 @@ export class LeaderboardEntryDto {
   country: string;
 }
 
+export class LeaderboardPeriodRangeDto {
+  start: string | null;
+  end: string | null;
+}
+
+export class LeaderboardPeriodQueryDto {
+  period?: LeaderboardPeriod;
+}
+
 export class LeaderboardResponseDto {
   topRankings: LeaderboardEntryDto[];
   myRank: {
     rank: number | null;
     totalXlm: number;
   };
+  period?: LeaderboardPeriod;
+  range?: LeaderboardPeriodRangeDto;
 }
