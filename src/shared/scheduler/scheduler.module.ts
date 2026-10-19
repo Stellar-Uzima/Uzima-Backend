@@ -3,7 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SchedulerService } from './scheduler.service';
 import { CleanupScheduler } from './cleanup.scheduler';
 
-import { UsersModule } from '../../users/users.module';
+import { UsersModule } from '../../modules/users/users.module';
 
 @Global()
 @Module({
