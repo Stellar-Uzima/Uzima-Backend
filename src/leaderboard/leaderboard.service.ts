@@ -16,6 +16,10 @@ import {
   getPeriodStartDate,
   buildLeaderboardSetKey,
 } from './leaderboard-period.enum';
+import {
+  LeaderboardAccountStatus,
+  isEligibleForLeaderboard,
+} from './leaderboard-ranking.rules';
 
 export interface LeaderboardCalculationRow {
   userId: string;
@@ -24,6 +28,13 @@ export interface LeaderboardCalculationRow {
   country: string;
   category?: string;
   firstTaskCompletedAt?: Date;
+  /** Account state used to determine eligibility. Defaults to ACTIVE. */
+  status?: LeaderboardAccountStatus | string;
+}
+
+export interface RankedLeaderboardRow extends LeaderboardCalculationRow {
+  /** Competition rank (1-based). Tied rows share the same rank. */
+  rank: number;
 }
 
 @Injectable()
@@ -53,6 +64,24 @@ export class LeaderboardService {
     return `${firstName} ${lastName.charAt(0)}.`;
   }
 
+  /**
+   * Filter out accounts that are not eligible for ranking.
+   * Eligibility rules are documented in leaderboard-ranking.rules.ts.
+   */
+  filterEligibleRows(
+    rows: LeaderboardCalculationRow[],
+  ): LeaderboardCalculationRow[] {
+    return rows.filter((row) => isEligibleForLeaderboard(row));
+  }
+
+  /**
+   * Deterministic ranking of leaderboard rows.
+   *
+   * Sort order (tie-breakers):
+   * 1. totalXlm descending.
+   * 2. firstTaskCompletedAt ascending (missing timestamps last).
+   * 3. userId ascending (lexicographical) for stable deterministic ordering.
+   */
   rankLeaderboardRows(
     rows: LeaderboardCalculationRow[],
   ): LeaderboardCalculationRow[] {
@@ -72,6 +101,33 @@ export class LeaderboardService {
 
       return left.userId.localeCompare(right.userId);
     });
+  }
+
+  /**
+   * Assign competition ranks to already-sorted rows.
+   * Rows that tie on (totalXlm, firstTaskCompletedAt) share the same rank.
+   * The userId tie-breaker only affects display order, not the rank number.
+   */
+  assignRanks(
+    sortedRows: LeaderboardCalculationRow[],
+  ): RankedLeaderboardRow[] {
+    const ranked: RankedLeaderboardRow[] = [];
+    let currentRank = 0;
+    let previousKey: string | null = null;
+
+    for (let index = 0; index < sortedRows.length; index++) {
+      const row = sortedRows[index];
+      const key = `${row.totalXlm}::${row.firstTaskCompletedAt?.getTime() ?? 'none'}`;
+
+      if (key !== previousKey) {
+        currentRank = index + 1;
+        previousKey = key;
+      }
+
+      ranked.push({ ...row, rank: currentRank });
+    }
+
+    return ranked;
   }
 
   filterLeaderboardRowsByCategory(
@@ -115,23 +171,28 @@ export class LeaderboardService {
       limit = 50,
     } = options ?? {};
 
-    const filteredRows = this.filterLeaderboardRowsByCategory(rows, category);
-    const rankedRows = this.rankLeaderboardRows(filteredRows);
+    // Exclude ineligible accounts before ranking.
+    const eligibleRows = this.filterEligibleRows(rows);
+    const filteredRows = this.filterLeaderboardRowsByCategory(
+      eligibleRows,
+      category,
+    );
+    const sortedRows = this.rankLeaderboardRows(filteredRows);
+    const rankedRows = this.assignRanks(sortedRows);
     const paginatedRows = this.paginateLeaderboardRows(rankedRows, page, limit);
     const myRankIndex = rankedRows.findIndex((row) => row.userId === userId);
     const myRow = myRankIndex >= 0 ? rankedRows[myRankIndex] : null;
-    const offset = (page - 1) * limit;
 
     return {
-      topRankings: paginatedRows.map((row, index) => ({
-        rank: offset + index + 1,
+      topRankings: paginatedRows.map((row) => ({
+        rank: row.rank,
         userId: row.userId,
         displayName: row.displayName,
         totalXlm: row.totalXlm,
         country: countryCode || row.country || 'Global',
       })),
       myRank: {
-        rank: myRankIndex >= 0 ? myRankIndex + 1 : null,
+        rank: myRow ? myRow.rank : null,
         totalXlm: myRow?.totalXlm ?? 0,
       },
     };
@@ -233,8 +294,12 @@ export class LeaderboardService {
         .addSelect('SUM(rt.amount)', 'totalXlm')
         .addSelect('u.fullName', 'fullName')
         .addSelect('u.country', 'country')
+        .addSelect('u.status', 'status')
         .innerJoin('rt.user', 'u')
-        .where('rt.status = :status', { status: RewardStatus.SUCCESS });
+        .where('rt.status = :status', { status: RewardStatus.SUCCESS })
+        .andWhere('u.status = :userStatus', {
+          userStatus: LeaderboardAccountStatus.ACTIVE,
+        });
 
       if (periodStart) {
         queryBuilder.andWhere('rt.createdAt >= :periodStart', { periodStart });
@@ -244,12 +309,16 @@ export class LeaderboardService {
         .groupBy('rt.userId')
         .addGroupBy('u.fullName')
         .addGroupBy('u.country')
+        .addGroupBy('u.status')
         .getRawMany();
 
       totalUsersProcessed = Math.max(totalUsersProcessed, data.length);
 
       for (const row of data) {
         const score = parseFloat(row.totalXlm);
+        if (!isEligibleForLeaderboard({ totalXlm: score, status: row.status })) {
+          continue;
+        }
         const truncatedName = this.formatDisplayName(row.fullName);
         const countryKey = buildLeaderboardSetKey(
           period,
