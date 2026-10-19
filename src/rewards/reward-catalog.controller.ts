@@ -20,10 +20,10 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../modules/auth/guards/roles.guard';
-import { Roles } from '../../modules/auth/decorators/roles.decorator';
-import { Role } from '../../modules/auth/enums/role.enum';
+import { JwtAuthGuard } from '../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../modules/auth/guards/roles.guard';
+import { Roles } from '../modules/auth/decorators/roles.decorator';
+import { Role } from '../modules/auth/enums/role.enum';
 import { RewardCatalogService, CreateRewardCatalogDto, UpdateRewardCatalogDto, RedeemRewardDto } from './reward-catalog.service';
 import { RewardCatalog, RewardType, RewardCatalogStatus } from './entities/reward-catalog.entity';
 

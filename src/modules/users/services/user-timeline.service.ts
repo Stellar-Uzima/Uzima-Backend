@@ -10,7 +10,7 @@ import { TaskCompletion, TaskCompletionStatus } from '../../../tasks/entities/ta
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../../rewards/enums/reward-status.enum';
 import { ReferralRecord } from '../../../referral/entities/referral-record.entity';
-import { Coupon } from '../../../coupons/entities/coupon.entity';
+import { Coupon } from '../../../entities/coupon.entity';
 import {
   UserTimelineEntryDto,
   UserTimelineEventType,

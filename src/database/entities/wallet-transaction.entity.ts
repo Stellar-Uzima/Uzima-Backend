@@ -25,9 +25,12 @@ export enum WalletTransactionType {
 
 export enum WalletTransactionStatus {
   PENDING = 'PENDING',
+  /** @deprecated legacy alias of COMPLETED; kept for rows written before status refactor */
   CONFIRMED = 'CONFIRMED',
+  COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
   CANCELLED = 'CANCELLED',
+  REVERSED = 'REVERSED',
 }
 
 /**
@@ -39,6 +42,7 @@ export enum WalletTransactionStatus {
 @Index(['status'])
 @Index(['createdAt'])
 @Index(['referenceId'])
+@Index(['originalTransactionId'], { unique: true })
 export class WalletTransaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -92,6 +96,12 @@ export class WalletTransaction {
 
   @Column({ name: 'failure_reason', type: 'text', nullable: true })
   failureReason: string | null;
+
+  @Column({ name: 'original_transaction_id', type: 'uuid', nullable: true })
+  originalTransactionId: string | null; // For reversal rows: the transaction being reversed
+
+  @Column({ name: 'reversed_by_id', type: 'uuid', nullable: true })
+  reversedById: string | null; // Actor who initiated the reversal (admin user id)
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;

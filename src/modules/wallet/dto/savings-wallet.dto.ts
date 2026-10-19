@@ -11,9 +11,10 @@ import {
   IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SavingsGoalStatus } from '../database/entities/savings-goal.entity';
-import { ContributionStatus } from '../database/entities/savings-goal.entity';
-import { WalletTransactionType, WalletTransactionStatus } from '../database/entities/wallet-transaction.entity';
+import { SavingsGoalStatus } from '../../../database/entities/savings-goal.entity';
+import { ContributionStatus } from '../../../database/entities/savings-goal.entity';
+import { WalletTransactionType, WalletTransactionStatus } from '../../../database/entities/wallet-transaction.entity';
+import { MAX_WALLET_AMOUNT } from '../wallet-amount.util';
 
 export class CreateSavingsGoalDto {
   @ApiProperty({ description: 'Goal title', example: 'Emergency Fund', minLength: 1, maxLength: 200 })
@@ -30,12 +31,14 @@ export class CreateSavingsGoalDto {
   @ApiProperty({ description: 'Target amount in XLM', example: 500, minimum: 0.01 })
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0.01)
+  @Max(MAX_WALLET_AMOUNT)
   targetAmount: number;
 
   @ApiPropertyOptional({ description: 'Auto-contribution amount per period', example: 10 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0)
+  @Max(MAX_WALLET_AMOUNT)
   autoContributionAmount?: number = 0;
 
   @ApiPropertyOptional({ description: 'Auto-contribution frequency', enum: ['DAILY', 'WEEKLY', 'MONTHLY'] })
@@ -65,12 +68,14 @@ export class UpdateSavingsGoalDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0.01)
+  @Max(MAX_WALLET_AMOUNT)
   targetAmount?: number;
 
   @ApiPropertyOptional({ description: 'Auto-contribution amount per period', minimum: 0 })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0)
+  @Max(MAX_WALLET_AMOUNT)
   autoContributionAmount?: number;
 
   @ApiPropertyOptional({ description: 'Auto-contribution frequency', enum: ['DAILY', 'WEEKLY', 'MONTHLY'] })
@@ -140,6 +145,7 @@ export class CreateContributionDto {
   @ApiProperty({ description: 'Amount to contribute in XLM', example: 25, minimum: 0.01 })
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0.01)
+  @Max(MAX_WALLET_AMOUNT)
   amount: number;
 }
 
@@ -229,6 +235,18 @@ export class WalletTransactionResponseDto {
   @ApiPropertyOptional({ example: 'Insufficient funds' })
   failureReason?: string;
 
+  @ApiPropertyOptional({
+    description: 'For reversal entries: the original transaction that was reversed',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  originalTransactionId?: string;
+
+  @ApiPropertyOptional({
+    description: 'For reversed entries: the admin user who initiated the reversal',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  reversedById?: string;
+
   @ApiPropertyOptional({ example: { bankRef: 'TXN123' } })
   metadata?: Record<string, any>;
 
@@ -260,6 +278,15 @@ export class WalletTransactionListQueryDto {
   @IsDateString()
   endDate?: string;
 
+  @ApiPropertyOptional({
+    description: 'Sort direction for createdAt (stable ordering always ties on id)',
+    enum: ['ASC', 'DESC'],
+    default: 'DESC',
+  })
+  @IsOptional()
+  @IsEnum(['ASC', 'DESC'])
+  sort?: 'ASC' | 'DESC' = 'DESC';
+
   @ApiPropertyOptional({ minimum: 1 })
   @IsOptional()
   @IsNumber()
@@ -278,6 +305,7 @@ export class TopUpDto {
   @ApiProperty({ description: 'Amount to top up in XLM', example: 100, minimum: 0.01 })
   @IsNumber({ maxDecimalPlaces: 7 })
   @Min(0.01)
+  @Max(MAX_WALLET_AMOUNT)
   amount: number;
 
   @ApiProperty({ description: 'Payment method identifier', example: 'bank_transfer', minLength: 1, maxLength: 50 })

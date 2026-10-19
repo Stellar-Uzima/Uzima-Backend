@@ -21,6 +21,9 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../modules/auth/guards/roles.guard';
+import { Roles } from '../../modules/auth/decorators/roles.decorator';
+import { Role } from '../../modules/auth/enums/role.enum';
 import { SavingsService } from './savings.service';
 import { WalletTransactionService } from './wallet-transaction.service';
 import {
@@ -35,6 +38,10 @@ import {
   ContributionResponseDto,
   WalletTransactionResponseDto,
 } from './dto/savings-wallet.dto';
+import {
+  ReverseTransactionDto,
+  ReverseTransactionResponseDto,
+} from './dto/wallet-transaction.dto';
 
 @ApiTags('Savings & Wallet')
 @ApiBearerAuth()
@@ -44,6 +51,14 @@ export class SavingsWalletController {
     private readonly savingsService: SavingsService,
     private readonly transactionService: WalletTransactionService,
   ) {}
+
+  /**
+   * The JWT strategy populates `req.user.userId`; some legacy paths use
+   * `sub`. Resolve defensively so every endpoint is correctly user-scoped.
+   */
+  private resolveUserId(req: any): string {
+    return req.user?.userId ?? req.user?.sub;
+  }
 
   // ========== Savings Goals ==========
 
@@ -58,7 +73,7 @@ export class SavingsWalletController {
     @Req() req: any,
     @Body() dto: CreateSavingsGoalDto,
   ): Promise<SavingsGoalResponseDto> {
-    return this.savingsService.createGoal(req.user.sub, dto);
+    return this.savingsService.createGoal(this.resolveUserId(req), dto);
   }
 
   @Get('savings/goals')
@@ -72,7 +87,7 @@ export class SavingsWalletController {
     @Req() req: any,
     @Query() query: SavingsGoalListQueryDto,
   ) {
-    return this.savingsService.getGoals(req.user.sub, query);
+    return this.savingsService.getGoals(this.resolveUserId(req), query);
   }
 
   @Get('savings/summary')
@@ -80,7 +95,7 @@ export class SavingsWalletController {
   @ApiOperation({ summary: 'Get overall savings summary' })
   @ApiResponse({ status: 200, description: 'Savings summary with totals and next milestone' })
   async getSavingsSummary(@Req() req: any) {
-    return this.savingsService.getSavingsSummary(req.user.sub);
+    return this.savingsService.getSavingsSummary(this.resolveUserId(req));
   }
 
   @Get('savings/goals/:id')
@@ -93,7 +108,7 @@ export class SavingsWalletController {
     @Req() req: any,
     @Param('id') id: string,
   ): Promise<SavingsGoalResponseDto> {
-    return this.savingsService.getGoalById(req.user.sub, id);
+    return this.savingsService.getGoalById(this.resolveUserId(req), id);
   }
 
   @Put('savings/goals/:id')
@@ -108,7 +123,7 @@ export class SavingsWalletController {
     @Param('id') id: string,
     @Body() dto: UpdateSavingsGoalDto,
   ): Promise<SavingsGoalResponseDto> {
-    return this.savingsService.updateGoal(req.user.sub, id, dto);
+    return this.savingsService.updateGoal(this.resolveUserId(req), id, dto);
   }
 
   @Delete('savings/goals/:id')
@@ -123,7 +138,7 @@ export class SavingsWalletController {
     @Req() req: any,
     @Param('id') id: string,
   ): Promise<void> {
-    return this.savingsService.deleteGoal(req.user.sub, id);
+    return this.savingsService.deleteGoal(this.resolveUserId(req), id);
   }
 
   @Post('savings/goals/:id/contribute')
@@ -139,7 +154,7 @@ export class SavingsWalletController {
     @Param('id') id: string,
     @Body() dto: CreateContributionDto,
   ): Promise<ContributionResponseDto> {
-    return this.savingsService.contribute(req.user.sub, id, dto);
+    return this.savingsService.contribute(this.resolveUserId(req), id, dto);
   }
 
   @Get('savings/goals/:id/contributions')
@@ -151,18 +166,19 @@ export class SavingsWalletController {
     @Req() req: any,
     @Param('id') id: string,
   ): Promise<ContributionResponseDto[]> {
-    return this.savingsService.getContributions(req.user.sub, id);
+    return this.savingsService.getContributions(this.resolveUserId(req), id);
   }
 
   // ========== Wallet Transactions ==========
 
   @Get('wallet/transactions')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get wallet transaction history with filters and pagination' })
+  @ApiOperation({ summary: 'Get wallet transaction history with filters, pagination and stable ordering' })
   @ApiQuery({ name: 'type', enum: ['DEPOSIT', 'WITHDRAWAL', 'REWARD', 'TRANSFER_IN', 'TRANSFER_OUT', 'SAVINGS_CONTRIBUTION', 'SAVINGS_WITHDRAWAL', 'CONSULTATION_PAYMENT', 'REFUND', 'FEE'], required: false })
-  @ApiQuery({ name: 'status', enum: ['PENDING', 'CONFIRMED', 'FAILED', 'CANCELLED'], required: false })
+  @ApiQuery({ name: 'status', enum: ['PENDING', 'CONFIRMED', 'COMPLETED', 'FAILED', 'CANCELLED', 'REVERSED'], required: false })
   @ApiQuery({ name: 'startDate', type: String, required: false, example: '2024-01-01T00:00:00.000Z' })
   @ApiQuery({ name: 'endDate', type: String, required: false, example: '2024-12-31T23:59:59.999Z' })
+  @ApiQuery({ name: 'sort', enum: ['ASC', 'DESC'], required: false, description: 'createdAt sort direction (default DESC); id tie-break keeps ordering stable' })
   @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
   @ApiQuery({ name: 'limit', type: Number, required: false, example: 20 })
   @ApiResponse({ status: 200, description: 'Transaction history retrieved' })
@@ -170,7 +186,7 @@ export class SavingsWalletController {
     @Req() req: any,
     @Query() query: WalletTransactionListQueryDto,
   ) {
-    return this.transactionService.getTransactions(req.user.sub, query);
+    return this.transactionService.getTransactions(this.resolveUserId(req), query);
   }
 
   @Get('wallet/transactions/stats')
@@ -178,7 +194,7 @@ export class SavingsWalletController {
   @ApiOperation({ summary: 'Get transaction statistics' })
   @ApiResponse({ status: 200, description: 'Transaction stats' })
   async getTransactionStats(@Req() req: any) {
-    return this.transactionService.getTransactionStats(req.user.sub);
+    return this.transactionService.getTransactionStats(this.resolveUserId(req));
   }
 
   @Get('wallet/transactions/:id')
@@ -191,7 +207,44 @@ export class SavingsWalletController {
     @Req() req: any,
     @Param('id') id: string,
   ): Promise<WalletTransactionResponseDto> {
-    return this.transactionService.getTransactionById(req.user.sub, id);
+    return this.transactionService.getTransactionById(this.resolveUserId(req), id);
+  }
+
+  @Post('wallet/transactions/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel a pending wallet transaction owned by the caller' })
+  @ApiParam({ name: 'id', description: 'Transaction UUID' })
+  @ApiResponse({ status: 200, description: 'Transaction cancelled', type: WalletTransactionResponseDto })
+  @ApiResponse({ status: 400, description: 'Transaction is not pending or already terminal' })
+  @ApiResponse({ status: 404, description: 'Transaction not found' })
+  async cancelTransaction(
+    @Req() req: any,
+    @Param('id') id: string,
+  ): Promise<WalletTransactionResponseDto> {
+    return this.transactionService.cancelTransaction(this.resolveUserId(req), id);
+  }
+
+  @Post('wallet/transactions/:id/reverse')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reverse a settled wallet transaction via a compensating ledger entry (admin only)' })
+  @ApiParam({ name: 'id', description: 'Transaction UUID' })
+  @ApiResponse({ status: 200, description: 'Transaction reversed', type: ReverseTransactionResponseDto })
+  @ApiResponse({ status: 400, description: 'Transaction is not eligible for reversal, already reversed, or insufficient balance' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  @ApiResponse({ status: 404, description: 'Transaction not found' })
+  async reverseTransaction(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: ReverseTransactionDto,
+  ): Promise<ReverseTransactionResponseDto> {
+    return this.transactionService.reverseTransaction(id, {
+      reversedByUserId: this.resolveUserId(req),
+      reversedByRole: req.user?.role,
+      reason: dto.reason,
+    });
   }
 
   // ========== Top-up ==========
@@ -206,6 +259,6 @@ export class SavingsWalletController {
     @Req() req: any,
     @Body() dto: TopUpDto,
   ): Promise<TopUpResponseDto> {
-    return this.transactionService.topUp(req.user.sub, dto);
+    return this.transactionService.topUp(this.resolveUserId(req), dto);
   }
 }

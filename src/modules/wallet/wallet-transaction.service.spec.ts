@@ -7,6 +7,7 @@ import { WalletTransactionService } from './wallet-transaction.service';
 import { WalletService } from './wallet.service';
 import { StellarService } from '../../stellar/stellar.service';
 import { SavingsService } from './savings.service';
+import { AuditService } from '../../audit/audit.service';
 
 describe('WalletTransactionService transaction boundaries', () => {
   let service: WalletTransactionService;
@@ -22,6 +23,7 @@ describe('WalletTransactionService transaction boundaries', () => {
   const walletService = { invalidateCache: jest.fn() };
   const stellarService = {};
   const savingsService = {};
+  const auditService = { logEvent: jest.fn() };
   const dataSource = {
     transaction: jest.fn(async (work) => {
       const staged = {
@@ -72,6 +74,7 @@ describe('WalletTransactionService transaction boundaries', () => {
         { provide: WalletService, useValue: walletService },
         { provide: StellarService, useValue: stellarService },
         { provide: SavingsService, useValue: savingsService },
+        { provide: AuditService, useValue: auditService },
         { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();

@@ -7,7 +7,7 @@ import {
 } from '../../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../../rewards/enums/reward-status.enum';
-import { Coupon } from '../../../coupons/entities/coupon.entity';
+import { Coupon } from '../../../entities/coupon.entity';
 import { PaginatedResponseDto } from '../../../common/dto/paginated-response.dto';
 
 export type ActivityFeedType = 'task_completed' | 'reward_earned' | 'badge_earned';
