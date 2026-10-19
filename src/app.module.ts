@@ -11,6 +11,7 @@ import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
 import jwtConfig from './config/jwt.config';
+import notificationRetryPolicyConfig from './config/notification-retry-policy.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -75,7 +76,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig, jwtConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig, notificationRetryPolicyConfig],
       validationSchema: Joi.object({
         JWT_SECRET: Joi.string().min(32).invalid('your_jwt_secret_key_here_min_32_chars').optional(),
         JWT_REFRESH_SECRET: Joi.string().min(32).invalid('your_refresh_secret_key_here_min_32_chars').optional(),

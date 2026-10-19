@@ -31,6 +31,13 @@ export const envValidationSchema = Joi.object({
   // ── Stellar ─────────────────────────────────────────────────────────────────
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').required(),
   STELLAR_TREASURY_SECRET_KEY: Joi.string().required(),
+
+  // ── Notification retry policy (optional; defaults in config) ────────────────
+  NOTIFICATION_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).optional(),
+  NOTIFICATION_RETRY_BASE_DELAY_MS: Joi.number().integer().min(100).optional(),
+  NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY: Joi.string()
+    .valid('escalate', 'silent')
+    .optional(),
 });
 
 export interface ValidatedEnv {
@@ -46,6 +53,9 @@ export interface ValidatedEnv {
   TWILIO_PHONE_NUMBER?: string;
   STELLAR_NETWORK: 'testnet' | 'mainnet';
   STELLAR_TREASURY_SECRET_KEY: string;
+  NOTIFICATION_RETRY_MAX_ATTEMPTS?: number;
+  NOTIFICATION_RETRY_BASE_DELAY_MS?: number;
+  NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY?: 'escalate' | 'silent';
 }
 
 export function validateEnv (): ValidatedEnv {
