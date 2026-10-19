@@ -11,6 +11,7 @@ incidents and monitoring alerts in the Stellar Uzima backend.
 | [Authentication Issues](./auth-issues.md) | Login failure spike, JWT errors, account lockout surge | SEV-2 | Backend on-call | Security lead |
 | [Queue Failures](./queue-failures.md) | `HighQueueBacklog`, dead-letter queue growth, stuck jobs | SEV-2 | Backend on-call | Platform lead |
 | [Reward Regressions](./reward-regressions.md) | Reward balance complaints, failed reward jobs, wrong payouts | SEV-2 | Backend on-call | Product owner → Backend lead |
+| [Backup & Restore Verification](./backup-restore-verification.md) | Weekly restore check / backup integrity verification | SEV-3 | Backend on-call / DBA | Infra/DBA |
 
 ## Severity Definitions
 
@@ -87,3 +88,4 @@ process, exactly like code.
 | Version | Date | Change |
 | --- | --- | --- |
 | 1.0.0 | 2026-09-24 | Initial runbook set: database outage, auth issues, queue failures, reward regressions. |
+| 1.1.0 | 2026-10-19 | Added the backup and restore verification runbook and index entry. |
