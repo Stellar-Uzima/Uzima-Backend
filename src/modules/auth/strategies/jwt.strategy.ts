@@ -35,7 +35,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') || 'default-secret-key',
+      secretOrKey: requireConfiguredSecret(configService, 'JWT_SECRET'),
       issuer: configService.get<string>('JWT_ISSUER', 'stellar-uzima'),
       audience: configService.get<string>('JWT_AUDIENCE', 'stellar-uzima-api'),
       algorithms: ['RS256'],
@@ -79,4 +79,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
     return Array.isArray(aud) ? aud.includes(expected) : aud === expected;
   }
+}
+
+function requireConfiguredSecret(configService: ConfigService, name: string): string {
+  const secret = configService.get<string>(name);
+  if (!secret || secret.length < 32) {
+    throw new Error(`${name} must be configured with at least 32 characters`);
+  }
+  return secret;
 }

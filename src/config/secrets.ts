@@ -7,7 +7,7 @@ import * as crypto from 'crypto';
 export default registerAs('secrets', () => ({
   vaultFilePath: process.env.SECRETS_VAULT_FILE || '.secrets-vault.json',
   auditLogPath: process.env.SECRETS_AUDIT_LOG || '.secrets-access.log',
-  vaultKey: process.env.SECRETS_VAULT_KEY || process.env.JWT_SECRET || 'default-vault-key-please-change',
+  vaultKey: process.env.SECRETS_VAULT_KEY,
 }));
 
 interface SecretRecord {
@@ -39,7 +39,10 @@ export class SecretsService {
       process.cwd(),
       this.configService.get<string>('secrets.auditLogPath') ?? '.secrets-access.log',
     );
-    const rawKey = this.configService.get<string>('secrets.vaultKey') ?? '';
+    const rawKey = this.configService.get<string>('secrets.vaultKey');
+    if (!rawKey || rawKey.length < 32) {
+      throw new Error('SECRETS_VAULT_KEY must be configured with at least 32 characters');
+    }
     this.encryptionKey = crypto.createHash('sha256').update(rawKey).digest();
   }
 
