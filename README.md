@@ -289,11 +289,14 @@ npm run swagger
 ```
 
 ## 🚨 Operational Runbooks
-<arg_value><b88a6f17>Procedures for responding to incidents and monitoring alerts live in [`docs/runbooks/`](docs/runbooks/README.md):
+Procedures for responding to incidents and monitoring alerts live in [`docs/runbooks/`](docs/runbooks/README.md):
 
 - [Database Outage](docs/runbooks/database-outage.md)
 - [Authentication Issues](docs/runbooks/auth-issues.md)
 - [Queue Failures](docs/runbooks/queue-failures.md)
+- [Redis Incidents](docs/runbooks/redis-incidents.md)
+- [Notification Provider Incidents](docs/runbooks/notification-provider-incidents.md)
+- [Stellar Incidents](docs/runbooks/stellar-incidents.md)
 - [Reward Regressions](docs/runbooks/reward-regressions.md)
 
 Runbooks are versioned and reviewed as part of the release process — see the
