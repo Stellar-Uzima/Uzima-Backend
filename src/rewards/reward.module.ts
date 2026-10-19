@@ -21,6 +21,9 @@ import { BadgeModule } from './badges/badge.module';
 import { AntiAbuseModule } from '../modules/anti-abuse/anti-abuse.module';
 import { RewardClaimGuard } from '../modules/anti-abuse/reward-claim.guard';
 import { WalletModule } from '../modules/wallet/wallet.module';
+import { RewardPointsController } from './points/reward-points.controller';
+import { RewardPointRulesAdminController } from './points/reward-point-rules-admin.controller';
+import { RewardPointsService } from './points/reward-points.service';
 
 @Module({
   imports: [
@@ -54,7 +57,12 @@ import { WalletModule } from '../modules/wallet/wallet.module';
     AntiAbuseModule,
     WalletModule,
   ],
-  controllers: [RewardController, RewardCatalogController],
+  controllers: [
+    RewardController,
+    RewardCatalogController,
+    RewardPointsController,
+    RewardPointRulesAdminController,
+  ],
   providers: [
     RewardService,
     RewardCatalogService,
@@ -62,6 +70,7 @@ import { WalletModule } from '../modules/wallet/wallet.module';
     RewardClaimGuard,
     DeadLetterProcessor,
     RewardsScheduler,
+    RewardPointsService,
   ],
   exports: [RewardService, RewardCatalogService, DeadLetterProcessor, RewardsScheduler, TypeOrmModule],
 })
