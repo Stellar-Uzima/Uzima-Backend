@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StorageService } from './storage.service';
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as s3Presigner from '@aws-sdk/s3-request-presigner';
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -14,7 +15,21 @@ describe('StorageService', () => {
     process.env.AWS_S3_BUCKET_NAME = 'test-bucket';
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StorageService],
+      providers: [
+        StorageService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              ({
+                AWS_ACCESS_KEY_ID: 'test-access-key',
+                AWS_SECRET_ACCESS_KEY: 'test-secret-key',
+                AWS_S3_BUCKET_NAME: 'test-bucket',
+                AWS_REGION: 'us-east-1',
+              })[key],
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<StorageService>(StorageService);
@@ -41,8 +56,7 @@ describe('StorageService', () => {
       );
 
       expect(result).toHaveProperty('uploadUrl', mockUrl);
-      expect(result).toHaveProperty('fileKey');
-      expect(result.fileKey).toMatch(/^proofs\/user1\/task1\/\d+$/);
+      expect(result).not.toHaveProperty('fileKey');
       expect(s3Presigner.getSignedUrl).toHaveBeenCalledTimes(1);
     });
 
@@ -58,8 +72,7 @@ describe('StorageService', () => {
       );
 
       expect(result).toHaveProperty('uploadUrl', mockUrl);
-      expect(result).toHaveProperty('fileKey');
-      expect(result.fileKey).toMatch(/^proofs\/user2\/task2\/\d+$/);
+      expect(result).not.toHaveProperty('fileKey');
     });
 
     it('should throw BadRequestException for invalid content type', async () => {
@@ -70,6 +83,28 @@ describe('StorageService', () => {
           'application/pdf' as any,
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getProofFileKey', () => {
+    it('extracts a proof key only from an upload URL belonging to its owner and task', () => {
+      const key = service.getProofFileKey(
+        'https://storage.example.com/test-bucket/proofs/user1/task1/123?signature=secret',
+        'user1',
+        'task1',
+      );
+
+      expect(key).toBe('proofs/user1/task1/123');
+    });
+
+    it('rejects upload URLs belonging to another user or task', () => {
+      expect(() =>
+        service.getProofFileKey(
+          'https://storage.example.com/proofs/user2/task1/123?signature=secret',
+          'user1',
+          'task1',
+        ),
+      ).toThrow(BadRequestException);
     });
   });
 });

@@ -6,7 +6,8 @@ import {
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThanOrEqual, Between, In } from 'typeorm';
+import { DataSource, Repository, LessThan, MoreThanOrEqual, Between, In } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -37,6 +38,7 @@ export class WalletTransactionService {
     private readonly walletService: WalletService,
     private readonly stellarService: StellarService,
     private readonly savingsService: SavingsService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -189,31 +191,58 @@ export class WalletTransactionService {
       }
     }
 
-    // Update user balance
-    user.walletBalance = parseFloat((user.walletBalance + transaction.amount).toFixed(7));
-    await this.userRepo.save(user);
+    const confirmed = await this.dataSource.transaction(async (manager) => {
+      const transactionRepository = manager.getRepository(WalletTransaction);
+      const userRepository = manager.getRepository(User);
+      const lockedTransaction = await transactionRepository.findOne({
+        where: { id: transactionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedTransaction) {
+        throw new NotFoundException('Transaction not found');
+      }
+      if (lockedTransaction.status !== WalletTransactionStatus.PENDING) {
+        throw new BadRequestException(
+          `Transaction is not pending (current: ${lockedTransaction.status})`,
+        );
+      }
 
-    // Update transaction
-    transaction.status = WalletTransactionStatus.CONFIRMED;
-    transaction.balanceAfter = user.walletBalance;
-    if (stellarTxHash) {
-      transaction.stellarTxHash = stellarTxHash;
-    }
-    await this.transactionRepo.save(transaction);
+      const lockedUser = await userRepository.findOne({
+        where: { id: lockedTransaction.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedUser) {
+        throw new NotFoundException('User not found');
+      }
+
+      lockedUser.walletBalance = parseFloat(
+        (lockedUser.walletBalance + lockedTransaction.amount).toFixed(7),
+      );
+      await userRepository.save(lockedUser);
+
+      lockedTransaction.status = WalletTransactionStatus.CONFIRMED;
+      lockedTransaction.balanceAfter = lockedUser.walletBalance;
+      if (stellarTxHash) {
+        lockedTransaction.stellarTxHash = stellarTxHash;
+      }
+      await transactionRepository.save(lockedTransaction);
+
+      return { transaction: lockedTransaction, user: lockedUser };
+    });
 
     // Invalidate wallet cache
-    await this.walletService.invalidateCache({ userId: user.id });
+    await this.walletService.invalidateCache({ userId: confirmed.user.id });
 
     this.eventEmitter.emit('wallet.topup.confirmed', {
-      transactionId: transaction.id,
-      userId: user.id,
-      amount: transaction.amount,
+      transactionId: confirmed.transaction.id,
+      userId: confirmed.user.id,
+      amount: confirmed.transaction.amount,
       stellarTxHash,
     });
 
-    this.logger.log(`Top-up confirmed: ${transaction.id} for user ${user.id}`);
+    this.logger.log(`Top-up confirmed: ${confirmed.transaction.id} for user ${confirmed.user.id}`);
 
-    return this.mapTransactionToResponse(transaction);
+    return this.mapTransactionToResponse(confirmed.transaction);
   }
 
   /**
@@ -252,41 +281,46 @@ export class WalletTransactionService {
     destinationAddress?: string;
     metadata?: Record<string, any>;
   }): Promise<WalletTransactionResponseDto> {
-    const user = await this.userRepo.findOne({ where: { id: params.userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    const { transaction, user } = await this.dataSource.transaction(async (manager) => {
+      const userRepository = manager.getRepository(User);
+      const transactionRepository = manager.getRepository(WalletTransaction);
+      const user = await userRepository.findOne({
+        where: { id: params.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
 
-    const balanceBefore = user.walletBalance;
-    const balanceAfter = parseFloat((user.walletBalance + params.amount).toFixed(7));
+      const balanceBefore = user.walletBalance;
+      const balanceAfter = parseFloat((balanceBefore + params.amount).toFixed(7));
+      if (params.amount < 0 && balanceAfter < 0) {
+        throw new BadRequestException('Insufficient balance');
+      }
 
-    // Validate user has enough balance for debits
-    if (params.amount < 0 && balanceAfter < 0) {
-      throw new BadRequestException('Insufficient balance');
-    }
+      const transaction = transactionRepository.create({
+        userId: params.userId,
+        type: params.type,
+        amount: params.amount,
+        balanceBefore,
+        balanceAfter,
+        status: WalletTransactionStatus.CONFIRMED,
+        referenceId: params.referenceId || null,
+        referenceType: params.referenceType || null,
+        description: params.description || null,
+        sourceAddress: params.sourceAddress || null,
+        destinationAddress: params.destinationAddress || null,
+        metadata: params.metadata || null,
+      });
+      await transactionRepository.save(transaction);
 
-    const transaction = this.transactionRepo.create({
-      userId: params.userId,
-      type: params.type,
-      amount: params.amount,
-      balanceBefore,
-      balanceAfter,
-      status: WalletTransactionStatus.CONFIRMED,
-      referenceId: params.referenceId || null,
-      referenceType: params.referenceType || null,
-      description: params.description || null,
-      sourceAddress: params.sourceAddress || null,
-      destinationAddress: params.destinationAddress || null,
-      metadata: params.metadata || null,
+      user.walletBalance = balanceAfter;
+      await userRepository.save(user);
+      return { transaction, user };
     });
-    await this.transactionRepo.save(transaction);
-
-    // Update user balance
-    user.walletBalance = balanceAfter;
-    await this.userRepo.save(user);
 
     // Invalidate wallet cache
-    await this.walletService.invalidateCache({ userId: params.userId });
+    await this.walletService.invalidateCache({ userId: user.id });
 
     this.logger.log(`Recorded ${params.type} transaction: ${transaction.id} for user ${params.userId}, amount: ${params.amount}`);
 

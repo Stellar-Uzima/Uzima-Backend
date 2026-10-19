@@ -41,6 +41,12 @@ export class TaskCompletionController {
     return this.service.getUserCompletionStats(req.user.id);
   }
 
+  @Get(':id/proof-download-url')
+  @ApiOperation({ summary: 'Get a short-lived URL for an owned task proof' })
+  getProofDownloadUrl(@Req() req: any, @Param('id') completionId: string) {
+    return this.service.getProofDownloadUrl(req.user.id, completionId);
+  }
+
   @Post(':id/proof-upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for task proof' })
   getProofUploadUrl(

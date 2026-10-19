@@ -3,13 +3,12 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThanOrEqual, Between, In } from 'typeorm';
+import { DataSource, Repository, LessThan, MoreThanOrEqual, Between, In } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import StellarSdk from 'stellar-sdk';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { SavingsGoal, SavingsGoalStatus } from '../../database/entities/savings-goal.entity';
@@ -44,6 +43,7 @@ export class SavingsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly walletService: WalletService,
     private readonly stellarService: StellarService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -229,85 +229,91 @@ export class SavingsService {
       );
     }
 
-    // Create contribution record
-    const contribution = this.contributionRepo.create({
-      userId,
-      goalId,
-      amount: dto.amount,
-      status: ContributionStatus.PENDING,
-    });
-    await this.contributionRepo.save(contribution);
+    const result = await this.dataSource.transaction(async (manager) => {
+      const goals = manager.getRepository(SavingsGoal);
+      const contributions = manager.getRepository(SavingsContribution);
+      const transactions = manager.getRepository(WalletTransaction);
+      const users = manager.getRepository(User);
 
-    // Create wallet transaction record
-    const transaction = this.transactionRepo.create({
-      userId,
-      type: WalletTransactionType.SAVINGS_CONTRIBUTION,
-      amount: dto.amount,
-      balanceBefore: liveBalance,
-      balanceAfter: liveBalance - dto.amount,
-      status: WalletTransactionStatus.PENDING,
-      referenceId: contribution.id,
-      referenceType: 'savings_goal',
-      description: `Contribution to savings goal: ${goal.title}`,
-      metadata: { goalId, goalTitle: goal.title },
-    });
-    await this.transactionRepo.save(transaction);
-
-    // Process the contribution (in real implementation, this would be async via queue)
-    // For now, we'll simulate immediate processing
-    try {
-      // Deduct from wallet (simulate Stellar transaction)
-      const user = await this.userRepo.findOne({ where: { id: userId } });
-      user.walletBalance = parseFloat((user.walletBalance - dto.amount).toFixed(7));
-      await this.userRepo.save(user);
-
-      // Update goal
-      goal.currentAmount = parseFloat((Number(goal.currentAmount) + dto.amount).toFixed(7));
-      if (goal.currentAmount >= Number(goal.targetAmount)) {
-        goal.status = SavingsGoalStatus.COMPLETED;
-        goal.completedAt = new Date();
-        this.eventEmitter.emit('savings.goal.completed', { goalId: goal.id, userId });
-      }
-      await this.goalRepo.save(goal);
-
-      // Update contribution
-      contribution.status = ContributionStatus.CONFIRMED;
-      contribution.transactionHash = `simulated_${Date.now()}`;
-      await this.contributionRepo.save(contribution);
-
-      // Update transaction
-      transaction.status = WalletTransactionStatus.CONFIRMED;
-      transaction.balanceAfter = user.walletBalance;
-      transaction.stellarTxHash = contribution.transactionHash;
-      await this.transactionRepo.save(transaction);
-
-      // Invalidate caches
-      await this.invalidateGoalsCache(userId);
-      await this.walletService.invalidateCache({ userId });
-
-      this.eventEmitter.emit('savings.contribution.confirmed', {
-        contributionId: contribution.id,
-        goalId,
-        userId,
-        amount: dto.amount,
+      const lockedGoal = await goals.findOne({
+        where: { id: goalId, userId },
+        lock: { mode: 'pessimistic_write' },
       });
+      if (!lockedGoal || lockedGoal.status !== SavingsGoalStatus.ACTIVE) {
+        throw new BadRequestException('Savings goal is no longer available');
+      }
+      if (
+        Number(lockedGoal.currentAmount) + dto.amount >
+        Number(lockedGoal.targetAmount)
+      ) {
+        throw new BadRequestException('Contribution would exceed the savings goal target');
+      }
 
-      this.logger.log(`Contribution confirmed: ${contribution.id} for goal ${goalId}`);
-    } catch (error) {
-      // Mark as failed
-      contribution.status = ContributionStatus.FAILED;
-      contribution.failureReason = error instanceof Error ? error.message : 'Unknown error';
-      await this.contributionRepo.save(contribution);
+      const user = await users.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      const balanceBefore = user.walletBalance;
+      user.walletBalance = parseFloat((balanceBefore - dto.amount).toFixed(7));
 
-      transaction.status = WalletTransactionStatus.FAILED;
-      transaction.failureReason = contribution.failureReason;
-      await this.transactionRepo.save(transaction);
+      const contribution = contributions.create({
+        userId,
+        goalId,
+        amount: dto.amount,
+        status: ContributionStatus.CONFIRMED,
+        transactionHash: `simulated_${Date.now()}`,
+      });
+      await contributions.save(contribution);
 
-      this.logger.error(`Contribution failed: ${contribution.id}`, error as any);
-      throw new BadRequestException('Failed to process contribution. Please try again.');
+      const transaction = transactions.create({
+        userId,
+        type: WalletTransactionType.SAVINGS_CONTRIBUTION,
+        amount: dto.amount,
+        balanceBefore,
+        balanceAfter: user.walletBalance,
+        status: WalletTransactionStatus.CONFIRMED,
+        referenceId: contribution.id,
+        referenceType: 'savings_goal',
+        description: `Contribution to savings goal: ${lockedGoal.title}`,
+        metadata: { goalId, goalTitle: lockedGoal.title },
+        stellarTxHash: contribution.transactionHash,
+      });
+      await transactions.save(transaction);
+
+      await users.save(user);
+
+      lockedGoal.currentAmount = parseFloat(
+        (Number(lockedGoal.currentAmount) + dto.amount).toFixed(7),
+      );
+      const goalCompleted =
+        lockedGoal.currentAmount >= Number(lockedGoal.targetAmount);
+      if (goalCompleted) {
+        lockedGoal.status = SavingsGoalStatus.COMPLETED;
+        lockedGoal.completedAt = new Date();
+      }
+      await goals.save(lockedGoal);
+
+      return { contribution, goalCompleted };
+    });
+
+    await this.invalidateGoalsCache(userId);
+    await this.walletService.invalidateCache({ userId });
+
+    if (result.goalCompleted) {
+      this.eventEmitter.emit('savings.goal.completed', { goalId, userId });
     }
+    this.eventEmitter.emit('savings.contribution.confirmed', {
+      contributionId: result.contribution.id,
+      goalId,
+      userId,
+      amount: dto.amount,
+    });
+    this.logger.log(`Contribution confirmed: ${result.contribution.id} for goal ${goalId}`);
 
-    return this.mapContributionToResponse(contribution);
+    return this.mapContributionToResponse(result.contribution);
   }
 
   /**

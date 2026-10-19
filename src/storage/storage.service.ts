@@ -132,10 +132,34 @@ export class StorageService {
         expiresIn: 900,
       });
 
-      return { uploadUrl, fileKey };
+      return { uploadUrl };
     } catch (error: any) {
       this.logger.error('Failed to generate pre-signed URL', error?.message);
       throw new Error('Failed to generate pre-signed URL');
+    }
+  }
+
+  getProofFileKey(uploadUrl: string, userId: string, taskId: string): string {
+    let pathname: string;
+    try {
+      pathname = new URL(uploadUrl).pathname;
+    } catch {
+      throw new BadRequestException('Invalid proof upload URL');
+    }
+
+    const match = pathname.match(/(?:^|\/)(proofs\/[^/]+\/[^/]+\/[^/]+)$/);
+    const fileKey = match?.[1];
+    const keyParts = fileKey?.split('/');
+    if (!fileKey || keyParts?.[1] !== userId || keyParts?.[2] !== taskId) {
+      throw new BadRequestException(
+        'Proof upload URL does not match this user and task',
+      );
+    }
+
+    try {
+      return decodeURIComponent(fileKey);
+    } catch {
+      throw new BadRequestException('Invalid proof upload URL');
     }
   }
 

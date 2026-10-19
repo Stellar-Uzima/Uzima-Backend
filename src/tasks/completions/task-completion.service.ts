@@ -20,6 +20,7 @@ import {
   PROOF_VERIFICATION_QUEUE,
   REWARD_DISTRIBUTION_JOB,
 } from '../../queue/queue.constants';
+import { StorageService } from '../../storage/storage.service';
 
 // Estimated queue processing time in milliseconds
 const ESTIMATED_QUEUE_DELAY_MS = 5 * 60 * 1000; // 5 minutes
@@ -36,6 +37,7 @@ export class TaskCompletionService {
     @InjectQueue(PROOF_VERIFICATION_QUEUE)
     private proofVerificationQueue: Queue,
     private eventEmitter: EventEmitter2,
+    private readonly storageService: StorageService,
   ) {}
 
   async completeTask(userId: string, dto: CompleteTaskDto) {
@@ -47,6 +49,10 @@ export class TaskCompletionService {
     if (dto.proofType === ProofType.PHOTO && !dto.proofUrl) {
       throw new BadRequestException('Photo proof type requires a proofUrl');
     }
+    const proofFileKey =
+      dto.proofType === ProofType.PHOTO
+        ? this.storageService.getProofFileKey(dto.proofUrl!, userId, dto.taskId)
+        : null;
 
     // 3. 24-hour duplicate check via QueryBuilder
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -76,7 +82,7 @@ export class TaskCompletionService {
     const completion = this.completionRepo.create({
       user: { id: userId } as any,
       task: { id: dto.taskId } as any,
-      proofUrl: dto.proofUrl ?? null,
+      proofUrl: proofFileKey,
       xlmRewarded: Number(task.xlmReward),
       status: initialStatus,
     });
@@ -135,12 +141,35 @@ export class TaskCompletionService {
   }
 
   async getUserCompletions(userId: string) {
-    return this.completionRepo
+    const completions = await this.completionRepo
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.task', 'task')
       .where('c.userId = :userId', { userId })
       .orderBy('c.completedAt', 'DESC')
       .getMany();
+
+    return completions.map(({ proofUrl, ...completion }) => ({
+      ...completion,
+      proofAvailable: Boolean(proofUrl),
+    }));
+  }
+
+  async getProofDownloadUrl(userId: string, completionId: string) {
+    const completion = await this.completionRepo.findOne({
+      where: { id: completionId, userId },
+    });
+    if (!completion?.proofUrl) {
+      throw new NotFoundException('Task proof not found');
+    }
+
+    const expiresIn = 300;
+    return {
+      downloadUrl: await this.storageService.getDownloadUrl(
+        completion.proofUrl,
+        expiresIn,
+      ),
+      expiresIn,
+    };
   }
 
   async getUserCompletionStats(userId: string) {

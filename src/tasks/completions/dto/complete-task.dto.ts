@@ -17,7 +17,7 @@ export class CompleteTaskDto {
   @IsEnum(ProofType)
   proofType: ProofType;
 
-  @ApiPropertyOptional({ description: 'URL of the proof submission (e.g., photo or text proof)', example: 'https://example.com/proof.jpg' })
+  @ApiPropertyOptional({ description: 'Presigned upload URL returned by the task-proof upload endpoint', example: 'https://bucket.s3.amazonaws.com/proofs/user-id/task-id/123?X-Amz-Signature=...' })
   @IsOptional()
   @IsUrl()
   proofUrl?: string;
