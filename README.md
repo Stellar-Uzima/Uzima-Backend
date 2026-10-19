@@ -476,7 +476,10 @@ For issues, questions, or suggestions:
 
 ## 🚀 Deployment
 
-For production deployment guidelines, see [DEPLOYMENT.md](./DEPLOYMENT.md)
+Before deployment, complete [Backend release readiness](docs/RELEASE_READINESS_CHECKLIST.md).
+It records evidence for tests, migrations, configuration, monitoring and rollback,
+with release ownership, approved exceptions and go/no-go authorization. It also
+links the existing mandatory security review and operational runbooks.
 
 ---
 
