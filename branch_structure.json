@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/issue-1542-issue-077-add-referral-code-generation",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/issue-1542-issue-077-add-referral-code-generation": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/issue-1542-issue-077-add-referral-code-generation",
+    "origin"
+  ]
+}

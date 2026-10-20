@@ -8,7 +8,7 @@ import {
   MaxLength,
   Transform,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@interfaces/nestjs/swagger';
 import { IsStrongPassword } from '../decorators/strong-password.decorator';
 import {
   PASSWORD_MAX_LENGTH,
@@ -83,9 +83,21 @@ export class RegisterDto {
   // optional phone field (E.164). Keep optional to avoid breaking existing call sites.
   phone?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Optional referral code of the user who invited this account. ' +
+      'Codes are alphanumeric and case-insensitive.',
+    example: 'A7K9mR2xQp',
+    minLength: 6,
+    maxLength: 12,
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsOptional()
   @IsString()
   @Length(6, 12)
+  @Matches(/^[A-Za-z0-9]{6,12}$/, {
+    message: 'referralCode must be 6-12 alphanumeric characters',
+  })
   @MaxLength(12, { message: 'referralCode must be at most 12 characters' })
   referralCode?: string;
 }
