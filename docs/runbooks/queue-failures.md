@@ -1,6 +1,6 @@
 # Runbook: Queue Failures
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Severity:** SEV-2 (SEV-1 if reward payouts or notifications are fully stalled)
 **Primary owner:** Backend on-call
 **Escalation:** Secondary on-call → Platform lead → Team lead
@@ -56,6 +56,7 @@ kubectl logs deploy/uzima-backend --since=30m | grep -iE "job.*(failed|error)" |
 | `reward-dead-letter-queue` growing | Reward jobs exhausted retries | 3.4 |
 | Single job type failing (e.g. all exports) | Code regression in a processor | 3.5 |
 | Failed jobs accumulating, cause unknown | Attempts exhausted somewhere else | 3.6 |
+| Email delivery fails with a missing-template-variable error | Template data does not satisfy the selected email template | 3.3 |
 
 ### 2.1 Retry policy
 
@@ -133,6 +134,11 @@ were `network` after the Redis failover".
    bleeding by draining: ⚠️ pair-verify
    `QueueService.clearQueue('<queue>')` is destructive — prefer removing the
    specific bad jobs or pausing the queue while a hotfix is prepared.
+4. For notification email failures, check logs for
+   `Missing required variables for email template`, then compare the missing
+   names with the template placeholders and the notification data. Fix the
+   template or its caller to provide every required value; the delivery retry
+   path will retry failed attempts.
 
 ### 3.4 Reward dead-letter queue
 
@@ -214,3 +220,4 @@ and whether alert thresholds caught it early enough.
 | --- | --- | --- |
 | 1.0.0 | 2026-09-24 | Initial version. |
 | 1.1.0 | 2026-09-26 | Documented the shared retry policy (`queue-policy.ts`), the failure categories, `getFailureReport` / `reapExhaustedJobs`, and dead-letter grouping via `getFailureSummary`. |
+| 1.2.0 | 2026-10-21 | Added triage guidance for notification email template validation failures (#1656). |
