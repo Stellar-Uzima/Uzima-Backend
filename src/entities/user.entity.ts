@@ -141,11 +141,11 @@ export class User {
   @Column({ type: 'varchar', nullable: true, select: false })
   twoFactorSecret: string | null;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
-  avatar?: string | null;
-
   @Column({ type: 'varchar', length: 255, nullable: true })
   fcmToken?: string | null;
+
+  @Column({ type: 'varchar', length: 512, nullable: true })
+  avatarUrl?: string | null;
 
   @Column({ type: 'int', default: 0 })
   failedLoginAttempts: number;
