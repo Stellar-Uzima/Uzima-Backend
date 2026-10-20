@@ -4,8 +4,8 @@ import { LeaderboardService } from './leaderboard.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { LeaderboardResponseDto } from './dto/leaderboard.dto';
 import { parseLeaderboardPeriod } from './leaderboard-period.enum';
-import { Cache } from '../../common/decorators/cache.decorator';
-import { CACHE_TTL } from '../../shared/cache/cache.service';
+import { Cache } from '../common/decorators/cache.decorator';
+import { CACHE_TTL } from '../shared/cache/cache.service';
 
 @Controller('leaderboard')
 @ApiTags('leaderboard')
