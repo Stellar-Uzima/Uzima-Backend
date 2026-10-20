@@ -220,4 +220,4 @@ and whether alert thresholds caught it early enough.
 | --- | --- | --- |
 | 1.0.0 | 2026-09-24 | Initial version. |
 | 1.1.0 | 2026-09-26 | Documented the shared retry policy (`queue-policy.ts`), the failure categories, `getFailureReport` / `reapExhaustedJobs`, and dead-letter grouping via `getFailureSummary`. |
-| 1.2.0 | 2026-10-21 | Added triage guidance for notification email template validation failures. |
+| 1.2.0 | 2026-10-21 | Added triage guidance for notification email template validation failures (#1656). |
