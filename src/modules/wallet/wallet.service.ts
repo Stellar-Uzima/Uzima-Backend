@@ -33,6 +33,27 @@ import { AuditAction, AuditResource } from '../../audit/entities/audit-log.entit
 import { NotificationService } from '../notification-center/notification.service';
 import { NotificationTypeEnum } from '../notification-center/entities/in-app-notification.entity';
 import { Role } from '../auth/enums/role.enum';
+import { WalletTransaction, WalletTransactionStatus, WalletTransactionType } from '../../database/entities/wallet-transaction.entity';
+import {
+  WalletLedgerEntry,
+  WalletLedgerDirection,
+  WalletLedgerEntryType,
+} from './entities/wallet-ledger-entry.entity';
+import { WalletIdempotencyKey } from './entities/wallet-idempotency-key.entity';
+import { recordLedgerEntry, toLedgerAmount } from './ledger/wallet-ledger.helper';
+import {
+  IdempotencyClaimedError,
+  claimIdempotencyKey,
+  finalizeIdempotencyKey,
+  resolveStoredResult,
+} from './ledger/idempotency.helper';
+import { TransferWalletDto, TransferResponseDto } from './dto/transfer-wallet.dto';
+import { LedgerEntriesQueryDto, LedgerPageResponseDto } from './dto/wallet-ledger.dto';
+import {
+  ReconciliationQueryDto,
+  ReconciliationReportDto,
+  UserReconciliationDto,
+} from './dto/wallet-reconciliation.dto';
 
 @Injectable()
 export class WalletService {
@@ -428,9 +449,31 @@ export class WalletService {
   }
 
   /**
-   * Create a new withdrawal request
+   * Create a new withdrawal request.
+   * When an Idempotency-Key is supplied, retries replay the original result
+   * instead of creating a second withdrawal.
    */
-  async createWithdrawal(userId: string, dto: CreateWithdrawalDto): Promise<WithdrawalResponseDto> {
+  async createWithdrawal(
+    userId: string,
+    dto: CreateWithdrawalDto,
+    idempotencyKey?: string,
+    requestId?: string,
+  ): Promise<WithdrawalResponseDto> {
+    const endpoint = 'wallet.withdraw';
+    const key = idempotencyKey?.trim() || undefined;
+    const requestSnapshot = {
+      amount: toLedgerAmount(dto.amount),
+      destinationAddress: dto.destinationAddress,
+      memo: dto.memo?.trim() || null,
+    };
+
+    if (key) {
+      const stored = await this.findIdempotencyRecord(userId, endpoint, key);
+      if (stored) {
+        return resolveStoredResult<WithdrawalResponseDto>(stored, requestSnapshot, 'withdrawal');
+      }
+    }
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -485,28 +528,70 @@ export class WalletService {
       );
     }
 
-    // Create withdrawal record
-    const withdrawal = this.withdrawalRepo.create({
-      userId,
-      amount: dto.amount,
-      destinationAddress: dto.destinationAddress,
-      memo: dto.memo || null,
-      status: WithdrawalStatus.PENDING,
-    });
+    let created: WithdrawalResponseDto;
+    try {
+      created = await this.dataSource.transaction(async (manager) => {
+        let claimedKeyId: string | null = null;
+        if (key) {
+          claimedKeyId = await claimIdempotencyKey(manager, {
+            userId,
+            endpoint,
+            idempotencyKey: key,
+            requestId: requestId ?? null,
+            requestSnapshot,
+          });
+          if (!claimedKeyId) {
+            throw new IdempotencyClaimedError(
+              `Idempotency key already claimed for ${endpoint}`,
+            );
+          }
+        }
 
-    await this.withdrawalRepo.save(withdrawal);
+        const repository = manager.getRepository(Withdrawal);
+        const withdrawal = await repository.save(
+          repository.create({
+            userId,
+            amount: dto.amount,
+            destinationAddress: dto.destinationAddress,
+            memo: dto.memo || null,
+            status: WithdrawalStatus.PENDING,
+          }),
+        );
+
+        const response = this.mapToResponseDto(withdrawal);
+        if (key && claimedKeyId) {
+          await finalizeIdempotencyKey(manager, claimedKeyId, {
+            responseSnapshot: response,
+            transactionId: withdrawal.id,
+          });
+        }
+        return response;
+      });
+    } catch (error) {
+      if (key && error instanceof IdempotencyClaimedError) {
+        const stored = await this.findIdempotencyRecord(userId, endpoint, key);
+        if (stored) {
+          return resolveStoredResult<WithdrawalResponseDto>(
+            stored,
+            requestSnapshot,
+            'withdrawal',
+          );
+        }
+      }
+      throw error;
+    }
 
     // Emit event for admin notification
     this.eventEmitter.emit('wallet.withdrawal.created', {
-      withdrawalId: withdrawal.id,
+      withdrawalId: created.id,
       userId,
       amount: dto.amount,
       destinationAddress: dto.destinationAddress,
     });
 
-    this.logger.log(`Withdrawal created: ${withdrawal.id} for user ${userId}, amount: ${dto.amount} XLM`);
+    this.logger.log(`Withdrawal created: ${created.id} for user ${userId}, amount: ${dto.amount} XLM`);
 
-    return this.mapToResponseDto(withdrawal);
+    return created;
   }
 
   /**
@@ -601,6 +686,374 @@ export class WalletService {
     this.logger.log(`Withdrawal ${withdrawal.id} status changed: ${previousStatus} -> ${status}`);
 
     return this.mapToResponseDto(withdrawal);
+  }
+
+  /**
+   * Transfers funds between two wallets in one database transaction: debit,
+   * credit, both transfer records, and both ledger legs commit together, and
+   * a replayed Idempotency-Key returns the original result without side
+   * effects. Emits `wallet.transfer.completed` only after the commit.
+   */
+  async transfer(
+    senderId: string,
+    dto: TransferWalletDto,
+    idempotencyKey?: string,
+    requestId?: string,
+  ): Promise<TransferResponseDto> {
+    const endpoint = 'wallet.transfer';
+    const key = idempotencyKey?.trim() || dto.idempotencyKey?.trim() || undefined;
+    const recipientId = dto.recipientId;
+    const memo = dto.memo?.trim() || null;
+    const amount = toLedgerAmount(dto.amount);
+    const requestSnapshot = { recipientId, amount, memo };
+
+    if (key) {
+      const stored = await this.findIdempotencyRecord(senderId, endpoint, key);
+      if (stored) {
+        return resolveStoredResult<TransferResponseDto>(stored, requestSnapshot, 'transfer');
+      }
+    }
+
+    if (recipientId === senderId) {
+      throw new BadRequestException('Cannot transfer to your own wallet');
+    }
+
+    let result: TransferResponseDto;
+    try {
+      result = await this.dataSource.transaction(async (manager) => {
+        const users = manager.getRepository(User);
+
+        let claimedKeyId: string | null = null;
+        if (key) {
+          claimedKeyId = await claimIdempotencyKey(manager, {
+            userId: senderId,
+            endpoint,
+            idempotencyKey: key,
+            requestId: requestId ?? null,
+            requestSnapshot,
+          });
+          if (!claimedKeyId) {
+            throw new IdempotencyClaimedError(
+              `Idempotency key already claimed for ${endpoint}`,
+            );
+          }
+        }
+
+        const firstId = senderId < recipientId ? senderId : recipientId;
+        const secondId = senderId < recipientId ? recipientId : senderId;
+        const first = await users.findOne({
+          where: { id: firstId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        const second = await users.findOne({
+          where: { id: secondId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        const sender = firstId === senderId ? first : second;
+        const recipient = firstId === senderId ? second : first;
+        if (!sender) {
+          throw new NotFoundException('Sender wallet not found');
+        }
+        if (!recipient) {
+          throw new NotFoundException('Recipient not found');
+        }
+
+        const senderBalance = toLedgerAmount(Number(sender.walletBalance));
+        const recipientBalance = toLedgerAmount(Number(recipient.walletBalance));
+        if (senderBalance < amount) {
+          throw new BadRequestException(
+            `Insufficient balance. Available: ${senderBalance.toFixed(7)} XLM`,
+          );
+        }
+
+        const senderBalanceAfter = toLedgerAmount(senderBalance - amount);
+        const recipientBalanceAfter = toLedgerAmount(recipientBalance + amount);
+
+        const transactions = manager.getRepository(WalletTransaction);
+        const senderTransaction = await transactions.save(
+          transactions.create({
+            userId: sender.id,
+            type: WalletTransactionType.TRANSFER_OUT,
+            amount: -amount,
+            balanceBefore: senderBalance,
+            balanceAfter: senderBalanceAfter,
+            status: WalletTransactionStatus.CONFIRMED,
+            referenceType: 'transfer',
+            referenceId: null,
+            description: memo || `Transfer to user ${recipient.id}`,
+            destinationAddress:
+              recipient.stellarWalletAddress || recipient.walletAddress || null,
+          }),
+        );
+        const recipientTransaction = await transactions.save(
+          transactions.create({
+            userId: recipient.id,
+            type: WalletTransactionType.TRANSFER_IN,
+            amount,
+            balanceBefore: recipientBalance,
+            balanceAfter: recipientBalanceAfter,
+            status: WalletTransactionStatus.CONFIRMED,
+            referenceType: 'transfer',
+            referenceId: senderTransaction.id,
+            description: memo || `Transfer from user ${sender.id}`,
+            sourceAddress:
+              sender.stellarWalletAddress || sender.walletAddress || null,
+          }),
+        );
+
+        sender.walletBalance = senderBalanceAfter;
+        recipient.walletBalance = recipientBalanceAfter;
+        await users.save([sender, recipient]);
+
+        await recordLedgerEntry(manager, {
+          userId: sender.id,
+          direction: WalletLedgerDirection.DEBIT,
+          amount,
+          type: WalletLedgerEntryType.TRANSFER_OUT,
+          referenceType: 'wallet_transaction',
+          referenceId: senderTransaction.id,
+          balanceAfter: senderBalanceAfter,
+        });
+        await recordLedgerEntry(manager, {
+          userId: recipient.id,
+          direction: WalletLedgerDirection.CREDIT,
+          amount,
+          type: WalletLedgerEntryType.TRANSFER_IN,
+          referenceType: 'wallet_transaction',
+          referenceId: senderTransaction.id,
+          balanceAfter: recipientBalanceAfter,
+        });
+
+        const response: TransferResponseDto = {
+          transactionId: senderTransaction.id,
+          senderId: sender.id,
+          recipientId: recipient.id,
+          amount,
+          senderBalanceAfter,
+          recipientBalanceAfter,
+          createdAt: senderTransaction.createdAt,
+        };
+        if (key && claimedKeyId) {
+          await finalizeIdempotencyKey(manager, claimedKeyId, {
+            responseSnapshot: response,
+            transactionId: senderTransaction.id,
+          });
+        }
+        return response;
+      });
+    } catch (error) {
+      if (key && error instanceof IdempotencyClaimedError) {
+        const stored = await this.findIdempotencyRecord(senderId, endpoint, key);
+        if (stored) {
+          return resolveStoredResult<TransferResponseDto>(stored, requestSnapshot, 'transfer');
+        }
+      }
+      throw error;
+    }
+
+    this.eventEmitter.emit('wallet.transfer.completed', {
+      transactionId: result.transactionId,
+      senderId: result.senderId,
+      recipientId: result.recipientId,
+      amount: result.amount,
+    });
+
+    this.logger.log(
+      `Transfer ${result.transactionId}: ${amount} XLM from ${senderId} to ${recipientId}`,
+    );
+
+    return result;
+  }
+
+  /**
+   * Returns the authenticated user's append-only ledger entries, newest first.
+   */
+  async getLedgerEntries(
+    userId: string,
+    query: LedgerEntriesQueryDto,
+  ): Promise<LedgerPageResponseDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const builder = this.dataSource
+      .getRepository(WalletLedgerEntry)
+      .createQueryBuilder('entry')
+      .where('entry.userId = :userId', { userId });
+
+    if (query.type) {
+      builder.andWhere('entry.type = :type', { type: query.type });
+    }
+    if (query.direction) {
+      builder.andWhere('entry.direction = :direction', { direction: query.direction });
+    }
+
+    builder
+      .orderBy('entry.createdAt', 'DESC')
+      .addOrderBy('entry.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [entries, totalCount] = await builder.getManyAndCount();
+
+    return {
+      data: entries.map((entry) => ({
+        id: entry.id,
+        direction: entry.direction,
+        amount: toLedgerAmount(Number(entry.amount)),
+        type: entry.type,
+        referenceType: entry.referenceType ?? undefined,
+        referenceId: entry.referenceId ?? undefined,
+        balanceAfter:
+          entry.balanceAfter == null
+            ? undefined
+            : toLedgerAmount(Number(entry.balanceAfter)),
+        createdAt: entry.createdAt,
+      })),
+      metadata: {
+        totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  }
+
+  /**
+   * Compares stored wallet balances with posted ledger entries for selected
+   * or all accounts and reports every mismatch. Balances are never modified.
+   */
+  async getWalletReconciliation(
+    query: ReconciliationQueryDto,
+    adminId: string,
+  ): Promise<ReconciliationReportDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 50;
+    const userId = query.userId ?? null;
+    const scope = `FROM users u
+      LEFT JOIN (
+        SELECT "userId",
+               SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END) AS "ledgerBalance",
+               COUNT(*) AS "entryCount"
+        FROM wallet_ledger_entries
+        GROUP BY "userId"
+      ) l ON l."userId" = u.id
+      WHERE ($1::uuid IS NULL OR u.id = $1)`;
+    const driftFilter = `AND ABS(COALESCE(u."walletBalance", 0) - COALESCE(l."ledgerBalance", 0)) > 0.0000001`;
+
+    const rows: Array<Record<string, unknown>> = await this.dataSource.query(
+      `SELECT u.id AS "userId",
+              COALESCE(u."walletBalance", 0) AS "walletBalance",
+              COALESCE(l."ledgerBalance", 0) AS "ledgerBalance",
+              COALESCE(l."entryCount", 0) AS "entryCount"
+       ${scope}
+       ${driftFilter}
+       ORDER BY u.id ASC
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, (page - 1) * limit],
+    );
+    const totals: Array<{ totalChecked: number; totalMismatches: number }> =
+      await this.dataSource.query(
+        `SELECT (SELECT COUNT(*)::int ${scope}) AS "totalChecked",
+                (SELECT COUNT(*)::int ${scope} ${driftFilter}) AS "totalMismatches"`,
+        [userId],
+      );
+
+    const mismatches = rows.map((row) => {
+      const walletBalance = toLedgerAmount(Number(row.walletBalance));
+      const ledgerBalance = toLedgerAmount(Number(row.ledgerBalance));
+      return {
+        userId: String(row.userId),
+        walletBalance,
+        ledgerBalance,
+        drift: toLedgerAmount(walletBalance - ledgerBalance),
+        entryCount: Number(row.entryCount),
+      };
+    });
+    const report: ReconciliationReportDto = {
+      totalChecked: Number(totals[0]?.totalChecked ?? 0),
+      totalMismatches: Number(totals[0]?.totalMismatches ?? 0),
+      mismatches,
+    };
+
+    await this.auditService.logEvent({
+      userId: adminId,
+      userRole: Role.ADMIN,
+      action: AuditAction.VIEW,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: userId ?? undefined,
+      description: `Wallet ledger reconciliation checked ${report.totalChecked} account(s); ${report.totalMismatches} mismatch(es) reported and no balances were changed`,
+      metadata: {
+        totalChecked: report.totalChecked,
+        totalMismatches: report.totalMismatches,
+        mismatchedUserIds: mismatches.map((mismatch) => mismatch.userId),
+      },
+    });
+
+    return report;
+  }
+
+  /**
+   * Reports ledger drift for a single account. The balance is reported only;
+   * it is never silently corrected.
+   */
+  async reconcileUserLedger(
+    userId: string,
+    adminId: string,
+  ): Promise<UserReconciliationDto> {
+    const user = await this.dataSource
+      .getRepository(User)
+      .findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const rows: Array<{ ledgerBalance: unknown; entryCount: number }> =
+      await this.dataSource.query(
+        `SELECT COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount ELSE -amount END), 0) AS "ledgerBalance",
+                COUNT(*)::int AS "entryCount"
+         FROM wallet_ledger_entries
+         WHERE "userId" = $1`,
+        [userId],
+      );
+
+    const walletBalance = toLedgerAmount(Number(user.walletBalance ?? 0));
+    const ledgerBalance = toLedgerAmount(Number(rows[0]?.ledgerBalance ?? 0));
+    const drift = toLedgerAmount(walletBalance - ledgerBalance);
+    const entryCount = Number(rows[0]?.entryCount ?? 0);
+
+    const report: UserReconciliationDto = {
+      userId,
+      walletBalance,
+      ledgerBalance,
+      drift,
+      entryCount,
+      matched: drift === 0,
+    };
+
+    await this.auditService.logEvent({
+      userId: adminId,
+      userRole: Role.ADMIN,
+      action: AuditAction.VIEW,
+      resourceType: AuditResource.TRANSACTION,
+      resourceId: userId,
+      description: `Wallet ledger reconciliation for user ${userId}: drift ${drift} XLM across ${entryCount} ledger entries; balance not modified`,
+      metadata: { ...report },
+    });
+
+    return report;
+  }
+
+  /**
+   * Loads a stored idempotency claim scoped to (user, endpoint, key).
+   */
+  private findIdempotencyRecord(
+    userId: string,
+    endpoint: string,
+    idempotencyKey: string,
+  ): Promise<WalletIdempotencyKey | null> {
+    return this.dataSource
+      .getRepository(WalletIdempotencyKey)
+      .findOne({ where: { userId, endpoint, idempotencyKey } });
   }
 
   private mapToResponseDto(withdrawal: Withdrawal): WithdrawalResponseDto {

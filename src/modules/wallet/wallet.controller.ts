@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Query,
   Param,
+  Headers,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,12 +17,20 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalStatus } from './dto/withdrawal.dto';
+import {
+  CreateWithdrawalDto,
+  WithdrawalListQueryDto,
+  WithdrawalResponseDto,
+  WithdrawalStatus,
+} from './dto/withdrawal.dto';
+import { TransferWalletDto, TransferResponseDto } from './dto/transfer-wallet.dto';
+import { LedgerEntriesQueryDto, LedgerPageResponseDto } from './dto/wallet-ledger.dto';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { Role } from '@modules/auth/enums/role.enum';
@@ -96,6 +105,45 @@ export class WalletController {
     return { message: 'Wallet linked successfully' };
   }
 
+  @Post('transfer')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Unique key scoped to this user and operation; retries replay the original result',
+  })
+  @ApiOperation({ summary: 'Transfer XLM to another user wallet atomically' })
+  @ApiResponse({ status: 200, description: 'Transfer completed, or original result replayed', type: TransferResponseDto })
+  @ApiResponse({ status: 400, description: 'Insufficient balance, self-transfer, or invalid payload' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Recipient not found' })
+  @ApiResponse({ status: 409, description: 'Idempotency key reused with different input' })
+  async transfer(
+    @Request() req,
+    @Body() dto: TransferWalletDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-request-id') requestId?: string,
+  ): Promise<TransferResponseDto> {
+    const userId = req.user.userId ?? req.user.sub;
+    return this.walletService.transfer(userId, dto, idempotencyKey, requestId);
+  }
+
+  @Get('ledger')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my append-only wallet ledger entries' })
+  @ApiResponse({ status: 200, description: 'Ledger entries retrieved', type: LedgerPageResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getLedger(
+    @Request() req,
+    @Query() query: LedgerEntriesQueryDto,
+  ): Promise<LedgerPageResponseDto> {
+    const userId = req.user.userId ?? req.user.sub;
+    return this.walletService.getLedgerEntries(userId, query);
+  }
+
   @Get('transactions')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -126,16 +174,25 @@ export class WalletController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Unique key scoped to this user and operation; retries replay the original result',
+  })
   @ApiOperation({ summary: 'Create a withdrawal request' })
   @ApiResponse({ status: 200, description: 'Withdrawal request created', type: WithdrawalResponseDto })
   @ApiResponse({ status: 400, description: 'Insufficient balance or invalid address' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'No wallet linked' })
+  @ApiResponse({ status: 409, description: 'Idempotency key reused with different input' })
   async createWithdrawal(
     @Request() req,
     @Body() dto: CreateWithdrawalDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-request-id') requestId?: string,
   ): Promise<WithdrawalResponseDto> {
-    return this.walletService.createWithdrawal(req.user.sub, dto);
+    const userId = req.user.userId ?? req.user.sub;
+    return this.walletService.createWithdrawal(userId, dto, idempotencyKey, requestId);
   }
 
   @Get('withdrawals')

@@ -15,18 +15,59 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { Role } from '@modules/auth/enums/role.enum';
+import {
+  ReconciliationQueryDto,
+  ReconciliationReportDto,
+  UserReconciliationDto,
+} from './dto/wallet-reconciliation.dto';
 
 @ApiTags('Wallet')
 @Controller('wallets')
 export class AdminWalletController {
   constructor(private readonly walletService: WalletService) {}
 
+  @Get('reconciliation')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Report wallet balance vs ledger mismatches for selected or all accounts',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reconciliation report; mismatches are reported, never auto-corrected',
+    type: ReconciliationReportDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  async getReconciliation(
+    @Req() req: any,
+    @Query() query: ReconciliationQueryDto,
+  ): Promise<ReconciliationReportDto> {
+    const adminId = req.user.userId ?? req.user.sub;
+    return this.walletService.getWalletReconciliation(query, adminId);
+  }
+
   @Post(':userId/reconcile')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reconcile a user wallet' })
-  @ApiResponse({ status: 200, description: 'Reconciliation summary returned' })
-  async reconcile(@Param('userId') userId: string) {
-    return this.walletService.reconcile(userId);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Report ledger drift for a user wallet without modifying the balance' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reconciliation result with identifiers and drift',
+    type: UserReconciliationDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async reconcile(
+    @Req() req: any,
+    @Param('userId') userId: string,
+  ): Promise<UserReconciliationDto> {
+    const adminId = req.user.userId ?? req.user.sub;
+    return this.walletService.reconcileUserLedger(userId, adminId);
   }
 
   @Post(':userId/recover-transactions')
