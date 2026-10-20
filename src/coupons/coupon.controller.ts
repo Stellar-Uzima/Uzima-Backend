@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -13,21 +12,20 @@ import {
   Put,
   Param,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { Role } from '@modules/auth/enums/role.enum';
-import { Coupon, CouponStatus } from './entities/coupon.entity';
+import { Coupon } from '../entities/coupon.entity';
 import { CouponService, ValidateCouponResult } from './coupon.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
+import {
+  BulkCreateCouponsDto,
+  CreateCouponDto,
+  ExtendCouponDto,
+  UpdateCouponStatusDto,
+} from './dto/coupon-admin.dto';
 
 interface AuthenticatedRequest extends Request {
   user: { sub: string; email?: string; role?: string };
@@ -54,8 +52,7 @@ export class CouponController {
   @Get('me')
   @ApiOperation({
     summary: "Get current user's active coupons",
-    description:
-      "Returns the authenticated user's active (non-expired) coupons.",
+    description: "Returns the authenticated user's active (non-expired) coupons.",
   })
   @ApiResponse({ status: 200, description: 'List of active coupons' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -70,7 +67,7 @@ export class CouponController {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    }),
+    })
   )
   @ApiOperation({
     summary: 'Validate coupon',
@@ -102,7 +99,7 @@ export class CouponController {
   })
   async validate(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: ValidateCouponDto,
+    @Body() dto: ValidateCouponDto
   ): Promise<ValidateCouponResult> {
     return this.couponService.validate(dto, req.user.sub);
   }
@@ -113,34 +110,49 @@ export class CouponController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @ApiOperation({ summary: '[ADMIN] Create a coupon for a specific user' })
   @ApiResponse({ status: 201, description: 'Coupon created', type: Coupon })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   async createCoupon(
-    @Body() dto: { userId: string; discount?: number; specialistType?: string; daysValid?: number },
+    @Body() dto: CreateCouponDto,
+    @Req() req: AuthenticatedRequest
   ): Promise<Coupon> {
-    return this.couponService.createCoupon(dto.userId, {
-      discount: dto.discount,
-      specialistType: dto.specialistType,
-      daysValid: dto.daysValid,
-    });
+    return this.couponService.createCoupon(
+      dto.userId,
+      {
+        code: dto.code,
+        discount: dto.discount,
+        specialistType: dto.specialistType,
+        daysValid: dto.daysValid,
+      },
+      req.user.sub,
+      req.user.role
+    );
   }
 
   @Post('admin/bulk-create')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @ApiOperation({ summary: '[ADMIN] Bulk create coupons for multiple users' })
   @ApiResponse({ status: 201, description: 'Coupons created', type: [Coupon] })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   async bulkCreateCoupons(
-    @Body() dto: { userIds: string[]; discount?: number; specialistType?: string; daysValid?: number },
+    @Body() dto: BulkCreateCouponsDto,
+    @Req() req: AuthenticatedRequest
   ): Promise<Coupon[]> {
-    return this.couponService.bulkCreateCoupons(dto.userIds, {
-      discount: dto.discount,
-      specialistType: dto.specialistType,
-      daysValid: dto.daysValid,
-    });
+    return this.couponService.bulkCreateCoupons(
+      dto.userIds,
+      {
+        discount: dto.discount,
+        specialistType: dto.specialistType,
+        daysValid: dto.daysValid,
+      },
+      req.user.sub,
+      req.user.role
+    );
   }
 
   @Get('admin/analytics')
@@ -149,7 +161,7 @@ export class CouponController {
   @ApiOperation({ summary: '[ADMIN] Get coupon usage analytics' })
   @ApiResponse({ status: 200, description: 'Coupon analytics' })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
-  async getCouponAnalytics() {
+  async getCouponAnalytics(): Promise<unknown> {
     return this.couponService.getCouponAnalytics();
   }
 
@@ -162,13 +174,35 @@ export class CouponController {
   @ApiResponse({ status: 200, description: 'Coupon marked as redeemed', type: Coupon })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   @ApiResponse({ status: 404, description: 'Coupon not found' })
-  async markAsRedeemed(@Param('code') code: string, @Req() req: AuthenticatedRequest): Promise<Coupon> {
-    return this.couponService.markAsRedeemed(code, req.user.sub);
+  async markAsRedeemed(
+    @Param('code') code: string,
+    @Req() req: AuthenticatedRequest
+  ): Promise<Coupon> {
+    return this.couponService.markAsRedeemed(code, req.user.sub, req.user.role);
+  }
+
+  @Put('admin/:code/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
+  @ApiOperation({ summary: '[ADMIN] Change a coupon lifecycle status' })
+  @ApiParam({ name: 'code', description: 'Coupon code' })
+  @ApiResponse({ status: 200, description: 'Coupon status updated', type: Coupon })
+  @ApiResponse({ status: 400, description: 'Invalid or disallowed status transition' })
+  @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
+  @ApiResponse({ status: 404, description: 'Coupon not found' })
+  async updateStatus(
+    @Param('code') code: string,
+    @Body() dto: UpdateCouponStatusDto,
+    @Req() req: AuthenticatedRequest
+  ): Promise<Coupon> {
+    return this.couponService.updateStatus(code, dto.status, req.user.sub, req.user.role);
   }
 
   @Put('admin/:code/extend')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   @ApiOperation({ summary: '[ADMIN] Extend coupon expiration' })
   @ApiParam({ name: 'code', description: 'Coupon code' })
   @ApiResponse({ status: 200, description: 'Coupon expiration extended', type: Coupon })
@@ -176,8 +210,9 @@ export class CouponController {
   @ApiResponse({ status: 404, description: 'Coupon not found' })
   async extendExpiration(
     @Param('code') code: string,
-    @Body() dto: { days: number },
+    @Body() dto: ExtendCouponDto,
+    @Req() req: AuthenticatedRequest
   ): Promise<Coupon> {
-    return this.couponService.extendExpiration(code, dto.days);
+    return this.couponService.extendExpiration(code, dto.days, req.user.sub, req.user.role);
   }
 }
