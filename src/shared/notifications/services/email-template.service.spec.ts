@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailTemplateService } from './email-template.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotificationTypeEnum } from '../../../modules/notification-center/entities/in-app-notification.entity';
+import { EmailTemplateService, SUPPORTED_NOTIFICATION_LOCALES } from './email-template.service';
 
 describe('EmailTemplateService', () => {
   let service: EmailTemplateService;
@@ -59,17 +60,47 @@ describe('EmailTemplateService', () => {
       expect(result).not.toContain('{{remindAt}}');
     });
 
-    it('should clean up unused placeholders', async () => {
-      // If we don't pass name for welcome template, it should be replaced with empty string
-      const result = await service.render('welcome', {});
-      expect(result).toContain('Welcome, !');
-      expect(result).not.toContain('{{name}}');
+    it('rejects templates with missing required variables', async () => {
+      await expect(service.render('welcome', {})).rejects.toThrow(
+        new BadRequestException('Missing required variables for email template "welcome": name')
+      );
+
+      await expect(service.render('password-reset', { name: 'Jane' })).rejects.toThrow('link');
     });
 
     it('should throw NotFoundException for nonexistent templates', async () => {
-      await expect(service.render('nonexistent-template', {})).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.render('nonexistent-template', {})).rejects.toThrow(NotFoundException);
     });
+
+    it.each(
+      Object.values(NotificationTypeEnum).flatMap((type) =>
+        [...SUPPORTED_NOTIFICATION_LOCALES, 'en-GB', 'sw'].map((locale) => [type, locale])
+      )
+    )('validates the notification template for type %s and locale %s', async (type, locale) => {
+      const result = await service.render(
+        'notification',
+        { title: type, body: 'Notification body' },
+        locale
+      );
+
+      expect(result).toContain(`<h1>${type}</h1>`);
+      expect(result).toContain('<p>Notification body</p>');
+      expect(result).toContain('<html lang="en">');
+      expect(result).not.toMatch(/{{\s*[\w.-]+\s*}}/);
+    });
+
+    it.each(SUPPORTED_NOTIFICATION_LOCALES)(
+      'renders the GDPR export template in supported locale %s',
+      async (locale) => {
+        const result = await service.render(
+          'gdpr-export-ready',
+          { downloadUrl: 'https://example.com/export' },
+          locale
+        );
+
+        expect(result).toContain('https://example.com/export');
+        expect(result).not.toContain('{{downloadUrl}}');
+      }
+    );
   });
 });

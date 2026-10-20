@@ -426,6 +426,25 @@ describe('ChannelRouterService — channel routing', () => {
     expect(mockSmsService.sendSms).not.toHaveBeenCalled();
   });
 
+  it('passes the notification locale to template rendering', async () => {
+    const localizedNotification = makeNotification({
+      data: { locale: 'en-GB' },
+    });
+    const prefs = makePreference({
+      emailNotifications: true,
+      pushNotifications: false,
+      smsNotifications: false,
+    });
+
+    await channelRouter.route({ notification: localizedNotification, user, preferences: prefs });
+
+    expect(mockEmailTemplateService.render).toHaveBeenCalledWith(
+      'notification',
+      { title: localizedNotification.title, body: localizedNotification.body },
+      'en-GB',
+    );
+  });
+
   it('does NOT enqueue push or SMS jobs when those channels are disabled', async () => {
     const prefs = makePreference({ emailNotifications: true, pushNotifications: false, smsNotifications: false });
 

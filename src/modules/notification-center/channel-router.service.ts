@@ -311,11 +311,16 @@ export class ChannelRouterService {
 
     // Rendering is part of the delivery attempt. A rendering/provider failure
     // must reach attemptDelivery so it is logged and queued for retry.
-    const html = await this.emailTemplateService.render('notification', {
-      title: notification.title,
-      body: notification.body,
-      firstName: user.firstName ?? '',
-    });
+    const locale =
+      typeof notification.data?.locale === 'string' ? notification.data.locale : undefined;
+    const html = await this.emailTemplateService.render(
+      'notification',
+      {
+        title: notification.title,
+        body: notification.body,
+      },
+      locale
+    );
 
     // TODO: wire up actual mailer (e.g. SendGrid / Nodemailer) here.
     // For now we log at info level so the flow is testable end-to-end.
