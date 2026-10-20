@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { User } from '../entities/user.entity';
 import { WalletService } from '../modules/wallet/wallet.service';
+import { AuditService } from '../audit/audit.service';
 import {
   RewardCatalog,
   RewardCatalogStatus,
@@ -32,6 +33,7 @@ describe('RewardCatalogService', () => {
   const userRepository = { findOne: jest.fn() };
   const eventEmitter = { emit: jest.fn() };
   const walletService = { getWalletSummary: jest.fn() };
+  const auditService = { logEvent: jest.fn() };
 
   const dataSource = {
     transaction: jest.fn(async (work) => {
@@ -99,6 +101,7 @@ describe('RewardCatalogService', () => {
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: EventEmitter2, useValue: eventEmitter },
         { provide: WalletService, useValue: walletService },
+        { provide: AuditService, useValue: auditService },
         { provide: getDataSourceToken(), useValue: dataSource },
       ],
     }).compile();

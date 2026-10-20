@@ -20,10 +20,12 @@ import { StellarModule } from '../stellar/stellar.module';
 import { BadgeModule } from './badges/badge.module';
 import { AntiAbuseModule } from '../modules/anti-abuse/anti-abuse.module';
 import { RewardClaimGuard } from '../modules/anti-abuse/reward-claim.guard';
-import { WalletModule } from '../../modules/wallet/wallet.module';
+import { WalletModule } from '../modules/wallet/wallet.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [
+    AuditModule,
     StellarModule,
     TypeOrmModule.forFeature([
       RewardTransaction,
