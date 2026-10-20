@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import {
   BadRequestException,
   ConflictException,
@@ -70,6 +71,9 @@ export class AuthService {
   private readonly lockoutDurationMs: number;
   private readonly jwtSecurity: JwtSecurityConfig;
 
+  private static readonly REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  private static readonly REFERRAL_CODE_LENGTH = 10;
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -119,6 +123,9 @@ export class AuthService {
       password: hashedPassword,
     });
 
+    // Assign a unique referral code to the new user.
+    await this.assignReferralCode(user);
+
     this.eventEmitter.emit('user.registered', {
       userId: user.id,
       email: user.email,
@@ -153,6 +160,47 @@ export class AuthService {
       ...tokens,
       user: profile,
     };
+  }
+
+  /**
+   * Generates a cryptographically random referral code and persists it on the
+   * user. Uses rejection sampling over a 32-character alphabet so every code
+   * has uniform entropy (no modulo bias) and is not derivable from the user id
+   * or registration order.
+   */
+  private async assignReferralCode(user: any): Promise<void> {
+    const alphabet = AuthService.REFERRAL_CODE_ALPHABET;
+    const length = AuthService.REFERRAL_CODE_LENGTH;
+    const maxAttempts = 5;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const code = this.generateReferralCode(alphabet, length);
+      const existing = await this.usersService.findByReferralCode?.(code);
+      if (existing) {
+        continue;
+      }
+      user.referralCode = code;
+      await this.usersService.save(user);
+      return;
+    }
+
+    // Extremely unlikely with 32^10 space; fail loudly rather than persist a
+    // duplicate or a predictable fallback.
+    throw new InternalServerErrorException('Unable to generate a unique referral code');
+  }
+
+  private generateReferralCode(alphabet: string, length: number): string {
+    const bytes = randomBytes(length);
+    let code = '';
+    for (let i = 0; i < length; i++) {
+      // Reject values that would introduce modulo bias.
+      let byte = bytes[i];
+      while (byte >= Math.floor(256 / alphabet.length) * alphabet.length) {
+        byte = randomBytes(1)[0];
+      }
+      code += alphabet[byte % alphabet.length];
+    }
+    return code;
   }
 
   // Login user
@@ -1090,5 +1138,17 @@ export class AuthService {
     // Return updated profile (without sensitive fields)
     const { password, twoFactorSecret, refreshToken, ...profile } = user;
     return profile;
+  }
+
+  /**
+   * Returns the authenticated user's referral code. Ownership is enforced by
+   * only ever reading the code off the caller's own user record.
+   */
+  async getReferralCode(userId: string): Promise<{ referralCode: string }> {
+    const user = await this.usersService.findById(userId);
+    if (!user.referralCode) {
+      await this.assignReferralCode(user);
+    }
+    return { referralCode: user.referralCode };
   }
 }

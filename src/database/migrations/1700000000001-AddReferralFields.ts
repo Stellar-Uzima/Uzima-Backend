@@ -10,6 +10,38 @@ export class AddReferralFields1700000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
+      CREATE UNIQUE INDEX IDX_users_referral_code
+      ON users (referral_code);
+    `);
+
+    await queryRunner.query(`
+      CREATE OR REPLACE FUNCTION generate_referral_code()
+      RETURNS VARCHAR(8) AS $$
+      DECLARE
+        chars TEXT := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        result VARCHAR(8) := '';
+        i INT;
+      BEGIN
+        FOR i IN 1..8 LOOP
+          result := result || substr(chars, 1 + floor(random() * length(chars))::int, 1);
+        END LOOP;
+        RETURN result;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE users
+      ALTER COLUMN referral_code SET DEFAULT generate_referral_code();
+    `);
+
+    await queryRunner.query(`
+      UPDATE users
+      SET referral_code = generate_referral_code()
+      WHERE referral_code IS NULL;
+    `);
+
+    await queryRunner.query(`
       ALTER TABLE users
       ADD COLUMN referred_by_id uuid NULL;
     `);
@@ -37,6 +69,12 @@ export class AddReferralFields1700000000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      ALTER TABLE users
+      ALTER COLUMN referral_code DROP DEFAULT;
+    `);
+    await queryRunner.query(`DROP FUNCTION IF EXISTS generate_referral_code();`);
+    await queryRunner.query(`DROP INDEX IF EXISTS IDX_users_referral_code;`);
     await queryRunner.query(`DROP TABLE referral_records;`);
     await queryRunner.query(
       `ALTER TABLE users DROP CONSTRAINT FK_referred_by;`,
