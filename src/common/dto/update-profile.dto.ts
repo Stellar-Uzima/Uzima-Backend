@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl, MaxLength, Matches } from 'class-validator';
+import { IsString, IsOptional, MaxLength, Matches, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
@@ -42,25 +42,23 @@ export class UpdateProfileDto {
   phoneNumber?: string;
 
   @ApiPropertyOptional({
-    description: 'Profile avatar URL',
-    example: 'https://example.com/avatar.jpg',
+    description:
+      'Profile avatar storage reference. Provide a storage reference (e.g., bucket/key or storage key) to set the avatar, or null to clear it.',
+    example: 'avatars/users/123e4567-e89b-12d3-a456-426614174000.png',
     maxLength: 500,
+    nullable: true,
   })
-  @IsOptional()
-  @IsUrl(
-    {
-      protocols: ['http', 'https'],
-      require_protocol: true,
-    },
-    {
-      message: 'Avatar must be a valid URL starting with http:// or https://',
-    }
-  )
+  @ValidateIf((_object, value) => value !== null)
+  @IsString()
   @MaxLength(500, {
-    message: 'Avatar URL must be less than 500 characters',
+    message: 'Avatar reference must be less than 500 characters',
   })
-  @Transform(({ value }) => value?.trim())
-  avatar?: string;
+  @Matches(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9_.-]*)*$/, {
+    message:
+      'Avatar must be a valid storage reference containing only alphanumeric characters, dots, hyphens, underscores, and slashes',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  avatar?: string | null;
 
   @ApiPropertyOptional({
     description: 'User bio or description',
@@ -179,8 +177,8 @@ export class ProfileResponseDto {
   phoneNumber?: string;
 
   @ApiProperty({
-    description: 'Avatar URL',
-    example: 'https://example.com/avatar.jpg',
+    description: 'Avatar storage reference',
+    example: 'avatars/users/123e4567-e89b-12d3-a456-426614174000.png',
     nullable: true,
   })
   avatar?: string | null;
