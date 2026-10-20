@@ -1,7 +1,7 @@
 import {
   AuthEventOutcome,
   AuthEventType,
-} from '../../../database/entities/auth-event.entity';
+} from '../../database/entities/auth-event.entity';
 import {
   AuthEventAuditService,
   DEFAULT_AUTH_EVENT_RETENTION_DAYS,

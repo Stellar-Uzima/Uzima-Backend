@@ -9,7 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../../entities/user.entity';
-import { WithdrawalStatus } from './withdrawal.dto';
+import { WithdrawalStatus } from '../dto/withdrawal.dto';
 
 @Entity('wallet_withdrawals')
 @Index(['userId'])
