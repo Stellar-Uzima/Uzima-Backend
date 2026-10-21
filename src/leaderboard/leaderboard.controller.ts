@@ -2,7 +2,7 @@ import { Controller, Get, Query, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBrearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LeaderboardService } from './leaderboard.service';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { LeaderboardResponseDto } from './dto/leaderboard.dto';
+import { LeaderboardResponseDto, UserRankResponseDto } from './dto/leaderboard.dto';
 import { parseLeaderboardPeriod } from './leaderboard-period.enum';
 import { LeaderboardPeriod } from './leaderboard.constants';
 
@@ -35,7 +35,7 @@ export class LeaderboardController {
     type: LeaderboardResponseDto,
   })
   async getRanking(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Query('limit') limit?: number,
     @Query('page') page?: number,
     @Query('period') period?: string,
@@ -64,8 +64,61 @@ export class LeaderboardController {
     description: 'Successfully retrieved global leaderboard',
     type: LeaderboardResponseDto,
   })
-  async getGlobal(@Req() req, @Query('limit') limit?: number, @Query('page') page?: number) {
+  async getGlobal(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit') limit?: number,
+    @Query('page') page?: number
+  ) {
     return this.leaderboardService.getLeaderboard(req.user.id, limit || 10, undefined, page || 1);
+  }
+
+  /**
+   * Get the authenticated user's own rank without exposing restricted profile fields.
+   *
+   * Returns only: userId, displayName, rank, totalXlm, country, period.
+   * No password hashes, refresh tokens, 2FA secrets, or other sensitive data.
+   *
+   * NOTE: This route must be declared before /country/:countryCode and any
+   * other parameterised routes to prevent "me" being captured as a param value.
+   */
+  @Get('me/rank')
+  @ApiOperation({
+    summary: "Get the authenticated user's leaderboard rank",
+    description:
+      "Returns the current user's rank on the specified leaderboard. " +
+      'Only safe, non-sensitive fields are included in the response — ' +
+      'no password hashes, tokens, or restricted profile data are exposed.',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['daily', 'weekly', 'monthly', 'all-time'],
+    example: 'all-time',
+    description: 'Leaderboard period to query',
+  })
+  @ApiQuery({
+    name: 'countryCode',
+    required: false,
+    type: String,
+    example: 'NG',
+    description: 'Country code to scope the leaderboard; omit for global rank',
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Successfully retrieved the user's rank",
+    type: UserRankResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized — valid JWT required' })
+  async getMyRank(
+    @Req() req: AuthenticatedRequest,
+    @Query('period') period?: string,
+    @Query('countryCode') countryCode?: string
+  ): Promise<UserRankResponseDto> {
+    return this.leaderboardService.getUserRank(
+      req.user.id,
+      countryCode,
+      parseLeaderboardPeriod(period)
+    );
   }
 
   /**
@@ -84,7 +137,7 @@ export class LeaderboardController {
     type: LeaderboardResponseDto,
   })
   async getByCountry(
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Param('countryCode') countryCode: string,
     @Query('limit') limit?: number,
     @Query('page') page?: number,

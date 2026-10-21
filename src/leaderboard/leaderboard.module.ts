@@ -37,9 +37,7 @@ export const LEADERBOARD_CACHE_TTL_MS = 3600 * 1000;
   exports: [LeaderboardService],
 })
 export class LeaderboardModule implements OnModuleInit {
-  constructor(
-    @InjectQueue('leaderboard-tasks') private readonly leaderboardQueue: Queue,
-  ) {}
+  constructor(@InjectQueue('leaderboard-tasks') private readonly leaderboardQueue: Queue) {}
 
   async onModuleInit() {
     // Add the repeatable daily job at midnight
@@ -51,7 +49,7 @@ export class LeaderboardModule implements OnModuleInit {
         repeat: { cron: '0 0 * * *' },
         jobId: 'daily-leaderboard-rebuild',
         removeOnComplete: true,
-      },
+      }
     );
   }
 }

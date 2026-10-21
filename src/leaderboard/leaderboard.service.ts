@@ -9,6 +9,7 @@ import { RewardStatus } from '../rewards/enums/reward-status.enum';
 import {
   LeaderboardResponseDto,
   LeaderboardEntryDto,
+  UserRankResponseDto,
 } from './dto/leaderboard.dto';
 import {
   LeaderboardPeriod,
@@ -62,7 +63,7 @@ export class LeaderboardService {
   constructor(
     @InjectRepository(RewardTransaction)
     private readonly rewardTransactionRepository: Repository<RewardTransaction>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
     this.redis = (this.cacheManager.stores as any).client;
     this.configureStreakMilestones([
@@ -203,18 +204,14 @@ export class LeaderboardService {
     return `${firstName} ${lastName.charAt(0)}.`;
   }
 
-  rankLeaderboardRows(
-    rows: LeaderboardCalculationRow[],
-  ): LeaderboardCalculationRow[] {
+  rankLeaderboardRows(rows: LeaderboardCalculationRow[]): LeaderboardCalculationRow[] {
     return [...rows].sort((left, right) => {
       if (right.totalXlm !== left.totalXlm) {
         return right.totalXlm - left.totalXlm;
       }
 
-      const leftTimestamp =
-        left.firstTaskCompletedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const rightTimestamp =
-        right.firstTaskCompletedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const leftTimestamp = left.firstTaskCompletedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const rightTimestamp = right.firstTaskCompletedAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
 
       if (leftTimestamp !== rightTimestamp) {
         return leftTimestamp - rightTimestamp;
@@ -226,7 +223,7 @@ export class LeaderboardService {
 
   filterLeaderboardRowsByCategory(
     rows: LeaderboardCalculationRow[],
-    category?: string,
+    category?: string
   ): LeaderboardCalculationRow[] {
     if (!category) {
       return [...rows];
@@ -238,7 +235,7 @@ export class LeaderboardService {
   paginateLeaderboardRows(
     rows: LeaderboardCalculationRow[],
     page: number = 1,
-    limit: number = 50,
+    limit: number = 50
   ): LeaderboardCalculationRow[] {
     if (page < 1 || limit < 1) {
       return [];
@@ -256,14 +253,9 @@ export class LeaderboardService {
       countryCode?: string;
       page?: number;
       limit?: number;
-    },
+    }
   ): LeaderboardResponseDto {
-    const {
-      category,
-      countryCode,
-      page = 1,
-      limit = 50,
-    } = options ?? {};
+    const { category, countryCode, page = 1, limit = 50 } = options ?? {};
 
     const filteredRows = this.filterLeaderboardRowsByCategory(rows, category);
     const rankedRows = this.rankLeaderboardRows(filteredRows);
@@ -271,6 +263,7 @@ export class LeaderboardService {
     const myRankIndex = rankedRows.findIndex((row) => row.userId === userId);
     const myRow = myRankIndex >= 0 ? rankedRows[myRankIndex] : null;
     const offset = (page - 1) * limit;
+    const total = rankedRows.length;
 
     return {
       topRankings: paginatedRows.map((row, index) => ({
@@ -284,6 +277,14 @@ export class LeaderboardService {
         rank: myRankIndex >= 0 ? myRankIndex + 1 : null,
         totalXlm: myRow?.totalXlm ?? 0,
       },
+      pagination: {
+        page,
+        limit,
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+        nextPage: page * limit < total ? page + 1 : undefined,
+        previousPage: page > 1 ? page - 1 : undefined,
+      },
     };
   }
 
@@ -292,7 +293,7 @@ export class LeaderboardService {
     limit: number = 50,
     countryCode?: string,
     page: number = 1,
-    period: LeaderboardPeriod = DEFAULT_LEADERBOARD_PERIOD,
+    period: LeaderboardPeriod = DEFAULT_LEADERBOARD_PERIOD
   ): Promise<LeaderboardResponseDto> {
     const startTime = performance.now();
     const setKey = buildLeaderboardSetKey(period, countryCode);
@@ -301,12 +302,7 @@ export class LeaderboardService {
     const endIndex = startIndex + limit - 1;
 
     // Get Top N IDs and Scores from the Sorted Set
-    const rawTopUsers = await this.redis.zrevrange(
-      setKey,
-      startIndex,
-      endIndex,
-      'WITHSCORES',
-    );
+    const rawTopUsers = await this.redis.zrevrange(setKey, startIndex, endIndex, 'WITHSCORES');
 
     // Track cache hit/miss for benchmark monitoring.
     // NOTE: An empty sorted set is treated as a "miss" — this is conservative
@@ -326,14 +322,16 @@ export class LeaderboardService {
     }
 
     // Fetch names from Redis Hash (HMGET returns an array of values)
-    const displayNames =
-      userIds.length > 0 ? await this.redis.hmget(namesKey, ...userIds) : [];
+    const displayNames = userIds.length > 0 ? await this.redis.hmget(namesKey, ...userIds) : [];
 
     // Get Requesting User's Rank and Score
     const [userRank, userScore] = await Promise.all([
       this.redis.zrevrank(setKey, userId),
       this.redis.zscore(setKey, userId),
     ]);
+
+    // Get total count for pagination metadata
+    const totalCount = await this.redis.zcard(setKey);
 
     // Build DTOs
     const topRankings: LeaderboardEntryDto[] = userIds.map((id, index) => ({
@@ -355,6 +353,54 @@ export class LeaderboardService {
         rank: userRank !== null ? userRank + 1 : null,
         totalXlm: userScore ? parseFloat(userScore) : 0,
       },
+      pagination: {
+        page,
+        limit,
+        hasNextPage: page * limit < totalCount,
+        hasPreviousPage: page > 1,
+        nextPage: page * limit < totalCount ? page + 1 : undefined,
+        previousPage: page > 1 ? page - 1 : undefined,
+      },
+    };
+  }
+
+  /**
+   * Returns the authenticated user's rank on the leaderboard without
+   * exposing any restricted profile fields (password, refreshToken, etc.).
+   *
+   * Only public, safe fields are returned:
+   *   - userId (opaque identifier)
+   *   - displayName (first name + last initial)
+   *   - rank (1-indexed position, null when unranked)
+   *   - totalXlm (score)
+   *   - country (country code or "Global")
+   *   - period (the leaderboard period queried)
+   */
+  async getUserRank(
+    userId: string,
+    countryCode?: string,
+    period: LeaderboardPeriod = DEFAULT_LEADERBOARD_PERIOD
+  ): Promise<UserRankResponseDto> {
+    const setKey = buildLeaderboardSetKey(period, countryCode);
+    const namesKey = `leaderboard:metadata:names`;
+
+    // Fetch rank, score, and display name in parallel
+    const [userRank, userScore, displayNames] = await Promise.all([
+      this.redis.zrevrank(setKey, userId),
+      this.redis.zscore(setKey, userId),
+      this.redis.hmget(namesKey, userId),
+    ]);
+
+    const displayName = displayNames[0] || 'Anonymous';
+    const totalXlm = userScore ? parseFloat(userScore) : 0;
+
+    return {
+      userId,
+      displayName,
+      rank: userRank !== null ? userRank + 1 : null,
+      totalXlm,
+      country: countryCode?.toUpperCase() || 'Global',
+      period,
     };
   }
 
