@@ -74,7 +74,7 @@ process, exactly like code.
      includes the item "Runbooks reviewed for this release's changes" — e.g. a
      release that changes queue configuration must have the queue-failures
      runbook re-verified. This item lives in `.github/PULL_REQUEST_TEMPLATE.md`
-     and the release checklist.
+     and the [release-readiness record](../RELEASE_READINESS_CHECKLIST.md).
 - Runbook changes that accompany a feature (new queue, new alert, new admin
   tooling) belong in the **same PR** as the feature whenever possible.
 
