@@ -7,14 +7,9 @@ export enum LeaderboardPeriod {
 
 export const DEFAULT_LEADERBOARD_PERIOD = LeaderboardPeriod.ALL_TIME;
 
-export function parseLeaderboardPeriod(
-  value?: string,
-): LeaderboardPeriod {
+export function parseLeaderboardPeriod(value?: string): LeaderboardPeriod {
   const normalized = value?.toLowerCase();
-  if (
-    normalized &&
-    Object.values(LeaderboardPeriod).includes(normalized as LeaderboardPeriod)
-  ) {
+  if (normalized && Object.values(LeaderboardPeriod).includes(normalized as LeaderboardPeriod)) {
     return normalized as LeaderboardPeriod;
   }
   return DEFAULT_LEADERBOARD_PERIOD;
@@ -48,12 +43,8 @@ export function getPeriodStartDate(period: LeaderboardPeriod): Date | null {
   }
 }
 
-export function buildLeaderboardSetKey(
-  period: LeaderboardPeriod,
-  countryCode?: string,
-): string {
-  const periodSuffix =
-    period === LeaderboardPeriod.ALL_TIME ? '' : `:${period}`;
+export function buildLeaderboardSetKey(period: LeaderboardPeriod, countryCode?: string): string {
+  const periodSuffix = period === LeaderboardPeriod.ALL_TIME ? '' : `:${period}`;
 
   if (countryCode) {
     return `leaderboard:country:${countryCode.toUpperCase()}${periodSuffix}`;

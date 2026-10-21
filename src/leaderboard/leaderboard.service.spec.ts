@@ -16,6 +16,7 @@ const mockRedisClient = {
   hmget: jest.fn(),
   zrevrank: jest.fn(),
   zscore: jest.fn(),
+  zcard: jest.fn(),
   scan: jest.fn(),
   pipeline: jest.fn(),
   del: jest.fn(),
@@ -47,6 +48,9 @@ describe('LeaderboardService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Default mock for zcard — individual tests can override this
+    mockRedisClient.zcard.mockResolvedValue(0);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1112,4 +1116,144 @@ describe('LeaderboardService', () => {
       expect(mockPipeline.exec).toHaveBeenCalled();
     });
   });
+
+  // ============================================
+  // getUserRank
+  // ============================================
+
+  describe('getUserRank', () => {
+    const userId = 'user-uuid-rank';
+
+    it('returns the rank, score, and display name for a ranked user', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(4); // 0-indexed → rank 5
+      mockRedisClient.zscore.mockResolvedValue('350.75');
+      mockRedisClient.hmget.mockResolvedValue(['John D.']);
+
+      const result = await service.getUserRank(userId);
+
+      expect(result.userId).toBe(userId);
+      expect(result.rank).toBe(5);
+      expect(result.totalXlm).toBe(350.75);
+      expect(result.displayName).toBe('John D.');
+      expect(result.country).toBe('Global');
+      expect(result.period).toBe('all-time');
+    });
+
+    it('returns rank null and totalXlm 0 when user is not on the leaderboard', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(null);
+      mockRedisClient.zscore.mockResolvedValue(null);
+      mockRedisClient.hmget.mockResolvedValue([null]);
+
+      const result = await service.getUserRank(userId);
+
+      expect(result.rank).toBeNull();
+      expect(result.totalXlm).toBe(0);
+      expect(result.displayName).toBe('Anonymous');
+    });
+
+    it('uses the country-scoped leaderboard set key when countryCode is provided', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(1);
+      mockRedisClient.zscore.mockResolvedValue('200');
+      mockRedisClient.hmget.mockResolvedValue(['Alice B.']);
+
+      await service.getUserRank(userId, 'NG');
+
+      expect(mockRedisClient.zrevrank).toHaveBeenCalledWith(
+        'leaderboard:country:NG',
+        userId,
+      );
+      expect(mockRedisClient.zscore).toHaveBeenCalledWith(
+        'leaderboard:country:NG',
+        userId,
+      );
+    });
+
+    it('uppercases the country code in the returned response', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('500');
+      mockRedisClient.hmget.mockResolvedValue(['Jane D.']);
+
+      const result = await service.getUserRank(userId, 'ng');
+
+      expect(result.country).toBe('NG');
+    });
+
+    it('uses the weekly period leaderboard set key when weekly period is requested', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(9);
+      mockRedisClient.zscore.mockResolvedValue('75');
+      mockRedisClient.hmget.mockResolvedValue(['Bob C.']);
+
+      await service.getUserRank(userId, undefined, LeaderboardPeriod.WEEKLY);
+
+      expect(mockRedisClient.zrevrank).toHaveBeenCalledWith(
+        buildLeaderboardSetKey(LeaderboardPeriod.WEEKLY),
+        userId,
+      );
+    });
+
+    it('reflects the period in the response', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(2);
+      mockRedisClient.zscore.mockResolvedValue('150');
+      mockRedisClient.hmget.mockResolvedValue(['Carol E.']);
+
+      const result = await service.getUserRank(
+        userId,
+        undefined,
+        LeaderboardPeriod.MONTHLY,
+      );
+
+      expect(result.period).toBe(LeaderboardPeriod.MONTHLY);
+    });
+
+    it('falls back to "Global" country when no countryCode is given', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('1000');
+      mockRedisClient.hmget.mockResolvedValue(['Top User']);
+
+      const result = await service.getUserRank(userId);
+
+      expect(result.country).toBe('Global');
+    });
+
+    it('does not return restricted user profile fields', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(3);
+      mockRedisClient.zscore.mockResolvedValue('200');
+      mockRedisClient.hmget.mockResolvedValue(['Safe User']);
+
+      const result = await service.getUserRank(userId);
+
+      // Only the safe, explicitly white-listed fields should be present
+      const keys = Object.keys(result);
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          'userId',
+          'displayName',
+          'rank',
+          'totalXlm',
+          'country',
+          'period',
+        ]),
+      );
+      // Sensitive fields must never appear
+      expect(keys).not.toContain('password');
+      expect(keys).not.toContain('refreshToken');
+      expect(keys).not.toContain('twoFactorSecret');
+      expect(keys).not.toContain('emailVerificationToken');
+      expect(keys).not.toContain('passwordResetToken');
+    });
+
+    it('performs all Redis lookups in parallel (single round trip)', async () => {
+      mockRedisClient.zrevrank.mockResolvedValue(0);
+      mockRedisClient.zscore.mockResolvedValue('500');
+      mockRedisClient.hmget.mockResolvedValue(['Parallel User']);
+
+      await service.getUserRank(userId);
+
+      // All three Redis calls should fire — verifying Promise.all usage
+      expect(mockRedisClient.zrevrank).toHaveBeenCalledTimes(1);
+      expect(mockRedisClient.zscore).toHaveBeenCalledTimes(1);
+      expect(mockRedisClient.hmget).toHaveBeenCalledTimes(1);
+    });
+  });
 });
+
