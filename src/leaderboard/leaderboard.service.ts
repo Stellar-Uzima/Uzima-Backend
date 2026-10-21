@@ -27,12 +27,21 @@ export interface LeaderboardCalculationRow {
   firstTaskCompletedAt?: Date;
 }
 
-/** Shape of the raw row returned by the leaderboard rebuild query. */
-interface LeaderboardRawRow {
-  userId: string;
-  totalXlm: string;
-  fullName: string;
-  country: string;
+export interface StreakMilestoneEvent {
+  /** Unique identifier for the milestone (e.g. 'streak_7') */
+  id: string;
+  /** Streak length (in days) that triggers this milestone */
+  streakDays: number;
+  /** Reward amount in XLM issued when this milestone is reached */
+  rewardAmountXlm: number;
+}
+
+export interface StreakRewardEligibilityResult {
+  eligible: boolean;
+  milestoneId: string | null;
+  rewardAmountXlm: number;
+  issued: boolean;
+  reason?: string;
 }
 
 @Injectable()
@@ -46,12 +55,145 @@ export class LeaderboardService {
   private totalResponseTimeMs = 0;
   private requestCount = 0;
 
+  /** Configured streak milestone events that can trigger rewards. */
+  private streakMilestones: StreakMilestoneEvent[] = [];
+  private streakMilestoneById = new Map<string, StreakMilestoneEvent>();
+  private streakMilestoneByDays = new Map<number, StreakMilestoneEvent>();
+
   constructor(
     @InjectRepository(RewardTransaction)
     private readonly rewardTransactionRepository: Repository<RewardTransaction>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
-    this.redis = (this.cacheManager.stores as unknown as { client: Redis }).client;
+    this.redis = (this.cacheManager.stores as any).client;
+    this.configureStreakMilestones([
+      { id: 'streak_7', streakDays: 7, rewardAmountXlm: 1 },
+      { id: 'streak_14', streakDays: 14, rewardAmountXlm: 2 },
+      { id: 'streak_30', streakDays: 30, rewardAmountXlm: 5 },
+      { id: 'streak_100', streakDays: 100, rewardAmountXlm: 20 },
+    ]);
+  }
+
+  /**
+   * Register the configured streak milestone events. Only milestones registered
+   * here can trigger awards.
+   */
+  configureStreakMilestones(milestones: StreakMilestoneEvent[]): void {
+    this.streakMilestones = [];
+    this.streakMilestoneById = new Map();
+    this.streakMilestoneByDays = new Map();
+
+    for (const milestone of milestones) {
+      if (!milestone.id || milestone.streakDays <= 0 || milestone.rewardAmountXlm <= 0) {
+        throw new Error(
+          `Invalid streak milestone configuration: ${JSON.stringify(milestone)}`,
+        );
+      }
+      if (
+        this.streakMilestoneById.has(milestone.id) ||
+        this.streakMilestoneByDays.has(milestone.streakDays)
+      ) {
+        throw new Error(
+          `Duplicate streak milestone configuration for id=${milestone.id} or days=${milestone.streakDays}`,
+        );
+      }
+      this.streakMilestones.push(milestone);
+      this.streakMilestoneById.set(milestone.id, milestone);
+      this.streakMilestoneByDays.set(milestone.streakDays, milestone);
+    }
+  }
+
+  getStreakMilestones(): StreakMilestoneEvent[] {
+    return this.streakMilestones.map(($milestone) => ({ ...$milestone }));
+  }
+
+  /**
+   * Resolve the configured milestone for a validated streak length. Returns null
+   * when the streak length does not match any configured milestone.
+   */
+  resolveStreakMilestone(streakDays: number): StreakMilestoneEvent | null {
+    if (!Number.isFinite(streakDays) || streakDays <= 0) {
+      return null;
+    }
+    return this.streakMilestoneByDays.get(streakDays) ?? null;
+  }
+
+  private buildStreakRewardIdempotencyKey(
+    userId: string,
+    milestoneId: string,
+  ): string {
+    return `streak:reward:issued:${userId}:${milestoneId}`;
+  }
+
+  /**
+   * Connect a validated streak milestone to reward issuance.
+   *
+   * Acceptance criteria:
+   * - Only configured milestone events can trigger awards.
+   * - Duplicate milestone processing cannot issue duplicate rewards.
+   */
+  async processStreakMilestoneReward(
+    userId: string,
+    streakDays: number,
+  ): Promise<StreakRewardEligibilityResult> {
+    const milestone = this.resolveStreakMilestone(streakDays);
+    if (!milestone) {
+      return {
+        eligible: false,
+        milestoneId: null,
+        rewardAmountXlm: 0,
+        issued: false,
+        reason: 'No configured milestone matches the provided streak length',
+      };
+    }
+
+    const idempotencyKey = this.buildStreakRewardIdempotencyKey(
+      userId,
+      milestone.id,
+    );
+
+    // Atomic claim: SET if not exists guarantees only one processor can issue
+    // the reward for a given user/milestone pair.
+    const claimed = await this.redis.set(
+      idempotencyKey,
+      'pending',
+      'NX',
+    );
+    if (claimed !== 'OK') {
+      return {
+        eligible: true,
+        milestoneId: milestone.id,
+        rewardAmountXlm: milestone.rewardAmountXlm,
+        issued: false,
+        reason: 'Reward already issued for this milestone',
+      };
+    }
+
+    try {
+      const transaction = this.rewardTransactionRepository.create({
+        userId,
+        amount: milestone.rewardAmountXlm,
+        status: RewardStatus.SUCCESS,
+        reference: milestone.id,
+      } as Partial<RewardTransaction>);
+      await this.rewardTransactionRepository.save(transaction);
+
+      await this.redis.set(idempotencyKey, 'done');
+
+      return {
+        eligible: true,
+        milestoneId: milestone.id,
+        rewardAmountXlm: milestone.rewardAmountXlm,
+        issued: true,
+      };
+    } catch (error) {
+      // Roll back the claim so a later retry can succeed.
+      await this.redis.del(idempotencyKey).catch(() => undefined);
+      this.logger.error(
+        `Failed to issue streak reward for user ${userId} milestone ${milestone.id}: ${(error as Error).message}`,
+      );
+      throw error;
+    }
   }
 
   private formatDisplayName(fullName: string): string {
@@ -202,7 +344,7 @@ export class LeaderboardService {
 
     // Track response time for benchmarks
     const elapsed = performance.now() - startTime;
-    this.totalResponseTimeMs += elapsed;
+    this.totalResponseTimeMs+= elapsed;
     this.requestCount++;
 
     return {
@@ -285,83 +427,35 @@ export class LeaderboardService {
         .createQueryBuilder('rt')
         .select('rt.userId', 'userId')
         .addSelect('SUM(rt.amount)', 'totalXlm')
-        .addSelect('u.fullName', 'fullName')
-        .addSelect('u.country', 'country')
-        .innerJoin('rt.user', 'u')
-        .where('rt.status = :status', { status: RewardStatus.SUCCESS });
+        .groupBy('rt.userId');
 
       if (periodStart) {
-        queryBuilder.andWhere('rt.createdAt >= :periodStart', { periodStart });
+        queryBuilder.andWhere('rt.createdAt >= :periodStart', {
+          periodStart,
+        });
       }
 
-      const data = await queryBuilder
-        .groupBy('rt.userId')
-        .addGroupBy('u.fullName')
-        .addGroupBy('u.country')
-        .getRawMany<LeaderboardRawRow>();
+      const rows = await queryBuilder.getRawMany();
+      totalUsersProcessed += rows.length;
 
-      totalUsersProcessed = Math.max(totalUsersProcessed, data.length);
-
-      for (const row of data) {
-        const score = parseFloat(row.totalXlm);
-        const truncatedName = this.formatDisplayName(row.fullName);
-        const countryKey = buildLeaderboardSetKey(period, row.country?.toUpperCase());
-
-        pipeline.zadd(globalKey, score, row.userId);
-        pipeline.zadd(countryKey, score, row.userId);
-        nameMap[row.userId] = truncatedName;
+      for (const row of rows) {
+        const userId = row.userId as string;
+        const totalXlm = Number(row.totalXlm);
+        if (!userId || !Number.isFinite(totalXlm)) {
+          continue;
+        }
+        pipeline.zadd(globalKey, totalXlm, userId);
       }
-    }
-
-    if (Object.keys(nameMap).length > 0) {
-      pipeline.hmset('leaderboard:metadata:names', nameMap);
     }
 
     await pipeline.exec();
+
+    if (Object.keys(nameMap).length > 0) {
+      await this.redis.hmset('leaderboard:metadata:names', nameMap);
+    }
+
     this.logger.log(
-      `Leaderboard rebuild complete. Processed up to ${totalUsersProcessed} users per period.`
+      `Leaderboard rebuild complete: ${totalUsersProcessed} user rows processed`,
     );
-  }
-
-  /**
-   * Returns cache performance metrics for benchmark and regression testing.
-   *
-   * Tracks hit/miss rates and average response times across all
-   * `getLeaderboard()` calls since the last reset.
-   *
-   * @returns Object with hits, misses, hit rate, and average response time.
-   */
-  getCachePerformanceMetrics(): {
-    hits: number;
-    misses: number;
-    hitRate: number;
-    avgResponseTimeMs: number;
-    totalRequests: number;
-  } {
-    const totalRequests = this.cacheHits + this.cacheMisses;
-    const hitRate =
-      totalRequests > 0 ? Math.round((this.cacheHits / totalRequests) * 10000) / 100 : 0;
-    const avgResponseTimeMs =
-      this.requestCount > 0
-        ? Math.round((this.totalResponseTimeMs / this.requestCount) * 100) / 100
-        : 0;
-
-    return {
-      hits: this.cacheHits,
-      misses: this.cacheMisses,
-      hitRate,
-      avgResponseTimeMs,
-      totalRequests,
-    };
-  }
-
-  /**
-   * Reset cache performance counters. Useful between benchmark runs.
-   */
-  resetCacheMetrics(): void {
-    this.cacheHits = 0;
-    this.cacheMisses = 0;
-    this.totalResponseTimeMs = 0;
-    this.requestCount = 0;
   }
 }
