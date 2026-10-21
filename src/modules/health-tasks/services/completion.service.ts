@@ -2,13 +2,15 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
-import { HealthTask } from '../../../entities/health-task.entity';
+import { HealthTask } from '../../../tasks/entities/health-task.entity';
 import { User } from '../../../entities/user.entity';
+import { Role } from '../../auth/enums/role.enum';
 
 export interface CompletionMetrics {
   totalTasks: number;
@@ -45,29 +47,37 @@ export class CompletionService {
   async markTaskComplete(
     userId: string,
     dto: MarkCompleteDto,
+    actorRole?: string,
   ): Promise<TaskCompletion> {
     const { taskId, completionPercentage = 100, notes } = dto;
 
-    // Validate task exists
     const task = await this.taskRepo.findOne({ where: { id: taskId } });
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found`);
     }
 
-    // Validate user exists
+    if (task.createdBy !== userId && actorRole !== Role.ADMIN) {
+      throw new ForbiddenException('Only the task owner or an admin can complete this task');
+    }
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException(`User ${userId} not found`);
     }
 
-    // Validate completion percentage
     if (completionPercentage < 0 || completionPercentage > 100) {
       throw new BadRequestException('Completion percentage must be between 0 and 100');
     }
 
+    const existingCompletion = await this.completionRepo.findOne({
+      where: { userId, taskId, isCompleted: true },
+    });
+    if (existingCompletion) {
+      return existingCompletion;
+    }
+
     const completedAt = completionPercentage === 100 ? new Date() : null;
 
-    // Create completion record
     const completion = this.completionRepo.create({
       userId,
       taskId,
@@ -96,19 +106,16 @@ export class CompletionService {
   ): Promise<TaskCompletion> {
     const { taskId, notes } = dto;
 
-    // Validate task exists
     const task = await this.taskRepo.findOne({ where: { id: taskId } });
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found`);
     }
 
-    // Validate user exists
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException(`User ${userId} not found`);
     }
 
-    // Create incomplete record
     const completion = this.completionRepo.create({
       userId,
       taskId,
