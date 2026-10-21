@@ -30,7 +30,8 @@
     "seed": "ts-node src/database/seeders/run-seeders.ts",
     "seed:db": "npm run seed",
     "seed:refresh": "npm run migrate:rollback && npm run migrate && npm run seed",
-    "migrate:rollback": "typeorm migration:revert -d src/database/data-source.ts"
+    "migrate:rollback": "typeorm migration:revert -d src/database/data-source.ts",
+    "verify:backup-restore": "node scripts/verify-backup-restore.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
