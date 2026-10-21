@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailTemplateService } from './email-template.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('EmailTemplateService', () => {
   let service: EmailTemplateService;
@@ -59,17 +59,34 @@ describe('EmailTemplateService', () => {
       expect(result).not.toContain('{{remindAt}}');
     });
 
-    it('should clean up unused placeholders', async () => {
-      // If we don't pass name for welcome template, it should be replaced with empty string
-      const result = await service.render('welcome', {});
-      expect(result).toContain('Welcome, !');
-      expect(result).not.toContain('{{name}}');
+    it('rejects a template when a required variable is missing', async () => {
+      await expect(service.render('welcome', {})).rejects.toThrow(BadRequestException);
+      await expect(service.render('welcome', {})).rejects.toThrow(/name/);
+    });
+
+    it.each(['en', 'en-US', 'fr'])(
+      'renders the notification template for locale %s using the English fallback',
+      async (locale) => {
+        const result = await service.render(
+          'notification',
+          { title: 'Reminder', body: 'Your task is due.', firstName: 'Alex' },
+          locale
+        );
+
+        expect(result).toContain('Hello Alex,');
+        expect(result).toContain('Reminder');
+        expect(result).toContain('Your task is due.');
+      }
+    );
+
+    it('reports every missing variable before returning a rendered template', async () => {
+      await expect(
+        service.render('notification', { title: 'Reminder', firstName: 'Alex' })
+      ).rejects.toThrow(/body/);
     });
 
     it('should throw NotFoundException for nonexistent templates', async () => {
-      await expect(service.render('nonexistent-template', {})).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.render('nonexistent-template', {})).rejects.toThrow(NotFoundException);
     });
   });
 });

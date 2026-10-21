@@ -4,13 +4,7 @@
  * metadata.
  */
 
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
 
 export enum AuditAction {
   CREATE = 'CREATE',
@@ -31,6 +25,7 @@ export enum AuditResource {
   HEALTH_TASK = 'HEALTH_TASK',
   REMINDER = 'REMINDER',
   REWARD = 'REWARD',
+  COUPON = 'COUPON',
   TRANSACTION = 'TRANSACTION',
   ADMIN = 'ADMIN',
   SYSTEM = 'SYSTEM',

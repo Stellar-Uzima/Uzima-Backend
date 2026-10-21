@@ -35,3 +35,9 @@ sum by (channel) (rate(notification_deliveries_total{outcome="failure"}[5m]))
 /
 clamp_min(sum by (channel) (rate(notification_deliveries_total[5m])), 0.001)
 ```
+
+Email delivery renders `src/shared/notifications/templates/notification.html`
+before dispatch. Every placeholder in a template is required; missing or empty
+values fail rendering rather than sending unresolved or blank content. The
+user's preferred language selects a localized template when available, with
+English as the default and fallback locale.
