@@ -1,6 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveLocale } from '../../../common/utils/locale-resolver.util';
+
+const SUPPORTED_LOCALES = ['en'] as const;
 
 @Injectable()
 export class EmailTemplateService {
@@ -11,7 +14,11 @@ export class EmailTemplateService {
    * Render an email template with the given data.
    * Supports placeholder replacements like {{ key }} or {{key}}.
    */
-  async render(templateName: string, data: Record<string, any> = {}): Promise<string> {
+  async render(
+    templateName: string,
+    data: Record<string, unknown> = {},
+    preferredLocale = 'en'
+  ): Promise<string> {
     // Map legacy or alternative template names if necessary
     let normalizedName = templateName;
     if (templateName === 'verify-email') {
@@ -19,7 +26,11 @@ export class EmailTemplateService {
     }
 
     const filename = normalizedName.endsWith('.html') ? normalizedName : `${normalizedName}.html`;
-    const templatePath = path.join(this.templatesDir, filename);
+    const locale = resolveLocale(SUPPORTED_LOCALES, preferredLocale);
+    const localizedPath = path.join(this.templatesDir, locale, filename);
+    const templatePath = fs.existsSync(localizedPath)
+      ? localizedPath
+      : path.join(this.templatesDir, filename);
 
     try {
       if (!fs.existsSync(templatePath)) {
@@ -28,7 +39,9 @@ export class EmailTemplateService {
         if (fs.existsSync(fallbackPath)) {
           return this.compileTemplate(fallbackPath, data);
         }
-        throw new NotFoundException(`Email template not found: ${templateName} (tried ${templatePath} and ${fallbackPath})`);
+        throw new NotFoundException(
+          `Email template not found: ${templateName} (tried ${templatePath} and ${fallbackPath})`
+        );
       }
 
       return this.compileTemplate(templatePath, data);
@@ -38,19 +51,32 @@ export class EmailTemplateService {
     }
   }
 
-  private async compileTemplate(filePath: string, data: Record<string, any>): Promise<string> {
-    let content = await fs.promises.readFile(filePath, 'utf-8');
+  private async compileTemplate(filePath: string, data: Record<string, unknown>): Promise<string> {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const placeholders = [...content.matchAll(/{{\s*([\w.-]+)\s*}}/g)];
+    const missing = [
+      ...new Set(
+        placeholders
+          .map(([, key]) => key)
+          .filter((key) => {
+            const value = data[key];
+            return (
+              value === undefined ||
+              value === null ||
+              (typeof value === 'string' && value.trim() === '')
+            );
+          })
+      ),
+    ];
 
-    // Replace placeholders: {{ key }}
-    for (const [key, value] of Object.entries(data)) {
-      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
-      const replacement = value !== undefined && value !== null ? String(value) : '';
-      content = content.replace(regex, replacement);
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Missing required variables for email template "${path.basename(filePath)}": ${missing.join(', ')}`
+      );
     }
 
-    // Clean up any remaining unresolved placeholders
-    content = content.replace(/{{\s*[\w\.-]+\s*}}/g, '');
-
-    return content;
+    return content.replace(/{{\s*([\w.-]+)\s*}}/g, (_placeholder, key: string) =>
+      String(data[key])
+    );
   }
 }
