@@ -71,7 +71,9 @@ npm run lint:format
 
 ### Pre-commit Checks
 
-A pre-commit hook automatically runs linting and formatting checks before code is committed to ensure only properly formatted code enters the repository.
+Run checks explicitly before submitting changes. The current package.json does
+not declare a `prepare` script installing a pre-commit hook; do not rely on an
+automatically installed hook.
 
 ## 📁 Project Structure
 
@@ -148,53 +150,15 @@ backend/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+Follow [Local development](docs/LOCAL_DEVELOPMENT.md) for prerequisites, a fresh
+clone, environment setup, PostgreSQL/Redis startup, migrations and tests. It
+includes POSIX and PowerShell test configuration, optional integrations and
+current application startup blockers. Use Node 20.x to match CI.
 
-- Node.js >= 18.x
-- npm, yarn, or pnpm
-- PostgreSQL 12+
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Stellar-Uzima/Uzima-Backend.git
-   cd backend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
-
-3. **Setup environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Run database migrations**
-   ```bash
-   npm run migrate
-   ```
-
-5. **Seed the database (optional)**
-   ```bash
-   npm run seed
-   # or
-   npm run seed:db
-   ```
-
-6. **Start the development server**
-   ```bash
-   npm run start:dev
-   ```
-
-The application will be available at `http://localhost:3000`
+Development uses `APP_PORT` (default `3001`) and `DB_NAME`. E2E tests require
+separate explicit `TEST_DB_*` settings and a disposable PostgreSQL server; see
+[Isolated E2E databases](docs/e2e-database.md). A passing database-harness test is
+not evidence that the complete backend or migration chain is healthy.
 
 ## 💻 Development
 
@@ -208,7 +172,6 @@ npm run start:debug   # Start with debug mode
 
 # Building
 npm run build         # Build for production
-npm run build:watch  # Build with watch mode
 
 # Testing
 npm run test          # Run unit tests
@@ -218,7 +181,7 @@ npm run test:e2e     # Run e2e tests
 
 # Database
 npm run migrate       # Run migrations
-npm run migrate:revert # Revert last migration
+npm run migrate:rollback # Revert last migration
 npm run seed         # Seed the database
 npm run seed:db      # Run database seeders
 
@@ -245,48 +208,22 @@ npm run lint:fix
 
 ### Environment Variables
 
-See `.env.example` for all available environment variables:
-
-```env
-# App
-NODE_ENV=development
-PORT=3000
-API_PREFIX=api
-
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=password
-DB_DATABASE=uzima_dev
-
-# JWT
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=7d
-
-# CORS
-CORS_ORIGIN=http://localhost:3000
-
-# Mail (optional)
-MAIL_HOST=smtp.example.com
-MAIL_PORT=587
-MAIL_USER=your-email@example.com
-MAIL_PASSWORD=your-password
-```
+Use the [local configuration guide](docs/LOCAL_DEVELOPMENT.md#2-configure-a-local-environment)
+to reconcile `.env.example` with the active consumers. The HTTP server uses
+`APP_PORT`, DatabaseModule uses `DB_NAME`, and the E2E harness uses only explicit
+`TEST_DB_*` settings. Legacy factories and migration helpers use some different
+aliases; do not assume every variable in an example configures the running app.
 
 ## 📚 API Documentation
 
 API documentation is available via Swagger at:
 
 ```
-http://localhost:3000/api/docs
+http://localhost:3001/api/docs
 ```
 
-To regenerate OpenAPI documentation:
-
-```bash
-npm run swagger
-```
+Swagger is generated at application startup by `SwaggerModule.createDocument`;
+there is no separate `swagger` npm script.
 
 ## 🚨 Operational Runbooks
 <arg_value><b88a6f17>Procedures for responding to incidents and monitoring alerts live in [`docs/runbooks/`](docs/runbooks/README.md):
@@ -363,54 +300,11 @@ Existing versions remain available to allow gradual client migration.
 
 ### Local development with Docker Compose
 
-Start PostgreSQL and Redis (recommended for local development):
-
-```bash
-docker compose up -d postgres redis
-```
-
-Wait until both services are healthy:
-
-```bash
-docker compose ps
-```
-
-Copy environment variables and ensure Redis/DB point at Docker:
-
-```bash
-cp .env.example .env
-# DB_HOST=localhost, DB_PORT=5432, REDIS_URL=redis://localhost:6379
-```
-
-Run migrations and start the API on your machine:
-
-```bash
-npm install
-npm run migrate
-npm run start:dev
-```
-
-The API runs at `http://localhost:3001` (see `APP_PORT` in `.env`).
-
-### Optional: run the full stack in Docker
-
-```bash
-docker compose --profile full up -d
-```
-
-### Build Docker image only
-
-```bash
-docker build -t uzima-backend .
-```
-
-### Useful commands
-
-```bash
-docker compose logs -f postgres redis   # follow service logs
-docker compose down                   # stop services
-docker compose down -v                # stop and remove volumes
-```
+The [local guide](docs/LOCAL_DEVELOPMENT.md#3-start-development-postgresql-and-redis)
+documents starting only PostgreSQL and Redis, host/container addresses, health
+checks and non-destructive cleanup. The optional `full` and `tools` profiles
+are defined in `docker-compose.yml`. The `full` profile still depends on the
+application build; it is not a workaround for the documented baseline failures.
 
 ## 📖 Module Guides
 
@@ -431,7 +325,7 @@ This repository uses [Dependabot](https://docs.github.com/en/code-security/depen
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [CONTRIBUTOR_GUIDE.md](./CONTRIBUTOR_GUIDE.md) for detailed guidelines on:
+We welcome contributions! Please read our [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines on:
 
 - Setting up your development environment
 - Making code changes
