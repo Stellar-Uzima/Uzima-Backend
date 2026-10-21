@@ -20,6 +20,17 @@ import {
   RewardMilestonePayload,
 } from './coupon.events';
 
+const CONFIGURED_MILESTONES = new Set<string>([
+  '100',
+  '500',
+  '1000',
+  '5000',
+  '10000',
+]);
+
+const MILESTONE_DEDUP_KEY_PREFIX = 'coupon_milestone:';
+const MILESTONE_DEDUP_TTL_SECONDS = 60 * 60 * 24 * 365;
+
 export interface ValidateCouponResult {
   valid: boolean;
   reason?: string;
@@ -57,11 +68,21 @@ export class CouponService implements OnModuleInit {
           );
           return;
         }
-        try {
-          await this.createForMilestone(payload.userId);
-          this.logger.log(
-            `Coupon created for milestone for user ${payload.userId}`,
+        if (!CONFIGURED_MILESTONES.has(String(payload.milestone))) {
+          this.logger.warn(
+            `Milestone ${payload.milestone} is not configured for rewards; skipping`,
           );
+          return;
+        }
+        try {
+          const created = await this.createForMilestone(payload.userId, {
+            milestone: String(payload.milestone),
+          });
+          if (created) {
+            this.logger.log(
+              `Coupon created for milestone for user ${payload.userId}`,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to create coupon for milestone: ${(error as Error)?.message}`,
@@ -76,8 +97,32 @@ export class CouponService implements OnModuleInit {
    */
   async createForMilestone(
     userId: string,
-    payload?: { specialistType?: string; discount?: number },
+    payload?: { specialistType?: string; discount?: number; milestone?: string },
   ): Promise<Coupon | null> {
+    if (payload?.milestone) {
+      const dedupKey = `${MILESTONE_DEDUP_KEY_PREFIX}${userId}:${payload.milestone}`;
+      const alreadyProcessed = await this.redis.get(dedupKey);
+      if (alreadyProcessed) {
+        this.logger.warn(
+          `Milestone ${payload.milestone} already processed for user ${userId}; skipping duplicate reward`,
+        );
+        return null;
+      }
+      const claimed = await this.redis.set(
+        dedupKey,
+        '1',
+        'EX',
+        MILESTONE_DEDUP_TTL_SECONDS,
+        'NX',
+      );
+      if (claimed !== 'OK') {
+        this.logger.warn(
+          `Milestone ${payload.milestone} concurrently processed for user ${userId}; skipping duplicate reward`,
+        );
+        return null;
+      }
+    }
+
     const activeCount = await this.couponRepository.count({
       where: { userId, status: CouponStatus.ACTIVE },
     });
