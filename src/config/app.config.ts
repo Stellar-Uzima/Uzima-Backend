@@ -1,6 +1,6 @@
 import { registerAs } from '@nestjs/config';
 
-const ORIGIN_PATTERN = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+const ORIGIN_PATTERN = /^https?:\/\/[^\s/$.?#][^\s]*/i;
 
 export function isValidCorsOrigin(origin: string): boolean {
   if (!origin || origin.includes('*')) {
@@ -33,8 +33,43 @@ export function parseCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[]
   return [...new Set(origins)];
 }
 
+export interface ScheduledJobHealthConfig {
+  enabled: boolean;
+  checkIntervalMs: number;
+  defaultMaxDelayMs: number;
+  defaultMaxMissedRuns: number;
+  alertOnMissedRun: boolean;
+  alertOnRepeatedFailure: booleard;
+}
+
+export function parseScheduledJobHealthConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): ScheduledJobHealthConfig {
+  const toBool = (value: string | undefined, fallback: boolean) => {
+    if (value === undefined) {
+      return fallback;
+    }
+    return !['false', '0', 'no', 'off'].includes(value.toLowerCase());
+  };
+
+  const toPositiveInt = (value: string | undefined, fallback: number) => {
+    const parsed = value === undefined ? NaN : Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  };
+
+  return {
+    enabled: toBool(env.SCHEDULED_JOB_HEALTH_ENABLED, true),
+    checkIntervalMs: toPositiveInt(env.SCHEDULED_JOB_HEALTH_CHECK_INTERVAL_MS, 60_000),
+    defaultMaxDelayMs: toPositiveInt(env.SCHEDULED_JOB_DEFAULT_MAX_DELAY_MS, 5 * 60_000),
+    defaultMaxMissedRuns: toPositiveInt(env.SCHEDULED_JOB_DEFAULT_MAX_MISSED_RUNS, 1),
+    alertOnMissedRun: toBool(env.SCHEDULED_JOB_ALERT_ON_MISSED_RUN, true),
+    alertOnRepeatedFailure: toBool(env.SCHEDULED_JOB_ALERT_ON_REPEATED_FAILURE, true),
+  };
+}
+
 export default registerAs('app', () => {
   const corsOrigins = parseCorsOrigins(process.env);
+  const scheduledJobHealth = parseScheduledJobHealthConfig(process.env);
 
   return {
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -43,10 +78,11 @@ export default registerAs('app', () => {
     name: 'Stellar Uzima Backend',
     version: '1.0.0',
     corsOrigin: corsOrigins[0],
-    corsOrigins,
+    corsOrigins: corsOrigins,
     jwtSecret: process.env.JWT_SECRET,
     jwtExpiration: process.env.JWT_EXPIRATION || '7d',
     isDevelopment: process.env.NODE_ENV !== 'production',
     isProduction: process.env.NODE_ENV === 'production',
+    scheduledJobHealth,
   };
 });
