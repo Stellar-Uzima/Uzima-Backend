@@ -1,3 +1,4 @@
+
 export type RetentionAction = 'delete' | 'anonymize';
 
 export interface RetentionPolicy {
