@@ -36,6 +36,7 @@ import { DatabaseModule } from '@database/database.module';
 
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
+import { IdempotencyModule } from '@common/idempotency/idempotency.module';
 import { LoggingModule as SharedLoggingModule } from './shared/logging/logging.module';
 import { SigningModule } from './common/signing/signing.module';
 
@@ -70,6 +71,9 @@ import { ResilienceModule } from './shared/resilience/resilience.module';
 // UX health & first-run experience (implemented against #1377 and #1378)
 import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
+
+// Notification preferences (implemented against Issue 091)
+import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
 
 @Module({
   imports: [
@@ -116,6 +120,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     OtpModule,
     LoggingModule,
     SharedLoggingModule,
+    IdempotencyModule,
     // 2. Add it to the imports list
     StorageModule,
     CacheModule,
@@ -154,6 +159,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     SupportModule,
     BackfillModule,
     RetentionModule,
+    NotificationPreferencesModule,
   ],
   controllers: [AppController],
   providers: [

@@ -38,6 +38,10 @@ export const envValidationSchema = Joi.object({
   NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY: Joi.string()
     .valid('escalate', 'silent')
     .optional(),
+  // ── Referral risk review (optional; defaults are applied by the service) ──
+  REFERRAL_RISK_REVIEW_WINDOW_MS: Joi.number().integer().min(1).optional(),
+  REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW: Joi.number().integer().min(1).optional(),
+  REFERRAL_RISK_MIN_ACCOUNT_AGE_MS: Joi.number().integer().min(0).optional(),
 });
 
 export interface ValidatedEnv {
@@ -56,6 +60,9 @@ export interface ValidatedEnv {
   NOTIFICATION_RETRY_MAX_ATTEMPTS?: number;
   NOTIFICATION_RETRY_BASE_DELAY_MS?: number;
   NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY?: 'escalate' | 'silent';
+  REFERRAL_RISK_REVIEW_WINDOW_MS?: number;
+  REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW?: number;
+  REFERRAL_RISK_MIN_ACCOUNT_AGE_MS?: number;
 }
 
 export function validateEnv (): ValidatedEnv {
