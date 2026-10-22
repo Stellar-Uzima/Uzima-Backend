@@ -103,7 +103,7 @@ export class HealthTasksController {
   @ApiOperation({ summary: 'Get search history for the current user' })
   @ApiResponse({ status: 200, description: 'Recent search history for the caller' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
-  async getSearchHistory(@@Req() req: AuthenticatedRequest) {
+  async getSearchHistory(@Req() req: AuthenticatedRequest) {
     return this.searchService.getSearchHistory(req.user.userId);
   }
 
