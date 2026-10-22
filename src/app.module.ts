@@ -10,7 +10,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
-import jwtConfig from './config/jwt.config';
+import tokenConfig from './config/token.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -35,6 +35,7 @@ import { DatabaseModule } from '@database/database.module';
 
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
+import { IdempotencyModule } from '@common/idempotency/idempotency.module';
 import { LoggingModule as SharedLoggingModule } from './shared/logging/logging.module';
 import { SigningModule } from './common/signing/signing.module';
 
@@ -70,12 +71,15 @@ import { ResilienceModule } from './shared/resilience/resilience.module';
 import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
+// Notification preferences (implemented against Issue 091)
+import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig, jwtConfig],
+      load: [secretsConfig, passwordConfig, tokenConfig],
       validationSchema: Joi.object({
         JWT_SECRET: Joi.string().min(32).invalid('your_jwt_secret_key_here_min_32_chars').optional(),
         JWT_REFRESH_SECRET: Joi.string().min(32).invalid('your_refresh_secret_key_here_min_32_chars').optional(),
@@ -121,6 +125,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     OtpModule,
     LoggingModule,
     SharedLoggingModule,
+    IdempotencyModule,
     // 2. Add it to the imports list
     StorageModule,
     CacheModule,
@@ -159,6 +164,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     SupportModule,
     BackfillModule,
     RetentionModule,
+    NotificationPreferencesModule,
   ],
   controllers: [AppController],
   providers: [

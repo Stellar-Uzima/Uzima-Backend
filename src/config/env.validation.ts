@@ -31,6 +31,11 @@ export const envValidationSchema = Joi.object({
   // ── Stellar ─────────────────────────────────────────────────────────────────
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').required(),
   STELLAR_TREASURY_SECRET_KEY: Joi.string().required(),
+
+  // ── Referral risk review (optional; defaults are applied by the service) ──
+  REFERRAL_RISK_REVIEW_WINDOW_MS: Joi.number().integer().min(1).optional(),
+  REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW: Joi.number().integer().min(1).optional(),
+  REFERRAL_RISK_MIN_ACCOUNT_AGE_MS: Joi.number().integer().min(0).optional(),
 });
 
 export interface ValidatedEnv {
@@ -46,6 +51,9 @@ export interface ValidatedEnv {
   TWILIO_PHONE_NUMBER?: string;
   STELLAR_NETWORK: 'testnet' | 'mainnet';
   STELLAR_TREASURY_SECRET_KEY: string;
+  REFERRAL_RISK_REVIEW_WINDOW_MS?: number;
+  REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW?: number;
+  REFERRAL_RISK_MIN_ACCOUNT_AGE_MS?: number;
 }
 
 export function validateEnv (): ValidatedEnv {

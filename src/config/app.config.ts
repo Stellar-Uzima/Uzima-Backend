@@ -38,8 +38,43 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export interface ScheduledJobHealthConfig {
+  enabled: boolean;
+  checkIntervalMs: number;
+  defaultMaxDelayMs: number;
+  defaultMaxMissedRuns: number;
+  alertOnMissedRun: boolean;
+  alertOnRepeatedFailure: boolean;
+}
+
+export function parseScheduledJobHealthConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): ScheduledJobHealthConfig {
+  const toBool = (value: string | undefined, fallback: boolean) => {
+    if (value === undefined) {
+      return fallback;
+    }
+    return !['false', '0', 'no', 'off'].includes(value.toLowerCase());
+  };
+
+  const toPositiveInt = (value: string | undefined, fallback: number) => {
+    const parsed = value === undefined ? NaN : Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+  };
+
+  return {
+    enabled: toBool(env.SCHEDULED_JOB_HEALTH_ENABLED, true),
+    checkIntervalMs: toPositiveInt(env.SCHEDULED_JOB_HEALTH_CHECK_INTERVAL_MS, 60_000),
+    defaultMaxDelayMs: toPositiveInt(env.SCHEDULED_JOB_DEFAULT_MAX_DELAY_MS, 5 * 60_000),
+    defaultMaxMissedRuns: toPositiveInt(env.SCHEDULED_JOB_DEFAULT_MAX_MISSED_RUNS, 1),
+    alertOnMissedRun: toBool(env.SCHEDULED_JOB_ALERT_ON_MISSED_RUN, true),
+    alertOnRepeatedFailure: toBool(env.SCHEDULED_JOB_ALERT_ON_REPEATED_FAILURE, true),
+  };
+}
+
 export default registerAs('app', () => {
   const corsOrigins = parseCorsOrigins(process.env);
+  const scheduledJobHealth = parseScheduledJobHealthConfig(process.env);
 
   return {
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -60,5 +95,6 @@ export default registerAs('app', () => {
       resetTimeout: parsePositiveInt(process.env.EXTERNAL_CIRCUIT_RESET_MS ?? process.env.NOTIFICATION_CIRCUIT_RESET_MS, 30_000),
       timeoutMs: parsePositiveInt(process.env.EXTERNAL_REQUEST_TIMEOUT_MS, 10_000),
     },
+    scheduledJobHealth,
   };
 });
