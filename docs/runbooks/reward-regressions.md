@@ -60,6 +60,33 @@ GROUP BY user_id, task_id HAVING count(*) > 1 LIMIT 20;
 
 ## 3. Mitigation
 
+### 3.0 Referral rewards held for risk review
+
+Referral rewards are checked before a reward transaction is created. The
+configurable signals are:
+
+- `REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW` referrals for one referrer within
+  `REFERRAL_RISK_REVIEW_WINDOW_MS` (defaults: 5 in 1 hour).
+- `REFERRAL_RISK_MIN_ACCOUNT_AGE_MS`: age of the referred account when its
+  referral was redeemed. This signal is disabled at `0` by default.
+
+Any triggered signal creates one durable `referral_risk_reviews` row containing
+the reason code(s), measured values, original qualifying action, reward amount,
+currency, and source reference. The reward is held: no reward transaction is
+created until an administrator decides the review.
+
+Administrators can inspect pending reviews with
+`GET /api/v1/admin/referrals/risk-reviews`. Decisions are recorded through
+`PATCH /api/v1/admin/referrals/risk-reviews/:id` with
+`{"decision":"APPROVED","note":"..."}` or `{"decision":"REJECTED","note":"..."}`.
+Approval retries the original idempotent settlement; rejection permanently
+blocks it. The reviewer id, decision, note, and timestamp are retained. A
+different decision cannot overwrite an existing one.
+
+When investigating, compare the `reasonCode`, `reasonCodes`, and
+`signalDetails` with the redemption and qualifying-action timestamps. Do not
+manually create a reward transaction to bypass a pending review.
+
 ### 3.1 Failed reward jobs
 
 1. Inspect `failedReason` in the failed-jobs listing.

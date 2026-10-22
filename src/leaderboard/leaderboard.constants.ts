@@ -31,3 +31,7 @@ export const DEFAULT_LEADERBOARD_RANKING_RULES: LeaderboardRankingRules = {
 };
 
 export const LEADERBOARD_RANKING_RULES_VERSION = 1;
+
+export const LEADERBOARD_CACHE_TTL_MS = 60_000;
+export const LEADERBOARD_CACHE_KEY_PREFIX = 'leaderboard:ranking';
+export const LEADERBOARD_CACHE_FRESHNESS_WINDOW_MS = LEADERBOARD_CACHE_TTL_MS;
