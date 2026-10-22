@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AttachmentsService } from './attachments.service';
 import { TaskAttachment } from '../../../database/entities/task-attachment.entity';
 
@@ -21,7 +21,7 @@ const makeAttachment = (overrides: Partial<TaskAttachment> = {}): TaskAttachment
     uploadedBy: 'user-1',
     createdAt: new Date('2026-01-15T10:00:00.000Z'),
     ...overrides,
-  } as TaskAttachment);
+  }) as TaskAttachment;
 
 describe('AttachmentsService', () => {
   let service: AttachmentsService;
@@ -81,6 +81,49 @@ describe('AttachmentsService', () => {
       });
       expect(result).toEqual(attachment);
     });
+
+    it('throws BadRequestException for unsupported file type', async () => {
+      const fileData = {
+        fileName: 'malware.exe',
+        fileUrl: 'https://storage.example.com/malware.exe',
+        fileType: 'application/x-msdownload',
+        fileSize: 1024,
+      };
+
+      await expect(service.createAttachment('task-1', fileData)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(mockAttachmentRepository.create).not.toHaveBeenCalled();
+      expect(mockAttachmentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for extension mismatch', async () => {
+      const fileData = {
+        fileName: 'report.pdf',
+        fileUrl: 'https://storage.example.com/report.pdf',
+        fileType: 'image/png',
+        fileSize: 204800,
+      };
+
+      await expect(service.createAttachment('task-1', fileData)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(mockAttachmentRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for oversized file', async () => {
+      const fileData = {
+        fileName: 'huge.pdf',
+        fileUrl: 'https://storage.example.com/huge.pdf',
+        fileType: 'application/pdf',
+        fileSize: 11 * 1024 * 1024, // 11MB — exceeds 10MB default
+      };
+
+      await expect(service.createAttachment('task-1', fileData)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(mockAttachmentRepository.save).not.toHaveBeenCalled();
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -135,7 +178,7 @@ describe('AttachmentsService', () => {
 
       await expect(service.findOne('missing-id')).rejects.toThrow(NotFoundException);
       await expect(service.findOne('missing-id')).rejects.toThrow(
-        'Attachment with ID missing-id not found',
+        'Attachment with ID missing-id not found'
       );
     });
   });
@@ -162,7 +205,7 @@ describe('AttachmentsService', () => {
 
       await expect(service.deleteAttachment('missing-id')).rejects.toThrow(NotFoundException);
       await expect(service.deleteAttachment('missing-id')).rejects.toThrow(
-        'Attachment with ID missing-id not found',
+        'Attachment with ID missing-id not found'
       );
       expect(mockAttachmentRepository.remove).not.toHaveBeenCalled();
     });

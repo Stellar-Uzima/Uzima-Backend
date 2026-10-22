@@ -3,6 +3,11 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { createHash, randomBytes } from 'crypto';
+import {
+  validateUploadWithDetection,
+  DEFAULT_ALLOWED_MIME_TYPES,
+  DEFAULT_MAX_UPLOAD_BYTES,
+} from '../../common/utils/file-upload-validator.util';
 
 export interface UploadResult {
   filename: string;
@@ -41,13 +46,27 @@ export class StorageService {
     file: Buffer,
     originalName: string,
     mimetype: string,
-    subfolder?: string,
+    subfolder?: string
   ): Promise<UploadResult> {
+    // Validate file before writing to disk — rejected files are never stored.
+    validateUploadWithDetection(
+      {
+        mimetype,
+        size: file.length,
+        filename: originalName,
+        buffer: file,
+      },
+      {
+        allowedMimeTypes: DEFAULT_ALLOWED_MIME_TYPES,
+        maxBytes: DEFAULT_MAX_UPLOAD_BYTES,
+      }
+    );
+
     const filename = `${uuidv4()}-${originalName}`;
     const targetDir = subfolder ? join(this.uploadDir, subfolder) : this.uploadDir;
-    
+
     await this.ensureDirectoryExists(targetDir);
-    
+
     const filePath = join(targetDir, filename);
     await fs.writeFile(filePath, file);
 
@@ -70,7 +89,7 @@ export class StorageService {
     } catch (error) {
       this.logger.error(
         'Failed to delete file',
-        error instanceof Error ? error.stack : String(error),
+        error instanceof Error ? error.stack : String(error)
       );
     }
   }
@@ -119,7 +138,7 @@ export class StorageService {
    */
   async saveDataExport(
     userId: string,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): Promise<DataExportResult> {
     const exportId = uuidv4();
     const downloadToken = randomBytes(32).toString('hex');
@@ -140,21 +159,16 @@ export class StorageService {
         filePath: saved.path,
         expiresAt: expiresAt.toISOString(),
       }),
-      'utf-8',
+      'utf-8'
     );
 
     return { exportId, filePath: saved.path, downloadToken, expiresAt };
   }
 
   async resolveDataExportDownload(
-    downloadToken: string,
+    downloadToken: string
   ): Promise<{ filePath: string; userId: string; exportId: string } | null> {
-    const tokenPath = join(
-      this.uploadDir,
-      'exports',
-      '.tokens',
-      `${downloadToken}.json`,
-    );
+    const tokenPath = join(this.uploadDir, 'exports', '.tokens', `${downloadToken}.json`);
 
     if (!(await this.fileExists(tokenPath))) {
       return null;
@@ -188,8 +202,7 @@ export class StorageService {
   }
 
   buildDataExportDownloadUrl(downloadToken: string, baseUrl?: string): string {
-    const appBase =
-      baseUrl ?? process.env.APP_URL ?? 'http://localhost:3001';
+    const appBase = baseUrl ?? process.env.APP_URL ?? 'http://localhost:3001';
     return `${appBase.replace(/\/$/, '')}/users/data-export/download?token=${downloadToken}`;
   }
 
