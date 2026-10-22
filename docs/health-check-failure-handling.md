@@ -3,17 +3,21 @@
 ## Overview
 This document describes how health check failures are surfaced to upstream orchestrators and the expected retry/failover behavior for the Uzima-Backend application.
 
-## Current Health Check Implementation
-The application uses NestJS Terminus to implement comprehensive health monitoring exposed at the `/health` endpoint. Three critical dependencies are monitored:
-1. **PostgreSQL Database** (TypeORM)
-2. **Redis Cache** (ioredis)
-3. **BullMQ Message Queues** (all application queues)
+## Health Check Endpoints
+The application uses NestJS Terminus to implement health monitoring exposed at the `/health` routes:
+1. **Liveness (`/health/liveness`)**: Evaluates process liveness only. It does not probe external dependencies, ensuring pods are not killed during temporary database or Redis outages.
+2. **Readiness (`/health/readiness`)**: Checks mandatory infrastructure dependencies:
+   - **PostgreSQL Database** (TypeORM `SELECT 1` ping with 1000ms timeout)
+   - **Redis Cache** (ioredis `ping()` with 1000ms timeout)
+   Fails with HTTP 503 when either dependency is unavailable.
+3. **Comprehensive (`/health`)**: Backwards-compatible endpoint checking PostgreSQL, Redis, and message queues.
+4. **Subsystem Checks**: `/health/redis` and `/health/queue`.
 
 ## How Failures Are Surfaced to Orchestrators
 
 ### Standard HTTP Status Codes
-- **200 OK**: All health checks pass, application is healthy
-- **503 Service Unavailable**: One or more health checks failed, application is unhealthy
+- **200 OK**: All evaluated checks pass, service is healthy
+- **503 Service Unavailable**: One or more required dependency checks failed, application is not ready to serve requests
 
 ### Enhanced Health Response Format
 The health endpoint now returns detailed metrics for monitoring and debugging:
@@ -75,8 +79,8 @@ The application already includes health check configuration in `docker-compose.y
 
 ### Kubernetes Configuration
 For Kubernetes deployments, use the liveness and readiness probes defined in `k8s/deployment.yaml`:
-- **Liveness Probe**: 30s interval, 10s timeout, 3 failures before restart
-- **Readiness Probe**: 15s interval, 5s timeout, 2 failures before removing from rotation
+- **Liveness Probe**: Path `/health/liveness`, 30s interval, 10s timeout, 3 failures before restart
+- **Readiness Probe**: Path `/health/readiness`, 15s interval, 5s timeout, 2 failures before removing from rotation
 
 ## Retry and Failover Behavior
 

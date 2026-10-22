@@ -10,18 +10,21 @@ describe('AppController', () => {
       controllers: [AppController],
       providers: [AppService],
     }).compile();
-  // beforeEach(async () => {
-  //   const app: TestingModule = await Test.createTestingModule({
-  //     controllers: [AppController],
-  //     providers: [AppService],
-  //   }).compile();
+    // beforeEach(async () => {
+    //   const app: TestingModule = await Test.createTestingModule({
+    //     controllers: [AppController],
+    //     providers: [AppService],
+    //   }).compile();
 
     appController = app.get<AppController>(AppController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  it('should return welcome message', () => {
+    expect(appController.getWelcome()).toEqual({
+      name: 'Stellar Uzima Backend API',
+      version: '1.0.0',
+      description: 'Healthcare & Financial Inclusion through Blockchain for African Communities',
+      docs: '/api/docs',
     });
   });
 });
