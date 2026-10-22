@@ -36,11 +36,51 @@ export interface ScheduledJobRunReport {
   error?: string;
 }
 
+/**
+  * Retry and dead-letter policy configuration for queued jobs.
+  */
+export interface JobRetryPolicy {
+  /** Maximum number of retry attempts after the initial attempt. */
+  maxRetries: number;
+  /** Base delay between retries, in milliseconds. */
+  backoffMs: number;
+  /** Multiplier applied per attempt for exponential backoff. Defaults to 2. */
+  backoffMultiplier?: number;
+  /** Maximum backoff delay, in milliseconds. */
+  maxBackoffMs?: number;
+}
+
+export interface JobRetryState {
+  jobName: string;
+  attempts: number;
+  lastError?: string;
+  lastAttemptAt?: number;
+  nextRetryAt?: number;
+  deadLettered: boolean;
+}
+
+export interface DeadLetterRecord {
+  jobName: string;
+  attempts: number;
+  lastError: string;
+  failedAt: string;
+  context?: Record<string, unknown>;
+}
+
 export const DEFAULT_FAILURE_THRESHOLD = 3;
 
-export const HISTORY_REFESH = "scheduled-job:history";
+export const DEFAULT_RETRY_POLICY: JobRetryPolicy = {
+  maxRetries: 3,
+  backoffMs: 1000,
+  backoffMultiplier: 2,
+  maxBackoffMs: 60_000,
+};
 
-@injectable()
+export const HISTORY_REFET = "scheduled-job:history";
+export const RETRY_STATE_KEY = "scheduled-job:retry-state";
+export const DEAD_LETTER_KEY = "scheduled-job:dead-letter";
+
+@Injectable()
 export class QueueHealthIndicator
   extends HealthIndicator {
 
@@ -114,6 +154,92 @@ export class QueueHealthIndicator
   }
 
   /**
+   * Resolves the retry policy for a job type, falling back to the shared
+   * default policy when no override is provided.
+   */
+  resolveRetryPolicy(
+    jobName: string,
+    overrides?: Record<string, JobRetryPolicy>,
+  ): JobRetryPolicy {
+    const policy = overrides?.[jobName] ?? DEFAULT_RETRY_POLICY;
+    return {
+      maxRetries: Math.max(0, policy.maxRetries),
+      backoffMs: Math.max(0, policy.backoffMs),
+      backoffMultiplier: Math.max(1, policy.backoffMultiplier ?? 2),
+      maxBackoffMs: Math.max(0, policy.maxBackoffMs ?? 60_000),
+    };
+  }
+
+  /**
+   * Computes the exponential backoff delay for a given attempt count.
+   */
+  computeBackoffMs(attempts: number, policy: JobRetryPolicy): number {
+    const multiplier = policy.backoffMultiplier ?? 2;
+    const max = policy.maxBackoffMs ?? 60_000;
+    const raw = policy.backoffMs * Math.pow(multiplier, Math.max(0, attempts - 1));
+    return Math.min(raw, max);
+  }
+
+  /**
+   * Records a failed attempt and decides whether the job should be retried or
+   * moved to the dead-letter queue. Returns the resulting retry state.
+   */
+  async recordFailedAttempt(
+    jobName: string,
+    error: string,
+    overrides?: Record<string, JobRetryPolicy>,
+    context?: Record<string, unknown>,
+  ): Promise<JobRetryState> {
+    const policy = this.resolveRetryPolicy(jobName, overrides);
+    const states = await this.readRetryStates();
+    const now = Date.now();
+    const existing = states[jobName] ?? {
+      jobName,
+      attempts: 0,
+      deadLettered: false,
+    };
+
+    existing.attempts += 1;
+    existing.lastError = error;
+    existing.lastAttemptAt = now;
+
+    if (existing.attempts > policy.maxRetries) {
+      existing.deadLettered = true;
+      existing.nextRetryAt = undefined;
+      await this.appendDeadLetter({
+        jobName,
+        attempts: existing.attempts,
+        lastError: error,
+        failedAt: new Date(now).toISOString(),
+        context: this.sanitizeContext(context),
+      });
+    } else {
+      existing.deadLettered = false;
+      existing.nextRetryAt = now + this.computeBackoffMs(existing.attempts, policy);
+    }
+
+    states[jobName] = existing;
+    await this.writeRetryStates(states);
+    return existing;
+  }
+
+  /**
+   * Returns the retained dead-letter records for authorized review.
+   */
+  async getDeadLetterRecords(): Promise<DeadLetterRecord[]> {
+    const raw = await this.queueService.getKey(DEAD_LETTER_KEY);
+    if (!raw) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(raw) as DeadLetterRecord[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Evaluates each critical schedule and returns its last successful execution
    * and current status. Missed-delayed runs produce an alert with the job name
    * and the affected time window.
@@ -183,67 +309,86 @@ export class QueueHealthIndicator
         currentStatus: delayed ? "delayed" : "healthy",
         missedRuns,
         consecutiveFailures,
-        alert: delayed
-          ? `${config.jobName} is delayed; affected window ${window}`
-          : undefined,
         yetToRun: false,
       };
     });
   }
 
   /**
-   * Health indicator entrypoint for scheduled jobs. Reports unhealthy when any
-   * critical schedule is missed or repeatedly failing.
+   * Returns the latest retry state for each known job type.
    */
-  async isScheduledJobsHealthy(
-    configs: ScheduledJobConfig[],
-    key = "scheduled_jobs",
-  ): Promise<HealthIndicatorResult> {
-    const statuses = await this.checkScheduledJobs(configs);
-    const alerts = statuses.filter((s) => Boolean(s.alert));
-    const healthy = alerts.length === 0;
-
-    const payload = {
-      jobs: statuses,
-      alerts,
-      timestamp: new Date().toISOString(),
-    };
-
-    if (!healthy) {
-      throw new HealthCheckError(
-        "Scheduled job check failed",
-        this.getStatus(key, false, payload),
-      );
-    }
-
-    return this.getStatus(key, true, payload);
+  async getRetryStates(): Promise<Record<string, JobRetryState>> {
+    return this.readRetryStates();
   }
 
-  private async readHistory(): Promise<Record<string, ScheduledJobHistoryRecord>> {
-    const raw = await this.queueService.getKey(HISTORY_REFESH);
+  private async readHistory(): Promise<Record<string, {
+    jobName: string;
+    lastSuccessfulExecution: number | null;
+    consecutiveFailures: number;
+    lastError?: string;
+  }>> {
+    const raw = await this.queueService.getKey(HISTORY_REFET);
     if (!raw) {
       return {};
     }
     try {
-      return JSON.parse(raw) as Record<string, ScheduledJobHistoryRecord>;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
     } catch {
       return {};
     }
   }
 
-  private async writeHistory(
-    history: Record<string, ScheduledJobHistoryRecord>,
-  ): Promise<void> {
-    await this.queueService.setKey(
-      HISTORY_REFEENCE,
-      JSON.stringify(history),
-    );
+  private async writeHistory(history: Record<string, unknown>): Promise<void> {
+    await this.queueService.setKey(HISTORY_REFET, JSON.stringify(history));
   }
-}
 
-interface ScheduledJobHistoryRecord {
-  jobName: string;
-  lastSuccessfulExecution: number | null;
-  consecutiveFailures: number;
-  lastError?: string;
+  private async readRetryStates(): Promise<Record<string, JobRetryState>> {
+    const raw = await this.queueService.getKey(RETRY_STATE_KEY);
+    if (!raw) {
+      return {};
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private async writeRetryStates(states: Record<string, JobRetryState>): Promise<void> {
+    await this.queueService.setKey(RETRY_STATE_KEY, JSON.stringify(states));
+  }
+
+  private async appendDeadLetter(record: DeadLetterRecord): Promise<void> {
+    const raw = await this.queueService.getKey(DEAD_LETTER_KEY);
+    let records: DeadLetterRecord[] = [];
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        records = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        records = [];
+      }
+    }
+    records.push(record);
+    await this.queueService.setKey(DEAD_LETTER_KEY, JSON.stringify(records));
+  }
+
+  /**
+   * Strips potentially sensitive fields from job context before retaining it.
+   */
+  private sanitizeContext(
+    context?: Record<string, unknown>,
+  ): Record<string, unknown> | undefined {
+    if (!context) {
+      return undefined;
+    }
+    const sensitive = /(password|secret|token|apikey|authorization|credential)/i;
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(context)) {
+      out[key] = sensitive.test(key) ? "[REDACTED]" : value;
+    }
+    return out;
+  }
 }
