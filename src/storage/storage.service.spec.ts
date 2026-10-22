@@ -49,14 +49,11 @@ describe('StorageService', () => {
         'https://test-bucket.s3.amazonaws.com/proofs/user1/task1/1234567890?signature=xyz';
       (s3Presigner.getSignedUrl as jest.Mock).mockResolvedValue(mockUrl);
 
-      const result = await service.generatePresignedUploadUrl(
-        'user1',
-        'task1',
-        'image/jpeg',
-      );
+      const result = await service.generatePresignedUploadUrl('user1', 'task1', 'image/jpeg');
 
       expect(result).toHaveProperty('uploadUrl', mockUrl);
-      expect(result).not.toHaveProperty('fileKey');
+      expect(result).toHaveProperty('maxBytes');
+      expect(result).toHaveProperty('allowedMimeTypes');
       expect(s3Presigner.getSignedUrl).toHaveBeenCalledTimes(1);
     });
 
@@ -65,23 +62,16 @@ describe('StorageService', () => {
         'https://test-bucket.s3.amazonaws.com/proofs/user2/task2/1234567890?signature=abc';
       (s3Presigner.getSignedUrl as jest.Mock).mockResolvedValue(mockUrl);
 
-      const result = await service.generatePresignedUploadUrl(
-        'user2',
-        'task2',
-        'image/png',
-      );
+      const result = await service.generatePresignedUploadUrl('user2', 'task2', 'image/png');
 
       expect(result).toHaveProperty('uploadUrl', mockUrl);
-      expect(result).not.toHaveProperty('fileKey');
+      expect(result).toHaveProperty('maxBytes');
+      expect(result).toHaveProperty('allowedMimeTypes');
     });
 
     it('should throw BadRequestException for invalid content type', async () => {
       await expect(
-        service.generatePresignedUploadUrl(
-          'user3',
-          'task3',
-          'application/pdf' as any,
-        ),
+        service.generatePresignedUploadUrl('user3', 'task3', 'image/gif' as any)
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -91,7 +81,7 @@ describe('StorageService', () => {
       const key = service.getProofFileKey(
         'https://storage.example.com/test-bucket/proofs/user1/task1/123?signature=secret',
         'user1',
-        'task1',
+        'task1'
       );
 
       expect(key).toBe('proofs/user1/task1/123');
@@ -102,8 +92,8 @@ describe('StorageService', () => {
         service.getProofFileKey(
           'https://storage.example.com/proofs/user2/task1/123?signature=secret',
           'user1',
-          'task1',
-        ),
+          'task1'
+        )
       ).toThrow(BadRequestException);
     });
   });

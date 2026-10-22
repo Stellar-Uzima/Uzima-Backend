@@ -29,6 +29,12 @@ const mockActivityTracker = {
   trackAvatarUpdated: jest.fn(),
 };
 
+// Helper: build a valid JPEG buffer (3-byte magic number + filler)
+function makeJpegBuffer(extra: number = 100): Buffer {
+  const sig = Buffer.from([0xff, 0xd8, 0xff]);
+  return Buffer.concat([sig, Buffer.alloc(extra)]);
+}
+
 describe('AvatarService', () => {
   let service: AvatarService;
 
@@ -48,24 +54,35 @@ describe('AvatarService', () => {
 
   describe('uploadAvatar', () => {
     const userId = 'user-123';
-    const file = Buffer.alloc(100);
+    const file = makeJpegBuffer(100); // valid JPEG magic number
     const originalName = 'avatar.jpg';
     const mimetype = 'image/jpeg';
 
     it('should upload avatar and return url/filename', async () => {
       mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: null });
-      mockStorageService.saveFile.mockResolvedValue({ url: '/uploads/avatars/new.jpg', filename: 'new.jpg' });
+      mockStorageService.saveFile.mockResolvedValue({
+        url: '/uploads/avatars/new.jpg',
+        filename: 'new.jpg',
+      });
 
       const result = await service.uploadAvatar(userId, file, originalName, mimetype);
 
       expect(mockStorageService.saveFile).toHaveBeenCalled();
-      expect(mockUserRepository.update).toHaveBeenCalledWith(userId, { avatarUrl: '/uploads/avatars/new.jpg' });
+      expect(mockUserRepository.update).toHaveBeenCalledWith(userId, {
+        avatarUrl: '/uploads/avatars/new.jpg',
+      });
       expect(result).toEqual({ url: '/uploads/avatars/new.jpg', filename: 'new.jpg' });
     });
 
     it('should delete old avatar when replacing', async () => {
-      mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: '/uploads/avatars/old.jpg' });
-      mockStorageService.saveFile.mockResolvedValue({ url: '/uploads/avatars/new.jpg', filename: 'new.jpg' });
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        avatarUrl: '/uploads/avatars/old.jpg',
+      });
+      mockStorageService.saveFile.mockResolvedValue({
+        url: '/uploads/avatars/new.jpg',
+        filename: 'new.jpg',
+      });
 
       await service.uploadAvatar(userId, file, originalName, mimetype);
 
@@ -74,7 +91,10 @@ describe('AvatarService', () => {
 
     it('should not call deleteFileByUrl when user has no previous avatar', async () => {
       mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: null });
-      mockStorageService.saveFile.mockResolvedValue({ url: '/uploads/avatars/new.jpg', filename: 'new.jpg' });
+      mockStorageService.saveFile.mockResolvedValue({
+        url: '/uploads/avatars/new.jpg',
+        filename: 'new.jpg',
+      });
 
       await service.uploadAvatar(userId, file, originalName, mimetype);
 
@@ -84,27 +104,67 @@ describe('AvatarService', () => {
     it('should throw NotFoundException when user does not exist', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.uploadAvatar(userId, file, originalName, mimetype)).rejects.toThrow(NotFoundException);
+      await expect(service.uploadAvatar(userId, file, originalName, mimetype)).rejects.toThrow(
+        NotFoundException
+      );
     });
 
-    it('should throw BadRequestException for invalid mime type', async () => {
-      await expect(service.uploadAvatar(userId, file, originalName, 'image/gif')).rejects.toThrow(BadRequestException);
+    it('should throw BadRequestException for unsupported mime type', async () => {
+      await expect(service.uploadAvatar(userId, file, originalName, 'image/gif')).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it('should throw BadRequestException for mismatched extension and mime type', async () => {
+      await expect(service.uploadAvatar(userId, file, 'avatar.png', mimetype)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it('should throw BadRequestException when file content does not match declared mime', async () => {
+      // PNG magic number buffer but declared as JPEG
+      const pngBuffer = Buffer.from([
+        0x89,
+        0x50,
+        0x4e,
+        0x47,
+        0x0d,
+        0x0a,
+        0x1a,
+        0x0a,
+        ...Array(92).fill(0),
+      ]);
+      await expect(service.uploadAvatar(userId, pngBuffer, originalName, mimetype)).rejects.toThrow(
+        BadRequestException
+      );
     });
 
     it('should throw BadRequestException when file exceeds 5MB', async () => {
-      const largeFile = Buffer.alloc(6 * 1024 * 1024);
+      const largeFile = Buffer.concat([
+        Buffer.from([0xff, 0xd8, 0xff]),
+        Buffer.alloc(6 * 1024 * 1024),
+      ]);
 
-      await expect(service.uploadAvatar(userId, largeFile, originalName, mimetype)).rejects.toThrow(BadRequestException);
+      await expect(service.uploadAvatar(userId, largeFile, originalName, mimetype)).rejects.toThrow(
+        BadRequestException
+      );
     });
 
     it('should track avatar update activity', async () => {
       const req = { ip: '127.0.0.1' };
       mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: null });
-      mockStorageService.saveFile.mockResolvedValue({ url: '/uploads/avatars/new.jpg', filename: 'new.jpg' });
+      mockStorageService.saveFile.mockResolvedValue({
+        url: '/uploads/avatars/new.jpg',
+        filename: 'new.jpg',
+      });
 
       await service.uploadAvatar(userId, file, originalName, mimetype, req);
 
-      expect(mockActivityTracker.trackAvatarUpdated).toHaveBeenCalledWith(userId, '/uploads/avatars/new.jpg', req);
+      expect(mockActivityTracker.trackAvatarUpdated).toHaveBeenCalledWith(
+        userId,
+        '/uploads/avatars/new.jpg',
+        req
+      );
     });
   });
 
@@ -112,7 +172,10 @@ describe('AvatarService', () => {
     const userId = 'user-123';
 
     it('should delete avatar and clear avatarUrl', async () => {
-      mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: '/uploads/avatars/old.jpg' });
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        avatarUrl: '/uploads/avatars/old.jpg',
+      });
 
       await service.deleteAvatar(userId);
 
@@ -141,7 +204,10 @@ describe('AvatarService', () => {
     const userId = 'user-123';
 
     it('should return avatarUrl when user has one', async () => {
-      mockUserRepository.findOne.mockResolvedValue({ id: userId, avatarUrl: '/uploads/avatars/pic.jpg' });
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        avatarUrl: '/uploads/avatars/pic.jpg',
+      });
 
       const result = await service.getAvatarUrl(userId);
 
