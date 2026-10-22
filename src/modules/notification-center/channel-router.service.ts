@@ -138,6 +138,17 @@ export class ChannelRouterService {
   async retryDelivery(data: RetryJobData): Promise<void> {
     const { notificationId, logId, channel, userId, title, body, attempt } = data;
 
+    // Queue replay is at-least-once. Consult both durable delivery markers
+    // before calling a provider so duplicate jobs cannot resend a delivered channel.
+    const existingLog = await this.deliveryLogRepo.findOne({ where: { id: logId } });
+    const parent = await this.deliveryLogRepo.manager
+      .getRepository(InAppNotification)
+      .findOne({ where: { id: notificationId } });
+    if (!existingLog || existingLog.status === DeliveryStatus.SENT ||
+        parent?.deliveredChannels?.includes(channel)) {
+      return;
+    }
+
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       this.logger.warn(`Retry skipped — user ${userId} not found`);
@@ -156,14 +167,14 @@ export class ChannelRouterService {
       await this.updateLog(logId, DeliveryStatus.SENT, attempt, null);
       await this.markChannelDelivered(notificationId, channel);
     } catch (err: any) {
-      const errorMessage: string = err?.message ?? String(err);
+      const errorMessage = await this.appendRetryHistory(logId, attempt, err);
       if (err?.code === 'NOTIFICATION_CIRCUIT_OPEN') {
         this.metrics?.recordNotificationDelivery(channel, 'circuit_open');
       } else {
         this.recordProviderFailure(channel);
       }
       this.logger.warn(
-        `Retry attempt ${attempt}/${MAX_DELIVERY_ATTEMPTS} failed for notification ${notificationId} channel ${channel}: ${errorMessage}`
+        `Retry attempt ${attempt}/${MAX_DELIVERY_ATTEMPTS} failed for notification ${notificationId} channel ${channel} (${errorMessage})`
       );
 
       const circuitOpen = err?.code === 'NOTIFICATION_CIRCUIT_OPEN';
@@ -212,14 +223,14 @@ export class ChannelRouterService {
       await this.updateLog(log.id, DeliveryStatus.SENT, attempt, null);
       await this.markChannelDelivered(notification.id, channel);
     } catch (err: any) {
-      const errorMessage: string = err?.message ?? String(err);
+      const errorMessage = await this.appendRetryHistory(log.id, attempt, err);
       if (err?.code === 'NOTIFICATION_CIRCUIT_OPEN') {
         this.metrics?.recordNotificationDelivery(channel, 'circuit_open');
       } else {
         this.recordProviderFailure(channel);
       }
       this.logger.warn(
-        `Initial delivery failed for notification ${notification.id} channel ${channel}: ${errorMessage}`
+        `Initial delivery failed for notification ${notification.id} channel ${channel} (${errorMessage})`
       );
 
       const circuitOpen = err?.code === 'NOTIFICATION_CIRCUIT_OPEN';
@@ -377,6 +388,25 @@ export class ChannelRouterService {
       attemptedAt: new Date(),
       errorMessage,
     });
+  }
+
+  private async appendRetryHistory(logId: string, attempt: number, error: unknown): Promise<string> {
+    const log = await this.deliveryLogRepo.findOne({ where: { id: logId } });
+    if (!log) return 'PROVIDER_ERROR';
+    const value = error as { code?: unknown; message?: unknown } | null;
+    const text = typeof value?.message === 'string' ? value.message.toLowerCase() : '';
+    const reason = typeof value?.code === 'string' && /^[A-Z0-9_]{1,40}$/.test(value.code)
+      ? value.code
+      : /rate|429/.test(text) ? 'RATE_LIMIT'
+      : /timeout|timed out/.test(text) ? 'TIMEOUT'
+      : /network|econn|socket|fetch/.test(text) ? 'NETWORK'
+      : /not found|no .*registered/.test(text) ? 'DESTINATION_UNAVAILABLE'
+      : 'PROVIDER_ERROR';
+    const history = Array.isArray(log.retryHistory) ? log.retryHistory : [];
+    await this.deliveryLogRepo.update(logId, {
+      retryHistory: [...history.slice(-19), { attempt, at: new Date().toISOString(), reason }],
+    });
+    return reason;
   }
 
   private async markChannelDelivered(
