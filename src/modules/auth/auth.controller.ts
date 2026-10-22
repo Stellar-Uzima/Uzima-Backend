@@ -1,12 +1,12 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
   UseGuards,
   Req,
-  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -36,8 +36,7 @@ interface RequestWithContext {
 }
 
 @ApiTags('auth')
-@Version('1')
-@Controller({ path: 'auth' })
+@Controller({ path: 'auth', version: '1' })
 @UseGuards(RateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

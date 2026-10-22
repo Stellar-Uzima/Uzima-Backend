@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, Length, MaxLength, Transform } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, normalizeEmail } from '../services/credential-normalizer';
 

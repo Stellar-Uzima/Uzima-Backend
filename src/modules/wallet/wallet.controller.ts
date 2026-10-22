@@ -21,7 +21,7 @@ import { WalletService } from './wallet.service';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
-import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalStatus } from './dto/withdrawal.dto';
+import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalResponseDto } from './dto/withdrawal.dto';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { Role } from '@modules/auth/enums/role.enum';
