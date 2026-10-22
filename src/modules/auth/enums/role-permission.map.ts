@@ -34,13 +34,15 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> =
     ] as Permission[]),
 
     /**
-     * Support staff get read access to users and analytics. Deliberately no
+     * Support staff get read access to users and analytics, plus access to
+     * notification delivery status for troubleshooting. Deliberately no
      * `DELETE_USERS`, `MANAGE_SETTINGS` or `ACCESS_ADMIN`.
      */
     [Role.SUPPORT]: Object.freeze([
       Permission.READ_RECORDS,
       Permission.READ_USERS,
       Permission.VIEW_ANALYTICS,
+      Permission.VIEW_NOTIFICATION_DELIVERY_STATUS,
     ] as Permission[]),
 
     /** Admins hold every permission. */

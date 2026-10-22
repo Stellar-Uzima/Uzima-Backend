@@ -29,6 +29,14 @@ export class MetricsService {
     private readonly notificationDeliveryRetriesTotal: Counter<string>,
     @InjectMetric('notification_provider_circuit_state')
     private readonly notificationCircuitState: Gauge<string>,
+    @InjectMetric('notification_delivery_status_transitions_total')
+    private readonly notificationStatusTransitions: Counter<string>,
+    @InjectMetric('notification_delivery_status_distribution')
+    private readonly notificationStatusDistribution: Gauge<string>,
+    @InjectMetric('notification_delivery_time_seconds')
+    private readonly notificationDeliveryTime: Histogram<string>,
+    @InjectMetric('notification_delivery_escalations_total')
+    private readonly notificationEscalations: Counter<string>,
     @InjectMetric('system_memory_usage_bytes')
     private readonly memoryUsage: Gauge<string>,
     @InjectMetric('system_cpu_usage_percent')
@@ -93,6 +101,50 @@ export class MetricsService {
 
   setNotificationCircuitOpen(channel: string, isOpen: boolean) {
     this.notificationCircuitState.set({ channel }, isOpen ? 1 : 0);
+  }
+
+  /**
+   * Records a delivery status state transition for observability.
+   * Helps track bottlenecks in the delivery pipeline.
+   */
+  recordNotificationStatusTransition(
+    channel: string,
+    newStatus: 'pending' | 'sent' | 'failed' | 'escalated',
+    previousStatus?: 'pending' | 'sent' | 'failed' | 'escalated',
+  ) {
+    this.notificationStatusTransitions.inc({
+      channel,
+      status: newStatus,
+      previous_status: previousStatus || 'unknown',
+    });
+  }
+
+  /**
+   * Updates the gauge for delivery status distribution.
+   * Call this periodically (e.g., during sweeper runs) for accurate metrics.
+   */
+  setNotificationStatusDistribution(
+    channel: string,
+    status: 'pending' | 'sent' | 'failed' | 'escalated',
+    count: number,
+  ) {
+    this.notificationStatusDistribution.set({ channel, status }, count);
+  }
+
+  /**
+   * Records the time taken from notification creation to successful delivery.
+   * Only called when status transitions to SENT.
+   */
+  recordNotificationDeliveryLatency(channel: string, durationSeconds: number) {
+    this.notificationDeliveryTime.observe({ channel }, durationSeconds);
+  }
+
+  /**
+   * Records when a delivery is escalated for operational review.
+   * Reason should be the escalation reason (e.g., 'max_attempts_exhausted').
+   */
+  recordNotificationEscalation(reason: string = 'unknown') {
+    this.notificationEscalations.inc({ reason });
   }
 
   setMemoryUsage(bytes: number) {
