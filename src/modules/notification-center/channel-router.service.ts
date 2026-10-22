@@ -382,12 +382,17 @@ export class ChannelRouterService {
     attempts: number,
     errorMessage: string | null
   ): Promise<void> {
+    const log = await this.deliveryLogRepo.findOne({ where: { id: logId } });
     await this.deliveryLogRepo.update(logId, {
       status,
       attempts,
       attemptedAt: new Date(),
       errorMessage,
     });
+    // Record metric for status transition
+    if (log && this.metrics) {
+      this.metrics.recordNotificationStatusTransition(log.channel, status, log.status);
+    }
   }
 
   private async appendRetryHistory(logId: string, attempt: number, error: unknown): Promise<string> {

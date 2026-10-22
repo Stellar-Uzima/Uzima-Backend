@@ -11,6 +11,7 @@ import {
 } from './entities/notification-delivery-log.entity';
 import { InAppNotification, DeliveryChannel } from './entities/in-app-notification.entity';
 import { RetryJobData } from './channel-router.service';
+import { MetricsService } from '../../shared/metrics/metrics.service';
 import {
   NOTIFICATION_CENTER_QUEUE,
   RETRY_DELIVERY_JOB,
@@ -65,6 +66,7 @@ export class DeliverySweeperService {
     @InjectQueue(NOTIFICATION_CENTER_QUEUE)
     private readonly retryQueue: Queue<RetryJobData>,
     private readonly configService: ConfigService,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -84,6 +86,8 @@ export class DeliverySweeperService {
       this.logger.log(
         `Delivery sweep complete: requeued=${requeued} escalated=${escalated}`,
       );
+      // Record status distribution metrics after sweep completes
+      await this.recordStatusDistributionMetrics();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Delivery sweep failed: ${message}`);
@@ -187,6 +191,8 @@ export class DeliverySweeperService {
 
     let escalated = 0;
     const signatures: Array<string> = [];
+    const escalationReasons = new Map<string, number>();
+
     for (const log of exhausted) {
       const reason =
         log.errorMessage ?? 'Delivery exhausted all retry attempts without acknowledgement';
@@ -197,6 +203,8 @@ export class DeliverySweeperService {
       });
       escalated += 1;
       signatures.push(`log=${log.id} channel=${log.channel}`);
+      escalationReasons.set(reason, (escalationReasons.get(reason) ?? 0) + 1);
+      this.metrics.recordNotificationEscalation(reason);
       this.logger.error(
         `ESCALATED delivery: notification=${log.notificationId} channel=${log.channel} attempts=${log.attempts} reason="${reason}"`,
       );
@@ -209,4 +217,26 @@ export class DeliverySweeperService {
     }
     return escalated;
   }
-}
+
+  /**
+   * Records current status distribution for all channels.
+   * Called periodically by the sweeper for observability.
+   */
+  private async recordStatusDistributionMetrics(): Promise<void> {
+    try {
+      const channels = ['in_app', 'email', 'push', 'sms'];
+      const statuses = [DeliveryStatus.PENDING, DeliveryStatus.SENT, DeliveryStatus.FAILED, DeliveryStatus.ESCALATED];
+
+      for (const channel of channels) {
+        for (const status of statuses) {
+          const count = await this.deliveryLogRepo.count({
+            where: { channel, status },
+          });
+          this.metrics.setNotificationStatusDistribution(channel, status as any, count);
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to record status distribution metrics: ${message}`);
+    }
+  }

@@ -30,4 +30,7 @@ export enum Permission {
   ASSIGN_TASKS = 'ASSIGN_TASKS',
   /** Review submitted tasks */
   REVIEW_TASKS = 'REVIEW_TASKS',
+
+  /** View notification delivery status and attempt history (support workflow) */
+  VIEW_NOTIFICATION_DELIVERY_STATUS = 'VIEW_NOTIFICATION_DELIVERY_STATUS',
 }

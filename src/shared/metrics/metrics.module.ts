@@ -82,6 +82,27 @@ import { MonitoringController } from '../monitoring/monitoring.controller';
       help: 'Notification provider circuit state (1=open, 0=closed)',
       labelNames: ['channel'],
     }),
+    makeCounterProvider({
+      name: 'notification_delivery_status_transitions_total',
+      help: 'Delivery status state transitions (pending, sent, failed, escalated) by channel',
+      labelNames: ['channel', 'status', 'previous_status'],
+    }),
+    makeGaugeProvider({
+      name: 'notification_delivery_status_distribution',
+      help: 'Distribution of notifications by delivery status and channel',
+      labelNames: ['channel', 'status'],
+    }),
+    makeHistogramProvider({
+      name: 'notification_delivery_time_seconds',
+      help: 'Time from notification creation to successful delivery by channel (in seconds)',
+      labelNames: ['channel'],
+      buckets: [1, 5, 10, 30, 60, 300, 600, 1800],
+    }),
+    makeCounterProvider({
+      name: 'notification_delivery_escalations_total',
+      help: 'Number of notifications escalated for operational review by reason',
+      labelNames: ['reason'],
+    }),
     makeGaugeProvider({
       name: 'system_memory_usage_bytes',
       help: 'Current memory usage in bytes',
