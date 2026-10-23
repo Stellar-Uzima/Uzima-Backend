@@ -143,6 +143,36 @@ export class CreateContributionDto {
   amount: number;
 }
 
+export class CreateSavingsWithdrawalDto {
+  @ApiProperty({ description: 'Amount to withdraw from the goal in XLM', example: 25, minimum: 0.01 })
+  @IsNumber({ maxDecimalPlaces: 7 })
+  @Min(0.01)
+  amount: number;
+}
+
+export class SavingsWithdrawalResponseDto {
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  transactionId: string;
+
+  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  goalId: string;
+
+  @ApiProperty({ example: 25 })
+  amount: number;
+
+  @ApiProperty({ description: 'Goal balance after the withdrawal', example: 100.5 })
+  goalBalance: number;
+
+  @ApiProperty({ description: 'Wallet balance after the withdrawal', example: 150 })
+  walletBalance: number;
+
+  @ApiProperty({ enum: WalletTransactionStatus, example: WalletTransactionStatus.CONFIRMED })
+  status: WalletTransactionStatus;
+
+  @ApiProperty()
+  createdAt: Date;
+}
+
 export class ContributionResponseDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
   id: string;
