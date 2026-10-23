@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Unique,
 } from 'typeorm';
 import { User } from '../../entities/user.entity';
 
@@ -32,6 +33,10 @@ export enum WalletTransactionStatus {
 
 /**
  * Comprehensive wallet transaction log for audit trail
+ *
+ * Referral rewards are idempotent per (referenceId, referenceType, type):
+ * a partial unique index guarantees at most one REWARD row per referral
+ * per reward type, enforced at the database level.
  */
 @Entity('wallet_transactions')
 @Index(['userId'])
@@ -39,6 +44,14 @@ export enum WalletTransactionStatus {
 @Index(['status'])
 @Index(['createdAt'])
 @Index(['referenceId'])
+@Index(
+  'uq_wallet_referral_reward_per_type',
+  ['referenceId', 'metadata'],
+  {
+    unique: true,
+    where: `"type" = 'REWARD' AND "reference_type" = 'referral'`,
+  },
+)
 export class WalletTransaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -76,7 +89,7 @@ export class WalletTransaction {
   referenceId: string | null; // Links to withdrawal, savings goal, reward, etc.
 
   @Column({ name: 'reference_type', type: 'varchar', length: 50, nullable: true })
-  referenceType: string | null; // 'withdrawal', 'savings_goal', 'reward', 'transfer', etc.
+  referenceType: string | null; // 'withdrawal', 'savings_goal', 'reward', 'transfer', 'referral', etc.
 
   @Column({ name: 'description', type: 'text', nullable: true })
   description: string | null;
@@ -93,6 +106,11 @@ export class WalletTransaction {
   @Column({ name: 'failure_reason', type: 'text', nullable: true })
   failureReason: string | null;
 
+  /**
+   * For referral rewards, metadata.rewardType holds the configured reward type
+   * (e.g. 'SIGNUP_BONUS', 'FIRST_DEPOSIT_BONUS'). Qualification must be verified
+   * before a REWARD row is inserted; the unique index prevents duplicates.
+   */
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any> | null;
 

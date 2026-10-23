@@ -17,6 +17,9 @@ export async function runAtomicMoneyMovement<T>(
 /**
  * Guards against double posting the same financial operation by checking
  * an idempotency key against a ledger-style repository before running `work`.
+ * Callers must ensure qualification rules are verified before invoking `work`
+ * for reward issuance, and idempotency keys should be scoped per referral and
+ * reward type so each referral yields at most one reward per reward type.
  */
 export async function withIdempotencyGuard<T>(
   manager: EntityManager,
