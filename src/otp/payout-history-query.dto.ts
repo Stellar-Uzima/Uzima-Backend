@@ -1,7 +1,7 @@
 import { IsOptional, IsEnum, IsDateString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { RewardStatus } from '../enums/reward-status.enum';
+import { RewardStatus } from '../rewards/enums/reward-status.enum';
 
 export class PayoutHistoryQueryDto {
   @ApiPropertyOptional({ description: 'Page number to retrieve', example: 1, default: 1 })
