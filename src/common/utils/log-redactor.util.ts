@@ -2,6 +2,13 @@
  * Redacts sensitive fields from an object before it is written to logs.
  * Addresses: structured logs must be sanitized to avoid leaking secrets.
  */
+/**
+ * Classification of SMS provider outcomes.
+ * - retryable: transient failures (timeouts, rate limits, 5xx) that may succeed on retry.
+ * - terminal: permanent failures (rejected numbers, invalid requests, hard delivery failures).
+ */
+export type SmsFailureClass = 'retryable' | 'terminal';
+
 const SENSITIVE_KEYS = [
   'password',
   'token',
