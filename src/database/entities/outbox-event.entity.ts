@@ -16,6 +16,7 @@ export enum OutboxEventStatus {
 @Entity('outbox_events')
 @Index(['status', 'availableAt'])
 @Index(['aggregateType', 'aggregateId'])
+@Index(['idempotencyKey'], { unique: true, where: '"idempotencyKey" IS NOT NULL' })
 export class OutboxEventEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -32,6 +33,12 @@ export class OutboxEventEntity {
   @Column({ type: 'jsonb' })
   payload: Record<string, unknown>;
 
+  /**
+   * Stable identifier for the side-effecting operation. Derived from the
+   * aggregate and event identity so that retries and re-enqueues of the same
+   * logical operation resolve to the same key. A unique index guarantees that
+   * an operation is recorded at most once.
+   */
   @Column({ type: 'varchar', length: 255, nullable: true })
   idempotencyKey: string | null;
 
