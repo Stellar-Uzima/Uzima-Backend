@@ -19,6 +19,10 @@ import {
 } from "./indicators/queue.health";
 
 import {
+  ScheduledJobHealthIndicator,
+} from "./indicators/scheduled-job.health";
+
+import {
   CacheModule,
 } from "../shared/cache/cache.module";
 
@@ -40,6 +44,11 @@ import {
   providers: [
     RedisHealthIndicator,
     QueueHealthIndicator,
+    ScheduledJobHealthIndicator,
+  ],
+
+  exports: [
+    ScheduledJobHealthIndicator,
   ],
 })
 export class HealthModule {}

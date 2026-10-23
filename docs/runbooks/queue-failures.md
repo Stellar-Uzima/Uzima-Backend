@@ -1,6 +1,6 @@
 # Runbook: Queue Failures
 
-**Version:** 1.1.0
+**Version:** 2.0.0
 **Severity:** SEV-2 (SEV-1 if reward payouts or notifications are fully stalled)
 **Primary owner:** Backend on-call
 **Escalation:** Secondary on-call → Platform lead → Team lead
@@ -10,14 +10,14 @@
 The backend runs Bull (Redis-backed) queues. Names and job types are defined in
 `src/queue/queue.constants.ts`:
 
-| Queue | Purpose |
-| --- | --- |
-| `reward-queue` / `reward-dead-letter-queue` | Reward distribution, calculation, claims |
-| `notification-queue` | Email / push / SMS / task reminders |
-| `task-verification-queue` | Task completion verification, quality checks, approvals |
-| `proof-verification-queue` | Proof-of-task verification |
-| `user-activity-queue` | Activity tracking events |
-| `data-processing-queue` | GDPR data exports, bulk task assignments |
+| Queue                                       | Purpose                                                 |
+| ------------------------------------------- | ------------------------------------------------------- |
+| `reward-queue` / `reward-dead-letter-queue` | Reward distribution, calculation, claims                |
+| `notification-queue`                        | Email / push / SMS / task reminders                     |
+| `task-verification-queue`                   | Task completion verification, quality checks, approvals |
+| `proof-verification-queue`                  | Proof-of-task verification                              |
+| `user-activity-queue`                       | Activity tracking events                                |
+| `data-processing-queue`                     | GDPR data exports, bulk task assignments                |
 
 Alerts that indicate queue trouble:
 
@@ -30,46 +30,57 @@ Alerts that indicate queue trouble:
 - Support reports: missing notifications, tasks not verified, exports never
   arriving.
 
+Use the [operator context](./README.md#operator-context-and-evidence). QueueModule
+sets the Bull prefix to `uzima`; authenticate privately and verify REDIS_DB/TLS
+for the deployed connection. Add `-n` for a non-default Redis database and `--tls`
+with the configured CA for TLS. Do not run these against an inferred server.
+
 Triage commands:
 
 ```bash
 # Queue health + job counts
-curl -s https://api.uzima.example/health/queue | jq
+curl --fail-with-body -sS "$QUEUE_HEALTH_URL" | jq
 
 # Per-queue stats (waiting/active/completed/failed/delayed/paused)
 # via the QueueService stats or a redis-cli snapshot:
-redis-cli -h $REDIS_HOST -p $REDIS_PORT --scan --pattern 'bull:*' | head
-redis-cli -h $REDIS_HOST -p $REDIS_PORT llen bull:reward-queue:wait
-redis-cli -h $REDIS_HOST -p $REDIS_PORT llen bull:reward-dead-letter-queue:wait
+redis-cli -h $REDIS_HOST -p $REDIS_PORT --scan --pattern 'uzima:*' | head
+redis-cli -h $REDIS_HOST -p $REDIS_PORT llen uzima:reward-queue:wait
+redis-cli -h $REDIS_HOST -p $REDIS_PORT llen uzima:reward-dead-letter-queue:wait
 
 # Recent app logs for processor errors
 kubectl logs deploy/uzima-backend --since=30m | grep -iE "job.*(failed|error)" | tail -50
 ```
 
+The notification-center retry queue is additional to the queues mapped above.
+See [Notification Provider Incidents](./notification-provider-incidents.md).
+QueueService may substitute zeros after an individual stats read fails, and its
+ping checks only the first queue. Health 200/zero backlog therefore needs
+independent confirmation from the affected queue and worker.
+
 ## 2. Triage — classify the failure
 
-| Symptom | Likely cause | Go to |
-| --- | --- | --- |
-| `/health/queue` 503, `redis` indicator down | Redis unavailable | 3.1 |
-| Backlog grows, processors idle, no errors | Workers not consuming (paused/deploy issue) | 3.2 |
-| Backlog grows, processor errors in logs | Job payload/dependency failure | 3.3 |
-| `reward-dead-letter-queue` growing | Reward jobs exhausted retries | 3.4 |
-| Single job type failing (e.g. all exports) | Code regression in a processor | 3.5 |
-| Failed jobs accumulating, cause unknown | Attempts exhausted somewhere else | 3.6 |
+| Symptom                                     | Likely cause                                | Go to |
+| ------------------------------------------- | ------------------------------------------- | ----- |
+| `/health/queue` 503, `redis` indicator down | Redis unavailable                           | 3.1   |
+| Backlog grows, processors idle, no errors   | Workers not consuming (paused/deploy issue) | 3.2   |
+| Backlog grows, processor errors in logs     | Job payload/dependency failure              | 3.3   |
+| `reward-dead-letter-queue` growing          | Reward jobs exhausted retries               | 3.4   |
+| Single job type failing (e.g. all exports)  | Code regression in a processor              | 3.5   |
+| Failed jobs accumulating, cause unknown     | Attempts exhausted somewhere else           | 3.6   |
 
 ### 2.1 Retry policy
 
 All queues are registered with one policy, defined in
 `src/queue/queue-policy.ts` and applied in `src/queue/queue.module.ts`:
 
-| Setting | Value | Applied in |
-| --- | --- | --- |
-| Attempts per job | `DEFAULT_JOB_ATTEMPTS` (3) | `queue.module.ts` default job options |
-| Backoff | exponential | `backoff: { type: 'exponential' }` |
-| Base delay | `DEFAULT_BACKOFF_MS` (1000 ms) | same |
-| Delay ceiling | `MAX_BACKOFF_MS` (60 s) | `computeBackoffDelay` |
+| Setting          | Value                          | Applied in                            |
+| ---------------- | ------------------------------ | ------------------------------------- |
+| Attempts per job | `DEFAULT_JOB_ATTEMPTS` (3)     | `queue.module.ts` default job options |
+| Backoff          | exponential                    | `backoff: { type: 'exponential' }`    |
+| Base delay       | `DEFAULT_BACKOFF_MS` (1000 ms) | same                                  |
+| Delay ceiling    | `MAX_BACKOFF_MS` (60 s)        | `computeBackoffDelay`                 |
 
-The delay before retry *n* is `base * 2^(n-1)` clamped to the ceiling, so the
+The delay before retry _n_ is `base * 2^(n-1)` clamped to the ceiling, so the
 first retry waits 1 s, the second 2 s, the third 4 s, and so on. `QueueService.addJob`
 takes `maxRetries` and `backoffMs` per call, so a single job type can opt into a
 different budget without changing the global defaults.
@@ -79,14 +90,14 @@ different budget without changing the global defaults.
 Every failure message is classified into one category by `classifyFailure()` in
 `src/queue/queue-policy.ts`:
 
-| Category | Matches | First thing to check |
-| --- | --- | --- |
-| `timeout` | `timeout`, `timed out`, `ETIMEDOUT` | Downstream latency; only raise a client timeout after the dependency is healthy |
-| `network` | `ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `fetch failed` | Redis / DB / provider reachability |
-| `rate-limit` | `rate limit`, `too many requests`, `429` | Provider quota; lower concurrency or back off |
-| `validation` | `validation`, `invalid`, `400` | Payload shape after a schema change |
-| `contract` | `soroban`, `contract`, `stellar`, `insufficient`, `tx_` | Stellar/Soroban call or wallet balance |
-| `unknown` | anything else | Read the stack trace |
+| Category     | Matches                                                   | First thing to check                                                            |
+| ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `timeout`    | `timeout`, `timed out`, `ETIMEDOUT`                       | Downstream latency; only raise a client timeout after the dependency is healthy |
+| `network`    | `ECONNREFUSED`, `ECONNRESET`, `ENOTFOUND`, `fetch failed` | Redis / DB / provider reachability                                              |
+| `rate-limit` | `rate limit`, `too many requests`, `429`                  | Provider quota; lower concurrency or back off                                   |
+| `validation` | `validation`, `invalid`, `400`                            | Payload shape after a schema change                                             |
+| `contract`   | `soroban`, `contract`, `stellar`, `insufficient`, `tx_`   | Stellar/Soroban call or wallet balance                                          |
+| `unknown`    | anything else                                             | Read the stack trace                                                            |
 
 For a queue-wide view without a `redis-cli` session:
 
@@ -172,16 +183,16 @@ Bull does not relocate a failed job on its own: it stays in that queue's
 Reaped non-reward jobs land on `reward-dead-letter-queue` as inspectable
 records — payload, reason, category and stack trace are preserved — but they are
 **not** written to `failed_reward_jobs`, which only accepts reward-shaped rows.
-⚠️ Reap *before* replaying, so the same job is not counted twice.
+⚠️ Reap _before_ replaying, so the same job is not counted twice.
 
 ## 4. Duties During the Incident
 
-| Role | Duty |
-| --- | --- |
-| On-call engineer | Runs triage, executes resume/replay/rollback steps |
-| Platform lead | Owns Redis/infra side, approves destructive cleanup |
-| Team lead | Decides rollback vs hotfix, communicates SLA impact |
-| Support lead | Tells users what's delayed (exports, notifications) and expected recovery time |
+| Role             | Duty                                                                           |
+| ---------------- | ------------------------------------------------------------------------------ |
+| On-call engineer | Runs triage, executes resume/replay/rollback steps                             |
+| Platform lead    | Owns Redis/infra side, approves destructive cleanup                            |
+| Team lead        | Decides rollback vs hotfix, communicates SLA impact                            |
+| Support lead     | Tells users what's delayed (exports, notifications) and expected recovery time |
 
 ## 5. Communication
 
@@ -210,7 +221,8 @@ and whether alert thresholds caught it early enough.
 
 ## Changelog
 
-| Version | Date | Change |
-| --- | --- | --- |
-| 1.0.0 | 2026-09-24 | Initial version. |
-| 1.1.0 | 2026-09-26 | Documented the shared retry policy (`queue-policy.ts`), the failure categories, `getFailureReport` / `reapExhaustedJobs`, and dead-letter grouping via `getFailureSummary`. |
+| Version | Date       | Change                                                                                                                                                                      |
+| ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.0.0   | 2026-10-19 | #1613: correct Bull prefix, confirm target/health limitations, and link Redis/provider procedures.                                                                          |
+| 1.0.0   | 2026-09-24 | Initial version.                                                                                                                                                            |
+| 1.1.0   | 2026-09-26 | Documented the shared retry policy (`queue-policy.ts`), the failure categories, `getFailureReport` / `reapExhaustedJobs`, and dead-letter grouping via `getFailureSummary`. |

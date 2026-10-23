@@ -5,7 +5,7 @@ import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { TaskCompletionStatus } from '../../../tasks/entities/task-completion.entity';
 import { RewardTransaction } from '../../../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../../../rewards/enums/reward-status.enum';
-import { Coupon } from '../../../coupons/entities/coupon.entity';
+import { Coupon } from '../../../entities/coupon.entity';
 
 describe('ActivityFeedService', () => {
   let service: ActivityFeedService;

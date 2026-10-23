@@ -90,7 +90,11 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Stellar Uzima API')
-    .setDescription('Healthcare & Financial Inclusion through Blockchain for African Communities')
+    .setDescription(
+      'Healthcare & Financial Inclusion through Blockchain for African Communities. ' +
+        'Public HTTP routes use URI versioning and are served under /api/v1 unless explicitly ' +
+        'assigned another version. Error responses use the shared ApiErrorResponse envelope.',
+    )
     .setVersion('1.0.0')
     .addBearerAuth({
       type: 'http',
@@ -109,6 +113,81 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
+  document.components ??= {};
+  document.components.schemas ??= {};
+  document.components.schemas.ApiErrorResponse = {
+    type: 'object',
+    required: ['error'],
+    properties: {
+      error: {
+        type: 'object',
+        required: ['code', 'message', 'statusCode', 'path', 'method', 'timestamp'],
+        properties: {
+          code: { type: 'string', description: 'Stable machine-readable error code' },
+          message: { type: 'string', description: 'Human-readable error message' },
+          statusCode: { type: 'integer', format: 'int32' },
+          details: {
+            type: 'object',
+            additionalProperties: {
+              oneOf: [
+                { type: 'array', items: { type: 'string' } },
+                { type: 'string' },
+                { type: 'number' },
+                { type: 'boolean' },
+              ],
+            },
+          },
+          path: { type: 'string' },
+          method: { type: 'string' },
+          requestId: { type: 'string' },
+          timestamp: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  };
+
+  const documentedErrorStatuses: Record<string, string> = {
+    '400': 'Bad request or DTO validation failed',
+    '401': 'Authentication required or credentials invalid',
+    '403': 'Authenticated caller is not permitted to perform this operation',
+    '404': 'Requested resource was not found',
+    '409': 'Request conflicts with the current resource state',
+    '410': 'Requested resource is no longer available',
+    '422': 'Request is syntactically valid but cannot be processed',
+    '423': 'Account is temporarily locked',
+    '429': 'Request rate limit exceeded',
+    '500': 'Unexpected server error',
+    '503': 'Service is temporarily unavailable',
+  };
+  const httpMethods = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'] as const;
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    if (!pathItem || '$ref' in pathItem) {
+      continue;
+    }
+    for (const method of httpMethods) {
+      const operation = pathItem[method];
+      if (!operation) {
+        continue;
+      }
+      for (const [status, description] of Object.entries(documentedErrorStatuses)) {
+        const existing = operation.responses[status];
+        if (!existing || '$ref' in existing) {
+          operation.responses[status] = { description };
+        }
+        const response = operation.responses[status];
+        if (response && !('$ref' in response)) {
+          response.description ||= description;
+          response.content = {
+            ...response.content,
+            'application/json': {
+              ...response.content?.['application/json'],
+              schema: { $ref: '#/components/schemas/ApiErrorResponse' },
+            },
+          };
+        }
+      }
+    }
+  }
   SwaggerModule.setup('api/docs', app, document);
 
   // Replace direct process.env reference with configService.get

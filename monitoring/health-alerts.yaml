@@ -53,3 +53,39 @@ groups:
     annotations:
       summary: "Redis cache hit rate is low"
       description: "Redis hit rate has dropped below 80%, current rate: {{ $value | humanizePercentage }}"
+
+  # Scheduled job health monitoring:
+  # Each critical schedule reports last successful execution and current status via
+  # application_scheduled_job_last_success_timestamp_seconds and
+  # application_scheduled_job_status (1 = healthy, not 1 = failing).
+
+  # Alert when a critical job has not succeeded within its expected interval
+  # (missed/delayed run). The job exports its expected interval in seconds.
+  - alert: ScheduledJobMissedRun
+    expr: (time() - application_scheduled_job_last_success_timestamp_seconds) > application_scheduled_job_expected_interval_seconds
+    fo: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Scheduled job {{ $labels.job }} missed its run"
+      description: "Scheduled job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}, exceeding its expected interval. Affected time window starts {{ $labels.job }} last success at {{ query "application_scheduled_job_last_success_timestamp_seconds" | first | value }}."
+
+  # Alert when a critical job is repeatedly failing (current status not healthy)
+  - alert: ScheduledJobRepeatedlyFailing
+    expr: application_scheduled_job_consecutive_failures >= 3
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Scheduled job {{ $labels.job }} is repeatedly failing"
+      description: "Scheduled job {{ $labels.job }} has failed {{ $value }} consecutive times. Last success timestamp is exported by application_scheduled_job_last_success_timestamp_seconds."
+
+  # Alert when a critical job's current status is not healthy (status != 1)
+  - alert: ScheduledJobUnhealthy
+    expr: application_scheduled_job_status != 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Scheduled job {{ $labels.job }} is unhealthy"
+      description: "Scheduled job {{ $labels.job }} reports an unhealthy current status. Last success timestamp is exported by application_scheduled_job_last_success_timestamp_seconds."

@@ -28,6 +28,8 @@ export function isReferralQualifyingAction(
 /** Machine-readable outcome of a settlement attempt. */
 export enum ReferralSettlementReason {
   SETTLED = 'SETTLED',
+  HELD_FOR_REVIEW = 'HELD_FOR_REVIEW',
+  REJECTED_BY_REVIEW = 'REJECTED_BY_REVIEW',
   /** A previous (possibly concurrent) settlement already paid this referral. */
   ALREADY_SETTLED = 'ALREADY_SETTLED',
   /** The user never redeemed a referral code, so there is nothing to settle. */
@@ -49,3 +51,25 @@ export const REFERRAL_REWARD_AMOUNT_ENV = 'REFERRAL_REWARD_XLM';
 export const DEFAULT_REFERRAL_REWARD_XLM = 5;
 
 export const DEFAULT_REFERRAL_REWARD_CURRENCY = Currency.XLM;
+
+export const REFERRAL_RISK_REVIEW_WINDOW_MS_ENV =
+  'REFERRAL_RISK_REVIEW_WINDOW_MS';
+export const REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW_ENV =
+  'REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW';
+export const REFERRAL_RISK_MIN_ACCOUNT_AGE_MS_ENV =
+  'REFERRAL_RISK_MIN_ACCOUNT_AGE_MS';
+
+export const DEFAULT_REFERRAL_RISK_REVIEW_WINDOW_MS = 60 * 60 * 1000;
+export const DEFAULT_REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW = 5;
+export const DEFAULT_REFERRAL_RISK_MIN_ACCOUNT_AGE_MS = 0;
+
+export enum ReferralRiskReasonCode {
+  HIGH_REFERRAL_VELOCITY = 'HIGH_REFERRAL_VELOCITY',
+  RAPID_ACCOUNT_REDEMPTION = 'RAPID_ACCOUNT_REDEMPTION',
+}
+
+export enum ReferralRiskReviewStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}

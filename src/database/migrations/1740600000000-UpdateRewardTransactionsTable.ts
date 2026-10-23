@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, Table, TableColumn, TableForeignKey } from 'typeorm';
+import { MigrationInterface, QueryRunner, Table, TableColumn, TableForeignKey, TableIndex } from 'typeorm';
 
 export class UpdateRewardTransactionsTable1740600000000
   implements MigrationInterface
@@ -51,6 +51,16 @@ export class UpdateRewardTransactionsTable1740600000000
                     isNullable: true
                 },
                 {
+                    name: 'milestoneKey',
+                    type: 'varchar',
+                    isNullable: true
+                },
+                {
+                    name: 'milestoneEventId',
+                    type: 'uuid',
+                    isNullable: true
+                },
+                {
                     name: 'createdAt',
                     type: 'timestamp',
                     default: 'now()'
@@ -68,6 +78,12 @@ export class UpdateRewardTransactionsTable1740600000000
             referencedColumnNames: ['id'],
             referencedTableName: 'users',
             onDelete: 'CASCADE'
+        }));
+
+        await queryRunner.createIndex('reward_transactions', new TableIndex({
+            name: 'IDX_reward_transactions_milestone_unique',
+            columnNames: ['userId', 'milestoneKey'],
+            isUnique: true,
         }));
 
         return; // Work is done
@@ -102,11 +118,49 @@ export class UpdateRewardTransactionsTable1740600000000
             }),
         );
     }
+
+    if (table && !table.findColumnByName('milestoneKey')) {
+        // Add `milestoneKey` column to identify configured milestone events
+        await queryRunner.addColumn(
+            'reward_transactions',
+            new TableColumn({
+                name: 'milestoneKey',
+                type: 'varchar',
+                isNullable: true,
+            }),
+        );
+    }
+
+    if (table && !table.findColumnByName('milestoneEventId')) {
+        // Add `milestoneEventId` column referencing the milestone event
+        await queryRunner.addColumn(
+            'reward_transactions',
+            new TableColumn({
+                name: 'milestoneEventId',
+                type: 'uuid',
+                isNullable: true,
+            }),
+        );
+    }
+
+    const refreshedTable = await queryRunner.getTable('reward_transactions');
+    if (refreshedTable && !refreshedTable.indices.find((i) => i.name === 'IDX_reward_transactions_milestone_unique')) {
+        // Enforce idempotency: a given milestone can only be rewarded once per user
+        await queryRunner.createIndex('reward_transactions', new TableIndex({
+            name: 'IDX_reward_transactions_milestone_unique',
+            columnNames: ['userId', 'milestoneKey'],
+            isUnique: true,
+        }));
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropColumn('reward_transactions', 'attempts');
     await queryRunner.dropColumn('reward_transactions', 'amount');
+
+    await queryRunner.dropIndex('reward_transactions', 'IDX_reward_transactions_milestone_unique');
+    await queryRunner.dropColumn('reward_transactions', 'milestoneEventId');
+    await queryRunner.dropColumn('reward_transactions', 'milestoneKey');
 
     // Restore old amount formatting
     await queryRunner.addColumn(

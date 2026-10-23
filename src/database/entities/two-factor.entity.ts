@@ -21,7 +21,7 @@ export class TwoFactor {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADER' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -36,6 +36,18 @@ export class TwoFactor {
 
   @Column({ type: 'json', nullable: true })
   backupCodes: BackupCodeRecord[] | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  otpExpiresAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  otpUsedAt: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  otpAttempts: number;
+
+  @Column({ type: 'int', default: 5 })
+  otpMaxAttempts: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

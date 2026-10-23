@@ -2,6 +2,8 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FailedRewardJob } from '../../../rewards/entities/failed-reward-job.entity';
+import { Reward } from '../../../rewards/entities/reward.entity';
+import { StreakMilestone } from '../../../rewards/entities/streak-milestone.entity';
 import { DeadLetterProcessor } from '../../../rewards/queues/dead-letter.processor';
 import {
   ListFailedJobsDto,
@@ -16,8 +18,50 @@ export class FailedRewardJobService {
   constructor(
     @InjectRepository(FailedRewardJob)
     private readonly failedRewardJobRepository: Repository<FailedRewardJob>,
+    @InjectRepository(Reward)
+    private readonly rewardRepository: Repository<Reward>,
+    @InjectRepository(StreakMilestone)
+    private readonly streakMilestoneRepository: Repository<StreakMilestone>,
     private readonly deadLetterProcessor: DeadLetterProcessor,
   ) {}
+
+  async processStreakMilestone(
+    userId: string,
+    milestonId: string,
+  ): Promise<{ awarded: boolean; rewardId?: string }> {
+    const milestone = await this.streakMilestoneRepository.findOne({
+      where: { id: milestoneId },
+    });
+
+    if (!milestone || !milestone.isActive) {
+      this.logger.warn(
+        `Streak milestone ${milestoneId} is not configured or inactive; skipping award`,
+      );
+      return { awarded: false };
+    }
+
+    const existingReward = await this.rewardRepository.findOne({
+      where: { userId, streakMilestoneId: milestoneId },
+    });
+
+    if (existingReward) {
+      this.logger.warn(
+        `Reward already issued for user ${userId} and milestone ${milestoneId}; skipping duplicate`,
+      );
+      return { awarded: false, rewardId: existingReward.id };
+    }
+
+    const reward = this.rewardRepository.create({
+      userId,
+      streakMilestoneId: milestoneId,
+      xlmAmount: milestone.xlmAmount,
+      status: 'pending',
+    });
+
+    const savedReward = await this.rewardRepository.save(reward);
+
+    return { awarded: true, rewardId: savedReward.id };
+  }
 
   async listFailedJobs(
     query: ListFailedJobsDto,

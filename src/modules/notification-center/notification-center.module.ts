@@ -16,8 +16,10 @@ import { PushModule } from '../../shared/notifications/push.module';
 import { EmailTemplateService } from '../../shared/notifications/services/email-template.service';
 import { NOTIFICATION_CENTER_QUEUE } from './constants/notification-center.constants';
 import { NotificationService } from './notification.service';
+import { WalletActivityListener } from './wallet-activity.listener';
 import { NotificationPreferencesModule } from '../../notifications/preferences/preferences.module';
 import { MetricsModule } from '../../shared/metrics/metrics.module';
+import { NotificationDeadLetterController } from './notification-dead-letter.controller';
 
 @Module({
   imports: [
@@ -41,7 +43,7 @@ import { MetricsModule } from '../../shared/metrics/metrics.module';
     PushModule,
     NotificationPreferencesModule,
   ],
-  controllers: [NotificationCenterController],
+  controllers: [NotificationCenterController, NotificationDeadLetterController],
   providers: [
     NotificationCenterService,
     ChannelRouterService,
@@ -49,6 +51,7 @@ import { MetricsModule } from '../../shared/metrics/metrics.module';
     SmsService,
     EmailTemplateService,
     NotificationService,
+    WalletActivityListener,
   ],
   exports: [NotificationCenterService, NotificationService, NotificationPreferencesModule],
 })

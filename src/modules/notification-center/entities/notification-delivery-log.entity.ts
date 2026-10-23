@@ -60,6 +60,10 @@ export class NotificationDeliveryLog {
   @Column({ type: 'text', nullable: true })
   escalatedReason: string | null;
 
+  /** Safe, bounded diagnostics for each provider attempt. Never stores raw errors. */
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  retryHistory: Array<{ attempt: number; at: string; reason: string }>;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
