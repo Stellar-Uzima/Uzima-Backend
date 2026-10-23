@@ -28,19 +28,19 @@ spec:
         ports:
         - containerPort: 3000
           name: http
-        # Liveness Probe - Checks if the application is running
+        # Liveness Probe - Checks if the application process is running
         livenessProbe:
           httpGet:
-            path: /health
+            path: /health/liveness
             port: 3000
           initialDelaySeconds: 30    # Wait 30s before first check
           periodSeconds: 30          # Check every 30s
           timeoutSeconds: 10         # Timeout after 10s
           failureThreshold: 3        # Restart after 3 failures
-        # Readiness Probe - Checks if the app can accept traffic
+        # Readiness Probe - Checks if the app can accept traffic (dependencies healthy)
         readinessProbe:
           httpGet:
-            path: /health
+            path: /health/readiness
             port: 3000
           initialDelaySeconds: 10    # Wait 10s before first check
           periodSeconds: 15          # Check every 15s
