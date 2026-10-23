@@ -20,8 +20,19 @@ import { StellarService } from '../../stellar/stellar.service';
 import { XlmPriceService } from '../../stellar/xlm-price.service';
 import { User } from '../../entities/user.entity';
 import { WalletSummaryDto } from './dto/wallet-summary.dto';
-import { Withdrawal, WithdrawalStatus } from './entities/withdrawal.entity';
-import { CreateWithdrawalDto, WithdrawalListQueryDto, WithdrawalResponseDto } from './dto/withdrawal.dto';
+import { Withdrawal } from './entities/withdrawal.entity';
+import {
+  CreateWithdrawalDto,
+  WithdrawalListQueryDto,
+  WithdrawalResponseDto,
+  WithdrawalStatus,
+} from './dto/withdrawal.dto';
+import { TaskCompletion, TaskCompletionStatus } from '../../tasks/entities/task-completion.entity';
+import { AuditService } from '../../audit/audit.service';
+import { AuditAction, AuditResource } from '../../audit/entities/audit-log.entity';
+import { NotificationService } from '../notification-center/notification.service';
+import { NotificationTypeEnum } from '../notification-center/entities/in-app-notification.entity';
+import { Role } from '../auth/enums/role.enum';
 
 @Injectable()
 export class WalletService {
