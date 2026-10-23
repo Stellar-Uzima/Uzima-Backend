@@ -12,7 +12,7 @@ import {
 import {
   AuthEventOutcome,
   AuthEventType,
-} from '../../../database/entities/auth-event.entity';
+} from '../../database/entities/auth-event.entity';
 
 /** Query parameters accepted by the auth-event audit endpoints. */
 export class QueryAuthEventsDto {

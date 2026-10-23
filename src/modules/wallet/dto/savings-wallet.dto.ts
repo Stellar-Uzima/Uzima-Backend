@@ -11,9 +11,9 @@ import {
   IsUUID,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SavingsGoalStatus } from '../database/entities/savings-goal.entity';
-import { ContributionStatus } from '../database/entities/savings-goal.entity';
-import { WalletTransactionType, WalletTransactionStatus } from '../database/entities/wallet-transaction.entity';
+import { SavingsGoalStatus } from '../../../database/entities/savings-goal.entity';
+import { ContributionStatus } from '../../../database/entities/savings-goal.entity';
+import { WalletTransactionType, WalletTransactionStatus } from '../../../database/entities/wallet-transaction.entity';
 
 export class CreateSavingsGoalDto {
   @ApiProperty({ description: 'Goal title', example: 'Emergency Fund', minLength: 1, maxLength: 200 })
