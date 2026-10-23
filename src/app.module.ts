@@ -75,6 +75,9 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 // Notification preferences (implemented against Issue 091)
 import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
 
+// In-app notification read state (Issue 099)
+import { NotificationReadStateModule } from './modules/notification-read-state/notification-read-state.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -166,6 +169,7 @@ import { NotificationPreferencesModule } from './modules/notification-preference
     BackfillModule,
     RetentionModule,
     NotificationPreferencesModule,
+    NotificationReadStateModule,
   ],
   controllers: [AppController],
   providers: [

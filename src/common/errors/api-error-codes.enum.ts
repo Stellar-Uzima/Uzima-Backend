@@ -48,6 +48,10 @@ export enum ApiErrorCode {
   INVALID_LIMIT = 'INVALID_LIMIT',
   INVALID_SORT_FIELD = 'INVALID_SORT_FIELD',
 
+  // --- Notifications (Issue 099) ---
+  NOTIFICATION_NOT_FOUND = 'NOTIFICATION_NOT_FOUND',
+  INVALID_NOTIFICATION_STATE = 'INVALID_NOTIFICATION_STATE',
+
   // --- Throttling / availability ---
   RATE_LIMITED = 'RATE_LIMITED',
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
@@ -96,6 +100,9 @@ export const API_ERROR_STATUS: Readonly<Record<ApiErrorCode, number>> = Object.f
   [ApiErrorCode.INVALID_PAGE]: 400,
   [ApiErrorCode.INVALID_LIMIT]: 400,
   [ApiErrorCode.INVALID_SORT_FIELD]: 400,
+
+  [ApiErrorCode.NOTIFICATION_NOT_FOUND]: 404,
+  [ApiErrorCode.INVALID_NOTIFICATION_STATE]: 409,
 
   [ApiErrorCode.RATE_LIMITED]: 429,
   [ApiErrorCode.SERVICE_UNAVAILABLE]: 503,
