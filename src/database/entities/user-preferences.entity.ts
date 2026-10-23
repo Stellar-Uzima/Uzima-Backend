@@ -57,6 +57,28 @@ export type NotificationPreferences = {
   [key in NotificationType]: NotificationChannelPreference;
 };
 
+/**
+ * Push device token lifecycle.
+ * - Users register/revoke their own device tokens.
+ * - Tokens rejected by the provider are disabled (`active = false`) and
+ *   recorded with `disabledReason`, so they are never targeted again.
+ */
+export enum PushTokenStatus {
+  ACTIVE = 'active',
+  REVOKED = 'revoked',
+  INVALID = 'invalid',
+}
+
+export interface PushDeviceToken {
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  status: PushTokenStatus;
+  registeredAt: string; // ISO timestamp
+  updatedAt: string; // ISO timestamp
+  disabledAt?: string; // ISO timestamp
+  disabledReason?: string;
+}
+
 export function createDefaultNotificationPreferences(): NotificationPreferences {
   const defaultChannel = (): NotificationChannelPreference => ({
     enabled: true,
@@ -79,7 +101,7 @@ export class UserPreferences {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADEU' })
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -87,7 +109,7 @@ export class UserPreferences {
   @IsUUID()
   userId: string;
 
-  @Columb({
+  @Column({
     type: 'enum',
     enum: Theme,
     default: Theme.SYSTEM,
@@ -102,6 +124,14 @@ export class UserPreferences {
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
   notifications: NotificationPreferences;
+
+  /**
+   * Push device tokens registered by this user. Revoked/invalid tokens are
+   * kept (status-tagged) so provider feedback is not re-applied repeatedly.
+   */
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @IsObject()
+  pushTokens: PushDeviceToken[];
 
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
