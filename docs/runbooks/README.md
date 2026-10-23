@@ -53,6 +53,38 @@ Primary on-call engineer        (responds, follows runbook)
 Escalate **at any point** if you are unsure — an unnecessary page is cheaper
 than a delayed incident.
 
+## Service-Level Monitoring Targets
+
+These targets are the reference for dashboards and alerts covering key API
+workflows. Alert thresholds in `monitoring/health-alerts.yaml` and dashboard
+panels must match the values below; any change to a target is a MINOR runbook
+version bump and must be reflected in the same PR.
+
+| Workflow | Endpoint scope | Measurement window | Availability target (non-5xx success) | Latency target (p95) | Error budget alert threshold |
+| --- | --- | --- | --- | --- | --- |
+| Authentication (login, token refresh) | `/auth/*` | Rolling 30 days | ≥ 99.9% | ≤ 500 ms | 5xx rate > 1% over 10 min |
+| Health records read/write | `/health-records/*` | Rolling 30 days | ≥ 99.9% | ≤ 800 ms | 5xx rate > 1% over 10 min |
+| Rewards and balances | `/rewards/*`, `/balances/*` | Rolling 30 days | ≥ 99.95% | ≤ 800 ms | 5xx rate > 0.5% over 10 min |
+| Stellar transaction submission | `/stellar/*` | Rolling 30 days | ≥ 99.5% | ≤ 3000 ms | 5xx rate > 2% over 15 min |
+| Notifications enqueue | `/notifications/*` | Rolling 30 days | ≥ 99.9% | ≤ 300 ms | 5xx rate > 1% over 10 min |
+| Health probe | `HEALTH_URL` | Rolling 30 days | ≥ 99.95% | ≤ 200 ms | Non-200 for 3 consecutive checks |
+
+**Measurement rules**
+
+- Availability = successful (non-5xx) responses ÷ total responses for the
+  endpoint scope, excluding requests rejected with 4xx by client validation.
+- Latency is measured at the server (request start to response end) and
+  reported as p95 unless stated otherwise.
+- Targets apply to the versioned API base (`API_BASE_URL`); the health probe
+  is measured against `HEALTH_URL`.
+
+**Review**
+
+- Dashboards and alerts are checked against these targets during each
+  quarterly fire drill and after every SEV-1/SEV-2 post-mortem.
+- Any incident that breaches a target must record the observed SLI value and
+  whether the target or the alert threshold should change in the post-mortem.
+
 ## Versioning & Release Review Policy
 
 Runbooks are versioned documentation and are reviewed as part of the release
@@ -128,5 +160,6 @@ checks and the observation window; record remaining work and an owner.
 
 | Version | Date | Change |
 | --- | --- | --- |
+| 2.1.0 | 2026-10-26 | Issue 150: define service-level monitoring targets (measurement window, endpoint scope, availability and latency thresholds) and review requirements for dashboards and alerts. |
 | 2.0.0 | 2026-10-19 | #1613: add Redis, provider and Stellar procedures; verify operator context, monitoring limitations and existing database/queue steps. |
 | 1.0.0 | 2026-09-24 | Initial runbook set: database outage, auth issues, queue failures, reward regressions. |

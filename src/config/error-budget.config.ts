@@ -4,38 +4,40 @@
  * responding to sustained or severe service degradation.
  *
  * Service-level monitoring targets (#150):
- * - Measurement window: rolling windows defined per rule via `windowMinutes`.
- * - Endpoint scope: `endpointScope` lists the API workflows the rule applies to.
- *   An empty array means the rule applies to all key API workflows.
- * - Error/latency thresholds: `errorRateThreshold` (fraction of requests) and
- *   `latencyP95ThresholdMs` (p95 latency in milliseconds, optional).
- * - Dashboards and alerts consume this config; targets are reviewed after
- *   each incident and updated here.
+ * - Measurement window: rolling windows as defined per rule (windowMinutes).
+ * - Endpoint scope: all public API workflows served by the API gateway
+ * (requests matched by the `api` ingress route, excluding health checks).
+ * - Error threshold: fraction of requests returning 5xx responses
+ * (client 4xx responses are not counted against the budget).
+ * - Latency threshold: p95 request latency per workflow must stay under
+ * `latencyP95ThresholdMs` for the rule's window.
+ * - Dashboards and alerts consume this file as the source of truth and
+ * are reviewed after every incident postmortem.
  */
 export interface ErrorBudgetRule {
   name: string;
   errorRateThreshold: number; // fraction of requests, e.g. 0.02 = 2%
-  latencyP95ThresholdMs?: number; // optional p95 latency threshold in ms
-  windowMinutes: number; // rolling measurement window
-  endpointScope: string[]; // API workflows covered; empty = all key workflows
+  windowMinutes: number;
   severity: 'warning' | 'critical';
+  latencyP95ThresholdMs: number;
+  endpointScope: string;
 }
 
 export const errorBudgetConfig: ErrorBudgetRule[] = [
   {
     name: 'sustained-error-rate',
     errorRateThreshold: 0.02,
-    latencyP95ThresholdMs: 1000,
     windowMinutes: 15,
-    endpointScope: [],
     severity: 'warning',
+    latencyP95ThresholdMs: 800,
+    endpointScope: 'api/*',
   },
   {
     name: 'severe-error-rate',
     errorRateThreshold: 0.1,
-    latencyP95ThresholdMs: 3000,
     windowMinutes: 5,
-    endpointScope: [],
     severity: 'critical',
+    latencyP95ThresholdMs: 2000,
+    endpointScope: 'api/*',
   },
 ];
