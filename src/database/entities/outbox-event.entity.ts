@@ -13,6 +13,15 @@ export enum OutboxEventStatus {
   FAILED = 'failed',
 }
 
+export enum EmailDeliveryStatus {
+  ACCEPTED = 'accepted',
+  DELIVERED = 'delivered',
+  BOUNCED = 'bounced',
+  DEFERRED = 'deferred',
+  COMPLAINED = 'complained',
+  FAILED = 'failed',
+}
+
 @Entity('outbox_events')
 @Index(['status', 'availableAt'])
 @Index(['aggregateType', 'aggregateId'])
@@ -56,4 +65,39 @@ export class OutboxEventEntity {
 
   @CreateDateColumn()
   createdAt: Date;
+}
+
+@Entity('email_delivery_events')
+@Index(['providerEventId'], { unique: true })
+@Index(['notificationId', 'occurredAt'])
+export class EmailDeliveryEventEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'varchar', length: 64 })
+  provider: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  providerEventId: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  providerMessageId: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  notificationId: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  recipient: string | null;
+
+  @Column({ type: 'varchar', length: 32 })
+  status: EmailDeliveryStatus;
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  rawPayload: Record<string, unknown>;
+
+  @Column({ type: 'timestamp' })
+  occurredAt: Date;
+
+  @CreateDateColumn()
+  receivedAt: Date;
 }

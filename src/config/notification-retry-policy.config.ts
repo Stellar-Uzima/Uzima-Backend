@@ -28,6 +28,17 @@ export interface NotificationRetryPolicy {
   staleMs: number;
   /** Max stale logs requeued per sweep run. */
   sweepBatch: number;
+  /**
+   * Shared secret used to authenticate inbound email provider delivery
+   * callbacks (HMAC-SHA256 over the raw request body). When unset, callbacks
+   * must be rejected.
+   */
+  emailCallbackSecret: string | undefined;
+  /**
+   * How long a processed provider event ID is retained for idempotency
+   * de-duplication of duplicate callbacks.
+   */
+  emailEventDedupeTtlMs: number;
 }
 
 export default registerAs(
@@ -44,5 +55,8 @@ export default registerAs(
     circuitResetMs: parseInt(process.env.NOTIFICATION_CIRCUIT_RESET_MS ?? '30000', 10) || 30000,
     staleMs: parseInt(process.env.NOTIFICATION_DELIVERY_STALE_MS ?? '300000', 10) || 300000,
     sweepBatch: parseInt(process.env.NOTIFICATION_SWEEP_BATCH ?? '200', 10) || 200,
+    emailCallbackSecret: process.env.NOTIFICATION_EMAIL_CALLBACK_SECRET || undefined,
+    emailEventDedupeTtlMs:
+      parseInt(process.env.NOTIFICATION_EMAIL_EVENT_DEDUPE_TTL_MS ?? '86400000', 10) || 86400000,
   }),
 );

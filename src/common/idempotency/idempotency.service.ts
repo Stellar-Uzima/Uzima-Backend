@@ -31,6 +31,25 @@ export class IdempotencyService {
     return this.repo.save(entity);
   }
 
+  /**
+   * Atomically claims an idempotency key. Returns true if this caller inserted
+   * the record (first delivery), false if a record already exists (duplicate).
+   * Relies on the unique constraint over (userId, method, path, key) to make
+   * concurrent duplicate callbacks safe.
+   */
+  async claim(record: Partial<IdempotencyKey>): Promise<boolean> {
+    const result = await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(IdempotencyKey)
+      .values(this.repo.create(record))
+      .orIgnore()
+      .execute();
+    return (result.identifiers?.length ?? 0) > 0 &&
+      result.raw !== undefined &&
+      result.raw.length !== 0;
+  }
+
   async deleteById(id: string): Promise<void> {
     await this.repo.delete(id);
   }
