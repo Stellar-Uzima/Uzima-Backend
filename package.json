@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "nest build",
+    "build": "node api.js && nest build",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:write": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:format": "npm run lint:fix && npm run format:write",
-    "start": "nest start",
+    "start": "node api.js && nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",

@@ -1,17 +1,23 @@
 {
   "default_branch": "main",
   "branches": [
+    "fix/issue-1594-issue-129-add-background-job-retry-and-dead",
+    "fix/issue-1601-issue-136-add-audit-log-access-controls",
     "fix/issue-1551-issue-086-add-leaderboard-time-windows",
     "main",
     "origin"
   ],
   "parent": {
+    "fix/issue-1594-issue-129-add-background-job-retry-and-dead": "main",
+    "fix/issue-1601-issue-136-add-audit-log-access-controls": "main",
     "fix/issue-1551-issue-086-add-leaderboard-time-windows": "main",
     "main": null,
     "origin": "main"
   },
   "order": [
     "main",
+    "fix/issue-1594-issue-129-add-background-job-retry-and-dead",
+    "fix/issue-1601-issue-136-add-audit-log-access-controls",
     "fix/issue-1551-issue-086-add-leaderboard-time-windows",
     "origin"
   ]
