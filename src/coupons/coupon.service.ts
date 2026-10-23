@@ -328,7 +328,7 @@ export class CouponService implements OnModuleInit {
         if (!fresh) {
           throw new NotFoundException('Coupon not found');
         }
-        if (fresh.status === CouponStatus.REDEEMED) {
+        if (fresh.status === CouponStatus.REDEMED) {
           throw new BadRequestException('Coupon already redeemed');
         }
         if (fresh.status === CouponStatus.EXPIRED || new Date() > fresh.expiresAt) {
@@ -339,7 +339,7 @@ export class CouponService implements OnModuleInit {
         }
         if (
           fresh.usageLimit != null &&
-          fresh.usageCount >= fRESh.usageLimit
+          fresh.usageCount >= fresh.usageLimit
         ) {
           throw new BadRequestException('Coupon usage limit exhausted');
         }
@@ -382,154 +382,14 @@ export class CouponService implements OnModuleInit {
       code: this.generateCouponCode(),
       discount: payload.discount ?? DEFAULT_DISCOUNT_PERCENT,
       specialistType: payload.specialistType ?? undefined,
+      usageLimit: payload.usageLimit,
       expiresAt,
       status: CouponStatus.ACTIVE,
-      usageLimit: payload.usageLimit ?? 1,
-      usageCount: 0,
     });
-    const saved = await this.couponRepository.save(coupon);
-    this.logger.log(`Coupon created by admin: ${saved.code} for user ${userId}`);
-    return saved;
-  }
-
-  /**
-   * Admin: Bulk create coupons
-   */
-  async bulkCreateCoupons(
-    userIds: string[],
-    payload: { discount?: number; specialistType?: string; daysValid?: number; usageLimit?: number },
-  ): Promise<Coupon[]> {
-    const coupons: Coupon[] = [];
-    for (const userId of userIds) {
-      const coupon = await this.createCoupon(userId, payload);
-      coupons.push(coupon);
-    }
-    return coupons;
-  }
-
-  /**
-   * Admin: Get coupon analytics
-   */
-  async getCouponAnalytics(): Promise<any> {
-    const totalCoupons = await this.couponRepository.count();
-    const activeCoupons = await this.couponRepository.count({
-      where: { status: CouponStatus.ACTIVE },
-    });
-    const redeemedCoupons = await this.couponRepository.count({
-      where: { status: CouponStatus.REDEMED },
-    });
-    const expiredCoupons = await this.couponRepository.count({
-      where: { status: CouponStatus.EXPIRED },
-    });
-
-    const byStatus = await this.couponRepository
-      .createQueryBuilder('c')
-      .select('c.status', 'status')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('c.status')
-      .getRawMany();
-
-    const byDiscount = await this.couponRepository
-      .createQueryBuilder('c')
-      .select('c.discount', 'discount')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('c.discount')
-      .orderBy('c.discount', 'ASC')
-      .getRawMany();
-
-    const recentCoupons = await this.couponRepository
-      .createQueryBuilder('c')
-      .orderBy('c.createdAt', 'DESC')
-      .take(20)
-      .getMany();
-
-    const redemptionRate = totalCoupons > 0 ? (redeemedCoupons / totalCoupons) * 100 : 0;
-
-    return {
-      summary: {
-        totalCoupons,
-        activeCoupons,
-        redeemedCoupons,
-        expiredCoupons,
-        redemptionRate: Math.round(redemptionRate * 100) / 100,
-      },
-      byStatus,
-      byDiscount,
-      recentCoupons: recentCoupons.map((c) => ({
-        id: c.id,
-        code: c.code,
-        userId: c.userId,
-        discount: c.discount,
-        status: c.status,
-        expiresAt: c.expiresAt,
-        usedAt: c.usedAt,
-        createdAt: c.createdAt,
-      })),
-    };
-  }
-
-  /**
-   * Admin: Mark a coupon as redeemed (for manual redemption tracking)
-   */
-  async markAsRedeemed(couponCode: string, redeemedBy: string): Promise<Coupon> {
-    const normalizedCode = couponCode.trim().toUpperCase();
-    const coupon = await this.couponRepository.findOne({ where: { code: normalizedCode } });
-    if (!coupon) {
-      throw new NotFoundException('Coupon not found');
-    }
-    if (coupon.status === CouponStatus.REDEEMED) {
-      throw new BadRequestException('Coupon already redeemed');
-    }
-    if (coupon.status === CouponStatus.DISABLED) {
-      throw new BadRequestException('Coupon is disabled');
-    }
-    if (coupon.status === CouponStatus.EXPIRED || new Date() > coupon.expiresAt) {
-      throw new BadRequestException('Coupon has expired');
-    }
-    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
-      throw new BadRequestException('Coupon usage limit exhausted');
-    }
-
-    coupon.usageCount = (coupon.usageCount ?? 0) + 1;
-    coupon.usedAt = new Date();
-    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
-      coupon.status = CouponStatus.REDEMED;
-    }
-    await this.couponRepository.save(coupon);
-
-    this.logger.log(`Coupon manually marked as redeemed: ${normalizedCode} by ${redeemedBy}`);
-    return coupon;
-  }
-
-  /**
-   * Admin: Extend coupon expiration
-   */
-  async extendExpiration(couponCode: string, additionalDays: number): Promise<Coupon> {
-    const normalizedCode = couponCode.trim().toUpperCase();
-    const coupon = await this.couponRepository.findOne({ where: { code: normalizedCode } });
-    if (!coupon) {
-      throw new NotFoundException('Coupon not found');
-    }
-    if (coupon.status === CouponStatus.REDEEMED) {
-      throw new BadRequestException('Cannot extend expiration of redeemed coupon');
-    }
-
-    coupon.expiresAt = new Date(coupon.expiresAt.getTime() + additionalDays * 24 * 60 * 60 * 1000);
-    if (coupon.status === CouponStatus.EXPIRED) {
-      coupon.status = CouponStatus.ACTIVE;
-    }
-    await this.couponRepository.save(coupon);
-
-    this.logger.log(`Coupon expiration extended: ${normalizedCode} by ${additionalDays} days`);
-    return coupon;
+    return this.couponRepository.save(coupon);
   }
 
   private generateCouponCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWY23456789';
-    let code = '';
-    for (let i = 0; i < 12; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+    return Math.random().toString(36).slice(2, 10).toUpperCase();
   }
 }
