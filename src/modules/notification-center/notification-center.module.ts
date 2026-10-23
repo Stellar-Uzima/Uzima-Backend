@@ -19,6 +19,7 @@ import { NotificationService } from './notification.service';
 import { WalletActivityListener } from './wallet-activity.listener';
 import { NotificationPreferencesModule } from '../../notifications/preferences/preferences.module';
 import { MetricsModule } from '../../shared/metrics/metrics.module';
+import { NotificationDeadLetterController } from './notification-dead-letter.controller';
 
 @Module({
   imports: [
@@ -42,7 +43,7 @@ import { MetricsModule } from '../../shared/metrics/metrics.module';
     PushModule,
     NotificationPreferencesModule,
   ],
-  controllers: [NotificationCenterController],
+  controllers: [NotificationCenterController, NotificationDeadLetterController],
   providers: [
     NotificationCenterService,
     ChannelRouterService,

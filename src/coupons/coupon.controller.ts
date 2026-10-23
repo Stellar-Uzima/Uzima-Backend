@@ -107,7 +107,32 @@ export class CouponController {
     return this.couponService.validate(dto, req.user.sub);
   }
 
-  // ========== Admin Endpoints ==========
+  @Post('redeem')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  @ApiOperation({
+    summary: 'Redeem coupon',
+    description:
+      'Atomically redeem a coupon. Rejects expired, disabled, and exhausted coupons, and enforces usage limits under concurrency.',
+  })
+  @ApiResponse({ status: 200, description: 'Coupon redeemed', type: Coupon })
+  @ApiResponse({ status: 400, description: 'Coupon expired, disabled, exhausted, or already redeemed' })
+  @ApiResponse({ status: 403, description: 'Coupon belongs to a different user' })
+  @ApiResponse({ status: 404, description: 'Coupon not found' })
+  async redeem(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ValidateCouponDto,
+  ): Promise<Coupon> {
+    return this.couponService.redeem(dto.code, req.user.sub);
+  }
+
+  // ========= Admin Endpoints =========
 
   @Post('admin/create')
   @UseGuards(RolesGuard)
@@ -117,12 +142,13 @@ export class CouponController {
   @ApiResponse({ status: 201, description: 'Coupon created', type: Coupon })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   async createCoupon(
-    @Body() dto: { userId: string; discount?: number; specialistType?: string; daysValid?: number },
+    @Body() dto: { userId: string; discount?: number; specialistType?: string; daysValid?: number; maxRedeemptions?: number },
   ): Promise<Coupon> {
     return this.couponService.createCoupon(dto.userId, {
       discount: dto.discount,
       specialistType: dto.specialistType,
       daysValid: dto.daysValid,
+      maxRedeemptions: dto.maxRedeemptions,
     });
   }
 
@@ -134,12 +160,13 @@ export class CouponController {
   @ApiResponse({ status: 201, description: 'Coupons created', type: [Coupon] })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   async bulkCreateCoupons(
-    @Body() dto: { userIds: string[]; discount?: number; specialistType?: string; daysValid?: number },
+    @Body() dto: { userIds: string[]; discount?: number; specialistType?: string; daysValid?: number; maxRedeemptions?: number },
   ): Promise<Coupon[]> {
     return this.couponService.bulkCreateCoupons(dto.userIds, {
       discount: dto.discount,
       specialistType: dto.specialistType,
       daysValid: dto.daysValid,
+      maxRedeemptions: dto.maxRedeemptions,
     });
   }
 
@@ -169,9 +196,9 @@ export class CouponController {
   @Put('admin/:code/extend')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: '[ADMIN] Extend coupon expiration' })
+  @ApiOperation({ summary: '[ADMIN] Disable a coupon' })
   @ApiParam({ name: 'code', description: 'Coupon code' })
-  @ApiResponse({ status: 200, description: 'Coupon expiration extended', type: Coupon })
+  @ApiResponse({ status: 200, description: 'Coupon disabled', type: Coupon })
   @ApiResponse({ status: 403, description: 'Forbidden: requires ADMIN role' })
   @ApiResponse({ status: 404, description: 'Coupon not found' })
   async extendExpiration(
