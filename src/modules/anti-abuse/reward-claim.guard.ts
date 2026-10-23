@@ -90,7 +90,7 @@ export class RewardClaimGuard {
       );
     }
 
-    if (this.processedHilestones.has(milestoneKey)) {
+    if (this.processedMilestones.has(milestoneKey)) {
       this.logger.warn(
         `Rejected duplicate milestone processing: userId=${userId} key=${milestoneKey}`,
       );

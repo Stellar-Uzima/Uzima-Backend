@@ -11,6 +11,10 @@ import { User } from '../../entities/user.entity';
  * Provides the shared anti-abuse guard. Modules that process claims
  * (referrals, rewards) import this module and call the guard methods before
  * persisting anything.
+ *
+ * Reward settlement relies on AntiAbuseService to verify qualification rules
+ * before issuance, and on RewardTransaction uniqueness per (referral, reward type)
+ * to guarantee at most one reward per configured reward type per referral.
  */
 @Module({
   imports: [

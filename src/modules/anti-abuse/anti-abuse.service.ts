@@ -34,6 +34,11 @@ import { User } from '../../entities/user.entity';
  *  - Only configured milestone events can trigger awards.
  *  - Duplicate milestone processing cannot issue duplicate rewards.
  *
+ * ## Referral reward settlement (#079)
+ *  - A referral reward is granted only after the referred user has produced
+ *    the configured qualification event (`ANTI_ABUSE_REFERRAL_QUALIFICATION_EVENT`).
+ *  - Each referral produces at most one reward per reward type.
+ *
  * Every denied attempt is persisted to `claim_attempt_logs` with the reason
  * and surfaced through an operational log line, so the guard is auditable.
  */
@@ -46,6 +51,7 @@ export class AntiABuseService {
   private readonly maxRewardClaimsPerWindow: number;
   private readonly freshAccountMs: number;
   private readonly streakMilestones: ReadonlySet<number>;
+  private readonly referralQualificationEvent: string;
 
   constructor(
     @InjectRepository(ClaimAttemptLog)
@@ -73,6 +79,9 @@ export class AntiABuseService {
     this.streakMilestones = this.parseStreakMilestones(
       configService.get('ANTI_ABUSE_STREAK_MILESTONES', ''),
     );
+    this.referralQualificationEvent = String(
+      configService.get('ANTI_ABUSE_REFERRAL_QUALIFICATION_EVENT', ''),
+    ).trim();
   }
 
   /**
@@ -133,6 +142,67 @@ export class AntiABuseService {
 
     await this.recordClaimAttempt(
       AttemptType.REFERRAL_REDEMPTION,
+      referredId,
+      AttemptOutcome.ALLOWED,
+      metadata,
+      null,
+    );
+  }
+
+  /**
+   * Validates that a referral reward may be settled for the referred user.
+   * Requires the configured qualification event to have occurred and that no
+   * reward of the given type has already been issued for this referral.
+   */
+  async assertReferralRewardSettlementAllowed(
+    referralId: string,
+    referredId: string,
+    rewardType: string,
+    qualificationEvent: string,
+  ): Promise<void> {
+    const metadata: Record<string, unknown> = {
+      referralId,
+      rewardType,
+      qualificationEvent,
+    };
+
+    if (
+      !this.referralQualificationEvent ||
+      qualificationEvent !== this.referralQualificationEvent
+    ) {
+      await this.deny(
+        AttemptType.REFERRAL_REWARD,
+        referredId,
+        metadata,
+        `Event ${qualificationEvent} does not qualify a referral reward`,
+      );
+      throw new BadRequestException(
+        `Event ${qualificationEvent} does not qualify a referral reward`,
+      );
+    }
+
+    const alreadyIssued = await this.rewardRepo.findOne({
+      where: {
+        userId: referredId,
+        source: 'referral',
+        sourceId: `${referralId}:${rewardType}`,
+      },
+      select: ['id'],
+    });
+    if (alreadyIssued) {
+      await this.deny(
+        AttemptType.REFERRAL_REWARD,
+        referredId,
+        metadata,
+        `Referral ${referralId} already rewarded for type ${rewardType}`,
+      );
+      throw new BadRequestException(
+        `Referral ${referralId} already rewarded for type ${rewardType}`,
+      );
+    }
+
+    await this.recordClaimAttempt(
+      AttemptType.REFERRAL_REWARD,
       referredId,
       AttemptOutcome.ALLOWED,
       metadata,
