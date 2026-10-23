@@ -1,50 +1,87 @@
 # Prometheus Alertmanager configuration for health check failure alerts
-# SLO targets (Issue 150):
-#   Measurement window: 30 days rolling for SLO compliance; 5m/1h windows for alerting
-#   Endpoint scope: uzima-backend API workflows (/health, /api/* routes)
-#   Availability target: 99.9% of requests non-5xx over 30d window
-#   Latency target: 99% of requests complete under 500ms over 30d window
-#   Error budget alert: fires when 5xx ratio exceeds 0.1% over 1h (fast burn)
-#   Post-incident: review alerts and targets after each incident and update thresholds here
+# Service-Level Monitoring Targets (Issue 150)
+#
+# Measurement window: 5m rolling windows for latency/error SLIs, 30d for availability SLO.
+# Endpoint scope: uzima-backend API workflows (/health, /api/* request paths).
+# Thresholds:
+#   - Availability SLO: >= 99.9% successful (non-5xx) requests over 30d
+#   - Error rate: 5xx ratio > 1% over 5m (warning), > 5% over 5m (critical)
+#   - Latency p95: <= 500ms over 5m (warning), p99 <= 1500ms over 5m (critical)
+#   - Health endpoint /health: must return 200 within 1s
+#
+# Dashboards and alerts reference these targets; review after each incident.
 
 groups:
 - name: uzima-slo-targets
   rules:
-  # Recorded SLI: availability ratio for API endpoints (non-5xx / total)
-  - record: uzima:api_availability:ratio_rate5m
+  # Recording rules for SLI measurement windows
+  - record: uzima:http_request_error_ratio:rate5m
     expr: |
-      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health",status!~"5.."}[5m]))
+      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",status=~"5.."}[5m]))
       /
-      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health"}[5m]))
+      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*"}[5m]))
 
-  # Recorded SLI: fraction of API requests completing under 500ms
-  - record: uzima:api_latency_under_500ms:ratio_rate5m
+  - record: uzima:http_request_latency_p95:rate5m
     expr: |
-      sum(rate(http_server_requests_seconds_bucket{job=~"uzima-backend.*",uri=~"/api/.*|/health",le="0.5"}[5m]))
-      /
-      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health"}[5m]))
+      histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=~"uzima-backend.*"}[5m])))
 
-  # SLO breach: availability below 99.9% target
-  - alert: APIAvailabilitySLOBreach
-    expr: uzima:api_availability:ratio_rate5m < 0.999
+  - record: uzima:http_request_latency_p99:rate5m
+    expr: |
+      histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=~"uzima-backend.*"}[5m])))
+
+  - record: uzima:http_request_availability:ratio30d
+    expr: |
+      1 - (
+        sum(increase(http_server_requests_seconds_count{job=~"uzima-backend.*",status=~"5.."}[30d]))
+        /
+        sum(increase(http_server_requests_seconds_count{job=~"uzima-backend.*"}[30d]))
+      )
+
+  # SLO breach alerts tied to documented targets
+  - alert: ErrorRateAboveWarningTarget
+    expr: uzima:http_request_error_ratio:rate5m > 0.01
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Backend 5xx error ratio above 1% target"
+      description: "5xx ratio over 5m is {{ $value | humanizePercentage }}, exceeding the 1% warning threshold for uzima-backend API workflows."
+
+  - alert: ErrorRateAboveCriticalTarget
+    expr: uzima:http_request_error_ratio:rate5m > 0.05
     for: 5m
     labels:
       severity: critical
-      slo: availability
     annotations:
-      summary: "API availability below 99.9% SLO target"
-      description: "API availability over 5m is {{ $value | humanizePercentage }}, below the 99.9% target (30d window, /api/* and /health scope)."
+      summary: "Backend 5xx error ratio above 5% target"
+      description: "5xx ratio over 5m is {{ $value | humanizePercentage }}, exceeding the 5% critical threshold for uzima-backend API workflows."
 
-  # SLO breach: latency target not met (less than 99% of requests under 500ms)
-  - alert: APILatencySLOBreach
-    expr: uzima:api_latency_under_500ms:ratio_rate5m < 0.99
-    for: 10m
+  - alert: LatencyP95AboveWarningTarget
+    expr: uzima:http_request_latency_p95:rate5m > 0.5
+    for: 5m
     labels:
       severity: warning
-      slo: latency
     annotations:
-      summary: "API latency below 500ms SLO target"
-      description: "Only {{ $value | humanizePercentage }} of API requests completed under 500ms over 10m; target is 99% (30d window, /api/* and /health scope)."
+      summary: "Backend p95 latency above 500ms target"
+      description: "p95 latency over 5m is {{ $value }}s, exceeding the 500ms warning target for uzima-backend API workflows."
+
+  - alert: LatencyP99AboveCriticalTarget
+    expr: uzima:http_request_latency_p99:rate5m > 1.5
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Backend p99 latency above 1500ms target"
+      description: "p99 latency over 5m is {{ $value }}s, exceeding the 1500ms critical target for uzima-backend API workflows."
+
+  - alert: AvailabilityBelowSLO
+    expr: uzima:http_request_availability:ratio30d < 0.999
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "30-day availability below 99.9% SLO"
+      description: "30-day availability is {{ $value | humanizePercentage }}, below the 99.9% SLO target. Review dashboards and incident history."
 
 - name: uzima-health-alerts
   rules:
@@ -112,7 +149,7 @@ groups:
       severity: critical
     annotations:
       summary: "Scheduled job {{ $labels.job }} missed its run"
-      description: "Scheduled job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}, exceeding its expected interval. Last success timestamp is exported by application_scheduled_job_last_success_timestamp_seconds."
+      description: "Scheduled job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}, exceeding its expected interval. Last successful run timestamp is exported as application_scheduled_job_last_success_timestamp_seconds."
 
   # Alert when a critical job is repeatedly failing (current status not healthy)
   - alert: ScheduledJobRepeatedlyFailing
