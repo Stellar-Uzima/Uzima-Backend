@@ -28,6 +28,10 @@ Useful existing signals in MetricsService are `notification_deliveries_total`,
 `notification_delivery_retries_total` and `notification_provider_circuit_state`.
 They measure application attempts/circuit state, not receipt by the final user.
 Verify scrape labels and the deployed metrics URL before querying them.
+Email delivery events from providers (acceptance, delivery, bounce) are recorded
+against the originating notification ID. Provider callbacks must pass signature
+authentication; unauthenticated or replayed callbacks are rejected, and duplicate
+authenticated callbacks are idempotent and must not create duplicate delivery records.
 
 The notification-center retry queue is separate from `notification-queue` and
 is not one of QueueService's seven mapped queues. A successful `/health/queue`
@@ -79,6 +83,12 @@ do not publish phone numbers, FCM tokens, message bodies or provider credentials
 Record outstanding undelivered items, provider confirmation, replay approvals,
 user impact and prevention work in the post-mortem. External delivery tests
 requiring operator credentials must be recorded as unexecuted until performed.
+
+When investigating email delivery gaps, correlate provider events to the
+originating notification ID first. Treat missing provider callbacks as
+"accepted but unconfirmed" rather than failed, and do not replay on that basis
+alone. Verify callback signature validation failures before concluding a
+provider is not sending events.
 
 ## Changelog
 
