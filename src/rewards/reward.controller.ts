@@ -1,9 +1,18 @@
-import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Query, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RewardService } from './reward.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PayoutHistoryQueryDto } from '../otp/payout-history-query.dto';
+import { RewardHistoryQueryDto } from './dto/reward-history.dto';
 import { RewardSummaryResponseDto } from './dto/reward-history.dto';
+import { Request } from 'express';
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId?: unknown;
+    sub?: unknown;
+    id?: unknown;
+  };
+};
 
 @ApiTags('Rewards')
 @ApiBearerAuth()
@@ -12,14 +21,20 @@ import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 export class RewardController {
   constructor(private readonly rewardService: RewardService) {}
 
-  @Get('payouts')
-  @ApiOperation({ summary: 'Get XLM reward payout history' })
-  @ApiResponse({ status: 200, description: 'Returns paginated payout records' })
-  async getPayouts(
-    @GetUser('id') userId: string,
-    @Query() query: PayoutHistoryQueryDto,
-  ) {
-    return this.rewardService.getRewardHistory(userId, query);
+  private authenticatedUserId(req: AuthenticatedRequest): string {
+    const userId = req.user?.userId ?? req.user?.sub ?? req.user?.id;
+    if (typeof userId !== 'string' || !userId) {
+      throw new UnauthorizedException('Authenticated user context is missing');
+    }
+    return userId;
+  }
+
+  @Get(['history', 'payouts'])
+  @ApiOperation({ summary: "Get the authenticated user's reward history" })
+  @ApiResponse({ status: 200, description: 'Returns paginated reward records' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getHistory(@Req() req: AuthenticatedRequest, @Query() query: RewardHistoryQueryDto) {
+    return this.rewardService.getRewardHistory(this.authenticatedUserId(req), query);
   }
 
   @Get('summary')
@@ -29,7 +44,7 @@ export class RewardController {
     description: 'Returns total earned, total pending and last reward date',
     type: RewardSummaryResponseDto,
   })
-  async getSummary(@GetUser('id') userId: string): Promise<RewardSummaryResponseDto> {
-    return this.rewardService.getRewardSummary(userId);
+  async getSummary(@Req() req: AuthenticatedRequest): Promise<RewardSummaryResponseDto> {
+    return this.rewardService.getRewardSummary(this.authenticatedUserId(req));
   }
 }

@@ -5,8 +5,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { RewardTransaction } from './entities/reward-transaction.entity';
 import { RewardStatus } from './enums/reward-status.enum';
-import { PayoutHistoryQueryDto } from '../otp/payout-history-query.dto';
-import { RewardSummaryResponseDto } from './dto/reward-history.dto';
+import { RewardHistoryQueryDto, RewardSummaryResponseDto } from './dto/reward-history.dto';
 
 @Injectable()
 export class RewardService {
@@ -15,31 +14,36 @@ export class RewardService {
   constructor(
     @InjectRepository(RewardTransaction)
     private readonly rewardRepo: Repository<RewardTransaction>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
   /**
    * Fetches paginated reward history for a user with optional filters
    */
-  async getRewardHistory(userId: string, query: PayoutHistoryQueryDto) {
+  async getRewardHistory(userId: string, query: RewardHistoryQueryDto) {
     const { page = 1, limit = 20, startDate, endDate, status, categoryId } = query;
-    
+
     // Cache key includes query params for granularity
     const cacheKey = `reward_history:${userId}:${JSON.stringify(query)}`;
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached;
 
-    const queryBuilder = this.rewardRepo.createQueryBuilder('reward_transaction')
+    const queryBuilder = this.rewardRepo
+      .createQueryBuilder('reward_transaction')
       .leftJoinAndSelect('reward_transaction.task_completion', 'task_completion')
-      .leftJoinAndSelect('task_completion.health_task', 'health_task')
+      .leftJoinAndSelect('task_completion.task', 'health_task')
       .where('reward_transaction.userId = :userId', { userId });
 
     // Dynamic Filtering
     if (startDate) {
-      queryBuilder.andWhere('reward_transaction.createdAt >= :startDate', { startDate: new Date(startDate) });
+      queryBuilder.andWhere('reward_transaction.createdAt >= :startDate', {
+        startDate: new Date(startDate),
+      });
     }
     if (endDate) {
-      queryBuilder.andWhere('reward_transaction.createdAt <= :endDate', { endDate: new Date(endDate) });
+      queryBuilder.andWhere('reward_transaction.createdAt <= :endDate', {
+        endDate: new Date(endDate),
+      });
     }
     if (status) {
       queryBuilder.andWhere('reward_transaction.status = :status', { status });
@@ -51,19 +55,22 @@ export class RewardService {
     // Pagination and Sorting
     queryBuilder
       .orderBy('reward_transaction.createdAt', 'DESC')
+      .addOrderBy('reward_transaction.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
     const [transactions, total] = await queryBuilder.getManyAndCount();
 
-    const data = transactions.map(tx => ({
+    const data = transactions.map((tx) => ({
       id: tx.id,
+      eventType: 'reward_transaction',
       amount: tx.amount,
       status: tx.status,
       createdAt: tx.createdAt,
       // Mask transaction hash if not successful to prevent confusion
       stellarTxHash: tx.status === RewardStatus.SUCCESS ? tx.stellarTxHash : undefined,
-      taskTitle: tx.task_completion?.health_task?.title || 'Unknown Task',
+      taskTitle: tx.task_completion?.task?.title || 'Unknown Task',
+      categoryId: tx.task_completion?.task?.categoryId,
     }));
 
     const result = {
@@ -89,12 +96,12 @@ export class RewardService {
     const summary = await this.rewardRepo
       .createQueryBuilder('reward_transaction')
       .select(
-        "COALESCE(SUM(CASE WHEN reward_transaction.status = :successStatus THEN reward_transaction.amount ELSE 0 END), 0)",
-        'totalEarned',
+        'COALESCE(SUM(CASE WHEN reward_transaction.status = :successStatus THEN reward_transaction.amount ELSE 0 END), 0)',
+        'totalEarned'
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN reward_transaction.status = :pendingStatus THEN reward_transaction.amount ELSE 0 END), 0)",
-        'totalPending',
+        'COALESCE(SUM(CASE WHEN reward_transaction.status = :pendingStatus THEN reward_transaction.amount ELSE 0 END), 0)',
+        'totalPending'
       )
       .addSelect('MAX(reward_transaction.createdAt)', 'lastRewardDate')
       .where('reward_transaction.userId = :userId', { userId })

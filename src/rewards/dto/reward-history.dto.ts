@@ -1,12 +1,7 @@
-import {
-  IsDateString,
-  IsOptional,
-  IsNumber,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsDateString, IsOptional, IsNumber, IsString, IsEnum, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RewardStatus } from '../enums/reward-status.enum';
 
 export class RewardHistoryQueryDto {
   @ApiPropertyOptional({
@@ -29,6 +24,7 @@ export class RewardHistoryQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 
   @ApiPropertyOptional({
@@ -56,9 +52,23 @@ export class RewardHistoryQueryDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by reward transaction status',
+    enum: RewardStatus,
+  })
+  @IsOptional()
+  @IsEnum(RewardStatus)
+  status?: RewardStatus;
 }
 
 export class RewardHistoryItemDto {
+  @ApiProperty({
+    description: 'Type of history event represented by this record',
+    example: 'reward_transaction',
+  })
+  eventType: 'reward_transaction';
+
   @ApiProperty({
     description: 'Unique identifier for the reward transaction',
     type: String,
@@ -73,7 +83,7 @@ export class RewardHistoryItemDto {
 
   @ApiProperty({
     description: 'Status of the reward transaction',
-    enum: ['PENDING', 'COMPLETED', 'FAILED'],
+    enum: RewardStatus,
     type: String,
   })
   status: string;
