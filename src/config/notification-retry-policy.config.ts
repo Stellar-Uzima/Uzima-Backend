@@ -28,6 +28,11 @@ export interface NotificationRetryPolicy {
   staleMs: number;
   /** Max stale logs requeued per sweep run. */
   sweepBatch: number;
+  /**
+   * Consecutive invalid-token responses from a provider before a device token
+   * is disabled and excluded from future delivery targeting.
+   */
+  invalidTokenDisableThreshold: number;
 }
 
 export default registerAs(
@@ -44,5 +49,7 @@ export default registerAs(
     circuitResetMs: parseInt(process.env.NOTIFICATION_CIRCUIT_RESET_MS ?? '30000', 10) || 30000,
     staleMs: parseInt(process.env.NOTIFICATION_DELIVERY_STALE_MS ?? '300000', 10) || 300000,
     sweepBatch: parseInt(process.env.NOTIFICATION_SWEEP_BATCH ?? '200', 10) || 200,
+    invalidTokenDisableThreshold:
+      parseInt(process.env.NOTIFICATION_INVALID_TOKEN_DISABLE_THRESHOLD ?? '1', 10) || 1,
   }),
 );
