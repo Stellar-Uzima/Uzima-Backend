@@ -2,6 +2,20 @@
 
 This document describes the operational workflows delivered for issues #1352, #1353, #1354, and #1360.
 
+## Service-Level Monitoring Targets
+
+These targets define measurable reliability and latency objectives for key API workflows. Dashboards and alerts must use these documented values, and they must be reviewed after every incident.
+
+- **Measurement window:** rolling 30 days, evaluated continuously with a 5-minute aggregation granularity.
+- **Endpoint scope:**
+  - `POST /webhooks/stellar` (webhook ingestion)
+  - `/support/cases` (support case workflows)
+  - `/admin/backfills/:jobKey/run` (backfill execution)
+- **Availability (error-rate) threshold:** at least 99.9% of requests in the window must not return a 5xx response. Client errors (4xx) are excluded from the error budget.
+- **Latency threshold:** at least 95% of requests must complete within 500 ms, and at least 99% within 2000 ms, measured at the server.
+- **Alerting:** an alert fires when the 5-minute error rate exceeds 1% or the p95 latency exceeds 500 ms for 10 consecutive minutes.
+- **Review:** every incident must include a review of these targets, confirming whether the thresholds, endpoint scope, and alert configuration remain accurate and adjusting them if necessary.
+
 ## Webhooks
 
 `POST /webhooks/stellar` accepts a JSON event signed with `X-Stellar-Signature`. The signature is an HMAC-SHA256 hex digest over the exact raw request body. Events are deduplicated by `id`, `eventId`, or `event_id`; payloads without an identifier use a deterministic payload hash.

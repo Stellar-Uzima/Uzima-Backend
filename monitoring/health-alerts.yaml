@@ -1,7 +1,51 @@
 # Prometheus Alertmanager configuration for health check failure alerts
-# This demonstrates how to notify on-call teams when health checks start failing
+# SLO targets (Issue 150):
+#   Measurement window: 30 days rolling for SLO compliance; 5m/1h windows for alerting
+#   Endpoint scope: uzima-backend API workflows (/health, /api/* routes)
+#   Availability target: 99.9% of requests non-5xx over 30d window
+#   Latency target: 99% of requests complete under 500ms over 30d window
+#   Error budget alert: fires when 5xx ratio exceeds 0.1% over 1h (fast burn)
+#   Post-incident: review alerts and targets after each incident and update thresholds here
 
 groups:
+- name: uzima-slo-targets
+  rules:
+  # Recorded SLI: availability ratio for API endpoints (non-5xx / total)
+  - record: uzima:api_availability:ratio_rate5m
+    expr: |
+      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health",status!~"5.."}[5m]))
+      /
+      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health"}[5m]))
+
+  # Recorded SLI: fraction of API requests completing under 500ms
+  - record: uzima:api_latency_under_500ms:ratio_rate5m
+    expr: |
+      sum(rate(http_server_requests_seconds_bucket{job=~"uzima-backend.*",uri=~"/api/.*|/health",le="0.5"}[5m]))
+      /
+      sum(rate(http_server_requests_seconds_count{job=~"uzima-backend.*",uri=~"/api/.*|/health"}[5m]))
+
+  # SLO breach: availability below 99.9% target
+  - alert: APIAvailabilitySLOBreach
+    expr: uzima:api_availability:ratio_rate5m < 0.999
+    for: 5m
+    labels:
+      severity: critical
+      slo: availability
+    annotations:
+      summary: "API availability below 99.9% SLO target"
+      description: "API availability over 5m is {{ $value | humanizePercentage }}, below the 99.9% target (30d window, /api/* and /health scope)."
+
+  # SLO breach: latency target not met (less than 99% of requests under 500ms)
+  - alert: APILatencySLOBreach
+    expr: uzima:api_latency_under_500ms:ratio_rate5m < 0.99
+    for: 10m
+    labels:
+      severity: warning
+      slo: latency
+    annotations:
+      summary: "API latency below 500ms SLO target"
+      description: "Only {{ $value | humanizePercentage }} of API requests completed under 500ms over 10m; target is 99% (30d window, /api/* and /health scope)."
+
 - name: uzima-health-alerts
   rules:
   # Alert if any pod is not ready
@@ -63,12 +107,12 @@ groups:
   # (missed/delayed run). The job exports its expected interval in seconds.
   - alert: ScheduledJobMissedRun
     expr: (time() - application_scheduled_job_last_success_timestamp_seconds) > application_scheduled_job_expected_interval_seconds
-    fo: 1m
+    for: 1m
     labels:
       severity: critical
     annotations:
       summary: "Scheduled job {{ $labels.job }} missed its run"
-      description: "Scheduled job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}, exceeding its expected interval. Affected time window starts {{ $labels.job }} last success at {{ query "application_scheduled_job_last_success_timestamp_seconds" | first | value }}."
+      description: "Scheduled job {{ $labels.job }} has not succeeded for {{ $value | humanizeDuration }}, exceeding its expected interval. Last success timestamp is exported by application_scheduled_job_last_success_timestamp_seconds."
 
   # Alert when a critical job is repeatedly failing (current status not healthy)
   - alert: ScheduledJobRepeatedlyFailing

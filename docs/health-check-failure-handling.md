@@ -3,6 +3,36 @@
 ## Overview
 This document describes how health check failures are surfaced to upstream orchestrators and the expected retry/failover behavior for the Uzima-Backend application.
 
+## Service-Level Monitoring Targets
+The following reliability and latency targets apply to key API workflows. Dashboards and alerts use these documented targets, and they are reviewed after every incident.
+
+### Measurement Window
+- Rolling 30-day window for availability (SLO) reporting
+- Rolling 5-minute window for latency and error-rate alerting
+
+### Endpoint Scope
+- **Health**: `GET /health` (availability and dependency status)
+- **Authentication**: all `/auth/*` endpoints
+- **Patient records**: all `/patients/*` and `/records/*` endpoints
+- **Rewards and notifications**: endpoints that enqueue jobs on `reward-queue` and `notification-queue`
+
+### Targets
+| Workflow | Availability (SLO) | Error-rate threshold | p95 latency threshold | p99 latency threshold |
+|---|---|---|---|---|
+| Health (`/health`) | 99.9% | < 0.1% 5xx | < 200 ms | < 500 ms |
+| Authentication | 99.9% | < 0.5% 5xx | < 300 ms | < 800 ms |
+| Patient records | 99.9% | < 0.5% 5xx | < 500 ms | < 1500 ms |
+| Rewards / notifications (enqueue) | 99.5% | < 1% 5xx | < 400 ms | < 1000 ms |
+
+### Alerting Thresholds
+- Error rate above the workflow threshold for 5 minutes triggers a warning; for 15 minutes triggers a critical alert
+- p95 latency above threshold for 5 minutes triggers a warning
+- Error budget burn rate above 14x over 1 hour triggers a critical alert
+
+### Review Process
+- Dashboards and alerts in `monitoring/health-alerts.yaml` must reference the targets in this section
+- Every incident postmortem must include a review of whether these targets were met, and whether thresholds or scope need adjustment
+
 ## Current Health Check Implementation
 The application uses NestJS Terminus to implement comprehensive health monitoring exposed at the `/health` endpoint. Three critical dependencies are monitored:
 1. **PostgreSQL Database** (TypeORM)
