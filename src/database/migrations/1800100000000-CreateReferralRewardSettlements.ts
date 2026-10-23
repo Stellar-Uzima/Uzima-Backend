@@ -6,6 +6,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * One row per settled referral. `referralId` and `rewardTransactionId` are
  * unique so a referral (and the reward transaction it produced) can never be
  * paid out twice, even under concurrent settlement attempts.
+ *
+ * A referral may produce at most one reward per configured reward type. The
+ * `rewardType` column records which reward type was settled, and the unique
+ * constraint on ("referralId", "rewardType") enforces the one-per-type rule
+ * at the database level so concurrent workers cannot double-issue.
+ *
+ * Qualification is recorded via `qualifyingAction`; a settlement row is only
+ * inserted after the qualifying event has been verified by the application
+ * layer, so the presence of a row implies the rule was satisfied.
  */
 export class CreateReferralRewardSettlements1800100000000
   implements MigrationInterface
@@ -26,6 +35,7 @@ export class CreateReferralRewardSettlements1800100000000
         "referralId" uuid NOT NULL,
         "referrerId" uuid NOT NULL,
         "referredId" uuid NOT NULL,
+        "rewardType" varchar(64) NOT NULL DEFAULT 'REFERRAL',
         "qualifyingAction" varchar(64) NOT NULL,
         "amount" decimal(18,7) NOT NULL,
         "currency" varchar(32) NOT NULL DEFAULT 'XLM',
@@ -37,6 +47,8 @@ export class CreateReferralRewardSettlements1800100000000
         "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_referral_reward_settlements_referralId"
           UNIQUE ("referralId"),
+        CONSTRAINT "UQ_referral_reward_settlements_referralId_rewardType"
+          UNIQUE ("referralId", "rewardType"),
         CONSTRAINT "UQ_referral_reward_settlements_rewardTransactionId"
           UNIQUE ("rewardTransactionId"),
         CONSTRAINT "FK_referral_reward_settlements_referral"
