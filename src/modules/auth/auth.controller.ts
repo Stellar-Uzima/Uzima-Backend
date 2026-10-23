@@ -7,6 +7,7 @@ import {
   UseGuards,
   Req,
   Version,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -206,5 +207,20 @@ export class AuthController {
       ip: req.ip,
       headers: req.headers,
     });
+  }
+
+  @Post('referral-code')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get or generate the caller\'s referral code',
+    description:
+      'Returns the authenticated user\'s unique referral code, generating and persisting one on first request.',
+  })
+  @ApiResponse({ status: 200, description: 'Referral code returned' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  async getReferralCode(@Req() req: { user: { sub: string } }) {
+    return this.authService.getOrCreateReferralCode(req.user.sub);
   }
 }

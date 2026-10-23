@@ -22,7 +22,6 @@ import { RolesGuard } from './guards/roles.guard';
 import { RbacGuard } from './guards/rbac.guard';
 import { TokenRevocationGuard } from './guards/token-revocation.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
-import { TokenRevocationGuard } from './guards/token-revocation.guard';
 import { TwoFactorController } from './two-factor.controller';
 import { TwoFactorService } from './services/two-factor.service';
 import { OtpModule } from '../../otp/otp.module';
@@ -100,7 +99,6 @@ import { AccountLockoutService } from './services/account-lockout.service';
     PasswordPolicyService,
     PasswordValidatorService,
     AccountLockoutService,
-    TokenRevocationGuard,
     JwtModule,
   ],
 })
