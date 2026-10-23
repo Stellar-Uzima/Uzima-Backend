@@ -10,7 +10,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
-import tokenConfig from './config/token.config';
+import jwtConfig from './config/jwt.config';
+import notificationRetryPolicyConfig from './config/notification-retry-policy.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -79,7 +80,7 @@ import { NotificationPreferencesModule } from './modules/notification-preference
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig, tokenConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig, notificationRetryPolicyConfig],
       validationSchema: Joi.object({
         JWT_SECRET: Joi.string().min(32).invalid('your_jwt_secret_key_here_min_32_chars').optional(),
         JWT_REFRESH_SECRET: Joi.string().min(32).invalid('your_refresh_secret_key_here_min_32_chars').optional(),
@@ -90,6 +91,12 @@ import { NotificationPreferencesModule } from './modules/notification-preference
         TWILIO_AUTH_TOKEN: Joi.string().optional(),
         STELLAR_TREASURY_SECRET_KEY: Joi.string().optional(),
         STELLAR_FUNDING_SECRET: Joi.string().invalid('your_stellar_account_secret_key').optional(),
+        STELLAR_NETWORK: Joi.string().valid('testnet', 'public', 'mainnet').optional(),
+        STELLAR_HORIZON_URL: Joi.string().uri({ scheme: ['https', 'http'] }).optional(),
+        STELLAR_TREASURY_PUBLIC_KEY: Joi.string().optional(),
+        STELLAR_FUNDING_PUBLIC_KEY: Joi.string().optional(),
+        STELLAR_SIGNING_ENABLED: Joi.string().valid('true', 'false').optional(),
+        STELLAR_FUNDING_SECRET_KEY: Joi.string().optional(),
         SLOW_QUERY_THRESHOLD_MS: Joi.number().integer().positive().optional(),
         SLOW_REQUEST_THRESHOLD_MS: Joi.number().integer().positive().optional(),
       }).unknown(true),
