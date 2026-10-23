@@ -20,6 +20,17 @@ import {
   RewardMilestonePayload,
 } from './coupon.events';
 
+const CONFIGURED_MILESTONES = new Set<string>([
+  '100',
+  '500',
+  '1000',
+  '5000',
+  '10000',
+]);
+
+const MILESTONE_DEDUP_KEY_PREFIX = 'coupon_milestone:';
+const MILESTONE_DEDUP_TTL_SECONDS = 60 * 60 * 24 * 365;
+
 export interface ValidateCouponResult {
   valid: boolean;
   reason?: string;
@@ -29,6 +40,8 @@ const MAX_ACTIVE_COUPONS_PER_USER = 5;
 const MAX_VALIDATION_ATTEMPTS_PER_HOUR = 10;
 const RATE_LIMIT_WINDOW_SECONDS = 3600;
 const RATE_LIMIT_KEY_PREFIX = 'coupon_validate:';
+const REDEMPTION_LOCK_KEY_PREFIX = 'coupon_redeem:';
+const REDEMPTION_LOCK_TTL = 10;
 const DEFAULT_COUPON_DAYS_VALID = 30;
 const DEFAULT_DISCOUNT_PERCENT = 10;
 
@@ -57,11 +70,21 @@ export class CouponService implements OnModuleInit {
           );
           return;
         }
-        try {
-          await this.createForMilestone(payload.userId);
-          this.logger.log(
-            `Coupon created for milestone for user ${payload.userId}`,
+        if (!CONFIGURED_MILESTONES.has(String(payload.milestone))) {
+          this.logger.warn(
+            `Milestone ${payload.milestone} is not configured for rewards; skipping`,
           );
+          return;
+        }
+        try {
+          const created = await this.createForMilestone(payload.userId, {
+            milestone: String(payload.milestone),
+          });
+          if (created) {
+            this.logger.log(
+              `Coupon created for milestone for user ${payload.userId}`,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to create coupon for milestone: ${(error as Error)?.message}`,
@@ -76,8 +99,32 @@ export class CouponService implements OnModuleInit {
    */
   async createForMilestone(
     userId: string,
-    payload?: { specialistType?: string; discount?: number },
+    payload?: { specialistType?: string; discount?: number; milestone?: string },
   ): Promise<Coupon | null> {
+    if (payload?.milestone) {
+      const dedupKey = `${MILESTONE_DEDUP_KEY_PREFIX}${userId}:${payload.milestone}`;
+      const alreadyProcessed = await this.redis.get(dedupKey);
+      if (alreadyProcessed) {
+        this.logger.warn(
+          `Milestone ${payload.milestone} already processed for user ${userId}; skipping duplicate reward`,
+        );
+        return null;
+      }
+      const claimed = await this.redis.set(
+        dedupKey,
+        '1',
+        'EX',
+        MILESTONE_DEDUP_TTL_SECONDS,
+        'NX',
+      );
+      if (claimed !== 'OK') {
+        this.logger.warn(
+          `Milestone ${payload.milestone} concurrently processed for user ${userId}; skipping duplicate reward`,
+        );
+        return null;
+      }
+    }
+
     const activeCount = await this.couponRepository.count({
       where: { userId, status: CouponStatus.ACTIVE },
     });
@@ -151,9 +198,7 @@ export class CouponService implements OnModuleInit {
     const currentCount = attemptCount ? parseInt(attemptCount, 10) : 0;
 
     if (currentCount >= MAX_VALIDATION_ATTEMPTS_PER_HOUR) {
-      this.logger.warn(
-        `Coupon validation rate limit exceeded for code: ${normalizedCode}`,
-      );
+      this.logger.warn(`Coupon validation rate limit exceeded for code: ${normalizedCode}`);
       return { valid: false, reason: 'rate_limit_exceeded' };
     }
 
@@ -173,11 +218,20 @@ export class CouponService implements OnModuleInit {
       return { valid: false, reason: 'already_used' };
     }
 
-    if (
-      coupon.status === CouponStatus.EXPIRED ||
-      new Date() > coupon.expiresAt
-    ) {
+    if (coupon.status === CouponStatus.EXPIRED) {
       return { valid: false, reason: 'expired' };
+    }
+
+    if (coupon.status === CouponStatus.DISABLED) {
+      return { valid: false, reason: 'disabled' };
+    }
+
+    if (new Date() > coupon.expiresAt) {
+      return { valid: false, reason: 'expired' };
+    }
+
+    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
+      return { valid: false, reason: 'exhausted' };
     }
 
     if (coupon.userId !== currentUserId) {
@@ -190,11 +244,134 @@ export class CouponService implements OnModuleInit {
   }
 
   /**
+   * Redeem a coupon atomically. Uses a Redis lock to serialize concurrent
+   * redemptions and a conditional Update to guarantee the usage limit is not
+   * exceeded under concurrency.
+   */
+  async redeem(
+    couponCode: string,
+    userId: string,
+  ): Promise<Coupon> {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    const lockKey = `${REDEMPTION_LOCK_KEY_PREFIX}${normalizedCode}`;
+    const lockValue = `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+
+    const locked = await this.redis.set(
+      lockKey,
+      lockValue,
+      'NX',
+      'EX',
+      REDEMPTION_LOCK_TTL,
+    );
+    if (locked !== 'OK') {
+      throw new BadRequestException(
+        'Coupon redemption in progress; please retry',
+      );
+    }
+
+    try {
+      const coupon = await this.couponRepository.findOne({
+        where: { code: normalizedCode },
+      });
+
+      if (!coupon) {
+        throw new NotFoundException('Coupon not found');
+      }
+
+      if (coupon.userId !== userId) {
+        throw new ForbiddenException(
+          'Coupon does not belong to the current user',
+        );
+      }
+
+      if (coupon.status === CouponStatus.REDEMED) {
+        throw new BadRequestException('Coupon already redeemed');
+      }
+
+      if (coupon.status === CouponStatus.EXPIRED) {
+        throw new BadRequestException('Coupon has expired');
+      }
+
+      if (coupon.status === CouponStatus.DISABLED) {
+        throw new BadRequestException('Coupon is disabled');
+      }
+
+      if (new Date() > coupon.expiresAt) {
+        throw new BadRequestException('Coupon has expired');
+      }
+
+      // Atomic conditional update: only increment while the usage limit has not
+      // been reached and the coupon is still active. This prevents concurrent
+      // redemptions from exceeding the configured limit.
+      const now = new Date();
+      const updateResult = await this.couponRepository
+        .createQueryBuilder()
+        .update(Coupon)
+        .set({
+          usageCount: () => 'usageCount + 1',
+          usedAt: now,
+          status: () =>
+            'CASE WHEN usageCount + 1 >= usageLimit THEN :redeemed ELSE status END',
+        })
+        .setParameters({ redeemed: CouponStatus.REDEMED })
+        .where('id = :id', { id: coupon.id })
+        .andWhere('status = :status', { status: CouponStatus.ACTIVE })
+        .andWhere('expiresAt > :now', { now })
+        .andWhere('(usageLimit IS NULL) OR (usageCount < usageLimit)')
+        .execute();
+
+      if ((updateResult.affected ?? 0) === 0) {
+        // Re-read to determine the precise reason for rejection.
+        const fresh = await this.couponRepository.findOne({
+          where: { id: coupon.id },
+        });
+        if (!fresh) {
+          throw new NotFoundException('Coupon not found');
+        }
+        if (fresh.status === CouponStatus.REDEEMED) {
+          throw new BadRequestException('Coupon already redeemed');
+        }
+        if (fresh.status === CouponStatus.EXPIRED || new Date() > fresh.expiresAt) {
+          throw new BadRequestException('Coupon has expired');
+        }
+        if (fresh.status === CouponStatus.DISABLED) {
+          throw new BadRequestException('Coupon is disabled');
+        }
+        if (
+          fresh.usageLimit != null &&
+          fresh.usageCount >= fRESh.usageLimit
+        ) {
+          throw new BadRequestException('Coupon usage limit exhausted');
+        }
+        throw new BadRequestException('Coupon cannot be redeemed');
+      }
+
+      const updated = await this.couponRepository.findOne({
+        where: { id: coupon.id },
+      });
+      if (!updated) {
+        throw new NotFoundException('Coupon not found');
+      }
+
+      this.logger.log(
+        `Coupon ${normalizedCode} redeemed by user ${userId} (usage ${updated.usageCount}/${updated.usageLimit ?? 'unlimited'})`,
+      );
+      return updated;
+    } finally {
+      // Release the lock only if we still own it.
+      const current = await this.redis.get(lockKey);
+      if (current === lockValue) {
+        await this.redis.del(lockKey);
+      }
+    }
+  }
+
+  /**
    * Admin: Create a new coupon for a specific user
    */
   async createCoupon(
     userId: string,
-    payload: { discount?: number; specialistType?: string; daysValid?: number; expiresAt?: Date },
+    payload: { discount?: number; specialistType?: string; daysValid?: number; expiresAt?: Date; usageLimit?: number },
   ): Promise<Coupon> {
     const expiresAt = payload.expiresAt
       ? new Date(payload.expiresAt)
@@ -207,6 +384,8 @@ export class CouponService implements OnModuleInit {
       specialistType: payload.specialistType ?? undefined,
       expiresAt,
       status: CouponStatus.ACTIVE,
+      usageLimit: payload.usageLimit ?? 1,
+      usageCount: 0,
     });
     const saved = await this.couponRepository.save(coupon);
     this.logger.log(`Coupon created by admin: ${saved.code} for user ${userId}`);
@@ -218,7 +397,7 @@ export class CouponService implements OnModuleInit {
    */
   async bulkCreateCoupons(
     userIds: string[],
-    payload: { discount?: number; specialistType?: string; daysValid?: number },
+    payload: { discount?: number; specialistType?: string; daysValid?: number; usageLimit?: number },
   ): Promise<Coupon[]> {
     const coupons: Coupon[] = [];
     for (const userId of userIds) {
@@ -237,7 +416,7 @@ export class CouponService implements OnModuleInit {
       where: { status: CouponStatus.ACTIVE },
     });
     const redeemedCoupons = await this.couponRepository.count({
-      where: { status: CouponStatus.REDEEMED },
+      where: { status: CouponStatus.REDEMED },
     });
     const expiredCoupons = await this.couponRepository.count({
       where: { status: CouponStatus.EXPIRED },
@@ -301,12 +480,21 @@ export class CouponService implements OnModuleInit {
     if (coupon.status === CouponStatus.REDEEMED) {
       throw new BadRequestException('Coupon already redeemed');
     }
+    if (coupon.status === CouponStatus.DISABLED) {
+      throw new BadRequestException('Coupon is disabled');
+    }
     if (coupon.status === CouponStatus.EXPIRED || new Date() > coupon.expiresAt) {
       throw new BadRequestException('Coupon has expired');
     }
+    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
+      throw new BadRequestException('Coupon usage limit exhausted');
+    }
 
-    coupon.status = CouponStatus.REDEEMED;
+    coupon.usageCount = (coupon.usageCount ?? 0) + 1;
     coupon.usedAt = new Date();
+    if (coupon.usageLimit != null && coupon.usageCount >= coupon.usageLimit) {
+      coupon.status = CouponStatus.REDEMED;
+    }
     await this.couponRepository.save(coupon);
 
     this.logger.log(`Coupon manually marked as redeemed: ${normalizedCode} by ${redeemedBy}`);
@@ -337,7 +525,7 @@ export class CouponService implements OnModuleInit {
   }
 
   private generateCouponCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWY23456789';
     let code = '';
     for (let i = 0; i < 12; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));

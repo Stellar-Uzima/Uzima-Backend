@@ -4,6 +4,15 @@ import { RewardService } from './reward.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RewardHistoryQueryDto } from './dto/reward-history.dto';
 import { RewardSummaryResponseDto } from './dto/reward-history.dto';
+import { Request } from 'express';
+
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId?: unknown;
+    sub?: unknown;
+    id?: unknown;
+  };
+};
 
 @ApiTags('Rewards')
 @ApiBearerAuth()
@@ -12,7 +21,7 @@ import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 export class RewardController {
   constructor(private readonly rewardService: RewardService) {}
 
-  private authenticatedUserId(req: any): string {
+  private authenticatedUserId(req: AuthenticatedRequest): string {
     const userId = req.user?.userId ?? req.user?.sub ?? req.user?.id;
     if (typeof userId !== 'string' || !userId) {
       throw new UnauthorizedException('Authenticated user context is missing');
@@ -24,7 +33,7 @@ export class RewardController {
   @ApiOperation({ summary: "Get the authenticated user's reward history" })
   @ApiResponse({ status: 200, description: 'Returns paginated reward records' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getHistory(@Req() req: any, @Query() query: RewardHistoryQueryDto) {
+  async getHistory(@Req() req: AuthenticatedRequest, @Query() query: RewardHistoryQueryDto) {
     return this.rewardService.getRewardHistory(this.authenticatedUserId(req), query);
   }
 
@@ -35,7 +44,7 @@ export class RewardController {
     description: 'Returns total earned, total pending and last reward date',
     type: RewardSummaryResponseDto,
   })
-  async getSummary(@Req() req: any): Promise<RewardSummaryResponseDto> {
+  async getSummary(@Req() req: AuthenticatedRequest): Promise<RewardSummaryResponseDto> {
     return this.rewardService.getRewardSummary(this.authenticatedUserId(req));
   }
 }
