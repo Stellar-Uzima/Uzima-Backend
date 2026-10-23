@@ -10,10 +10,6 @@ import { IdempotencyInterceptor } from './idempotency.interceptor';
   providers: [
     IdempotencyService,
     IdempotencyInterceptor,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: IdempotencyInterceptor,
-    },
   ],
   exports: [IdempotencyService, IdempotencyInterceptor],
 })
