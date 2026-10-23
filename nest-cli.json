@@ -4,7 +4,15 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsPlug": [],
+    "plugins": [
+      {
+        "name": "@nestjs/swagger",
+        "options": {
+          "classValidatorShim": true,
+          "introspectComments": true
+        }
+      }
+    ],
     "assets": ["**/*.html"],
     "watchAssets": true
   }

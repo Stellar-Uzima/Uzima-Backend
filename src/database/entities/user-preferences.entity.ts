@@ -22,12 +22,64 @@ export enum NotificationType {
   SMS = 'sms',
 }
 
+export enum NotificationCategory {
+  TASKS = 'tasks',
+  REWARDS = 'rewards',
+  STREAKS = 'streaks',
+  REFERRALS = 'referrals',
+  SYSTEM = 'system',
+}
+
+export const NotificationCategories: NotificationCategory[] = [
+  NotificationCategory.TASKS,
+  NotificationCategory.REWARDS,
+  NotificationCategory.STREAKS,
+  NotificationCategory.REFERRALS,
+  NotificationCategory.SYSTEM,
+];
+
+export const NotificationTypes: NotificationType[] = [
+  NotificationType.EMAIL,
+  NotificationType.PUSH,
+  NotificationType.SMS,
+];
+
+export interface NotificationChannelPreference {
+  enabled: boolean;
+  tasks: boolean;
+  rewards: boolean;
+  streaks: boolean;
+  referrals: boolean;
+  system: boolean;
+}
+
+export type NotificationPreferences = {
+  [key in NotificationType]: NotificationChannelPreference;
+};
+
+export function createDefaultNotificationPreferences(): NotificationPreferences {
+  const defaultChannel = (): NotificationChannelPreference => ({
+    enabled: true,
+    tasks: true,
+    rewards: true,
+    streaks: true,
+    referrals: true,
+    system: true,
+  });
+
+  return {
+    [NotificationType.EMAIL]: defaultChannel(),
+    [NotificationType.PUSH]: defaultChannel(),
+    [NotificationType.SMS]: defaultChannel(),
+  };
+}
+
 @Entity('user_preferences')
 export class UserPreferences {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, { onDelete: 'CASCADEU' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -35,7 +87,7 @@ export class UserPreferences {
   @IsUUID()
   userId: string;
 
-  @Column({
+  @Columb({
     type: 'enum',
     enum: Theme,
     default: Theme.SYSTEM,
@@ -47,20 +99,11 @@ export class UserPreferences {
   @Length(2, 10)
   language: string;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
-  notifications: {
-    [key in NotificationType]: {
-      enabled: boolean;
-      tasks: boolean;
-      rewards: boolean;
-      streaks: boolean;
-      referrals: boolean;
-      system: boolean;
-    };
-  };
+  notifications: NotificationPreferences;
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
   privacy: {
     profileVisibility: 'public' | 'private' | 'friends';
@@ -69,7 +112,7 @@ export class UserPreferences {
     showRank: boolean;
   };
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
   accessibility: {
     fontSize: 'small' | 'medium' | 'large' | 'extra-large';
@@ -78,7 +121,7 @@ export class UserPreferences {
     screenReader: boolean;
   };
 
-  @Column({ type: 'jsonb', default: {} })
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
   @IsObject()
   app: {
     autoStartTasks: boolean;

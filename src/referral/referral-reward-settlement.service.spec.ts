@@ -8,6 +8,7 @@ import { ReferralRewardSettlementService } from './referral-reward-settlement.se
 import type { SettleReferralRewardParams } from './referral-reward-settlement.service';
 import { ReferralRecord } from './entities/referral-record.entity';
 import { ReferralRewardSettlement } from './entities/referral-reward-settlement.entity';
+import { ReferralRiskReview } from './entities/referral-risk-review.entity';
 import { RewardTransaction } from '../rewards/entities/reward-transaction.entity';
 import { RewardStatus } from '../rewards/enums/reward-status.enum';
 import { User } from '../entities/user.entity';
@@ -16,6 +17,8 @@ import { AntiAbuseService } from '../modules/anti-abuse/anti-abuse.service';
 import { Currency } from '../shared/currency/currency.enum';
 import {
   ReferralQualifyingAction,
+  ReferralRiskReasonCode,
+  ReferralRiskReviewStatus,
   ReferralSettlementReason,
 } from './referral-reward.constants';
 
@@ -28,8 +31,12 @@ const buildReferral = (overrides: Partial<ReferralRecord> = {}) =>
     id: REFERRAL_ID,
     rewardPaid: false,
     rewardPaidAt: null,
+    createdAt: new Date('2024-03-01T00:00:00.000Z'),
     referrer: { id: REFERRER_ID },
-    referred: { id: REFERRED_ID },
+    referred: {
+      id: REFERRED_ID,
+      createdAt: new Date('2024-02-01T00:00:00.000Z'),
+    },
     ...overrides,
   }) as unknown as ReferralRecord;
 
@@ -37,6 +44,7 @@ describe('ReferralRewardSettlementService', () => {
   let service: ReferralRewardSettlementService;
   let referralRepo: any;
   let settlementRepo: any;
+  let riskReviewRepo: any;
   let rewardRepo: any;
   let userRepo: any;
   let manager: any;
@@ -45,9 +53,18 @@ describe('ReferralRewardSettlementService', () => {
   let eventEmitter: any;
   let configService: any;
 
-  const compileService = async (configuredAmount = 5) => {
+  const compileService = async (
+    configuredAmount = 5,
+    riskSettings: Record<string, number> = {},
+  ) => {
     configService = {
-      get: jest.fn(() => configuredAmount),
+      get: jest.fn((key, fallback) =>
+        key in riskSettings
+          ? riskSettings[key]
+          : key === 'REFERRAL_REWARD_XLM'
+            ? configuredAmount
+            : fallback,
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -56,6 +73,10 @@ describe('ReferralRewardSettlementService', () => {
         {
           provide: getRepositoryToken(ReferralRewardSettlement),
           useValue: settlementRepo,
+        },
+        {
+          provide: getRepositoryToken(ReferralRiskReview),
+          useValue: riskReviewRepo,
         },
         { provide: getDataSourceToken(), useValue: dataSource },
         { provide: DataSource, useValue: dataSource },
@@ -73,6 +94,7 @@ describe('ReferralRewardSettlementService', () => {
   beforeEach(async () => {
     referralRepo = {
       findOne: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
       save: jest.fn(async (entity) => entity),
     };
     settlementRepo = {
@@ -85,6 +107,12 @@ describe('ReferralRewardSettlementService', () => {
         settledAt: value.settledAt ?? new Date('2024-03-01T00:00:00.000Z'),
         createdAt: new Date('2024-03-01T00:00:00.000Z'),
       })),
+    };
+    riskReviewRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn(),
+      create: jest.fn((value) => value),
+      save: jest.fn(async (value) => ({ ...value, id: 'review-1' })),
     };
     rewardRepo = {
       create: jest.fn((value) => value),
@@ -101,6 +129,7 @@ describe('ReferralRewardSettlementService', () => {
       getRepository: jest.fn((entity) => {
         if (entity === ReferralRecord) return referralRepo;
         if (entity === ReferralRewardSettlement) return settlementRepo;
+        if (entity === ReferralRiskReview) return riskReviewRepo;
         if (entity === RewardTransaction) return rewardRepo;
         if (entity === User) return userRepo;
         throw new Error(`Unexpected repository request: ${entity?.name}`);
@@ -175,6 +204,129 @@ describe('ReferralRewardSettlementService', () => {
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'reward.earned',
       expect.objectContaining({ userId: REFERRER_ID, rewardTransactionId: 'tx-1' }),
+    );
+  });
+
+  it('holds a reward and records reason codes when a risk signal fires', async () => {
+    referralRepo.findOne.mockResolvedValue(buildReferral());
+    settlementRepo.findOne.mockResolvedValue(null);
+    referralRepo.count.mockResolvedValue(5);
+
+    const result = await settle();
+
+    expect(result).toMatchObject({
+      settled: false,
+      reason: ReferralSettlementReason.HELD_FOR_REVIEW,
+      reviewId: 'review-1',
+    });
+    expect(riskReviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referralId: REFERRAL_ID,
+        reasonCode: ReferralRiskReasonCode.HIGH_REFERRAL_VELOCITY,
+        reasonCodes: [ReferralRiskReasonCode.HIGH_REFERRAL_VELOCITY],
+        status: ReferralRiskReviewStatus.PENDING,
+      }),
+    );
+    expect(rewardRepo.save).not.toHaveBeenCalled();
+    expect(settlementRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('holds a reward when the referred account was too new at redemption', async () => {
+    referralRepo.findOne.mockResolvedValue(
+      buildReferral({
+        createdAt: new Date('2024-03-01T00:00:30.000Z'),
+        referred: {
+          id: REFERRED_ID,
+          createdAt: new Date('2024-03-01T00:00:00.000Z'),
+        } as User,
+      }),
+    );
+    settlementRepo.findOne.mockResolvedValue(null);
+    service = await compileService(5, {
+      REFERRAL_RISK_MIN_ACCOUNT_AGE_MS: 60_000,
+    });
+
+    const result = await settle();
+
+    expect(result.reason).toBe(ReferralSettlementReason.HELD_FOR_REVIEW);
+    expect(riskReviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasonCode: ReferralRiskReasonCode.RAPID_ACCOUNT_REDEMPTION,
+      }),
+    );
+  });
+
+  it('records rejection without creating or settling a reward', async () => {
+    const pendingReview = {
+      id: 'review-1',
+      status: ReferralRiskReviewStatus.PENDING,
+      referralId: REFERRAL_ID,
+      referredId: REFERRED_ID,
+      qualifyingAction: ReferralQualifyingAction.FIRST_HEALTH_TASK_COMPLETION,
+      amount: 5,
+      currency: Currency.XLM,
+      referenceId: 'completion-1',
+    };
+    riskReviewRepo.findOne.mockResolvedValue(pendingReview);
+
+    const result = await service.resolveReferralRiskReview(
+      'review-1',
+      ReferralRiskReviewStatus.REJECTED,
+      'admin-1',
+      'Duplicate accounts confirmed',
+    );
+
+    expect(result.settlement).toBeNull();
+    expect(riskReviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: ReferralRiskReviewStatus.REJECTED,
+        reviewedBy: 'admin-1',
+        reviewNote: 'Duplicate accounts confirmed',
+        reviewedAt: expect.any(Date),
+      }),
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(rewardRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('releases an approved review through the normal settlement flow', async () => {
+    const pendingReview = {
+      id: 'review-1',
+      status: ReferralRiskReviewStatus.PENDING,
+      referralId: REFERRAL_ID,
+      referredId: REFERRED_ID,
+      qualifyingAction: ReferralQualifyingAction.FIRST_HEALTH_TASK_COMPLETION,
+      amount: 5,
+      currency: Currency.XLM,
+      referenceId: 'completion-1',
+    };
+    riskReviewRepo.findOne
+      .mockResolvedValueOnce(pendingReview)
+      .mockResolvedValueOnce({
+        ...pendingReview,
+        status: ReferralRiskReviewStatus.APPROVED,
+      });
+    referralRepo.findOne.mockResolvedValue(buildReferral());
+    settlementRepo.findOne.mockResolvedValue(null);
+
+    const result = await service.resolveReferralRiskReview(
+      'review-1',
+      ReferralRiskReviewStatus.APPROVED,
+      'admin-1',
+      'Reviewed and approved',
+    );
+
+    expect(result.settlement).toMatchObject({
+      settled: true,
+      reason: ReferralSettlementReason.SETTLED,
+    });
+    expect(rewardRepo.save).toHaveBeenCalledTimes(1);
+    expect(riskReviewRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: ReferralRiskReviewStatus.APPROVED,
+        reviewedBy: 'admin-1',
+        reviewNote: 'Reviewed and approved',
+      }),
     );
   });
 

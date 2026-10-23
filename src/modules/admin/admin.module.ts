@@ -27,6 +27,8 @@ import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity'
 import { TasksScheduler } from '@/tasks/tasks.scheduler';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
 import { ReportsModule } from '@modules/reports/reports.module';
+import { ReferralModule } from '@/referral/referral.module';
+import { ReferralRiskReviewController } from './referral-risk-review.controller';
 
 import { StreaksModule } from '@/streaks/streaks.module';
 
@@ -41,6 +43,7 @@ import { StreaksModule } from '@/streaks/streaks.module';
     ReportsModule,
     QueueModule,
     StreaksModule,
+    ReferralModule,
   ],
   controllers: [
     AdminController,
@@ -48,6 +51,7 @@ import { StreaksModule } from '@/streaks/streaks.module';
     AdminTasksController,
     FailedRewardJobController,
     UserDirectoryController,
+    ReferralRiskReviewController,
   ],
   providers: [
     AdminService,

@@ -1,8 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, QueryFailedError, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  MoreThanOrEqual,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { runAtomicMoneyMovement } from '../common/utils/atomic-money-movement.util';
 import { User } from '../entities/user.entity';
 import { AntiAbuseService } from '../modules/anti-abuse/anti-abuse.service';
@@ -12,9 +23,18 @@ import { RewardStatus } from '../rewards/enums/reward-status.enum';
 import { Currency } from '../shared/currency/currency.enum';
 import { ReferralRecord } from './entities/referral-record.entity';
 import { ReferralRewardSettlement } from './entities/referral-reward-settlement.entity';
+import { ReferralRiskReview } from './entities/referral-risk-review.entity';
 import {
+  DEFAULT_REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW,
+  DEFAULT_REFERRAL_RISK_MIN_ACCOUNT_AGE_MS,
+  DEFAULT_REFERRAL_RISK_REVIEW_WINDOW_MS,
   DEFAULT_REFERRAL_REWARD_CURRENCY,
   DEFAULT_REFERRAL_REWARD_XLM,
+  REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW_ENV,
+  REFERRAL_RISK_MIN_ACCOUNT_AGE_MS_ENV,
+  REFERRAL_RISK_REVIEW_WINDOW_MS_ENV,
+  ReferralRiskReasonCode,
+  ReferralRiskReviewStatus,
   REFERRAL_REWARD_AMOUNT_ENV,
   ReferralQualifyingAction,
   ReferralSettlementReason,
@@ -37,6 +57,7 @@ export interface SettleReferralRewardParams {
 export interface ReferralSettlementResult {
   settled: boolean;
   reason: ReferralSettlementReason;
+  reviewId?: string;
   /** True when a previous settlement already covered this referral. */
   idempotent?: boolean;
   settlementId?: string;
@@ -66,10 +87,15 @@ export interface ReferralSettlementResult {
 export class ReferralRewardSettlementService {
   private readonly logger = new Logger(ReferralRewardSettlementService.name);
   private readonly defaultRewardAmount: number;
+  private readonly riskReviewWindowMs: number;
+  private readonly riskMaxReferralsPerWindow: number;
+  private readonly riskMinAccountAgeMs: number;
 
   constructor(
     @InjectRepository(ReferralRewardSettlement)
     private readonly settlementRepo: Repository<ReferralRewardSettlement>,
+    @InjectRepository(ReferralRiskReview)
+    private readonly riskReviewRepo: Repository<ReferralRiskReview>,
     private readonly dataSource: DataSource,
     private readonly antiAbuseService: AntiAbuseService,
     private readonly configService: ConfigService,
@@ -85,6 +111,21 @@ export class ReferralRewardSettlementService {
       Number.isFinite(configured) && configured > 0
         ? configured
         : DEFAULT_REFERRAL_REWARD_XLM;
+    this.riskReviewWindowMs = this.readRiskSetting(
+      REFERRAL_RISK_REVIEW_WINDOW_MS_ENV,
+      DEFAULT_REFERRAL_RISK_REVIEW_WINDOW_MS,
+      1,
+    );
+    this.riskMaxReferralsPerWindow = this.readRiskSetting(
+      REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW_ENV,
+      DEFAULT_REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW,
+      1,
+    );
+    this.riskMinAccountAgeMs = this.readRiskSetting(
+      REFERRAL_RISK_MIN_ACCOUNT_AGE_MS_ENV,
+      DEFAULT_REFERRAL_RISK_MIN_ACCOUNT_AGE_MS,
+      0,
+    );
   }
 
   /**
@@ -157,6 +198,64 @@ export class ReferralRewardSettlementService {
       where: { referrerId: userId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async getReferralRiskReviews(
+    status: ReferralRiskReviewStatus = ReferralRiskReviewStatus.PENDING,
+  ): Promise<ReferralRiskReview[]> {
+    return this.riskReviewRepo.find({
+      where: { status },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async resolveReferralRiskReview(
+    reviewId: string,
+    decision: ReferralRiskReviewStatus.APPROVED | ReferralRiskReviewStatus.REJECTED,
+    reviewerId: string,
+    note?: string,
+  ): Promise<{
+    review: ReferralRiskReview;
+    settlement: ReferralSettlementResult | null;
+  }> {
+    let review = await this.riskReviewRepo.findOne({
+      where: { id: reviewId },
+    });
+    if (!review) {
+      throw new NotFoundException(`Referral risk review ${reviewId} not found`);
+    }
+    if (
+      review.status !== ReferralRiskReviewStatus.PENDING &&
+      review.status !== decision
+    ) {
+      throw new ConflictException(
+        `Referral risk review ${reviewId} was already ${review.status.toLowerCase()}`,
+      );
+    }
+
+    if (review.status === ReferralRiskReviewStatus.PENDING) {
+      review.status = decision;
+      review.reviewedBy = reviewerId;
+      review.reviewNote = note ?? null;
+      review.reviewedAt = new Date();
+      review = await this.riskReviewRepo.save(review);
+      this.logger.log(
+        `Referral risk review ${reviewId} ${decision.toLowerCase()} by ${reviewerId}`,
+      );
+    }
+
+    if (decision === ReferralRiskReviewStatus.REJECTED) {
+      return { review, settlement: null };
+    }
+
+    const settlement = await this.settleReferralReward({
+      referredUserId: review.referredId,
+      qualifyingAction: review.qualifyingAction,
+      amount: Number(review.amount),
+      currency: review.currency,
+      referenceId: review.referenceId ?? undefined,
+    });
+    return { review, settlement };
   }
 
   /**
@@ -246,6 +345,24 @@ export class ReferralRewardSettlementService {
       };
     }
 
+    const riskReview = await manager
+      .getRepository(ReferralRiskReview)
+      .findOne({ where: { referralId: referral.id } });
+    if (riskReview?.status === ReferralRiskReviewStatus.PENDING) {
+      return {
+        settled: false,
+        reason: ReferralSettlementReason.HELD_FOR_REVIEW,
+        reviewId: riskReview.id,
+      };
+    }
+    if (riskReview?.status === ReferralRiskReviewStatus.REJECTED) {
+      return {
+        settled: false,
+        reason: ReferralSettlementReason.REJECTED_BY_REVIEW,
+        reviewId: riskReview.id,
+      };
+    }
+
     // ── Eligibility criteria ────────────────────────────────────────────────
     if (!referrerId || !referredId) {
       return { settled: false, reason: ReferralSettlementReason.NO_REFERRAL };
@@ -266,6 +383,36 @@ export class ReferralRewardSettlementService {
         settled: false,
         reason: ReferralSettlementReason.INELIGIBLE_REFERRER,
       };
+    }
+
+    if (!riskReview) {
+      const signals = await this.findRiskSignals(referralRepo, referral);
+      if (signals.reasonCodes.length > 0) {
+        const reviewRepo = manager.getRepository(ReferralRiskReview);
+        const review = await reviewRepo.save(
+          reviewRepo.create({
+            referralId: referral.id,
+            referrerId,
+            referredId,
+            reasonCode: signals.reasonCodes[0],
+            reasonCodes: signals.reasonCodes,
+            signalDetails: signals.details,
+            status: ReferralRiskReviewStatus.PENDING,
+            qualifyingAction: input.qualifyingAction,
+            amount: input.amount,
+            currency: input.currency,
+            referenceId: input.referenceId ?? null,
+          }),
+        );
+        this.logger.warn(
+          `Referral ${referral.id} held for risk review ${review.id}: ${signals.reasonCodes.join(',')}`,
+        );
+        return {
+          settled: false,
+          reason: ReferralSettlementReason.HELD_FOR_REVIEW,
+          reviewId: review.id,
+        };
+      }
     }
 
     // Burst guard: reuses the shared anti-abuse rule set (and audit trail)
@@ -326,6 +473,59 @@ export class ReferralRewardSettlementService {
   ): Promise<void> {
     if (referral.rewardPaid && referral.rewardPaidAt) {
       return;
+    }
+
+    private async findRiskSignals(
+      referralRepo: Repository<ReferralRecord>,
+      referral: ReferralRecord,
+    ): Promise<{
+      reasonCodes: ReferralRiskReasonCode[];
+      details: Record<string, unknown>;
+    }> {
+      const reasonCodes: ReferralRiskReasonCode[] = [];
+      const details: Record<string, unknown> = {};
+      const windowStart = new Date(Date.now() - this.riskReviewWindowMs);
+      const referralsInWindow = await referralRepo.count({
+        where: {
+          referrer: { id: referral.referrer.id },
+          createdAt: MoreThanOrEqual(windowStart),
+        },
+      });
+
+      if (referralsInWindow >= this.riskMaxReferralsPerWindow) {
+        reasonCodes.push(ReferralRiskReasonCode.HIGH_REFERRAL_VELOCITY);
+        details.referralVelocity = {
+          count: referralsInWindow,
+          threshold: this.riskMaxReferralsPerWindow,
+          windowMs: this.riskReviewWindowMs,
+        };
+      }
+
+      if (this.riskMinAccountAgeMs > 0 && referral.referred.createdAt) {
+        const accountAgeAtRedemptionMs =
+          referral.createdAt.getTime() - referral.referred.createdAt.getTime();
+        if (accountAgeAtRedemptionMs < this.riskMinAccountAgeMs) {
+          reasonCodes.push(ReferralRiskReasonCode.RAPID_ACCOUNT_REDEMPTION);
+          details.accountAgeAtRedemption = {
+            ageMs: accountAgeAtRedemptionMs,
+            minimumMs: this.riskMinAccountAgeMs,
+          };
+        }
+      }
+
+      return { reasonCodes, details };
+    }
+
+    private readRiskSetting(
+      key: string,
+      defaultValue: number,
+      minimum: number,
+    ): number {
+      const value = Number(this.configService.get(key, defaultValue));
+      if (!Number.isInteger(value) || value < minimum) {
+        throw new Error(`${key} must be an integer greater than or equal to ${minimum}`);
+      }
+      return value;
     }
     referral.rewardPaid = true;
     referral.rewardPaidAt = referral.rewardPaidAt ?? at;

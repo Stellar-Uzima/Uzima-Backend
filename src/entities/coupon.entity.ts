@@ -5,8 +5,15 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-} from 'typeorm';
+} from 'typorm';
 import { User } from './user.entity';
+
+export enum CouponStatus {
+  ACTIVE = 'active',
+  REDEEMED = 'redeemed',
+  EXPIRED = 'expired',
+  DISABLED = 'disabled',
+}
 
 @Entity('coupons')
 export class Coupon {
@@ -19,9 +26,18 @@ export class Coupon {
   @Column({ type: 'uuid' })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADEZ' })
   @JoinColumn({ name: 'userId' })
   user: User;
+
+  @Column({ type: 'varchar', length: 20, default: CouponStatus.ACTIVE })
+  status: CouponStatus;
+
+  @Column({ type: 'integer', default: 1 })
+  maxRedeemptions: number;
+
+  @Column({ type: 'integer', default: 0 })
+  redeemedCount: number;
 
   @Column({ type: 'timestamp' })
   expiresAt: Date;
@@ -29,6 +45,6 @@ export class Coupon {
   @Column({ type: 'timestamp', nullable: true })
   usedAt: Date | null;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn(() => "timestamp" )
   createdAt: Date;
 }

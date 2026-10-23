@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, VersioningType } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { testUser } from '../helpers/test-fixtures';
+import { CustomValidationPipe } from '../../src/common/pipes/validation.pipe';
+import { StandardizedExceptionFilter } from '../../src/common/filters/standardized-exception.filter';
 
 /**
  * Contract test for POST /api/v1/auth/register (#1342).
@@ -18,6 +20,13 @@ describe('Auth register contract', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
+    app.enableVersioning({
+      type: VersioningType.URI,
+      prefix: 'api/v',
+      defaultVersion: '1',
+    });
+    app.useGlobalPipes(new CustomValidationPipe());
+    app.useGlobalFilters(new StandardizedExceptionFilter());
     await app.init();
     server = app.getHttpServer();
   });
@@ -37,5 +46,22 @@ describe('Auth register contract', () => {
         user: expect.any(Object),
       }),
     );
+  });
+
+  it('versioned validation failures use the documented error envelope', async () => {
+    const res = await request(server).post('/api/v1/auth/register').send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: expect.objectContaining({
+        code: 'VALIDATION_FAILED',
+        message: expect.any(String),
+        statusCode: 400,
+        details: expect.any(Object),
+        path: '/api/v1/auth/register',
+        method: 'POST',
+        timestamp: expect.any(String),
+      }),
+    });
   });
 });

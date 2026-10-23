@@ -11,6 +11,7 @@ import { AppService } from './app.service';
 import secretsConfig from './config/secrets';
 import passwordConfig from './config/password.config';
 import jwtConfig from './config/jwt.config';
+import notificationRetryPolicyConfig from './config/notification-retry-policy.config';
 
 // Modules
 import { AuthModule } from '@modules/auth/auth.module';
@@ -35,6 +36,7 @@ import { DatabaseModule } from '@database/database.module';
 
 // Common
 import { LoggingModule } from '@common/interceptors/logging.module';
+import { IdempotencyModule } from '@common/idempotency/idempotency.module';
 import { LoggingModule as SharedLoggingModule } from './shared/logging/logging.module';
 import { SigningModule } from './common/signing/signing.module';
 
@@ -70,12 +72,15 @@ import { ResilienceModule } from './shared/resilience/resilience.module';
 import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
+// Notification preferences (implemented against Issue 091)
+import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [secretsConfig, passwordConfig, jwtConfig],
+      load: [secretsConfig, passwordConfig, jwtConfig, notificationRetryPolicyConfig],
       validationSchema: Joi.object({
         JWT_SECRET: Joi.string().min(32).invalid('your_jwt_secret_key_here_min_32_chars').optional(),
         JWT_REFRESH_SECRET: Joi.string().min(32).invalid('your_refresh_secret_key_here_min_32_chars').optional(),
@@ -86,6 +91,12 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
         TWILIO_AUTH_TOKEN: Joi.string().optional(),
         STELLAR_TREASURY_SECRET_KEY: Joi.string().optional(),
         STELLAR_FUNDING_SECRET: Joi.string().invalid('your_stellar_account_secret_key').optional(),
+        STELLAR_NETWORK: Joi.string().valid('testnet', 'public', 'mainnet').optional(),
+        STELLAR_HORIZON_URL: Joi.string().uri({ scheme: ['https', 'http'] }).optional(),
+        STELLAR_TREASURY_PUBLIC_KEY: Joi.string().optional(),
+        STELLAR_FUNDING_PUBLIC_KEY: Joi.string().optional(),
+        STELLAR_SIGNING_ENABLED: Joi.string().valid('true', 'false').optional(),
+        STELLAR_FUNDING_SECRET_KEY: Joi.string().optional(),
         SLOW_QUERY_THRESHOLD_MS: Joi.number().integer().positive().optional(),
         SLOW_REQUEST_THRESHOLD_MS: Joi.number().integer().positive().optional(),
       }).unknown(true),
@@ -115,6 +126,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     OtpModule,
     LoggingModule,
     SharedLoggingModule,
+    IdempotencyModule,
     // 2. Add it to the imports list
     StorageModule,
     CacheModule,
@@ -153,6 +165,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
     SupportModule,
     BackfillModule,
     RetentionModule,
+    NotificationPreferencesModule,
   ],
   controllers: [AppController],
   providers: [

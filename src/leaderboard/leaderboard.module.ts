@@ -10,6 +10,18 @@ import { LeaderboardProcessor } from './leaderboard.processor';
 import { RewardTransaction } from '../rewards/entities/reward-transaction.entity';
 import { User } from '../entities/user.entity';
 
+/**
+ * Leaderboard cache freshness window (TTL - time to live).
+ *
+ * Cache keys in LeaderboardService include the ranking period and all
+ * relevant filters (e.g. period, region, limit), so different queries never
+ * share a cache entry. Results are considered acceptably fresh for up to
+ * LEADERBOARD_CACHE_TTL_MS milliseconds (1 hour). The daily repeatable
+ * 'rebuild-leaderboard' job invalidates all cached leaderboard results so
+ * updates are reflected within that window.
+ */
+export const LEADERBOARD_CACHE_TTL_MS = 3600 * 1000;
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([RewardTransaction, User]),
@@ -17,7 +29,7 @@ import { User } from '../entities/user.entity';
       name: 'leaderboard-tasks',
     }),
     CacheModule.register({
-      ttl: 3600,
+      ttl: LEADERBOARD_CACHE_TTL_MS,
     }),
   ],
   controllers: [LeaderboardController],

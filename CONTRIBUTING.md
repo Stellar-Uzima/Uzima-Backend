@@ -2,6 +2,11 @@
 
 This section documents the database migration creation, application, and seeding workflows for new developers joining the Uzima-Backend project.
 
+For installation, environment variables, PostgreSQL/Redis startup and separate
+test configuration, start with [Local development](docs/LOCAL_DEVELOPMENT.md).
+That guide also records current application/migration blockers; do not interpret
+the commands below as evidence that those blockers have been fixed.
+
 ## Overview
 
 The project uses **TypeORM** (v0.3.x) for database management with PostgreSQL in production and for E2E tests. All database changes are managed through explicit migrations, and seeders provide idempotent test/production data initialization.
@@ -18,10 +23,13 @@ The project uses **TypeORM** (v0.3.x) for database management with PostgreSQL in
 ### Creating Migrations
 
 #### Generate a Migration from Entity Changes
-```bash
-# Auto-generate migration file from entity changes
-npm run typeorm -- migration:generate src/database/migrations/[description] -d src/database/data-source.ts
-```
+
+There is no `typeorm` npm script in the current package.json. Automatic generation
+requires a working TypeORM TypeScript DataSource loader. The current migration
+entry point fails with a duplicate DataSource export error; see the
+[baseline blockers](docs/LOCAL_DEVELOPMENT.md#4-migrate-optionally-seed-then-run-the-api).
+Resolve and verify that loader before generating a diff against a disposable
+database; do not substitute schema synchronization on a shared database.
 
 #### Create an Empty Migration
 ```bash
@@ -50,9 +58,9 @@ npm run migration:run
 npm run migrate:rollback
 ```
 
-### Refresh Full Database Schema
+### Revert One Migration, Migrate and Seed (Disposable Local Data Only)
 ```bash
-# Rollback all migrations, reapply everything, then seed
+# Revert only the latest migration, run pending migrations, then seed
 npm run seed:refresh
 ```
 
@@ -118,23 +126,15 @@ export class MySeeder extends BaseSeeder {
 ## 3. Common Workflows
 
 ### Fresh Database Setup
+
+Follow [Local development](docs/LOCAL_DEVELOPMENT.md) for the complete sequence,
+including local secret generation, healthy PostgreSQL/Redis services and the
+current migration-loader failure. Seed only a disposable local database after
+migrations have succeeded.
+
+### Revert the Latest Development Migration, Then Migrate and Seed
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Configure environment variables (copy .env.example to .env)
-cp .env.example .env
-
-# 3. Run all migrations
-npm run migrate
-
-# 4. Seed the database
-npm run seed
-```
-
-### Reset Development Database
-```bash
-# Complete database reset
+# Not a complete reset: this reverts only the latest migration
 npm run seed:refresh
 ```
 

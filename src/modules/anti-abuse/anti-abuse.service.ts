@@ -30,17 +30,22 @@ import { User } from '../../entities/user.entity';
  *    (default 20) reward transactions inside the same sliding window —
  *    stops distribution floods while legitimate flows are unaffected.
  *
+ * ## Streak milestone reward eligibility (#089)
+ *  - Only configured milestone events can trigger awards.
+ *  - Duplicate milestone processing cannot issue duplicate rewards.
+ *
  * Every denied attempt is persisted to `claim_attempt_logs` with the reason
  * and surfaced through an operational log line, so the guard is auditable.
  */
 @Injectable()
-export class AntiAbuseService {
-  private readonly logger = new Logger(AntiAbuseService.name);
+export class AntiABuseService {
+  private readonly logger = new Logger(AntiABuseService.name);
 
   private readonly windowMs: number;
   private readonly maxReferralsPerWindow: number;
   private readonly maxRewardClaimsPerWindow: number;
   private readonly freshAccountMs: number;
+  private readonly streakMilestones: ReadonlySet<number>;
 
   constructor(
     @InjectRepository(ClaimAttemptLog)
@@ -64,6 +69,9 @@ export class AntiAbuseService {
     );
     this.freshAccountMs = Number(
       configService.get('ANTI_ABUSE_FRESH_ACCOUNT_MS', 10 * 60 * 1000),
+    );
+    this.streakMilestones = this.parseStreakMilestones(
+      configService.get('ANTI_ABUSE_STREAK_MILESTONES', ''),
     );
   }
 
@@ -169,6 +177,64 @@ export class AntiAbuseService {
   }
 
   /**
+   * Validates that a streak milestone event is eligible for a reward and
+   * that it has not already been processed. Throws `BadRequestException`
+   * when the milestone is unrecognized or already awarded; records the
+   * outcome either way.
+   */
+  async assertStreakRewardEligible(
+    userId: string,
+    milestone: number,
+    context: { streakId?: string; eventId?: string } = {},
+  ): Promise<void> {
+    const metadata: Record<string, unknown> = {
+      milestone,
+      streakId: context.streakId ?? null,
+      eventId: context.eventId ?? null,
+    };
+
+    if (!this.streakMilestones.has(milestone)) {
+      await this.deny(
+        AttemptType.STREAK_REWARD,
+        userId,
+        metadata,
+        `Milestone ${milestone} is not a configured reward milestone`,
+      );
+      throw new BadRequestException(
+        `Milestone ${milestone} is not a configured reward milestone`,
+      );
+    }
+
+    const alreadyAwarded = await this.rewardRepo.findOne({
+      where: {
+        userId,
+        source: 'streak_milestone',
+        sourceId: String(milestone),
+      },
+      select: ['id'],
+    });
+    if (alreadyAwarded) {
+      await this.deny(
+        AttemptType.STREAK_REWARD,
+        userId,
+        metadata,
+        `Milestone ${milestone} has already been awarded to this user`,
+      );
+      throw new BadRequestException(
+        `Milestone ${milestone} has already been awarded to this user`,
+      );
+    }
+
+    await this.recordClaimAttempt(
+      AttemptType.STREAK_REWARD,
+      userId,
+      AttemptOutcome.ALLOWED,
+      metadata,
+      null,
+    );
+  }
+
+  /**
    * Explicitly records an attempt outcome (e.g. the referral service's
    * already-enforced rules) so the audit trail stays complete.
    */
@@ -208,6 +274,19 @@ export class AntiAbuseService {
       qb.andWhere('log.userId = :userId', { userId });
     }
     return qb.getMany();
+  }
+
+  private parseStreakMilestones(raw: unknown): ReadonlySet<number> {
+    const values = Array.isArray(raw)
+      ? raw
+      : String(raw ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
+    const milestones = values
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value > 0);
+    return new Set(milestones);
   }
 
   private async deny(
