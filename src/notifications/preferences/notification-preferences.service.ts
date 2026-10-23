@@ -127,6 +127,7 @@ export class NotificationPreferencesService implements OnModuleInit {
       [NotificationTypeEnum.REWARD_ALERT]: { email: true, push: true, sms: true },
       [NotificationTypeEnum.SYSTEM]: { email: true, push: true, sms: false },
       [NotificationTypeEnum.COUPON_EXPIRY]: { email: true, push: true, sms: false },
+      [NotificationTypeEnum.WALLET_ACTIVITY]: { email: true, push: true, sms: false },
     };
   }
 
