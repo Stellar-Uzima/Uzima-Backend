@@ -2,19 +2,29 @@
 
 This document describes the operational workflows delivered for issues #1352, #1353, #1354, and #1360.
 
-## Service-Level Monitoring Targets
+## Service-level monitoring targets
 
-These targets define measurable reliability and latency objectives for key API workflows. Dashboards and alerts must use these documented values, and they must be reviewed after every incident.
+Issue #150 defines the reliability and latency targets for the key API workflows below. Dashboards and alerts must use these documented targets, and they must be reviewed after every incident that breaches or approaches a threshold.
 
-- **Measurement window:** rolling 30 days, evaluated continuously with a 5-minute aggregation granularity.
-- **Endpoint scope:**
-  - `POST /webhooks/stellar` (webhook ingestion)
-  - `/support/cases` (support case workflows)
-  - `/admin/backfills/:jobKey/run` (backfill execution)
-- **Availability (error-rate) threshold:** at least 99.9% of requests in the window must not return a 5xx response. Client errors (4xx) are excluded from the error budget.
-- **Latency threshold:** at least 95% of requests must complete within 500 ms, and at least 99% within 2000 ms, measured at the server.
-- **Alerting:** an alert fires when the 5-minute error rate exceeds 1% or the p95 latency exceeds 500 ms for 10 consecutive minutes.
-- **Review:** every incident must include a review of these targets, confirming whether the thresholds, endpoint scope, and alert configuration remain accurate and adjusting them if necessary.
+**Measurement window:** rolling 30 days, evaluated per UTC day for trend reporting and over the full rolling window for SLO compliance.
+
+**Endpoint scope:**
+
+| Workflow | Endpoint | Availability target (non-5xx ratio) | Error budget (30d) | p95 latency threshold | p99 latency threshold |
+|---|---|---|---|---|---|
+| Stellar webhook ingestion | `POST /webhooks/stellar` | >= 99.9% | 0.1% | <= 300 ms | <= 1000 ms |
+| Support cases | `/support/cases` (all methods) | >= 99.5% | 0.5% | <= 400 ms | <= 1200 ms |
+| Backfill administration | `/admin/backfills/:jobKey/run` | >= 99.0% | 1.0% | <= 2000 ms | <= 5000 ms |
+
+**Error definition:** a request is counted as an error when it returns HTTP 5xx or exceeds the workflow's p99 latency threshold. Client errors (4xx), including invalid webhook signatures, are excluded from the error budget.
+
+**Alerting:**
+
+- Page when the error budget burn rate exceeds 14x over a 1-hour window, or 6x over a 6-hour window.
+- Warn when p95 latency exceeds its threshold for 15 consecutive minutes.
+- Every alert must link to the dashboard panel for the affected workflow and to this section.
+
+**Post-incident review:** after any incident that consumes more than 10% of a workflow's 30-day error budget or breaches a latency threshold for more than 15 minutes, the owning team must review these targets, confirm that dashboards and alerts reflect them, and record any adjustments in this document.
 
 ## Webhooks
 
