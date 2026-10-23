@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, LessThanOrEqual, Repository } from 'typeorm';
@@ -10,6 +10,21 @@ import {
 
 /** Default number of days an auth event is retained. */
 export const DEFAULT_AUTH_EVENT_RETENTION_DAYS = 180;
+
+/** Permission required to query the audit trail. */
+export const AUDIT_READ_PERMISSION = 'audit:read';
+
+/** Permission required to run the retention purge. */
+export const AUDIT_PURGE_PERMISSION = 'audit:purge';
+
+/** Minimal actor description used for authorization and audit-of-audit logging. */
+export interface AuditActor {
+  id: string;
+  permissions: string[];
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+}
 
 export interface RecordAuthEventInput {
   eventType: AuthEventType;
@@ -95,7 +110,11 @@ function redact(value: unknown, depth = 0): unknown {
  *
  * Recording is deliberately best-effort and never throws into the caller's
  * request path: a failure to persist an audit row must not turn a valid login
- * into a 500. Read access is exposed through an admin-only controller.
+ * into a 500.
+ *
+ * Read and purge operations require explicit permissions and are themselves
+ * recorded as audit events. Application code has no update or delete path for
+ * existing rows other than the retention purge, which is permission-gated.
  */
 @Injectable()
 export class AuthEventAuditService {
@@ -173,8 +192,36 @@ export class AuthEventAuditService {
     return this.record({ ...input, outcome: AuthEventOutcome.DENIED });
   }
 
-  /** Returns a filtered, paginated slice of the trail, newest first. */
-  async findAll(query: AuthEventQuery = {}): Promise<PaginatedAuthEvents> {
+  /**
+   * Returns a filtered, paginated slice of the trail, newest first.
+   * Requires `audit:read`. The query itself is recorded as an audit event.
+   */
+  async findAll(
+    actor: AuditActor,
+    query: AuthEventQuery = {},
+  ): Promise<PaginatedAuthEvents> {
+    if (!actor.permissions.includes(AUDIT_READ_PERMISSION)) {
+      await this.recordDenied({
+        eventType: AuthEventType.AUDIT_QUERY,
+        userId: actor.id,
+        reason: 'missing_permission:audit:read',
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+        requestId: actor.requestId,
+        metadata: { query: this.describeQuery(query) },
+      });
+      throw new ForbiddenException('Missing permission: audit:read');
+    }
+
+    await this.recordSuccess({
+      eventType: AuthEventType.AUDIT_QUERY,
+      userId: actor.id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      requestId: actor.requestId,
+      metadata: { query: this.describeQuery(query) },
+    });
+
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(Math.max(1, query.limit ?? 50), 200);
 
@@ -227,6 +274,7 @@ export class AuthEventAuditService {
    * failed attempt, and how many failures happened inside the lockout window.
    */
   async summariseForUser(
+    actor: AuditActor,
     userId: string,
   ): Promise<{
     lastLoginAt: Date | null;
@@ -234,6 +282,28 @@ export class AuthEventAuditService {
     lastLogoutAt: Date | null;
     failedAttemptsInWindow: number;
   }> {
+    if (!actor.permissions.includes(AUDIT_READ_PERMISSION)) {
+      await this.recordDenied({
+        eventType: AuthEventType.AUDIT_QUERY,
+        userId: actor.id,
+        reason: 'missing_permission:audit:read',
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+        requestId: actor.requestId,
+        metadata: { summaryFor: userId },
+      });
+      throw new ForbiddenException('Missing permission: audit:read');
+    }
+
+    await this.recordSuccess({
+      eventType: AuthEventType.AUDIT_QUERY,
+      userId: actor.id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      requestId: actor.requestId,
+      metadata: { summaryFor: userId },
+    });
+
     const now = new Date();
     const windowStart = new Date(now.getTime() - 15 * 60 * 1000);
 
@@ -276,8 +346,24 @@ export class AuthEventAuditService {
   /**
    * Applies the retention policy: deletes rows whose computed retention date has
    * passed, plus legacy rows written before that column existed.
+   * Requires `audit:purge`. This is the only sanctioned deletion path and it is
+   * itself recorded.
    */
-  async purgeExpired(): Promise<{ deletedCount: number; retentionDays: number }> {
+  async purgeExpired(
+    actor: AuditActor,
+  ): Promise<{ deletedCount: number; retentionDays: number }> {
+    if (!actor.permissions.includes(AUDIT_PURGE_PERMISSION)) {
+      await this.recordDenied({
+        eventType: AuthEventType.AUDIT_PURGE,
+        userId: actor.id,
+        reason: 'missing_permission:audit:purge',
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+        requestId: actor.requestId,
+      });
+      throw new ForbiddenException('Missing permission: audit:purge');
+    }
+
     const now = new Date();
     const legacyCutoff = new Date();
     legacyCutoff.setDate(legacyCutoff.getDate() - this.retentionDays);
@@ -296,15 +382,34 @@ export class AuthEventAuditService {
 
     const ids = expired.map((row) => row.id);
     const result = await this.authEventRepo.delete(ids);
+    const deletedCount = result.affected ?? 0;
 
-    this.logger.log(
-      `Purged ${result.affected ?? 0} auth event log(s) older than ${this.retentionDays} days`,
-    );
+    await this.recordSuccess({
+      eventType: AuthEventType.AUDIT_PURGE,
+      userId: actor.id,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      requestId: actor.requestId,
+      metadata: { deletedCount, retentionDays: this.retentionDays },
+    });
 
-    return { deletedCount: result.affected ?? 0, retentionDays: this.retentionDays };
+    return { deletedCount, retentionDays: this.retentionDays };
   }
 
+  /** Lower-cases and trims an email before it is stored or compared. */
   private normaliseEmail(email: string): string {
-    return email.trim().toLowerCase().slice(0, 320);
+    return email.trim().toLowerCase();
+  }
+
+  /** Builds a metadata-safe description of a query (no free-form values). */
+  private describeQuery(query: AuthEventQuery): Record<string, unknown> {
+    return {
+      page: query.page ?? 1,
+      limit: query.limit ?? 50,
+      hasUserFilter: Boolean(query.userId),
+      eventType: query.eventType ?? null,
+      outcome: query.outcome ?? null,
+      hasDateRange: Boolean(query.startDate || query.endDate),
+    };
   }
 }

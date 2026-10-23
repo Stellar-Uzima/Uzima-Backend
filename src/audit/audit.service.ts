@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -409,34 +409,46 @@ export class AuditService {
   }
 
   /**
-   * Generate SHA-256 hash for audit log immutability
+   * Generate SHA-256 hash for audit log entries.
+   * Covers the entry contents and the previous entry's hash so any
+   * modification breaks the chain.
    */
-  private generateHash(auditLog: AuditLog): string {
-    const data = {
-      id: auditLog.id,
-      userId: auditLog.userId,
-      action: auditLog.action,
-      resourceType: auditLog.resourceType,
-      resourceId: auditLog.resourceId,
-      oldValues: auditLog.oldValues,
-      newValues: auditLog.newValues,
-      createdAt: auditLog.createdAt,
-      previousHash: this.previousHash,
-    };
-
-    const dataString = JSON.stringify(data, Object.keys(data).sort());
-    return crypto.createHash('sha256').update(dataString).digest('hex');
+  private generateHash(log: Partial<AuditLog>): string {
+    const payload = JSON.stringify({
+      userId: log.userId ?? null,
+      userEmail: log.userEmail ?? null,
+      userRole: log.userRole ?? null,
+      action: log.action ?? null,
+      resourceType: log.resourceType ?? null,
+      resourceId: log.resourceId ?? null,
+      resourceName: log.resourceName ?? null,
+      oldValues: log.oldValues ?? null,
+      newValues: log.newValues ?? null,
+      description: log.description ?? null,
+      ipAddress: log.ipAddress ?? null,
+      userAgent: log.userAgent ?? null,
+      sessionId: log.sessionId ?? null,
+      requestId: log.requestId ?? null,
+      correlationId: log.correlationId ?? null,
+      tenantId: log.tenantId ?? null,
+      isSensitive: log.isSensitive ?? false,
+      isComplianceEvent: log.isComplianceEvent ?? false,
+      complianceCategory: log.complianceCategory ?? null,
+      metadata: log.metadata ?? null,
+      createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : null,
+      previousHash: log.previousHash ?? null,
+    });
+    return crypto.createHash('sha256').update(payload).digest('hex');
   }
 
   /**
-   * Get next block index for audit log chain
+   * Returns the next block index for the hash chain.
    */
   private async getNextBlockIndex(): Promise<number> {
-    const lastLog = await this.auditRepo.findOne({
+    const last = await this.auditRepo.findOne({
+      where: {},
       order: { blockIndex: 'DESC' },
-      select: ['blockIndex'],
     });
-
-    return (lastLog?.blockIndex || 0) + 1;
+    return (last?.blockIndex ?? 0) + 1;
   }
 }
