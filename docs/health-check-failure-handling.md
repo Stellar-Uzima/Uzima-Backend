@@ -3,6 +3,20 @@
 ## Overview
 This document describes how health check failures are surfaced to upstream orchestrators and the expected retry/failover behavior for the Uzima-Backend application.
 
+## Service-Level Monitoring Targets
+The following reliability and latency targets apply to key API workflows.
+
+- **Measurement window**: rolling 30 days (SLO evaluation), with 5-minute windows for alerting.
+- **Endpoint scope**: `/health` (availability and dependency status), plus authenticated API workflows (record access, reward claims, notifications).
+- **Availability target**: 99.9% of `/health` requests return `200 OK` over the measurement window.
+- **Error-rate threshold**: 5xx responses below 0.5% of requests per 5-minute window on key API workflows.
+- **Latency threshold**: p95 response time under 300 ms and p99 under 800 ms for key API workflows.
+- **Dependency thresholds**: Redis hit rate at or above 80%; BullMQ waiting jobs at or below 100 across all queues.
+
+### Dashboard and Alert Usage
+- Dashboards and alerts in `monitoring/health-alerts.yaml` must use these targets as thresholds.
+- Any alert that fires against these targets must be reviewed after the related incident, and the target or alert updated if it was ineffective.
+
 ## Current Health Check Implementation
 The application uses NestJS Terminus to implement comprehensive health monitoring exposed at the `/health` endpoint. Three critical dependencies are monitored:
 1. **PostgreSQL Database** (TypeORM)
