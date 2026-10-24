@@ -102,7 +102,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
             responseBody: data === undefined ? null : data,
             expiresAt,
           });
-        } catch {
+        } catch (error) {
+          // Persisting the idempotency record must not fail the request; log and continue.
+          console.warn('Failed to persist idempotency record', error);
         }
       }),
     );
