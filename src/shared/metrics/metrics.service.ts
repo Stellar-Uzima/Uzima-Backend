@@ -27,6 +27,10 @@ export class MetricsService {
     private readonly notificationDeliveriesTotal: Counter<string>,
     @InjectMetric('notification_delivery_retries_total')
     private readonly notificationDeliveryRetriesTotal: Counter<string>,
+    @InjectMetric('notification_permanent_failures_total')
+    private readonly notificationPermanentFailuresTotal: Counter<string>,
+    @InjectMetric('notification_terminal_failures_total')
+    private readonly notificationTerminalFailuresTotal: Counter<string>,
     @InjectMetric('notification_provider_circuit_state')
     private readonly notificationCircuitState: Gauge<string>,
     @InjectMetric('system_memory_usage_bytes')
@@ -93,6 +97,14 @@ export class MetricsService {
 
   setNotificationCircuitOpen(channel: string, isOpen: boolean) {
     this.notificationCircuitState.set({ channel }, isOpen ? 1 : 0);
+  }
+
+  recordPermanentProviderFailure(channel: string) {
+    this.notificationPermanentFailuresTotal.inc({ channel });
+  }
+
+  recordTerminalDeliveryFailure(channel: string) {
+    this.notificationTerminalFailuresTotal.inc({ channel });
   }
 
   setMemoryUsage(bytes: number) {
