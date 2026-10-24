@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/issue-1551-issue-086-add-leaderboard-time-windows",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/issue-1551-issue-086-add-leaderboard-time-windows": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/issue-1551-issue-086-add-leaderboard-time-windows",
+    "origin"
+  ]
+}

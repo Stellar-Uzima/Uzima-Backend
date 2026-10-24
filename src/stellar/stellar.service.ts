@@ -1,10 +1,13 @@
 // src/stellar/stellar.service.ts
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import StellarSdk from 'stellar-sdk';
+import { RetryPolicyOptions } from '../shared/resilience/resilience.service';
+import { StellarResilienceService } from './stellar-resilience.service';
 import {
-  ResilienceService,
-  RetryPolicyOptions,
-} from '../shared/resilience/resilience.service';
+  assertStellarSigningMaterial,
+  loadStellarConfig,
+} from '../config/stellar.config';
 import { CreateStellarDto } from './dto/create-stellar.dto';
 import { UpdateStellarDto } from './dto/update-stellar.dto';
 
@@ -13,26 +16,29 @@ export class StellarService {
   private readonly logger = new Logger(StellarService.name);
 
   /**
-   * Resilient policy for Horizon calls: bounded timeouts, exponential backoff
-   * with jitter and a circuit breaker keyed on `horizon.*`. When the provider
-   * is unresponsive the downstream calls fail fast with a typed
-   * `ThirdPartyApiError`, and the service methods degrade gracefully instead
-   * of throwing raw network errors to callers.
+   * Resilient policy for Horizon calls (#1531): bounded retries with
+   * exponential backoff, a per-call timeout and a circuit breaker keyed on
+   * `horizon.*`. When the provider is unresponsive the downstream calls fail
+   * fast with a typed `ThirdPartyApiError`, and the service methods degrade
+   * gracefully instead of throwing raw network errors to callers.
    */
   private readonly horizonPolicy: RetryPolicyOptions = {
     attempts: 3,
-    baseDelayMs: 250,
-    maxDelayMs: 4000,
-    timeoutMs: 8000,
+    baseDelayMs: 500,
+    maxDelayMs: 8000,
+    timeoutMs: 10000,
     circuit: { failureThreshold: 5, openDurationMs: 30_000 },
   };
 
   private server: InstanceType<typeof StellarSdk.Horizon.Server>;
 
-  constructor(private readonly resilienceService: ResilienceService) {
-    this.server = new StellarSdk.Horizon.Server(
-      'https://horizon-testnet.stellar.org',
-    );
+  constructor(
+    private readonly resilienceService: StellarResilienceService,
+    configService: ConfigService,
+  ) {
+    const networkConfig = loadStellarConfig(configService);
+    assertStellarSigningMaterial(configService, networkConfig.network);
+    this.server = new StellarSdk.Horizon.Server(networkConfig.horizonUrl);
   }
 
   async accountExists(address: string): Promise<boolean> {
