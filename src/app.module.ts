@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import Joi from 'joi';
+import { CouponReportModule } from './modules/coupons/reporting/coupon-report.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
