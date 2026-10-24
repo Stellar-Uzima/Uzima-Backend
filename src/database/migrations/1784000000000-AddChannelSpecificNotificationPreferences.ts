@@ -29,6 +29,62 @@ export class AddChannelSpecificNotificationPreferences1784000000000
       }),
     );
 
+    // Add quiet hours configuration columns.
+    // Quiet hours are evaluated in the user's own time zone; the interval may
+    // wrap across midnight (e.g. 22:00 -> 07:00).
+    await queryRunner.addColumn(
+      'notification_preferences',
+      new TableColumn({
+        name: 'quietHoursEnabled',
+        type: 'boolean',
+        default: false,
+        isNullable: false,
+      }),
+    );
+
+    await queryRunner.addColumn(
+      'notification_preferences',
+      new TableColumn({
+        name: 'quietHoursStart',
+        type: 'varchar',
+        length: '5',
+        isNullable: true,
+      }),
+    );
+
+    await queryRunner.addColumn(
+      'notification_preferences',
+      new TableColumn({
+        name: 'quietHoursEnd',
+        type: 'varchar',
+        length: '5',
+        isNullable: true,
+      }),
+    );
+
+    await queryRunner.addColumn(
+      'notification_preferences',
+      new TableColumn({
+        name: 'quietHoursTimeZone',
+        type: 'varchar',
+        length: '64',
+        isNullable: true,
+      }),
+    );
+
+    // Documented exception policy: urgent categories bypass quiet hours.
+    // Only the categories listed below are treated as urgent; every other
+    // category is deferred until quiet hours end.
+    await queryRunner.addColumn(
+      'notification_preferences',
+      new TableColumn( {
+        name: 'quietHoursUrgentCategories',
+        type: 'jsonb',
+        default: '["system","appointment_reminder"]',
+        isNullable: true,
+      }),
+    );
+
     // Add CHECK constraint enforcing valid channels and notification categories
     await queryRunner.query(`
       ALTER TABLE notification_preferences
@@ -108,6 +164,11 @@ export class AddChannelSpecificNotificationPreferences1784000000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.dropColumn('notification_preferences', 'quietHoursUrgentCategories');
+    await queryRunner.dropColumn('notification_preferences', 'quietHoursTimeZone');
+    await queryRunner.dropColumn('notification_preferences', 'quietHoursEnd');
+    await queryRunner.dropColumn('notification_preferences', 'quietHoursStart');
+    await queryRunner.dropColumn('notification_preferences', 'quietHoursEnabled');
     await queryRunner.query(
       `ALTER TABLE notification_preferences DROP CONSTRAINT IF EXISTS "CHK_notification_preferences_channelPreferences"`,
     );
