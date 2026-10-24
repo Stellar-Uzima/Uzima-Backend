@@ -1,9 +1,8 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RewardService } from './reward.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { PayoutHistoryQueryDto } from './dto/payout-history-query.dto';
+import { PayoutHistoryQueryDto } from '../otp/payout-history-query.dto';
 import { RewardSummaryResponseDto } from './dto/reward-history.dto';
 
 @ApiTags('Rewards')

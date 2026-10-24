@@ -25,7 +25,7 @@ import { JwtAuthGuard } from '@modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { Roles } from '@modules/auth/decorators/roles.decorator';
 import { Role } from '@modules/auth/enums/role.enum';
-import { Coupon, CouponStatus } from './entities/coupon.entity';
+import { Coupon, CouponStatus } from '../entities/coupon.entity';
 import { CouponService, ValidateCouponResult } from './coupon.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
 

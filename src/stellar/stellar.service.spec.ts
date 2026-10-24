@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { StellarService } from './stellar.service';
+import { StellarResilienceService } from './stellar-resilience.service';
 
 const mockServer = {
   accounts: jest.fn().mockReturnValue({
@@ -24,7 +26,14 @@ describe('StellarService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StellarService],
+      providers: [
+        StellarService,
+        {
+          provide: StellarResilienceService,
+          useValue: { execute: jest.fn(), withTimeout: jest.fn() },
+        },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<StellarService>(StellarService);
