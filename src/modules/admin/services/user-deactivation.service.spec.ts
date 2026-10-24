@@ -16,11 +16,15 @@ function makeEntityManager(options: {
   user?: Partial<User> | null;
   adminCount?: number;
   lastDeactivation?: Partial<UserStatusLog> | null;
+  saveFailure?: Error;
 }) {
   const userRepo = {
     findOne: jest.fn().mockResolvedValue(options.user ?? null),
     count: jest.fn().mockResolvedValue(options.adminCount ?? 0),
-    save: jest.fn().mockImplementation(async (entity) => entity),
+    save: jest.fn().mockImplementation(async (entity) => {
+      if (options.saveFailure) throw options.saveFailure;
+      return entity;
+    }),
     create: jest.fn().mockImplementation((partial) => partial),
   };
   const statusLogRepo = {
@@ -85,6 +89,18 @@ describe('UserDeactivationService (#1291)', () => {
       ).rejects.toMatchObject({ code: ApiErrorCode.CONFIRMATION_REQUIRED });
     });
 
+    it('does not persist any change when confirmation is missing', async () => {
+      const { service, userRepo, statusLogRepo, auditService } = makeService({ user: activeUser() });
+
+      await expect(
+        service.deactivate('user-1', { reasonCode: DeactivationReasonCode.USER_REQUEST, confirm: false }, ADMIN),
+      ).rejects.toBeInstanceOf(ApiErrorException);
+
+      expect(userRepo.save).not.toHaveBeenCalled();
+      expect(statusLogRepo.save).not.toHaveBeenCalled();
+      expect(auditService.logEvent).not.toHaveBeenCalled();
+    });
+
     it('refuses to let an admin deactivate their own account', async () => {
       const { service } = makeService({ user: activeUser() });
       const self: ActorContext = { id: 'user-1', role: Role.ADMIN };
@@ -95,7 +111,7 @@ describe('UserDeactivationService (#1291)', () => {
     });
 
     it('refuses to remove the last active admin', async () => {
-      const { service } = makeService({
+      const { service, userRepo } = makeService({
         user: activeUser({ role: Role.ADMIN }),
         adminCount: 1,
       });
@@ -103,6 +119,8 @@ describe('UserDeactivationService (#1291)', () => {
       await expect(
         service.deactivate('user-1', { reasonCode: DeactivationReasonCode.ADMIN_POLICY, confirm: true }, ADMIN),
       ).rejects.toMatchObject({ code: ApiErrorCode.CANNOT_DEACTIVATE_LAST_ADMIN });
+
+      expect(userRepo.save).not.toHaveBeenCalled();
     });
 
     it('allows deactivating an admin while another active admin remains', async () => {
@@ -127,12 +145,14 @@ describe('UserDeactivationService (#1291)', () => {
       );
     });
 
-    it('rejects an inverted requirement: reasonCode OTHER with no reason', async () => {
-      const { service } = makeService({ user: activeUser() });
+    it('rejects reasonCode OTHER with no reason', async () => {
+      const { service, userRepo } = makeService({ user: activeUser() });
 
       await expect(
         service.deactivate('user-1', { reasonCode: DeactivationReasonCode.OTHER, confirm: true }, ADMIN),
       ).rejects.toBeInstanceOf(ApiErrorException);
+
+      expect(userRepo.save).not.toHaveBeenCalled();
     });
 
     it('is idempotent-safe: deactivating an inactive account is a conflict', async () => {
@@ -145,12 +165,28 @@ describe('UserDeactivationService (#1291)', () => {
       ).rejects.toMatchObject({ code: ApiErrorCode.ACCOUNT_ALREADY_INACTIVE });
     });
 
-    it('404s for an unknown user', async () => {
-      const { service } = makeService({ user: null });
+    it('404s for an unknown user and writes nothing', async () => {
+      const { service, userRepo, auditService } = makeService({ user: null });
 
       await expect(
         service.deactivate('nope', { reasonCode: DeactivationReasonCode.USER_REQUEST, confirm: true }, ADMIN),
       ).rejects.toMatchObject({ code: ApiErrorCode.USER_NOT_FOUND });
+
+      expect(userRepo.save).not.toHaveBeenCalled();
+      expect(auditService.logEvent).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a persistence failure and does not write an audit event', async () => {
+      const { service, auditService } = makeService({
+        user: activeUser(),
+        saveFailure: new Error('db unavailable'),
+      });
+
+      await expect(
+        service.deactivate('user-1', { reasonCode: DeactivationReasonCode.USER_REQUEST, confirm: true }, ADMIN),
+      ).rejects.toThrow('db unavailable');
+
+      expect(auditService.logEvent).not.toHaveBeenCalled();
     });
 
     it('writes a status log and a compliance audit event', async () => {
@@ -214,7 +250,7 @@ describe('UserDeactivationService (#1291)', () => {
     });
 
     it('refuses to restore an account flagged for suspicious activity', async () => {
-      const { service } = makeService({
+      const { service, userRepo } = makeService({
         user: activeUser({ status: UserStatus.INACTIVE, isActive: false }),
         lastDeactivation: { reason: `Deactivated (${DeactivationReasonCode.SUSPICIOUS_ACTIVITY})` },
       });
@@ -222,14 +258,30 @@ describe('UserDeactivationService (#1291)', () => {
       await expect(service.reactivate('user-1', { confirm: true }, ADMIN)).rejects.toMatchObject({
         code: ApiErrorCode.REACTIVATION_NOT_PERMITTED,
       });
+
+      expect(userRepo.save).not.toHaveBeenCalled();
     });
 
     it('is a conflict when the account is already active', async () => {
-      const { service } = makeService({ user: activeUser() });
+      const { service, userRepo } = makeService({ user: activeUser() });
 
       await expect(service.reactivate('user-1', { confirm: true }, ADMIN)).rejects.toMatchObject({
         code: ApiErrorCode.ACCOUNT_ALREADY_ACTIVE,
       });
+
+      expect(userRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('requires confirmation before restoring an account', async () => {
+      const { service, userRepo } = makeService({
+        user: activeUser({ status: UserStatus.INACTIVE, isActive: false }),
+      });
+
+      await expect(service.reactivate('user-1', { confirm: false }, ADMIN)).rejects.toMatchObject({
+        code: ApiErrorCode.CONFIRMATION_REQUIRED,
+      });
+
+      expect(userRepo.save).not.toHaveBeenCalled();
     });
   });
 });

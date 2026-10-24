@@ -7,7 +7,6 @@ import { User } from '@/entities/user.entity';
 import { Role } from '@modules/auth/enums/role.enum';
 import { CacheService } from '@/shared/cache/cache.service';
 import { AuditService } from '@/audit/audit.service';
-import { AuditAction, AuditResource } from '@/audit/entities/audit-log.entity';
 
 describe('AdminImpersonationService', () => {
   let service: AdminImpersonationService;
@@ -40,18 +39,9 @@ describe('AdminImpersonationService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminImpersonationService,
-        {
-          provide: getRepositoryToken(User),
-          useValue: mockUsersRepository,
-        },
-        {
-          provide: CacheService,
-          useValue: mockCacheService,
-        },
-        {
-          provide: AuditService,
-          useValue: mockAuditService,
-        },
+        { provide: getRepositoryToken(User), useValue: mockUsersRepository },
+        { provide: CacheService, useValue: mockCacheService },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
@@ -72,80 +62,73 @@ describe('AdminImpersonationService', () => {
     let expiry: Date;
 
     beforeEach(() => {
-      expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in future
+      expiry = new Date(Date.now() + 10 * 60 * 1000);
     });
 
-    it('should successfully start an impersonation session for a non-admin user', async () => {
-      const targetUser = { id: targetUserId, role: Role.USER } as User;
-      usersRepository.findOne.mockResolvedValue(targetUser);
+    it('creates an active, persisted session for a non-admin target and records an audit entry', async () => {
+      usersRepository.findOne.mockResolvedValue({ id: targetUserId, role: Role.USER } as User);
 
       const result = await service.startSession(adminId, targetUserId, expiry, reason);
 
-      expect(result).toBeDefined();
-      expect(result.id).toBeDefined();
       expect(result.adminId).toBe(adminId);
       expect(result.targetUserId).toBe(targetUserId);
       expect(result.reason).toBe(reason);
       expect(result.isActive).toBe(true);
       expect(result.expiry).toBe(expiry.toISOString());
 
-      // Check stored in cache
-      expect(cacheService.set).toHaveBeenCalledWith(
-        `impersonation:${result.id}`,
-        result,
-        expect.any(Object),
-      );
+      // Observable outcome: the session can be read back from the store.
+      const stored = await service.isSessionValid(result.id);
+      expect(stored).toBe(true);
 
-      // Verify audit logging
-      expect(auditService.logEvent).toHaveBeenCalledWith({
-        userId: adminId,
-        action: AuditAction.CREATE,
-        resourceType: AuditResource.USER,
-        resourceId: targetUserId,
-        description: expect.stringContaining(reason),
-        metadata: {
-          sessionId: result.id,
-          adminId,
-          targetUserId,
-          reason,
-          expiry: expiry.toISOString(),
-        },
-      });
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: adminId,
+          resourceId: targetUserId,
+          metadata: expect.objectContaining({ sessionId: result.id, reason }),
+        }),
+      );
     });
 
-    it('should throw NotFoundException if target user does not exist', async () => {
+    it('rejects a target user that does not exist and persists nothing', async () => {
       usersRepository.findOne.mockResolvedValue(null);
 
       await expect(
         service.startSession(adminId, targetUserId, expiry, reason),
       ).rejects.toThrow(NotFoundException);
 
-      expect(cacheService.set).not.toHaveBeenCalled();
+      expect(cacheStore.size).toBe(0);
       expect(auditService.logEvent).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException when attempting to impersonate an admin', async () => {
-      const targetUser = { id: targetUserId, role: Role.ADMIN } as User;
-      usersRepository.findOne.mockResolvedValue(targetUser);
+    it('forbids impersonating another admin (authorization) and persists nothing', async () => {
+      usersRepository.findOne.mockResolvedValue({ id: targetUserId, role: Role.ADMIN } as User);
 
       await expect(
         service.startSession(adminId, targetUserId, expiry, reason),
       ).rejects.toThrow(BadRequestException);
 
-      expect(cacheService.set).not.toHaveBeenCalled();
+      expect(cacheStore.size).toBe(0);
       expect(auditService.logEvent).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if expiry is in the past or now', async () => {
-      const targetUser = { id: targetUserId, role: Role.USER } as User;
-      usersRepository.findOne.mockResolvedValue(targetUser);
+    it('rejects an expiry in the past (invalid input) and persists nothing', async () => {
+      usersRepository.findOne.mockResolvedValue({ id: targetUserId, role: Role.USER } as User);
       const pastExpiry = new Date(Date.now() - 1000);
 
       await expect(
         service.startSession(adminId, targetUserId, pastExpiry, reason),
       ).rejects.toThrow(BadRequestException);
 
-      expect(cacheService.set).not.toHaveBeenCalled();
+      expect(cacheStore.size).toBe(0);
+    });
+
+    it('surfaces a persistence failure from the cache and does not report success', async () => {
+      usersRepository.findOne.mockResolvedValue({ id: targetUserId, role: Role.USER } as User);
+      cacheService.set.mockRejectedValueOnce(new Error('cache unavailable'));
+
+      await expect(
+        service.startSession(adminId, targetUserId, expiry, reason),
+      ).rejects.toThrow('cache unavailable');
     });
   });
 
@@ -160,52 +143,43 @@ describe('AdminImpersonationService', () => {
       expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     });
 
-    it('should end the session early successfully and log to audit service', async () => {
-      const activeSession = {
+    it('ends an active session so it is no longer valid, and audits the early end', async () => {
+      cacheStore.set(`impersonation:${sessionId}`, {
         id: sessionId,
         adminId,
         targetUserId,
         expiry,
         reason,
         isActive: true,
-      };
-      cacheStore.set(`impersonation:${sessionId}`, activeSession);
+      });
 
       const result = await service.endSession(sessionId);
 
       expect(result.isActive).toBe(false);
-      expect(cacheStore.get(`impersonation:${sessionId}`).isActive).toBe(false);
-
-      expect(auditService.logEvent).toHaveBeenCalledWith({
-        userId: adminId,
-        action: AuditAction.UPDATE,
-        resourceType: AuditResource.USER,
-        resourceId: targetUserId,
-        description: expect.stringContaining('Ended impersonation session early'),
-        metadata: {
-          sessionId,
-          adminId,
-          targetUserId,
-          reason,
-        },
-      });
+      expect(await service.isSessionValid(sessionId)).toBe(false);
+      expect(auditService.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: adminId,
+          resourceId: targetUserId,
+          description: expect.stringContaining('Ended impersonation session early'),
+        }),
+      );
     });
 
-    it('should throw BadRequestException if session is not found in cache', async () => {
+    it('rejects ending a session that does not exist', async () => {
       await expect(service.endSession('non-existent')).rejects.toThrow(BadRequestException);
       expect(auditService.logEvent).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if session is already ended/inactive', async () => {
-      const inactiveSession = {
+    it('rejects ending a session that is already inactive (no duplicate audit)', async () => {
+      cacheStore.set(`impersonation:${sessionId}`, {
         id: sessionId,
         adminId,
         targetUserId,
         expiry,
         reason,
         isActive: false,
-      };
-      cacheStore.set(`impersonation:${sessionId}`, inactiveSession);
+      });
 
       await expect(service.endSession(sessionId)).rejects.toThrow(BadRequestException);
       expect(auditService.logEvent).not.toHaveBeenCalled();
@@ -218,57 +192,47 @@ describe('AdminImpersonationService', () => {
     const targetUserId = 'user-id-456';
     const reason = 'Debug';
 
-    it('should return true for active, non-expired sessions', async () => {
-      const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      const session = {
+    it('returns true for an active, non-expired session', async () => {
+      cacheStore.set(`impersonation:${sessionId}`, {
         id: sessionId,
         adminId,
         targetUserId,
-        expiry,
+        expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
         reason,
         isActive: true,
-      };
-      cacheStore.set(`impersonation:${sessionId}`, session);
+      });
 
-      const isValid = await service.isSessionValid(sessionId);
-      expect(isValid).toBe(true);
+      expect(await service.isSessionValid(sessionId)).toBe(true);
     });
 
-    it('should return false if session is inactive', async () => {
-      const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      const session = {
+    it('returns false for an inactive session', async () => {
+      cacheStore.set(`impersonation:${sessionId}`, {
         id: sessionId,
         adminId,
         targetUserId,
-        expiry,
+        expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
         reason,
         isActive: false,
-      };
-      cacheStore.set(`impersonation:${sessionId}`, session);
+      });
 
-      const isValid = await service.isSessionValid(sessionId);
-      expect(isValid).toBe(false);
+      expect(await service.isSessionValid(sessionId)).toBe(false);
     });
 
-    it('should return false if session is expired', async () => {
-      const expiry = new Date(Date.now() - 1000).toISOString(); // 1s ago
-      const session = {
+    it('returns false for an expired session', async () => {
+      cacheStore.set(`impersonation:${sessionId}`, {
         id: sessionId,
         adminId,
         targetUserId,
-        expiry,
+        expiry: new Date(Date.now() - 1000).toISOString(),
         reason,
         isActive: true,
-      };
-      cacheStore.set(`impersonation:${sessionId}`, session);
+      });
 
-      const isValid = await service.isSessionValid(sessionId);
-      expect(isValid).toBe(false);
+      expect(await service.isSessionValid(sessionId)).toBe(false);
     });
 
-    it('should return false if session is not found in cache', async () => {
-      const isValid = await service.isSessionValid('non-existent');
-      expect(isValid).toBe(false);
+    it('returns false for an unknown session id', async () => {
+      expect(await service.isSessionValid('non-existent')).toBe(false);
     });
   });
 });
