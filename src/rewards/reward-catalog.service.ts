@@ -10,8 +10,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RewardCatalog, RewardType, RewardCatalogStatus } from './entities/reward-catalog.entity';
 import { RewardTransaction } from './entities/reward-transaction.entity';
-import { User } from '../../entities/user.entity';
-import { WalletService } from '../../modules/wallet/wallet.service';
+import { User } from '../entities/user.entity';
+import { WalletService } from '../modules/wallet/wallet.service';
 
 export interface CreateRewardCatalogDto {
   title: string;

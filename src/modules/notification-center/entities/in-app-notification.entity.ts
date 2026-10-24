@@ -18,6 +18,7 @@ export enum NotificationTypeEnum {
   REWARD_ALERT = 'reward_alert',
   SYSTEM = 'system',
   COUPON_EXPIRY = 'coupon_expiry',
+  WALLET_ACTIVITY = 'wallet_activity',
 }
 
 export enum DeliveryChannel {
