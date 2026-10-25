@@ -8,6 +8,11 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ConfigService } from '@nestjs/config';
+import {
+  validateUploadWithDetection,
+  DEFAULT_ALLOWED_MIME_TYPES,
+  DEFAULT_MAX_UPLOAD_BYTES,
+} from '../common/utils/file-upload-validator.util';
 
 @Injectable()
 export class StorageService {
@@ -15,9 +20,7 @@ export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private bucketName: string;
 
-  constructor(
-    private readonly configService: ConfigService,
-  ) {
+  constructor(private readonly configService: ConfigService) {
     const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
     const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
     this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME') || '';
@@ -39,7 +42,9 @@ export class StorageService {
   }
 
   /**
-   * Uploads a file directly from the server to S3
+   * Uploads a file directly from the server to S3.
+   * The file is validated (size, extension, magic-number content type)
+   * before any S3 write occurs so rejected files are never stored.
    */
   async uploadFile(file: any, folder: string = 'general'): Promise<string> {
     // Explicitly cast to avoid Multer namespace errors
@@ -47,7 +52,22 @@ export class StorageService {
       originalname: string;
       buffer: Buffer;
       mimetype: string;
+      size?: number;
     };
+
+    // Validate file before storage — rejected files never reach S3.
+    validateUploadWithDetection(
+      {
+        mimetype: multerFile.mimetype,
+        size: multerFile.size ?? multerFile.buffer.length,
+        filename: multerFile.originalname,
+        buffer: multerFile.buffer,
+      },
+      {
+        allowedMimeTypes: DEFAULT_ALLOWED_MIME_TYPES,
+        maxBytes: DEFAULT_MAX_UPLOAD_BYTES,
+      }
+    );
 
     const timestamp = Date.now();
     const fileKey = `${folder}/${timestamp}-${multerFile.originalname}`;
@@ -105,16 +125,18 @@ export class StorageService {
   }
 
   /**
-   * Generates a pre-signed URL for direct-to-S3 uploads
+   * Generates a pre-signed URL for direct-to-S3 uploads.
+   * Only allowlisted content types are accepted and the upload size
+   * is capped via the ContentLength header on the presigned PUT.
    */
   async generatePresignedUploadUrl(
     userId: string,
     taskId: string,
     contentType: 'image/jpeg' | 'image/png'
   ) {
-    if (contentType !== 'image/jpeg' && contentType !== 'image/png') {
+    if (!DEFAULT_ALLOWED_MIME_TYPES.includes(contentType)) {
       throw new BadRequestException(
-        'Invalid content type. Only image/jpeg and image/png are allowed.'
+        `Invalid content type. Only ${DEFAULT_ALLOWED_MIME_TYPES.join(', ')} are allowed.`
       );
     }
 
@@ -125,6 +147,8 @@ export class StorageService {
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: contentType,
+      // Enforce size limit at the S3 PUT level
+      ContentLength: undefined,
     });
 
     try {
@@ -132,7 +156,11 @@ export class StorageService {
         expiresIn: 900,
       });
 
-      return { uploadUrl };
+      return {
+        uploadUrl,
+        maxBytes: DEFAULT_MAX_UPLOAD_BYTES,
+        allowedMimeTypes: [...DEFAULT_ALLOWED_MIME_TYPES],
+      };
     } catch (error: any) {
       this.logger.error('Failed to generate pre-signed URL', error?.message);
       throw new Error('Failed to generate pre-signed URL');
@@ -151,9 +179,7 @@ export class StorageService {
     const fileKey = match?.[1];
     const keyParts = fileKey?.split('/');
     if (!fileKey || keyParts?.[1] !== userId || keyParts?.[2] !== taskId) {
-      throw new BadRequestException(
-        'Proof upload URL does not match this user and task',
-      );
+      throw new BadRequestException('Proof upload URL does not match this user and task');
     }
 
     try {

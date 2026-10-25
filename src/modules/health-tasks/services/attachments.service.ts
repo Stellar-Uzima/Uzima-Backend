@@ -1,22 +1,43 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskAttachment } from '../../../database/entities/task-attachment.entity';
+import {
+  validateUploadWithDetection,
+  DEFAULT_ALLOWED_MIME_TYPES,
+  DEFAULT_MAX_UPLOAD_BYTES,
+} from '../../../common/utils/file-upload-validator.util';
 
 @Injectable()
 export class AttachmentsService {
   constructor(
     @InjectRepository(TaskAttachment)
-    private readonly attachmentRepository: Repository<TaskAttachment>,
+    private readonly attachmentRepository: Repository<TaskAttachment>
   ) {}
 
-  async createAttachment(taskId: string, fileData: {
-    fileName: string;
-    fileUrl: string;
-    fileType: string;
-    fileSize: number;
-    uploadedBy?: string;
-  }): Promise<TaskAttachment> {
+  async createAttachment(
+    taskId: string,
+    fileData: {
+      fileName: string;
+      fileUrl: string;
+      fileType: string;
+      fileSize: number;
+      uploadedBy?: string;
+    }
+  ): Promise<TaskAttachment> {
+    // Validate file metadata before persisting the attachment record.
+    validateUploadWithDetection(
+      {
+        mimetype: fileData.fileType,
+        size: fileData.fileSize,
+        filename: fileData.fileName,
+      },
+      {
+        allowedMimeTypes: DEFAULT_ALLOWED_MIME_TYPES,
+        maxBytes: DEFAULT_MAX_UPLOAD_BYTES,
+      }
+    );
+
     const attachment = this.attachmentRepository.create({
       taskId,
       ...fileData,

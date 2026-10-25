@@ -87,7 +87,7 @@ export class UserPreferences {
   @IsUUID()
   userId: string;
 
-  @Columb({
+  @Column({
     type: 'enum',
     enum: Theme,
     default: Theme.SYSTEM,

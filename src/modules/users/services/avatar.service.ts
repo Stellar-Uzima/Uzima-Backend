@@ -4,10 +4,11 @@ import { Repository } from 'typeorm';
 import { User } from '../../../entities/user.entity';
 import { StorageService } from '../../../shared/storage/storage.service';
 import { ActivityTrackerService } from './activity-tracker.service';
+import { validateUploadWithDetection } from '../../../common/utils/file-upload-validator.util';
 import sharp from 'sharp';
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_AVATAR_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_AVATAR_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const THUMBNAIL_SIZE = { width: 200, height: 200 };
 
 @Injectable()
@@ -16,7 +17,7 @@ export class AvatarService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly storageService: StorageService,
-    private readonly activityTracker: ActivityTrackerService,
+    private readonly activityTracker: ActivityTrackerService
   ) {}
 
   async uploadAvatar(
@@ -24,12 +25,12 @@ export class AvatarService {
     file: Buffer,
     originalName: string,
     mimetype: string,
-    request?: any,
+    request?: any
   ): Promise<{ url: string; filename: string }> {
-    this.validateFile(file, mimetype);
+    this.validateFile(file, originalName, mimetype);
 
     const resizedImage = await this.resizeImage(file);
-    
+
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -41,7 +42,7 @@ export class AvatarService {
       resizedImage,
       originalName,
       mimetype,
-      'avatars',
+      'avatars'
     );
 
     await this.userRepository.update(userId, {
@@ -81,18 +82,19 @@ export class AvatarService {
     return user?.avatarUrl || null;
   }
 
-  private validateFile(file: Buffer, mimetype: string): void {
-    if (!ALLOWED_MIME_TYPES.includes(mimetype)) {
-      throw new BadRequestException(
-        `Invalid file type. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`,
-      );
-    }
-
-    if (file.length > MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      );
-    }
+  private validateFile(file: Buffer, originalName: string, mimetype: string): void {
+    validateUploadWithDetection(
+      {
+        mimetype,
+        size: file.length,
+        filename: originalName,
+        buffer: file,
+      },
+      {
+        allowedMimeTypes: ALLOWED_AVATAR_MIME_TYPES,
+        maxBytes: MAX_AVATAR_FILE_SIZE,
+      }
+    );
   }
 
   private async resizeImage(file: Buffer): Promise<Buffer> {
