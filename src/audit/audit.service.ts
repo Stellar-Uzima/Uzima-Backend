@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -326,13 +326,17 @@ export class AuditService {
     return this.auditRepo.findOne({ where: { id: String(id) } });
   }
 
+  /**
+   * Audit entries are append-only. Application workflows may not edit them.
+   */
   async update(id: number | string, dto: UpdateAuditDto): Promise<AuditLog> {
-    // For audit logs, we should not allow updates to maintain immutability
     throw new Error('Audit logs are immutable and cannot be updated');
   }
 
+  /**
+   * Audit entries are append-only. Application workflows may not delete them.
+   */
   async remove(id: number | string): Promise<void> {
-    // For audit logs, we should not allow deletion to maintain immutability
     throw new Error('Audit logs are immutable and cannot be deleted');
   }
 
@@ -409,34 +413,31 @@ export class AuditService {
   }
 
   /**
-   * Generate SHA-256 hash for audit log immutability
+   * Generates a SHA-256 hash over the entry's immutable content and chain link.
    */
-  private generateHash(auditLog: AuditLog): string {
-    const data = {
-      id: auditLog.id,
-      userId: auditLog.userId,
-      action: auditLog.action,
-      resourceType: auditLog.resourceType,
-      resourceId: auditLog.resourceId,
-      oldValues: auditLog.oldValues,
-      newValues: auditLog.newValues,
-      createdAt: auditLog.createdAt,
-      previousHash: this.previousHash,
-    };
-
-    const dataString = JSON.stringify(data, Object.keys(data).sort());
-    return crypto.createHash('sha256').update(dataString).digest('hex');
+  private generateHash(log: Partial<AuditLog>): string {
+    const payload = JSON.stringify({
+      userId: log.userId ?? null,
+      action: log.action ?? null,
+      resourceType: log.resourceType ?? null,
+      resourceId: log.resourceId ?? null,
+      oldValues: log.oldValues ?? null,
+      newValues: log.newValues ?? null,
+      description: log.description ?? null,
+      createdAt: log.createdAt ? new Date(log.createdAt).toISOString() : null,
+      previousHash: log.previousHash ?? null,
+    });
+    return crypto.createHash('sha256').update(payload).digest('hex');
   }
 
   /**
-   * Get next block index for audit log chain
+   * Returns the next block index for the hash chain.
    */
   private async getNextBlockIndex(): Promise<number> {
-    const lastLog = await this.auditRepo.findOne({
+    const last = await this.auditRepo.findOne({
+      where: {},
       order: { blockIndex: 'DESC' },
-      select: ['blockIndex'],
     });
-
-    return (lastLog?.blockIndex || 0) + 1;
+    return (last?.blockIndex ?? 0) + 1;
   }
 }

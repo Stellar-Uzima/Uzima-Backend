@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, IsNull, LessThanOrEqual, Repository } from 'typeorm';
@@ -10,6 +10,18 @@ import {
 
 /** Default number of days an auth event is retained. */
 export const DEFAULT_AUTH_EVENT_RETENTION_DAYS = 180;
+
+/** Permission required to query the audit trail. */
+export const AUDIT_READ_PERMISSION = 'audit:read';
+
+/** Permission required to run retention purges. */
+export const AUDIT_PURGE_PERMISSION = 'audit:purge';
+
+/** Actor context supplied by the caller (authenticated principal). */
+export interface AuditActor {
+  id: string;
+  permissions: string[];
+}
 
 export interface RecordAuthEventInput {
   eventType: AuthEventType;
@@ -56,7 +68,7 @@ const REDACTED_KEYS = new Set([
   'code',
   'totpcode',
   'secret',
-  'twofactorsersecret',
+  'twofactorsecret',
   'authorization',
   'cookie',
   'passwordresettoken',
@@ -95,7 +107,14 @@ function redact(value: unknown, depth = 0): unknown {
  *
  * Recording is deliberately best-effort and never throws into the caller's
  * request path: a failure to persist an audit row must not turn a valid login
- * into a 500. Read access is exposed through an admin-only controller.
+ * into a 500.
+ *
+ * Integrity (#136):
+ *  - Read and purge operations require explicit permissions and every such
+ *    access is itself recorded as an auth event.
+ *  - The service exposes no update or single-row mutation API. The only
+ *    deletion path is the retention purge, which is permission-gated, logged,
+ *    and restricted to rows whose retention window has elapsed.
  */
 @Injectable()
 export class AuthEventAuditService {
@@ -173,8 +192,16 @@ export class AuthEventAuditService {
     return this.record({ ...input, outcome: AuthEventOutcome.DENIED });
   }
 
-  /** Returns a filtered, paginated slice of the trail, newest first. */
-  async findAll(query: AuthEventQuery = {}): Promise<PaginatedAuthEvents> {
+  /**
+   * Returns a filtered, paginated slice of the trail, newest first.
+   * Requires `audit:read`. The access itself is recorded.
+   */
+  async findAll(
+    actor: AuditActor,
+    query: AuthEventQuery = {},
+  ): Promise<PaginatedAuthEvents> {
+    this.assertPermission(actor, AUDIT_READ_PERMISSION, 'audit query');
+
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(Math.max(1, query.limit ?? 50), 200);
 
@@ -209,6 +236,17 @@ export class AuthEventAuditService {
 
     const [data, total] = await builder.getManyAndCount();
 
+    await this.logAuditAccess(actor, 'AUDIT_QUERY', {
+      page,
+      limit,
+      userId: query.userId ?? null,
+      eventType: query.eventType ?? null,
+      outcome: query.outcome ?? null,
+      startDate: query.startDate ?? null,
+      endDate: query.endDate ?? null,
+      resultCount: total,
+    });
+
     return {
       data,
       meta: {
@@ -225,8 +263,10 @@ export class AuthEventAuditService {
   /**
    * Per-user summary used by the admin account view: last successful login, last
    * failed attempt, and how many failures happened inside the lockout window.
+   * Requires `audit:read`. The access itself is recorded.
    */
   async summariseForUser(
+    actor: AuditActor,
     userId: string,
   ): Promise<{
     lastLoginAt: Date | null;
@@ -234,6 +274,8 @@ export class AuthEventAuditService {
     lastLogoutAt: Date | null;
     failedAttemptsInWindow: number;
   }> {
+    this.assertPermission(actor, AUDIT_READ_PERMISSION, 'audit summary');
+
     const now = new Date();
     const windowStart = new Date(now.getTime() - 15 * 60 * 1000);
 
@@ -265,6 +307,8 @@ export class AuthEventAuditService {
       }),
     ]);
 
+    await this.logAuditAccess(actor, 'AUDIT_SUMMARY', { targetUserId: userId });
+
     return {
       lastLoginAt: lastLogin?.createdAt ?? null,
       lastFailedLoginAt: lastFailure?.createdAt ?? null,
@@ -276,8 +320,14 @@ export class AuthEventAuditService {
   /**
    * Applies the retention policy: deletes rows whose computed retention date has
    * passed, plus legacy rows written before that column existed.
+   * Requires `audit:purge`. Only rows past their retention window are eligible;
+   * the purge is recorded as an auth event before deletion.
    */
-  async purgeExpired(): Promise<{ deletedCount: number; retentionDays: number }> {
+  async purgeExpired(
+    actor: AuditActor,
+  ): Promise<{ deletedCount: number; retentionDays: number }> {
+    this.assertPermission(actor, AUDIT_PURGE_PERMISSION, 'audit purge');
+
     const now = new Date();
     const legacyCutoff = new Date();
     legacyCutoff.setDate(legacyCutoff.getDate() - this.retentionDays);
@@ -295,13 +345,46 @@ export class AuthEventAuditService {
     }
 
     const ids = expired.map((row) => row.id);
+
+    await this.logAuditAccess(actor, 'AUDIT_PURGE', {
+      retentionDays: this.retentionDays,
+      candidateCount: ids.length,
+    });
+
     const result = await this.authEventRepo.delete(ids);
 
     this.logger.log(
-      `Purged ${result.affected ?? 0} auth event log(s) older than ${this.retentionDays} days`,
+      `Purged ${result.affected ?? 0} auth event log(s) older than ${this.retentionDays} days by actor ${actor.id}`,
     );
 
     return { deletedCount: result.affected ?? 0, retentionDays: this.retentionDays };
+  }
+
+  private assertPermission(actor: AuditActor, permission: string, action: string): void {
+    if (!actor || !actor.permissions?.includes(permission)) {
+      this.logger.warn(
+        `Denied ${action} for actor ${actor?.id ?? 'unknown'}: missing ${permission}`,
+      );
+      throw new ForbiddenException(`Missing permission: ${permission}`);
+    }
+  }
+
+  /**
+   * Records that an audit-trail access occurred. Written through the same
+   * record path so it is itself part of the immutable trail.
+   */
+  private async logAuditAccess(
+    actor: AuditActor,
+    action: string,
+    details: Record<string, unknown>,
+  ): Promise<void> {
+    await this.record({
+      eventType: AuthEventType.AUDIT_ACCESS,
+      outcome: AuthEventOutcome.SUCCESS,
+      userId: actor.id,
+      reason: action,
+      metadata: details,
+    });
   }
 
   private normaliseEmail(email: string): string {
