@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { IsNull, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import {
   NotificationDeliveryLog,
   DeliveryStatus,
@@ -14,8 +14,6 @@ import { RetryJobData } from './channel-router.service';
 import {
   NOTIFICATION_CENTER_QUEUE,
   RETRY_DELIVERY_JOB,
-  MAX_DELIVERY_ATTEMPTS,
-  RETRY_BASE_DELAY_MS,
 } from './constants/notification-center.constants';
 
 /**
@@ -31,7 +29,7 @@ import {
  * with a failing channel either converges (retry) or is escalated and
  * flagged for operational review.
  *
- * Acceptance criteria covered:
+ * ## Acceptance criteria covered:
  * - Notifications are persisted **before** they are marked as delivered
  *   (the in-app record is created first in `NotificationCenterService`; this
  *   sweeper never touches that ordering).
@@ -46,11 +44,14 @@ import {
  * Runs every 5 minutes (`EVERY_5_MINUTES`). A no-op when there is nothing
  * stale. Overlapping runs are prevented with an in-process guard.
  *
- * ## Configuration
- * - `NOTIFICATION_DELIVERY_STALE_MS` - how old a log must be (last attempt)
- *   before the sweeper considers it stuck. Default: 5 minutes
- *   (`300_000`).
- * - `NOTIFICATION_SWEEP_BATCH` - bounded batch size per run. Default: 200.
+ * ## Configuration (via `notification-retry-policy.config.ts`):
+ * - `NOTIFICATION_RETRY_MAX_ATTEMPTS` - total attempts before escalation.
+ * - `NOTIFICATION_RETRY_BASE_DELAY_MS` - exponential backoff base.
+ * - `NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY` - `escalate` | `silent` | `drop`.
+ * - `NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD` - consecutive failures before circuit opens.
+ * - `NOTIFICATION_CIRCUIT_RESET_MS` - circuit cooldown.
+ * - `NOTIFICATION_DELIVERY_STALE_MS` - age threshold for stale log requeue.
+ * - `NOTIFICATION_SWEEP_BATCH` - max logs per run.
  */
 @Injectable()
 export class DeliverySweeperService {
@@ -110,7 +111,7 @@ export class DeliverySweeperService {
       .where('dl.status IN (:...retryable)', {
         retryable: [DeliveryStatus.PENDING, DeliveryStatus.FAILED],
       })
-      .andWhere('dl.attempts < :maxAttempts', { maxAttempts: MAX_DELIVERY_ATTEMPTS })
+      .andWhere('dl.attempts < :maxAttempts', { maxAttempts: this.getMaxAttempts() })
       .andWhere('(dl.attemptedAt IS NULL OR dl.attemptedAt < :cutoff)', { cutoff })
       .orderBy('dl.attemptedAt', 'ASC')
       .addOrderBy('dl.createdAt', 'ASC')
@@ -149,7 +150,7 @@ export class DeliverySweeperService {
           attempt: nextAttempt,
         },
         {
-          delay: RETRY_BASE_DELAY_MS * 2 ** nextAttempt,
+          delay: this.getRetryDelayMs(nextAttempt),
           attempts: 1,
           removeOnComplete: true,
           removeOnFail: 50,
@@ -171,8 +172,8 @@ export class DeliverySweeperService {
   }
 
   /**
-   * Escalates deliveries that exhausted `MAX_DELIVERY_ATTEMPTS` but were
-   * never marked `ESCALATED`, and emits an operational error line that
+   * Escalates deliveries that exhausted `NOTIFICATION_RETRY_MAX_ATTEMPTS` but
+   * were never marked `ESCALATED`, and emits an operational error line that
    * surfaces in the platform's log ingestion.
    */
   private async escalateExhausted(): Promise<number> {
@@ -208,5 +209,16 @@ export class DeliverySweeperService {
       );
     }
     return escalated;
+  }
+
+  /** Read the configured max attempts (with fallback). */
+  private getMaxAttempts(): number {
+    return this.configService.get<number>('NOTIFICATION_RETRY_MAX_ATTEMPTS', 3);
+  }
+
+  /** Exponential backoff: base * 2^attempt. */
+  private getRetryDelayMs(attempt: number): number {
+    const base = this.configService.get<number>('NOTIFICATION_RETRY_BASE_DELAY_MS', 1_000);
+    return base * Math.pow(2, attempt);
   }
 }

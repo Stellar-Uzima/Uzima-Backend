@@ -32,6 +32,12 @@ export const envValidationSchema = Joi.object({
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').required(),
   STELLAR_TREASURY_SECRET_KEY: Joi.string().required(),
 
+  // ── Notification retry policy (optional; defaults in config) ────────────────
+  NOTIFICATION_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).optional(),
+  NOTIFICATION_RETRY_BASE_DELAY_MS: Joi.number().integer().min(100).optional(),
+  NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY: Joi.string()
+    .valid('escalate', 'silent')
+    .optional(),
   // ── Referral risk review (optional; defaults are applied by the service) ──
   REFERRAL_RISK_REVIEW_WINDOW_MS: Joi.number().integer().min(1).optional(),
   REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW: Joi.number().integer().min(1).optional(),
@@ -51,6 +57,9 @@ export interface ValidatedEnv {
   TWILIO_PHONE_NUMBER?: string;
   STELLAR_NETWORK: 'testnet' | 'mainnet';
   STELLAR_TREASURY_SECRET_KEY: string;
+  NOTIFICATION_RETRY_MAX_ATTEMPTS?: number;
+  NOTIFICATION_RETRY_BASE_DELAY_MS?: number;
+  NOTIFICATION_RETRY_TERMINAL_FAILURE_STRATEGY?: 'escalate' | 'silent';
   REFERRAL_RISK_REVIEW_WINDOW_MS?: number;
   REFERRAL_RISK_MAX_REFERRALS_PER_WINDOW?: number;
   REFERRAL_RISK_MIN_ACCOUNT_AGE_MS?: number;

@@ -77,6 +77,16 @@ import { MonitoringController } from '../monitoring/monitoring.controller';
       help: 'Notification delivery retries enqueued by channel',
       labelNames: ['channel'],
     }),
+    makeCounterProvider({
+      name: 'notification_permanent_failures_total',
+      help: 'Notification deliveries that failed permanently (non-retryable error)',
+      labelNames: ['channel'],
+    }),
+    makeCounterProvider({
+      name: 'notification_terminal_failures_total',
+      help: 'Notification deliveries that exhausted all retry attempts',
+      labelNames: ['channel'],
+    }),
     makeGaugeProvider({
       name: 'notification_provider_circuit_state',
       help: 'Notification provider circuit state (1=open, 0=closed)',
