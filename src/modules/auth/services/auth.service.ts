@@ -202,8 +202,7 @@ export class AuthService {
         resourceType: AuditResource.USER,
         description: `Login blocked: ${loginCheck.reason}`,
         isSensitive: true,
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
+        ipAddress: clientIp,
         metadata: { reason: loginCheck.reason },
       });
       throw new UnauthorizedException(loginCheck.reason || 'Account access denied');
@@ -218,8 +217,7 @@ export class AuthService {
         resourceType: AuditResource.USER,
         description: 'Login failed: email not verified',
         isSensitive: true,
-        ipAddress: req?.ip,
-        userAgent: req?.headers?.['user-agent'],
+        ipAddress: clientIp,
         metadata: { reason: 'email_not_verified' },
       });
       throw new UnauthorizedException('Email not verified');
@@ -245,8 +243,7 @@ export class AuthService {
           resourceType: AuditResource.USER,
           description: 'Login failed: missing 2FA code',
           isSensitive: true,
-          ipAddress: req?.ip,
-          userAgent: req?.headers?.['user-agent'],
+          ipAddress: clientIp,
           metadata: { reason: 'missing_2fa_code' },
         });
         throw new UnauthorizedException('Two-factor authentication code is required');
@@ -290,8 +287,7 @@ export class AuthService {
       action: AuditAction.LOGIN,
       resourceType: AuditResource.USER,
       description: 'User logged in successfully',
-      ipAddress: req?.ip,
-      userAgent: req?.headers?.['user-agent'],
+      ipAddress: clientIp,
       metadata: { twoFactorUsed: user.twoFactorEnabled },
     });
 

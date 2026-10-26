@@ -148,3 +148,15 @@ jobs:
           --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}'
           --passWithNoTests
           --passWithNoTests
+
+  contracts:
+    name: API Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run test:contracts

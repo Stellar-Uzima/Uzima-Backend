@@ -38,6 +38,7 @@ export function IsStrongPassword(
       options: validationOptions,
       validator: {
         validate(password: string, args: ValidationArguments) {
+          if (typeof password !== 'string') return false;
           const validator = new PasswordValidatorService();
           const config = validationOptions
             ? {
@@ -107,6 +108,7 @@ export function HasMinPasswordStrength(
       constraints: [minStrength],
       validator: {
         validate(password: string, args: ValidationArguments) {
+          if (typeof password !== 'string') return false;
           const validator = new PasswordValidatorService();
           const score = validator.getPasswordStrength(password);
           return score >= minStrength;
@@ -150,6 +152,7 @@ export function IsStrongPasswordCategory(
       constraints: [allowedCategories],
       validator: {
         validate(password: string, args: ValidationArguments) {
+          if (typeof password !== 'string') return false;
           const validator = new PasswordValidatorService();
           const category = validator.getPasswordStrengthCategory(password);
           return allowedCategories.includes(category as any);

@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, Length, MaxLength, Transform } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsNotEmpty, IsString, Length, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsStrongPassword } from '../decorators/strong-password.decorator';
 import {
