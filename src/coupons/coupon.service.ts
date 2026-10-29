@@ -284,7 +284,7 @@ export class CouponService implements OnModuleInit {
         );
       }
 
-      if (coupon.status === CouponStatus.REDEMED) {
+      if (coupon.status === CouponStatus.REDEEMED) {
         throw new BadRequestException('Coupon already redeemed');
       }
 
@@ -313,7 +313,7 @@ export class CouponService implements OnModuleInit {
           status: () =>
             'CASE WHEN usageCount + 1 >= usageLimit THEN :redeemed ELSE status END',
         })
-        .setParameters({ redeemed: CouponStatus.REDEMED })
+        .setParameters({ redeemed: CouponStatus.REDEEMED })
         .where('id = :id', { id: coupon.id })
         .andWhere('status = :status', { status: CouponStatus.ACTIVE })
         .andWhere('expiresAt > :now', { now })
@@ -328,7 +328,7 @@ export class CouponService implements OnModuleInit {
         if (!fresh) {
           throw new NotFoundException('Coupon not found');
         }
-        if (fresh.status === CouponStatus.REDEMED) {
+        if (fresh.status === CouponStatus.REDEEMED) {
           throw new BadRequestException('Coupon already redeemed');
         }
         if (fresh.status === CouponStatus.EXPIRED || new Date() > fresh.expiresAt) {
@@ -364,32 +364,5 @@ export class CouponService implements OnModuleInit {
         await this.redis.del(lockKey);
       }
     }
-  }
-
-  /**
-   * Admin: Create a new coupon for a specific user
-   */
-  async createCoupon(
-    userId: string,
-    payload: { discount?: number; specialistType?: string; daysValid?: number; expiresAt?: Date; usageLimit?: number },
-  ): Promise<Coupon> {
-    const expiresAt = payload.expiresAt
-      ? new Date(payload.expiresAt)
-      : new Date(Date.now() + (payload.daysValid ?? DEFAULT_COUPON_DAYS_VALID) * 24 * 60 * 60 * 1000);
-
-    const coupon = this.couponRepository.create({
-      userId,
-      code: this.generateCouponCode(),
-      discount: payload.discount ?? DEFAULT_DISCOUNT_PERCENT,
-      specialistType: payload.specialistType ?? undefined,
-      usageLimit: payload.usageLimit,
-      expiresAt,
-      status: CouponStatus.ACTIVE,
-    });
-    return this.couponRepository.save(coupon);
-  }
-
-  private generateCouponCode(): string {
-    return Math.random().toString(36).slice(2, 10).toUpperCase();
   }
 }

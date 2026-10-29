@@ -5,8 +5,6 @@ yarn.lock
 pnpm-lock.yaml
 
 # Environment
-.env
-.env.local
 .env.*.local
 
 # Build output
@@ -15,7 +13,6 @@ build/
 *.tsbuildinfo
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -43,3 +40,4 @@ temp/
 Thumbs.db
 .DS_Store
 .opencode
+config.bat

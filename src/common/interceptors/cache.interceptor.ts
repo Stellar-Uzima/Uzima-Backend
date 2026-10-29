@@ -5,7 +5,7 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
-import { Observable, of } from 'rxjs';
+import { Observable, EMPTY } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Reflector } from '@nestjs/core';
 import { CacheService } from '../../shared/cache/cache.service';
@@ -98,7 +98,7 @@ export class CacheInterceptor implements NestInterceptor {
               }
             }).catch(() => observer.error(error));
             
-            return of(error);
+            return EMPTY;
           })
         ).subscribe(observer);
       }).catch((error) => {
@@ -163,7 +163,7 @@ export class CacheInterceptor implements NestInterceptor {
     if (context) {
       const args = context.getArgs();
       if (args && args.length > 0) {
-        args.forEach((arg, index) => {
+        args.forEach((arg) => {
           if (arg && typeof arg === 'object') {
             Object.entries(arg).forEach(([param, value]) => {
               key = key.replace(`:${param}`, String(value));
