@@ -5,8 +5,7 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
-import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { redisConfig, getRedisUrl } from '../../config/redis.config';
@@ -32,7 +31,7 @@ export class ActivityTrackerInterceptor implements NestInterceptor {
     const user = request.user;
 
     if (user && user.id) {
-      this.trackActivity(user.id).catch((err) => {
+      this.trackActivity(user.id).catch((err: Error) => {
         this.logger.error(
           `Failed to track activity for user ${user.id}: ${err.message}`,
         );
@@ -52,7 +51,7 @@ export class ActivityTrackerInterceptor implements NestInterceptor {
       // Set the key with TTL to debounce further updates
       await this.redis.setex(key, this.DEBOUNCE_TIME, 'active');
 
-      // Update DB (fire and forget handled by trackActivity's catch in intercept)
+      // Update DB (errors are caught by the caller in intercept)
       await this.usersService.updateLastActiveAt(userId);
       this.logger.debug(`Updated lastActiveAt for user ${userId}`);
     }
