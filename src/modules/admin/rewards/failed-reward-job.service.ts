@@ -27,7 +27,7 @@ export class FailedRewardJobService {
 
   async processStreakMilestone(
     userId: string,
-    milestonId: string,
+    milestoneId: string,
   ): Promise<{ awarded: boolean; rewardId?: string }> {
     const milestone = await this.streakMilestoneRepository.findOne({
       where: { id: milestoneId },

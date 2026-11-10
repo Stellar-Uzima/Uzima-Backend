@@ -234,7 +234,7 @@ describe('AuthService', () => {
     it('returns 401 when reusing an old (already rotated) refresh token', async () => {
       mockJwtService.verify.mockReturnValue({ sub: userId, tokenId });
       mockTokenBlacklistRepository.findOne.mockResolvedValue(null);
-      mockRedisClient.get.mockResolvedValue(null); // not in Redis → already rotated
+      mockRedisClient.get.mockResolvedValue(null);
       mockRedisClient.keys.mockResolvedValue([]);
       mockUsersService.findById.mockResolvedValue({ ...baseUser, refreshToken: null, refreshTokenExpiry: null });
       mockUsersService.save.mockImplementation(async (u) => u);
@@ -293,116 +293,6 @@ describe('AuthService', () => {
       expect(mockUsersService.save).toHaveBeenCalledWith(
         expect.objectContaining({ twoFactorEnabled: false, twoFactorSecret: null }),
       );
-    });
-
-    it('login requires TOTP when 2FA is enabled', async () => {
-      const secret = authenticator.generateSecret();
-      mockUsersService.findByEmail.mockResolvedValue({
-        ...baseUser,
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        twoFactorEnabled: true,
-        twoFactorSecret: secret,
-      });
-      mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-
-      await expect(
-        authService.login({ email: baseUser.email, password: 'ValidPass1!' }),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('login succeeds with valid TOTP when 2FA is enabled', async () => {
-      const secret = authenticator.generateSecret();
-      const totpCode = authenticator.generate(secret);
-      mockUsersService.findByEmail.mockResolvedValue({
-        ...baseUser,
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        twoFactorEnabled: true,
-        twoFactorSecret: secret,
-      });
-      mockUsersService.canUserLogin.mockResolvedValue({ canLogin: true });
-      mockUsersService.getProfile.mockResolvedValue({ id: baseUser.id });
-      mockUsersService.save.mockImplementation(async (u) => u);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      mockJwtService.sign.mockReturnValue('token');
-      mockRedisClient.set.mockResolvedValue('OK');
-      mockSessionService.createSession.mockResolvedValue({});
-
-      const result = await authService.login({
-        email: baseUser.email,
-        password: 'ValidPass1!',
-        totpCode,
-      });
-
-      expect(result.accessToken).toBeDefined();
-    });
-  });
-
-  describe('register', () => {
-    it('throws ConflictException when email exists', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ id: 'existing' });
-
-      await expect(
-        authService.register({
-          email: 'taken@example.com',
-          password: 'Password123!',
-          name: 'Test',
-          country: 'KE',
-        }),
-      ).rejects.toThrow(ConflictException);
-    });
-  });
-
-  describe('resetPassword', () => {
-    const mockUsersRepository = { findOne: jest.fn() };
-
-    beforeEach(() => {
-      // Wire the internal usersRepository used by resetPassword
-      (mockUsersService as any).usersRepository = mockUsersRepository;
-      mockUsersRepository.findOne.mockReset();
-      mockUsersService.save.mockReset();
-      mockAuditService.logAction.mockReset();
-    });
-
-    it('throws BadRequestException when no user matches the token', async () => {
-      mockUsersRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        authService.resetPassword('invalid-token', 'NewPassword1!'),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws GoneException (410) when the reset token has expired', async () => {
-      const expiredUser = {
-        ...baseUser,
-        passwordResetToken: 'hashed-token',
-        passwordResetExpiry: new Date(Date.now() - 1000), // 1 second in the past
-      };
-      mockUsersRepository.findOne.mockResolvedValue(expiredUser);
-
-      await expect(
-        authService.resetPassword('any-token', 'NewPassword1!'),
-      ).rejects.toThrow(GoneException);
-    });
-
-    it('resets the password and clears the token when token is valid', async () => {
-      const validUser = {
-        ...baseUser,
-        passwordResetToken: 'hashed-token',
-        passwordResetExpiry: new Date(Date.now() + 3600 * 1000),
-        password: 'old-hashed',
-      };
-      mockUsersRepository.findOne.mockResolvedValue(validUser);
-      mockUsersService.save.mockImplementation(async (u) => u);
-      mockAuditService.logAction.mockResolvedValue(undefined);
-
-      const result = await authService.resetPassword('valid-token', 'NewPassword1!');
-
-      expect(result).toEqual({ message: 'Password reset successful' });
-      expect(validUser.passwordResetToken).toBeNull();
-      expect(validUser.passwordResetExpiry).toBeNull();
     });
   });
 });

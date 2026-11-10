@@ -114,7 +114,7 @@ export class LeaderboardService {
   }
 
   getStreakMilestones(): StreakMilestoneEvent[] {
-    return this.streakMilestones.map(($milestone) => ({ ...$milestone }));
+    return this.streakMilestones.map((milestone) => ({ ...milestone }));
   }
 
   /**
@@ -382,115 +382,5 @@ export class LeaderboardService {
 
     // Extract IDs to fetch names from our Hash in one go
     const userIds: string[] = [];
-    for (let i = 0; i < rawTopUsers.length; i += 2) {
-      userIds.push(rawTopUsers[i]);
-    }
-
-    // Fetch names from Redis Hash (HMGET returns an array of values)
-    const displayNames =
-      userIds.length > 0 ? await this.redis.hmget(namesKey, ...userIds) : [];
-
-    // Get Requesting User's Rank and Score
-    const [userRank, userScore] = await Promise.all([
-      this.redis.zrevrank(setKey, userId),
-      this.redis.zscore(setKey, userId),
-    ]);
-
-    // Build DTOs
-    const topRankings: LeaderboardEntryDto[] = userIds.map((id, index) => ({
-      rank: startIndex + index + 1,
-      userId: id,
-      displayName: displayNames[index] || 'Anonymous',
-      totalXlm: parseFloat(rawTopUsers[index * 2 + 1]),
-      country: countryCode || 'Global',
-    }));
-
-    // Track response time for benchmarks
-    const elapsed = performance.now() - startTime;
-    this.totalResponseTimeMs+= elapsed;
-    this.requestCount++;
-
-    return {
-      topRankings,
-      myRank: {
-        rank: userRank !== null ? userRank + 1 : null,
-        totalXlm: userScore ? parseFloat(userScore) : 0,
-      },
-    };
-  }
-
-  async rebuildLeaderboards() {
-    this.logger.log('Starting optimized leaderboard rebuild...');
-
-    const periods = [
-      LeaderboardPeriod.DAILY,
-      LeaderboardPeriod.WEEKLY,
-      LeaderboardPeriod.MONTHLY,
-      LeaderboardPeriod.ALL_TIME,
-    ];
-
-    const pipeline = this.redis.pipeline();
-    const nameMap: Record<string, string> = {};
-    let totalUsersProcessed = 0;
-
-    for (const period of periods) {
-      const periodStart = getPeriodStartDate(period);
-      const globalKey = buildLeaderboardSetKey(period);
-      pipeline.del(globalKey);
-
-      const queryBuilder = this.rewardTransactionRepository
-        .createQueryBuilder('rt')
-        .select('rt.userId', 'userId')
-        .addSelect('SUM(rt.amount)', 'totalXlm')
-        .addSelect('u.fullName', 'fullName')
-        .addSelect('u.country', 'country')
-        .addSelect('u.status', 'status')
-        .innerJoin('rt.user', 'u')
-        .where('rt.status = :status', { status: RewardStatus.SUCCESS })
-        .andWhere('u.status = :userStatus', {
-          userStatus: LeaderboardAccountStatus.ACTIVE,
-        });
-
-      if (periodStart) {
-        queryBuilder.andWhere('rt.createdAt >= :periodStart', {
-          periodStart,
-        });
-      }
-
-      const data = await queryBuilder
-        .groupBy('rt.userId')
-        .addGroupBy('u.fullName')
-        .addGroupBy('u.country')
-        .addGroupBy('u.status')
-        .getRawMany();
-
-      totalUsersProcessed = Math.max(totalUsersProcessed, data.length);
-
-      for (const row of data) {
-        const score = parseFloat(row.totalXlm);
-        if (!isEligibleForLeaderboard({ totalXlm: score, status: row.status })) {
-          continue;
-        }
-        const truncatedName = this.formatDisplayName(row.fullName);
-        const countryKey = buildLeaderboardSetKey(
-          period,
-          row.country?.toUpperCase(),
-        );
-
-        pipeline.zadd(globalKey, score, row.userId);
-        pipeline.zadd(countryKey, score, row.userId);
-        nameMap[row.userId] = truncatedName;
-      }
-    }
-
-    await pipeline.exec();
-
-    if (Object.keys(nameMap).length > 0) {
-      await this.redis.hmset('leaderboard:metadata:names', nameMap);
-    }
-
-    this.logger.log(
-      `Leaderboard rebuild complete: ${totalUsersProcessed} user rows processed`,
-    );
   }
 }

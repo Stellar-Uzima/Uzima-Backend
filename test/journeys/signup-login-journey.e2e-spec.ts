@@ -31,6 +31,7 @@ describe('Signup -> Login user journey (e2e)', () => {
     const signupRes = await request(server).post('/api/v1/auth/register').send(journeyUser);
     expect(signupRes.status).toBe(201);
     expect(signupRes.body).toHaveProperty('accessToken');
+    expect(typeof signupRes.body.accessToken).toBe('string');
 
     const loginRes = await request(server)
       .post('/api/v1/auth/login')
