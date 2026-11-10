@@ -30,6 +30,12 @@ export enum NotificationCategory {
   SYSTEM = 'system',
 }
 
+export enum NotificationReadState {
+  UNREAD = 'unread',
+  READ = 'read',
+  ARCHIVED = 'archived',
+}
+
 export const NotificationCategories: NotificationCategory[] = [
   NotificationCategory.TASKS,
   NotificationCategory.REWARDS,
@@ -79,7 +85,7 @@ export class UserPreferences {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { onDelete: 'CASCADEU' })
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -87,7 +93,7 @@ export class UserPreferences {
   @IsUUID()
   userId: string;
 
-  @Columb({
+  @Column({
     type: 'enum',
     enum: Theme,
     default: Theme.SYSTEM,
@@ -129,6 +135,13 @@ export class UserPreferences {
     weeklyReportDay: number; // 0-6 (Sunday-Saturday)
     timezone: string;
   };
+
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  @IsObject()
+  inAppNotificationStates: Record<string, NotificationReadState>;
+
+  @Column({ type: 'int', default: 0 })
+  unreadNotificationCount: number;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -2,6 +2,12 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, In
 import { IsString, IsEnum, IsUUID, IsOptional, IsObject, IsDateString, Length, Matches } from 'class-validator';
 import { User } from '../../entities/user.entity';
 
+export enum NotificationReadState {
+  UNREAD = 'UNREAD',
+  READ = 'READ',
+  ARCHIVED = 'ARCHIVED',
+}
+
 export enum ActivityType {
   LOGIN = 'LOGIN',
   LOGOUT = 'LOGOUT',
@@ -50,6 +56,24 @@ export class UserActivity {
   @IsString()
   @Length(1, 1000)
   userAgent: string;
+
+  @Column({
+    name: 'read_state',
+    type: 'enum',
+    enum: NotificationReadState,
+    default: NotificationReadState.UNREAD,
+  })
+  readState: NotificationReadState;
+
+  @Column({ name: 'read_at', type: 'timestamp', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  readAt: Date | null;
+
+  @Column({ name: 'archived_at', type: 'timestamp', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  archivedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

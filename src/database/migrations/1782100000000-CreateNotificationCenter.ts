@@ -98,6 +98,11 @@ export class CreateNotificationCenter1782100000000 implements MigrationInterface
             isNullable: true,
           },
           {
+            name: 'archivedAt',
+            type: 'timestamp',
+            isNullable: true,
+          },
+          {
             name: 'deliveredChannels',
             type: 'text',
             // TypeORM simple-array stores as comma-separated text; default = 'in_app'
@@ -137,6 +142,14 @@ export class CreateNotificationCenter1782100000000 implements MigrationInterface
       new TableIndex({
         name: 'idx_in_app_notifications_user_created',
         columnNames: ['userId', 'createdAt'],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      'in_app_notifications',
+      new TableIndex({
+        name: 'idx_in_app_notifications_user_unread',
+        columnNames: ['userId', 'readAt', 'archivedAt'],
       }),
     );
 
