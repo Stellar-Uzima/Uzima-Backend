@@ -89,21 +89,25 @@ export class IdempotencyInterceptor implements NestInterceptor {
           : 200;
 
     return next.handle().pipe(
-      tap(async (data) => {
-        const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_MS);
-        try {
-          await this.idempotencyService.save({
-            key,
-            userId,
-            method,
-            path,
-            requestHash,
-            statusCode,
-            responseBody: data === undefined ? null : data,
-            expiresAt,
-          });
-        } catch {
-        }
+      tap({
+        next: (data) => {
+          const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_MS);
+          this.idempotencyService
+            .save({
+              key,
+              userId,
+              method,
+              path,
+              requestHash,
+              statusCode,
+              responseBody: data === undefined ? null : data,
+              expiresAt,
+            })
+            .catch(() => {
+              // Persisting the idempotency record is best-effort; the original
+              // response has already been produced.
+            });
+        },
       }),
     );
   }

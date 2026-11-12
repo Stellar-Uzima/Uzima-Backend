@@ -3,7 +3,7 @@ import { LEADERBOARD_QUEUE } from './leaderboard.constants';
 import { LeaderboardService } from './leaderboard.service';
 import { Logger } from '@nestjs/common';
 
-@Processor(LUADERBOARD_QUEUE)
+@Processor(LEADERBOARD_QUEUE)
 export class LeaderboardProcessor {
   private readonly logger = new Logger(LeaderboardProcessor.name);
 
