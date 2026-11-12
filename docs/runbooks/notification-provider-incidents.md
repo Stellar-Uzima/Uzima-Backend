@@ -20,6 +20,20 @@ legacy notification service.
 | Channel/path  | Source and diagnosis                                                                                                                                                                                          |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SMS           | `src/shared/sms/sms.service.ts`: check Twilio status/quota and the configured SID, token and sender privately; distinguish invalid recipient from network/429/auth failures                                   |
+
+### 1.1 Provider response classification
+
+SMS provider responses must be classified into exactly one of two outcomes:
+
+- **Retryable:** network timeouts, connection resets, HTTP 429 (rate limited), and HTTP 5xx provider errors. These consume the configured retry budget and respect the channel circuit. Do not retry beyond the budget.
+- **Terminal:** invalid recipient or number format, authentication/authorization failures (401/403), rejected sender identity, and rendering failures. These must not be retried; mark the delivery as failed and escalate only if the failure rate is abnormal.
+
+Every classified outcome, retryable or terminal, must be logged with a trace reference (the sanitized correlation/delivery ID). Never log phone numbers, message bodies, or credentials alongside the trace reference.
+
+User-facing flows must remain safe during provider failure: a failed or queued SMS must not block the originating request, must not expose provider error details to the user, and must present a neutral status (queued or unavailable) rather than a raw error.
+
+When diagnosing, filter logs by trace reference first, then confirm the classification recorded for that attempt before changing configuration or replaying anything.
+
 | Push          | `src/shared/notifications/services/push-notification.service.ts`: check Firebase initialization, token validity and provider response; missing credentials select offline/mock mode and do not prove delivery |
 | Email         | `ChannelRouterService.dispatchEmail` renders the `notification` template and logs; the actual mailer is still a TODO. A logged email is not an external provider receipt                                      |
 | Retry/sweeper | `notification-center-retry-queue`, delivery logs, `delivery-sweeper.service.ts` and `processors/retry.processor.ts`: inspect attempts, age, final status and escalation                                       |
@@ -85,3 +99,4 @@ requiring operator credentials must be recorded as unexecuted until performed.
 | Version | Date       | Change                                                 |
 | ------- | ---------- | ------------------------------------------------------ |
 | 1.0.0   | 2026-10-19 | Initial provider/channel response procedure for #1613. |
+| 1.1.0   | 2026-10-20 | Added SMS provider response classification (retryable vs terminal), trace-reference logging, and user-facing safety guidance for issue 096. |
