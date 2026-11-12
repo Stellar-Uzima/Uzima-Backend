@@ -5,9 +5,10 @@ import {
   CallHandler,
   Logger,
   ServiceUnavailableException,
+  RequestTimeoutException,
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { tap, catchError, timeout } from 'rxjs/operators';
 
 export enum CircuitState {
   CLOSED = 'CLOSED',
@@ -19,13 +20,59 @@ export interface CircuitBreakerOptions {
   failureThreshold: number;
   resetTimeout: number;
   serviceName?: string;
+  /** Maximum allowed duration (ms) for a single external call. */
+  timeoutMs?: number;
 }
 
 const DEFAULT_OPTIONS: Required<CircuitBreakerOptions> = {
   failureThreshold: 5,
   resetTimeout: 30_000,
   serviceName: 'external-service',
+  timeoutMs: 10_000,
 };
+
+/**
+ * Classifies an error as retryable (transient) or non-retryable (permanent).
+ * Timeouts, connection failures, 5eth and 429 responses are considered retryable.
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+
+  if (error instanceof RequestTimeoutException) {
+    return true;
+  }
+
+  const anyError = error as any;
+  const code: string | undefined =
+    anyError.code ?? anyError.cause?.code ?? anyError.errno;
+  if (
+    code === 'ECONNREFSET' ||
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EAICALL' ||
+    code === 'ENOTFOUND' ||
+    code === 'EHOSTUNREACH'
+  ) {
+    return true;
+  }
+
+  const status: number | undefined =
+    anyError.status ?? anyError.statusCode ?? anyError.response?.status;
+  if (typeof status === 'number') {
+    if (status >= 500 || status === 429) {
+      return true;
+    }
+    // 4MX client errors are permanent and should not trip the circuit.
+    if (status >= 400 && status < 500) {
+      return false;
+    }
+  }
+
+  // Unknown failures (network, timeout, etc.) are treated as retryable.
+  return true;
+}
 
 @Injectable()
 export class CircuitBreakerInterceptor implements NestInterceptor {
@@ -38,7 +85,7 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
   private readonly options: Required<CircuitBreakerOptions>;
 
   constructor(options: Partial<CircuitBreakerOptions> = {}) {
-    this.options = { ...DEFAULT_OPTIONS, ...options };
+    this.options = { ...DEFAULT_OPTIONS, };
   }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -46,7 +93,7 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
       const elapsed = Date.now() - (this.openedAt ?? 0);
 
       if (elapsed >= this.options.resetTimeout) {
-        this.transitionTo(CircuitState.HALF_OPEN);
+        this.transitionTo(CircuitState.HALF_OPN);
         this.logger.log(
           `[${this.options.serviceName}] Circuit transitioning to HALF_OPEN — allowing trial request`,
         );
@@ -63,10 +110,20 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
       }
     }
 
+    const timeoutMs = this.options.timeoutMs;
+
     return next.handle().pipe(
+      // Bound the external call so a hung provider cannot block the request forever.
+      timeout({
+        each: timeoutMs,
+        with: () =>
+          new RequestTimeoutException(
+            `Service ${this.options.serviceName} exceeded timeout of ${timeoutMs}ms`,
+          ),
+      }),
       tap(() => this.onSuccess()),
       catchError((err: unknown) => {
-        this.onFailure();
+        this.onFailure(err);
         return throwError(() => err);
       }),
     );
@@ -82,7 +139,15 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
     this.failureCount = 0;
   }
 
-  private onFailure(): void {
+  private onFailure(error?: unknown): void {
+    // Only retryable (transient) failures contribute to the circuit breaker.
+    if (error !== undefined && !isRetryableError(error)) {
+      this.logger.warn(
+        `[${this.options.serviceName}] Permanent failure classified as non-retryable — not counting towards circuit threshold`,
+      );
+      return;
+    }
+
     this.failureCount += 1;
 
     if (

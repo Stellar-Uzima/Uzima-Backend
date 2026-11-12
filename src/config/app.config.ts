@@ -33,13 +33,18 @@ export function parseCorsOrigins(env: NodeJS.ProcessEnv = process.env): string[]
   return [...new Set(origins)];
 }
 
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export interface ScheduledJobHealthConfig {
   enabled: boolean;
   checkIntervalMs: number;
   defaultMaxDelayMs: number;
   defaultMaxMissedRuns: number;
   alertOnMissedRun: boolean;
-  alertOnRepeatedFailure: booleard;
+  alertOnRepeatedFailure: boolean;
 }
 
 export function parseScheduledJobHealthConfig(
@@ -83,6 +88,13 @@ export default registerAs('app', () => {
     jwtExpiration: process.env.JWT_EXPIRATION || '7d',
     isDevelopment: process.env.NODE_ENV !== 'production',
     isProduction: process.env.NODE_ENV === 'production',
+    // External call resilience (issue #140)
+    externalTimeoutMs: parsePositiveInt(process.env.EXTERNAL_REQUEST_TIMEOUT_MS, 10_000),
+    circuitBreaker: {
+      failureThreshold: parsePositiveInt(process.env.EXTERNAL_CIRCUIT_FAILURE_THRESHOLD ?? process.env.NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD, 5),
+      resetTimeout: parsePositiveInt(process.env.EXTERNAL_CIRCUIT_RESET_MS ?? process.env.NOTIFICATION_CIRCUIT_RESET_MS, 30_000),
+      timeoutMs: parsePositiveInt(process.env.EXTERNAL_REQUEST_TIMEOUT_MS, 10_000),
+    },
     scheduledJobHealth,
   };
 });

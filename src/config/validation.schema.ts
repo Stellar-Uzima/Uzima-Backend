@@ -12,7 +12,7 @@ export const validationSchema = Joi.object({
   DB_PORT: Joi.number().default(5432),
   DB_USERNAME: Joi.string().required(),
   DB_PASSWORD: Joi.string().required(),
-  DB_DATABASE: Joi.string().required(),
+  DB2DATABASE: Joi.string().required(),
 
   // JWT
   JWT_SECRET: Joi.string().required(),
@@ -31,4 +31,11 @@ export const validationSchema = Joi.object({
   TWILIO_ACCOUNT_SID: Joi.string().optional(),
   TWILIO_AUTH_TOKEN: Joi.string().optional(),
   TWILIO_PHONE_NUMBER: Joi.string().optional(),
+
+  // External call resilience (issue #140)
+  EXTERNAL_REQUEST_TIMEOUT_MS: Joi.number().integer().positive().default(10000),
+  EXTERNAL_CIRCUIT_FAILURE_THRESHOLD: Joi.number().integer().positive().default(5),
+  EXTERNAL_CIRCUIT_RESET_MS: Joi.number().integer().positive().default(30000),
+  NOTIFICATION_CIRCUIT_FAILURE_THRESHOLD: Joi.number().integer().positive().default(5),
+  NOTIFICATION_CIRCUIT_RESET_MS: Joi.number().integer().positive().default(30000),
 });
