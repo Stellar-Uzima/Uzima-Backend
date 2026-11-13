@@ -9,10 +9,14 @@ export class SessionService {
   constructor(
     @InjectRepository(Session)
     private readonly repo: Repository<Session>,
-    private readonly usersService: UsersService,
+    private readonly usersService: UsersService
   ) {}
 
-  async createSession(userId: string, tokenId: string, meta?: { device?: string; ip?: string; userAgent?: string }) {
+  async createSession(
+    userId: string,
+    tokenId: string,
+    meta?: { device?: string; ip?: string; userAgent?: string }
+  ) {
     const user = await this.usersService.findById(userId);
     const session = this.repo.create({
       tokenId,
