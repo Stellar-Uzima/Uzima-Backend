@@ -14,6 +14,7 @@ incidents and monitoring alerts in the Stellar Uzima backend.
 | [Stellar Incidents](./stellar-incidents.md) | Horizon failures, uncertain transaction outcome or webhook failures | SEV-2 / SEV-1 | Backend on-call | Backend lead → Financial owner |
 | [Queue Failures](./queue-failures.md) | `HighQueueBacklog`, dead-letter queue growth, stuck jobs | SEV-2 | Backend on-call | Platform lead |
 | [Reward Regressions](./reward-regressions.md) | Reward balance complaints, failed reward jobs, wrong payouts | SEV-2 | Backend on-call | Product owner → Backend lead |
+| [Backup & Restore Verification](./backup-restore-verification.md) | Weekly restore check / backup integrity verification | SEV-3 | Backend on-call / DBA | Infra/DBA |
 
 ## Severity Definitions
 
@@ -130,3 +131,4 @@ checks and the observation window; record remaining work and an owner.
 | --- | --- | --- |
 | 2.0.0 | 2026-10-19 | #1613: add Redis, provider and Stellar procedures; verify operator context, monitoring limitations and existing database/queue steps. |
 | 1.0.0 | 2026-09-24 | Initial runbook set: database outage, auth issues, queue failures, reward regressions. |
+| 1.1.0 | 2026-10-19 | Added the backup and restore verification runbook and index entry. |

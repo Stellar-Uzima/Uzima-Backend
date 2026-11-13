@@ -39,6 +39,9 @@ tmp/
 temp/
 *.tmp
 
+# Backup restore verification artifacts
+backup-restore-verifications/
+
 # OS
 Thumbs.db
 .DS_Store
