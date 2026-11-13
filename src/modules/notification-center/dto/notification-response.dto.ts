@@ -1,54 +1,68 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { NotificationTypeEnum, DeliveryChannel } from '../entities/in-app-notification.entity';
+import { PaginationMeta } from '../../../common/pagination/paginated-result';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Individual notification DTO
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class NotificationResponseDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Notification UUID' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Owner user UUID' })
   userId: string;
 
-  @ApiProperty({ enum: NotificationTypeEnum })
+  @ApiProperty({ enum: NotificationTypeEnum, description: 'Notification type' })
   type: NotificationTypeEnum;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Short notification title' })
   title: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Notification body text' })
   body: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Arbitrary JSON payload attached to the notification' })
   data: Record<string, any> | null;
 
-  @ApiProperty({ description: 'null = unread; timestamp = when user read it' })
+  @ApiProperty({ description: 'null = unread; timestamp = when the user read it', nullable: true })
   readAt: Date | null;
 
-  @ApiProperty({ type: [String], enum: DeliveryChannel })
+  @ApiProperty({ type: [String], enum: DeliveryChannel, description: 'Channels the notification was successfully delivered on' })
   deliveredChannels: string[];
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Creation timestamp' })
   createdAt: Date;
 }
 
-export class PaginatedNotificationsDto {
-  @ApiProperty({ type: [NotificationResponseDto] })
-  items: NotificationResponseDto[];
+// ─────────────────────────────────────────────────────────────────────────────
+// Inbox-specific pagination metadata (extends base PaginationMeta)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  @ApiProperty({ description: 'Total number of notifications matching the query' })
-  total: number;
-
-  @ApiProperty()
-  page: number;
-
-  @ApiProperty()
-  limit: number;
-
-  @ApiProperty({ description: 'Number of unread notifications for the user' })
+export class InboxPaginationMeta extends PaginationMeta {
+  @ApiProperty({ description: 'Total number of unread notifications for this user (not scoped to this page)' })
   unreadCount: number;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Paginated inbox response — replaces the old PaginatedNotificationsDto.
+// Shape: { data: NotificationResponseDto[], meta: InboxPaginationMeta }
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class PaginatedNotificationsDto {
+  @ApiProperty({ type: [NotificationResponseDto], description: 'Notifications on this page' })
+  data: NotificationResponseDto[];
+
+  @ApiProperty({ type: InboxPaginationMeta, description: 'Pagination metadata including unread count' })
+  meta: InboxPaginationMeta;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Miscellaneous response DTOs
+// ─────────────────────────────────────────────────────────────────────────────
+
 export class UnreadCountDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Number of unread notifications' })
   count: number;
 }
 

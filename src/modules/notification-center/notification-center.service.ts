@@ -7,13 +7,15 @@ import { NotificationPreference } from '../../notifications/entities/notificatio
 import { User } from '../../entities/user.entity';
 import { ChannelRouterService } from './channel-router.service';
 import { SendNotificationDto } from './dto/send-notification.dto';
-import { GetInboxDto } from './dto/get-inbox.dto';
+import { GetInboxDto, INBOX_MAX_PAGE_SIZE } from './dto/get-inbox.dto';
 import {
+  InboxPaginationMeta,
+  MarkReadResultDto,
   NotificationResponseDto,
   PaginatedNotificationsDto,
   UnreadCountDto,
-  MarkReadResultDto,
 } from './dto/notification-response.dto';
+import { PaginationMeta } from '../../common/pagination/paginated-result';
 
 @Injectable()
 /**
@@ -89,32 +91,87 @@ export class NotificationCenterService {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // get_inbox — paginated inbox, unread-first
+  // get_inbox — paginated inbox with filters and stable ordering
   // ────────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Returns a page of notifications for `userId` with:
+   *
+   * - Bounded page sizes (hard-capped at {@link INBOX_MAX_PAGE_SIZE}).
+   * - Stable ordering: unread-first, then `createdAt DESC`, then `id DESC`
+   *   as a tiebreaker so rows with identical timestamps always appear in a
+   *   consistent position across pages.
+   * - Optional `unreadOnly` filter: restricts results to unread notifications.
+   * - Optional date-range filter via `since` / `until` (ISO-8601).
+   *
+   * The response includes an `unreadCount` in the meta that reflects the
+   * total number of unread notifications for the user, irrespective of the
+   * active filters (so the badge counter stays accurate even when the caller
+   * filters to a specific date range).
+   */
   async getInbox(userId: string, query: GetInboxDto): Promise<PaginatedNotificationsDto> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const page = Math.max(1, query.page ?? 1);
+    // Enforce the hard cap even if validation was bypassed
+    const limit = Math.min(query.limit ?? 20, INBOX_MAX_PAGE_SIZE);
     const skip = (page - 1) * limit;
 
-    const [items, total] = await this.notificationRepo
+    const qb = this.notificationRepo
       .createQueryBuilder('n')
-      .where('n.userId = :userId', { userId })
-      // Unread first: NULL readAt sorts before non-NULL
-      .orderBy('CASE WHEN n.readAt IS NULL THEN 0 ELSE 1 END', 'ASC')
+      .where('n.userId = :userId', { userId });
+
+    // ── Filter: unread only ──────────────────────────────────────────────────
+    if (query.unreadOnly === true) {
+      qb.andWhere('n.readAt IS NULL');
+    }
+
+    // ── Filter: date range ───────────────────────────────────────────────────
+    if (query.since) {
+      qb.andWhere('n.createdAt >= :since', { since: query.since });
+    }
+    if (query.until) {
+      qb.andWhere('n.createdAt <= :until', { until: query.until });
+    }
+
+    // ── Stable ordering ──────────────────────────────────────────────────────
+    // Primary:    unread-first  (NULL readAt → 0, non-NULL → 1)
+    // Secondary:  createdAt DESC so newer items appear first within each group
+    // Tiebreaker: id DESC ensures a total order even for rows with the same
+    //             createdAt (e.g. batch inserts), preventing duplicate/skipped
+    //             items on page boundaries.
+    qb.orderBy('CASE WHEN n.readAt IS NULL THEN 0 ELSE 1 END', 'ASC')
       .addOrderBy('n.createdAt', 'DESC')
+      .addOrderBy('n.id', 'DESC')
       .skip(skip)
-      .take(limit)
-      .getManyAndCount();
+      .take(limit);
 
-    const unreadCount = await this.getUnreadCount(userId);
+    const [items, total] = await qb.getManyAndCount();
 
-    return {
-      items: items.map(this.toDto),
-      total,
+    // ── Unread count (not scoped to the active filter) ───────────────────────
+    const { count: unreadCount } = await this.getUnreadCount(userId);
+
+    // ── Build PaginatedResult-shaped response ────────────────────────────────
+    const safeLimit = limit > 0 ? limit : 1;
+    const totalPages = total > 0 ? Math.ceil(total / safeLimit) : 0;
+    const isEmpty = items.length === 0;
+
+    const baseMeta: PaginationMeta = {
       page,
       limit,
-      unreadCount: unreadCount.count,
+      total,
+      totalPages,
+      hasNextPage: page * safeLimit < total,
+      hasPreviousPage: page > 1 && total > 0,
+      nextPage: page * safeLimit < total ? page + 1 : undefined,
+      previousPage: page > 1 && total > 0 ? page - 1 : undefined,
+      firstItemIndex: isEmpty ? null : (page - 1) * safeLimit,
+      lastItemIndex: isEmpty ? null : (page - 1) * safeLimit + items.length - 1,
+    };
+
+    const meta: InboxPaginationMeta = { ...baseMeta, unreadCount };
+
+    return {
+      data: items.map(this.toDto),
+      meta,
     };
   }
 

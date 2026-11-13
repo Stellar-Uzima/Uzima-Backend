@@ -211,15 +211,53 @@ describe('NotificationCenterService', () => {
   // ─── getInbox ────────────────────────────────────────────────────────────
 
   describe('getInbox', () => {
-    it('returns paginated notifications with unread count', async () => {
+    it('returns paginated notifications in the PaginatedResult { data, meta } shape', async () => {
       const query: GetInboxDto = { page: 1, limit: 20 };
       const result = await service.getInbox('user-1', query);
 
-      expect(result.items).toHaveLength(1);
-      expect(result.total).toBe(1);
-      expect(result.page).toBe(1);
-      expect(result.limit).toBe(20);
-      expect(result.unreadCount).toBe(5);
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+      expect(result.meta.page).toBe(1);
+      expect(result.meta.limit).toBe(20);
+      expect(result.meta.unreadCount).toBe(5);
+    });
+
+    it('computes correct pagination metadata', async () => {
+      // 45 total items, 10 per page, currently on page 2
+      const mockQb = mockNotificationRepo.createQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValueOnce([[makeNotification()], 45]);
+
+      const result = await service.getInbox('user-1', { page: 2, limit: 10 });
+
+      expect(result.meta.total).toBe(45);
+      expect(result.meta.page).toBe(2);
+      expect(result.meta.limit).toBe(10);
+      expect(result.meta.totalPages).toBe(5);
+      expect(result.meta.hasNextPage).toBe(true);
+      expect(result.meta.hasPreviousPage).toBe(true);
+      expect(result.meta.nextPage).toBe(3);
+      expect(result.meta.previousPage).toBe(1);
+    });
+
+    it('sets hasNextPage=false and nextPage=undefined on the last page', async () => {
+      const mockQb = mockNotificationRepo.createQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValueOnce([[makeNotification()], 10]);
+
+      const result = await service.getInbox('user-1', { page: 1, limit: 10 });
+
+      expect(result.meta.hasNextPage).toBe(false);
+      expect(result.meta.nextPage).toBeUndefined();
+    });
+
+    it('returns totalPages=0 and firstItemIndex=null for an empty result set', async () => {
+      const mockQb = mockNotificationRepo.createQueryBuilder();
+      mockQb.getManyAndCount.mockResolvedValueOnce([[], 0]);
+
+      const result = await service.getInbox('user-1', { page: 1, limit: 20 });
+
+      expect(result.meta.totalPages).toBe(0);
+      expect(result.meta.firstItemIndex).toBeNull();
+      expect(result.meta.lastItemIndex).toBeNull();
     });
 
     it('applies correct pagination offsets', async () => {
@@ -232,7 +270,7 @@ describe('NotificationCenterService', () => {
       expect(mockQb.take).toHaveBeenCalledWith(10);
     });
 
-    it('orders by unread-first then by createdAt DESC', async () => {
+    it('orders by unread-first, then createdAt DESC, then id DESC as tiebreaker', async () => {
       const mockQb = mockNotificationRepo.createQueryBuilder();
       await service.getInbox('user-1', { page: 1, limit: 20 });
 
@@ -241,6 +279,184 @@ describe('NotificationCenterService', () => {
         'ASC',
       );
       expect(mockQb.addOrderBy).toHaveBeenCalledWith('n.createdAt', 'DESC');
+      expect(mockQb.addOrderBy).toHaveBeenCalledWith('n.id', 'DESC');
+    });
+
+    // ── Bounded page size ────────────────────────────────────────────────────
+
+    describe('bounded page size', () => {
+      it('enforces the INBOX_MAX_PAGE_SIZE hard cap in the service even if the DTO allows a higher value', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        // Manually bypass validation by passing a value above the cap
+        const query = { page: 1, limit: 9999 } as GetInboxDto;
+        await service.getInbox('user-1', query);
+
+        // The service must clamp the take to INBOX_MAX_PAGE_SIZE (50)
+        expect(mockQb.take).toHaveBeenCalledWith(50);
+      });
+
+      it('uses the requested limit when it is within the allowed range', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1, limit: 25 });
+
+        expect(mockQb.take).toHaveBeenCalledWith(25);
+      });
+
+      it('defaults to limit=20 when limit is not provided', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1 });
+
+        expect(mockQb.take).toHaveBeenCalledWith(20);
+      });
+    });
+
+    // ── unreadOnly filter ────────────────────────────────────────────────────
+
+    describe('unreadOnly filter', () => {
+      it('adds a readAt IS NULL clause when unreadOnly=true', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1, limit: 20, unreadOnly: true });
+
+        expect(mockQb.andWhere).toHaveBeenCalledWith('n.readAt IS NULL');
+      });
+
+      it('does NOT add the readAt clause when unreadOnly is false', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1, limit: 20, unreadOnly: false });
+
+        const andWhereCalls: string[] = (mockQb.andWhere as jest.Mock).mock.calls.map(
+          (args: any[]) => args[0],
+        );
+        expect(andWhereCalls).not.toContain('n.readAt IS NULL');
+      });
+
+      it('does NOT add the readAt clause when unreadOnly is omitted', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1, limit: 20 });
+
+        const andWhereCalls: string[] = (mockQb.andWhere as jest.Mock).mock.calls.map(
+          (args: any[]) => args[0],
+        );
+        expect(andWhereCalls).not.toContain('n.readAt IS NULL');
+      });
+
+      it('returns correct pagination metadata when filtering to unread-only', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+        // Simulate 3 unread out of a larger set
+        mockQb.getManyAndCount.mockResolvedValueOnce([
+          [makeNotification(), makeNotification({ id: 'n2' }), makeNotification({ id: 'n3' })],
+          3,
+        ]);
+        mockNotificationRepo.count.mockResolvedValueOnce(3);
+
+        const result = await service.getInbox('user-1', { page: 1, limit: 20, unreadOnly: true });
+
+        expect(result.data).toHaveLength(3);
+        expect(result.meta.total).toBe(3);
+        expect(result.meta.unreadCount).toBe(3);
+      });
+    });
+
+    // ── Date range filter ────────────────────────────────────────────────────
+
+    describe('date range filter', () => {
+      it('adds a createdAt >= clause when since is provided', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', {
+          page: 1,
+          limit: 20,
+          since: '2024-01-01T00:00:00.000Z',
+        });
+
+        expect(mockQb.andWhere).toHaveBeenCalledWith('n.createdAt >= :since', {
+          since: '2024-01-01T00:00:00.000Z',
+        });
+      });
+
+      it('adds a createdAt <= clause when until is provided', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', {
+          page: 1,
+          limit: 20,
+          until: '2024-12-31T23:59:59.999Z',
+        });
+
+        expect(mockQb.andWhere).toHaveBeenCalledWith('n.createdAt <= :until', {
+          until: '2024-12-31T23:59:59.999Z',
+        });
+      });
+
+      it('adds both bounds when both since and until are provided', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', {
+          page: 1,
+          limit: 20,
+          since: '2024-01-01T00:00:00.000Z',
+          until: '2024-06-30T23:59:59.999Z',
+        });
+
+        expect(mockQb.andWhere).toHaveBeenCalledWith('n.createdAt >= :since', {
+          since: '2024-01-01T00:00:00.000Z',
+        });
+        expect(mockQb.andWhere).toHaveBeenCalledWith('n.createdAt <= :until', {
+          until: '2024-06-30T23:59:59.999Z',
+        });
+      });
+
+      it('does NOT add date bounds when neither since nor until is provided', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+
+        await service.getInbox('user-1', { page: 1, limit: 20 });
+
+        const andWhereCalls: string[] = (mockQb.andWhere as jest.Mock).mock.calls.map(
+          (args: any[]) => args[0],
+        );
+        expect(andWhereCalls.some((c) => c.includes('createdAt'))).toBe(false);
+      });
+    });
+
+    // ── unreadCount is filter-independent ───────────────────────────────────
+
+    describe('unreadCount independence from active filters', () => {
+      it('reports the total user unread count even when date-range filter is active', async () => {
+        // Only 2 items match the date filter, but the user has 5 unread total
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+        mockQb.getManyAndCount.mockResolvedValueOnce([
+          [makeNotification(), makeNotification({ id: 'n2' })],
+          2,
+        ]);
+        mockNotificationRepo.count.mockResolvedValueOnce(5);
+
+        const result = await service.getInbox('user-1', {
+          page: 1,
+          limit: 20,
+          since: '2024-06-01T00:00:00.000Z',
+        });
+
+        expect(result.data).toHaveLength(2);
+        expect(result.meta.total).toBe(2);
+        // unreadCount is from the COUNT query, not the filtered total
+        expect(result.meta.unreadCount).toBe(5);
+      });
+
+      it('reports the total user unread count even when unreadOnly filter is inactive', async () => {
+        const mockQb = mockNotificationRepo.createQueryBuilder();
+        mockQb.getManyAndCount.mockResolvedValueOnce([[makeNotification()], 10]);
+        mockNotificationRepo.count.mockResolvedValueOnce(3);
+
+        const result = await service.getInbox('user-1', { page: 1, limit: 20 });
+
+        expect(result.meta.unreadCount).toBe(3);
+      });
     });
   });
 
