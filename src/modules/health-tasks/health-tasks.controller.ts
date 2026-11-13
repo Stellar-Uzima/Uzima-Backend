@@ -28,8 +28,6 @@ import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Observable } from 'rxjs';
 import {
   TaskAnalyticsService,
   AnalyticsPeriod,
@@ -38,20 +36,11 @@ import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
 import { Cache } from '../../common/decorators/cache.decorator';
 import { CacheInvalidate } from '../../common/decorators/cache.decorator';
 import { CACHE_TTL } from '../../shared/cache/cache.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 // Interface to ensure type safety for the request user
 interface AuthenticatedRequest extends Request {
   user: { userId: string; role?: string };
-}
-
-@Injectable()
-class JwtAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    const request = context.switchToHttp().getRequest();
-    // In a real app, this would be populated by the JWT passport strategy
-    request.user = { userId: 'mock-user-id', role: 'user' };
-    return true;
-  }
 }
 
 @ApiTags('tasks')
@@ -212,10 +201,14 @@ export class HealthTasksController {
 
   @Post(':id/complete')
   @CacheInvalidate(['tasks:user:{userId}:*', 'task:{taskId}:*'])
-  @ApiOperation({ summary: 'Mark task as completed by user' })
-  @ApiResponse({ status: 200, description: 'Task marked as complete' })
+  @ApiOperation({
+    summary: 'Mark task as completed by its owner or an admin',
+    description: 'Repeated completion requests return the existing completion record.',
+  })
+  @ApiResponse({ status: 200, description: 'Task marked as complete or existing completion returned' })
   @ApiResponse({ status: 400, description: 'Validation failed on the request body' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Caller does not own this task and is not an admin' })
   @ApiResponse({ status: 404, description: 'Task not found' })
   async completeTask(
     @Param('id') id: string,
@@ -223,7 +216,11 @@ export class HealthTasksController {
     @Req() req: AuthenticatedRequest,
   ) {
     dto.taskId = id;
-    return this.completionService.markTaskComplete(req.user.userId, dto);
+    return this.completionService.markTaskComplete(
+      req.user.userId,
+      dto,
+      req.user.role,
+    );
   }
 
   @Post(':id/incomplete')

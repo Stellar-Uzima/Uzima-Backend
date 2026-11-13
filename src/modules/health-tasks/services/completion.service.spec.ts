@@ -3,8 +3,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompletionService } from './completion.service';
 import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
-import { HealthTask } from '../../../entities/health-task.entity';
+import { HealthTask } from '../../../tasks/entities/health-task.entity';
 import { User } from '../../../entities/user.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ForbiddenException } from '@nestjs/common';
+import { Role } from '../../auth/enums/role.enum';
 
 describe('CompletionService', () => {
   let service: CompletionService;
@@ -27,7 +30,13 @@ describe('CompletionService', () => {
     findOne: jest.fn(),
   };
 
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CompletionService,
@@ -42,6 +51,10 @@ describe('CompletionService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: mockUserRepo,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
         },
       ],
     }).compile();
@@ -66,7 +79,7 @@ describe('CompletionService', () => {
       const taskId = 'task-1';
       const dto = { taskId, completionPercentage: 100, notes: 'Completed successfully' };
 
-      const mockTask = { id: taskId, title: 'Test Task' };
+      const mockTask = { id: taskId, title: 'Test Task', createdBy: userId };
       const mockUser = { id: userId, firstName: 'John' };
       const mockCompletion = {
         id: 'completion-1',
@@ -80,6 +93,7 @@ describe('CompletionService', () => {
 
       mockTaskRepo.findOne.mockResolvedValue(mockTask);
       mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockCompletionRepo.findOne.mockResolvedValue(null);
       mockCompletionRepo.create.mockReturnValue(mockCompletion);
       mockCompletionRepo.save.mockResolvedValue(mockCompletion);
 
@@ -113,12 +127,65 @@ describe('CompletionService', () => {
       const taskId = 'task-1';
       const dto = { taskId, completionPercentage: 150 };
 
-      const mockTask = { id: taskId, title: 'Test Task' };
+      const mockTask = { id: taskId, title: 'Test Task', createdBy: userId };
+      mockUserRepo.findOne.mockResolvedValue({ id: userId });
+      mockCompletionRepo.findOne.mockResolvedValue(null);
       mockTaskRepo.findOne.mockResolvedValue(mockTask);
 
       await expect(service.markTaskComplete(userId, dto)).rejects.toThrow(
         'Completion percentage must be between 0 and 100',
       );
+    });
+
+    it('should reject completion by a user who does not own the task', async () => {
+      mockTaskRepo.findOne.mockResolvedValue({
+        id: 'task-1',
+        createdBy: 'owner-1',
+      });
+
+      await expect(
+        service.markTaskComplete('other-user', { taskId: 'task-1' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockCompletionRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('should allow an admin to complete a task they do not own', async () => {
+      const task = { id: 'task-1', createdBy: 'owner-1' };
+      const completion = { id: 'completion-1', isCompleted: true };
+      mockTaskRepo.findOne.mockResolvedValue(task);
+      mockUserRepo.findOne.mockResolvedValue({ id: 'admin-1' });
+      mockCompletionRepo.findOne.mockResolvedValue(null);
+      mockCompletionRepo.create.mockReturnValue(completion);
+      mockCompletionRepo.save.mockResolvedValue(completion);
+
+      await expect(
+        service.markTaskComplete(
+          'admin-1',
+          { taskId: 'task-1' },
+          Role.ADMIN,
+        ),
+      ).resolves.toBe(completion);
+    });
+
+    it('should return the existing completion for a duplicate request', async () => {
+      const taskId = 'task-1';
+      const existingCompletion = {
+        id: 'completion-1',
+        userId: 'user-1',
+        taskId,
+        isCompleted: true,
+      };
+      mockTaskRepo.findOne.mockResolvedValue({
+        id: taskId,
+        createdBy: 'user-1',
+      });
+      mockUserRepo.findOne.mockResolvedValue({ id: 'user-1' });
+      mockCompletionRepo.findOne.mockResolvedValue(existingCompletion);
+
+      const result = await service.markTaskComplete('user-1', { taskId });
+
+      expect(result).toBe(existingCompletion);
+      expect(mockCompletionRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -128,7 +195,7 @@ describe('CompletionService', () => {
       const taskId = 'task-1';
       const dto = { taskId, notes: 'Not completed' };
 
-      const mockTask = { id: taskId, title: 'Test Task' };
+      const mockTask = { id: taskId, title: 'Test Task', createdBy: userId };
       const mockUser = { id: userId, firstName: 'John' };
       const mockCompletion = {
         id: 'completion-1',
