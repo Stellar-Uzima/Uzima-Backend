@@ -2,11 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Role } from '@modules/auth/enums/role.enum';
 import { HealthTask, TaskCategory } from './entities/health-task.entity';
-import { TaskStatus } from './enums/task-status.enum';
+import {
+  TaskStatus,
+  isValidTaskStatusTransition,
+} from './enums/task-status.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
@@ -94,9 +99,9 @@ export class TasksService {
       status: TaskStatus.DRAFT,
     });
 
-    const saved = await this.healthTaskRepository.save([task]);
-    await this.scheduleReminderJob(saved[0]);
-    return saved[0];
+    const saved = await this.healthTaskRepository.save(task);
+    await this.scheduleReminderJob(saved);
+    return saved;
   }
 
   async findAll(
@@ -130,17 +135,34 @@ export class TasksService {
     });
   }
 
+  private assertValidStatusTransition(
+    currentStatus: TaskStatus,
+    nextStatus: TaskStatus,
+  ): void {
+    if (!isValidTaskStatusTransition(currentStatus, nextStatus)) {
+      throw new BadRequestException(
+        `Invalid task status transition from ${currentStatus} to ${nextStatus}`,
+      );
+    }
+  }
+
   async updateStatus(
     id: string,
     status: TaskStatus,
     userId: string,
+    userRole?: Role,
   ): Promise<HealthTask> {
     const task = await this.findOne(id);
-    
-    if (task.createdBy !== userId) {
+
+    if (task.createdBy !== userId && userRole !== Role.ADMIN) {
       throw new ForbiddenException('You can only update your own tasks');
     }
 
+    if (status === TaskStatus.ACTIVE && userRole !== Role.ADMIN) {
+      throw new ForbiddenException('Only admins can publish tasks');
+    }
+
+    this.assertValidStatusTransition(task.status ?? TaskStatus.DRAFT, status);
     task.status = status;
     return this.healthTaskRepository.save(task);
   }
@@ -171,9 +193,17 @@ export class TasksService {
       throw new ForbiddenException('You can only update your own tasks');
     }
 
-    // Only admins can publish (set status to ACTIVE)
-    if (updateTaskDto.status === TaskStatus.ACTIVE && userRole !== Role.ADMIN) {
-      throw new ForbiddenException('Only admins can publish tasks');
+    // Only admins can publish (set status to ACTIVE), and all status transitions
+    // must follow the documented health task lifecycle.
+    if (updateTaskDto.status !== undefined) {
+      if (userRole !== Role.ADMIN && updateTaskDto.status === TaskStatus.ACTIVE) {
+        throw new ForbiddenException('Only admins can publish tasks');
+      }
+
+      this.assertValidStatusTransition(
+        task.status ?? TaskStatus.DRAFT,
+        updateTaskDto.status,
+      );
     }
 
     Object.assign(task, updateTaskDto);

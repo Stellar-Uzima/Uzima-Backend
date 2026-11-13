@@ -233,6 +233,16 @@ describe('TasksService', () => {
       expect(result.status).toBe(TaskStatus.ACTIVE);
     });
 
+    it('should reject invalid transitions without saving the task', async () => {
+      const mockTask = { id: '1', title: 'Task', createdBy: '1', status: TaskStatus.ACTIVE };
+      mockRepository.findOne.mockResolvedValue(mockTask);
+
+      await expect(service.updateStatus('1', TaskStatus.DRAFT, '1')).rejects.toThrow(
+        'Invalid task status transition from ACTIVE to DRAFT',
+      );
+      expect(mockRepository.save).not.toHaveBeenCalled();
+    });
+
     it('should throw ForbiddenException if non-owner tries to update status', async () => {
       const mockTask = { id: '1', title: 'Task', createdBy: '2', status: TaskStatus.DRAFT };
       mockRepository.findOne.mockResolvedValue(mockTask);
