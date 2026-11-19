@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { HealthTask, TaskCategory } from '../../../tasks/entities/health-task.entity';
+import { TaskStatus } from '../../../tasks/enums/task-status.enum';
 
 /**
  * # Task Category Search Filter Contract
@@ -80,7 +81,7 @@ export class TaskFilterService {
 
   constructor(
     @InjectRepository(HealthTask)
-    private readonly taskRepo: Repository<HealthTask>,
+    private readonly taskRepo: Repository<HealthTask>
   ) {}
 
   /**
@@ -104,10 +105,14 @@ export class TaskFilterService {
    *   dateTo: new Date('2026-07-01'),
    * }, 2, 20);
    */
-  async filter(options: TaskFilterOptions, page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
+  async filter(
+    options: TaskFilterOptions,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ data: HealthTask[]; total: number }> {
     const where: FindOptionsWhere<HealthTask> = {};
 
-    if (options.status) where.status = options.status;
+    if (options.status) where.status = this.resolveStatus(options.status);
     if (options.category) where.category = options.category;
     if (options.isActive !== undefined) where.isActive = options.isActive;
     if (options.createdBy) where.createdBy = options.createdBy;
@@ -141,6 +146,20 @@ export class TaskFilterService {
 
     const [data, total] = await qb.orderBy('task.createdAt', 'DESC').getManyAndCount();
     return { data, total };
+  }
+
+  private resolveStatus(status: string): TaskStatus {
+    const match = Object.values(TaskStatus).find(
+      (candidate) => candidate.toLowerCase() === status.toLowerCase()
+    );
+
+    if (!match) {
+      throw new BadRequestException(
+        `Invalid status "${status}". Expected one of: ${Object.values(TaskStatus).join(', ')}`
+      );
+    }
+
+    return match;
   }
 
   /**
@@ -205,7 +224,12 @@ export class TaskFilterService {
    * @param limit - Results per page (default: 10).
    * @returns Paginated results from the preset's filters, or empty if preset not found.
    */
-  async filterWithPreset(presetName: string, ownerId: string, page: number = 1, limit: number = 10): Promise<{ data: HealthTask[], total: number }> {
+  async filterWithPreset(
+    presetName: string,
+    ownerId: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ data: HealthTask[]; total: number }> {
     const preset = this.getPreset(presetName, ownerId);
     if (!preset) return { data: [], total: 0 };
     return this.filter(preset.filters, page, limit);

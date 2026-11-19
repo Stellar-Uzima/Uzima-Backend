@@ -64,7 +64,6 @@ import { AnalyticsModule } from '../../shared/analytics/analytics.module';
     ReminderService,
     NotesService,
     SharingService,
-    AnalyticsService,
   ],
   exports: [HealthTasksService, ReminderService, NotesService, SharingService, AnalyticsService],
 })

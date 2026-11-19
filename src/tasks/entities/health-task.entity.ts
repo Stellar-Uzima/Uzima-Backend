@@ -53,11 +53,11 @@ export class HealthTask {
   recurrence!: Recurrence;
 
   @Column({ type: 'uuid', nullable: true })
-  categoryId?: string;
+  categoryId?: string | null;
 
   @ManyToOne(() => TaskCategoryEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'categoryId' })
-  taskCategory?: TaskCategoryEntity;
+  taskCategory?: TaskCategoryEntity | null;
 
   @ManyToMany('TaskTag', 'healthTasks', { cascade: true })
   @JoinTable({

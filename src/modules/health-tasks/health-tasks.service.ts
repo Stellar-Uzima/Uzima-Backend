@@ -1,17 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../tasks/entities/health-task.entity';
 import { UpdateHealthTaskDto } from '../../common/dto/update-health-task.dto';
 import { CreateHealthTaskDto } from '../../common/dto/create-health-task.dto';
-import {
-  PriorityService,
-  PrioritizableTask,
-} from './services/priority.service';
+import { PriorityService, PrioritizableTask } from './services/priority.service';
 import { ActivityLogService } from './services/activity-log.service';
 import { TaskCategory } from '../../database/entities/task-category.entity';
 import { TaskTag } from '../../database/entities/task-tag.entity';
@@ -33,7 +26,7 @@ export class HealthTasksService {
     @InjectRepository(TaskTag)
     private readonly tagRepository: Repository<TaskTag>,
     private readonly priorityService: PriorityService,
-    private readonly activityLogService: ActivityLogService,
+    private readonly activityLogService: ActivityLogService
   ) {}
 
   async findOne(id: string): Promise<HealthTask | null> {
@@ -44,13 +37,19 @@ export class HealthTasksService {
   }
 
   async findByDifficulty(difficulty: TaskDifficulty): Promise<HealthTask[]> {
-    return this.taskRepository.find({ where: { difficulty } });
+    // Difficulty is not a materialised column; it lives on the task's JSONB
+    // targetProfile alongside the other per-task settings.
+    return this.taskRepository
+      .createQueryBuilder('task')
+      .where("task.targetProfile->>'difficulty' = :difficulty", { difficulty })
+      .getMany();
   }
 
   async create(dto: CreateHealthTaskDto): Promise<HealthTask> {
     const task = this.taskRepository.create({
       title: dto.title,
       description: dto.description,
+      category: dto.category,
       dueDate: dto.dueDate,
       priority: dto.priority,
       frequency: dto.frequency,
@@ -62,7 +61,7 @@ export class HealthTasksService {
       });
       if (category) {
         task.categoryId = dto.categoryId;
-        task.category = category;
+        task.taskCategory = category;
       }
     }
 
@@ -77,7 +76,7 @@ export class HealthTasksService {
   async update(
     id: string,
     dto: UpdateHealthTaskDto,
-    userId: string = 'system',
+    userId: string = 'system'
   ): Promise<HealthTask> {
     const task = await this.findOne(id);
     if (!task) throw new NotFoundException('Task not found');
@@ -107,14 +106,14 @@ export class HealthTasksService {
         });
         if (category) {
           task.categoryId = dto.categoryId;
-          task.category = category;
+          task.taskCategory = category;
         } else {
           task.categoryId = null;
-          task.category = null;
+          task.taskCategory = null;
         }
       } else {
         task.categoryId = null;
-        task.category = null;
+        task.taskCategory = null;
       }
     }
 
@@ -132,7 +131,7 @@ export class HealthTasksService {
     const dueDateInput = dto.dueDate ?? existingPriorityData.dueDate;
     const resolvedPriority = this.priorityService.resolvePriority(
       dto.priority ?? existingPriorityData.priority,
-      dueDateInput,
+      dueDateInput
     );
     const normalizedDueDate = this.toIsoDateStringOrNull(dueDateInput);
 
@@ -142,14 +141,11 @@ export class HealthTasksService {
     const alertMessage = this.priorityService.buildOverdueAlert(prioritizableTask);
     if (alertMessage) {
       const existingProfile = task.targetProfile ?? {};
-      const priorityAlerts: PriorityAlert[] = Array.isArray(
-        (existingProfile as any).priorityAlerts,
-      )
+      const priorityAlerts: PriorityAlert[] = Array.isArray((existingProfile as any).priorityAlerts)
         ? [...(existingProfile as any).priorityAlerts]
         : [];
       const alreadyPresent = priorityAlerts.some(
-        (alert: PriorityAlert) =>
-          alert?.type === 'overdue' && alert?.message === alertMessage,
+        (alert: PriorityAlert) => alert?.type === 'overdue' && alert?.message === alertMessage
       );
       if (!alreadyPresent) {
         priorityAlerts.push({
@@ -165,7 +161,12 @@ export class HealthTasksService {
     }
 
     const savedTask = await this.taskRepository.save(task);
-    const changeDetails = this.buildTaskChangeDetails(originalTask, dto, resolvedPriority, normalizedDueDate);
+    const changeDetails = this.buildTaskChangeDetails(
+      originalTask,
+      dto,
+      resolvedPriority,
+      normalizedDueDate
+    );
 
     if (changeDetails.length > 0) {
       await this.activityLogService.logTaskChange(id, userId, 'task.updated', {
@@ -197,7 +198,9 @@ export class HealthTasksService {
     await this.taskRepository.softDelete(id);
   }
 
-  async getTaskActivity(taskId: string): Promise<import('../../database/entities/task-activity.entity').TaskActivity[]> {
+  async getTaskActivity(
+    taskId: string
+  ): Promise<import('../../database/entities/task-activity.entity').TaskActivity[]> {
     return this.activityLogService.getActivityHistory(taskId);
   }
 
@@ -205,17 +208,10 @@ export class HealthTasksService {
     task: HealthTask,
     dto: UpdateHealthTaskDto,
     resolvedPriority: string,
-    normalizedDueDate: string | null,
+    normalizedDueDate: string | null
   ): Array<{ field: string; before: unknown; after: unknown }> {
     const changeDetails: Array<{ field: string; before: unknown; after: unknown }> = [];
-    const fields = [
-      'title',
-      'description',
-      'category',
-      'status',
-      'xlmReward',
-      'isActive',
-    ];
+    const fields = ['title', 'description', 'category', 'status', 'xlmReward', 'isActive'];
 
     for (const field of fields) {
       const before = (task as any)[field];
@@ -258,24 +254,19 @@ export class HealthTasksService {
       const priorityData = this.getPrioritizableTask(task);
       return {
         ...task,
-        priority: this.priorityService.resolvePriority(
-          priorityData.priority,
-          priorityData.dueDate,
-        ),
+        priority: this.priorityService.resolvePriority(priorityData.priority, priorityData.dueDate),
         dueDate: priorityData.dueDate,
       };
     });
 
     return this.priorityService.sortByPriority(
-      prioritizedTasks as unknown as PrioritizableTask[],
+      prioritizedTasks as unknown as PrioritizableTask[]
     ) as HealthTask[];
   }
 
   getOverdueAlerts(tasks: HealthTask[]): string[] {
     return tasks
-      .map((task) =>
-        this.priorityService.buildOverdueAlert(this.getPrioritizableTask(task)),
-      )
+      .map((task) => this.priorityService.buildOverdueAlert(this.getPrioritizableTask(task)))
       .filter((alert): alert is string => Boolean(alert));
   }
 
@@ -292,11 +283,7 @@ export class HealthTasksService {
     };
   }
 
-  private persistPriorityData(
-    task: HealthTask,
-    priority: string,
-    dueDate: string | null,
-  ): void {
+  private persistPriorityData(task: HealthTask, priority: string, dueDate: string | null): void {
     const existingProfile = task.targetProfile ?? {};
     task.targetProfile = {
       ...existingProfile,

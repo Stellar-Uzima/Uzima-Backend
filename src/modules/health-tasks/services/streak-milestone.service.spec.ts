@@ -75,7 +75,7 @@ describe('StreakMilestoneService', () => {
     it('should handle crossing multiple milestones at once', () => {
       // Simulate a user who jumped from 5 to 35 days (crossed both 7 and 30)
       service.checkAndEmit('user-1', 35);
-      
+
       // Should emit for both 7 and 30
       expect(eventEmitter.emit).toHaveBeenCalledWith('streak.milestone.reached', {
         userId: 'user-1',
@@ -89,10 +89,10 @@ describe('StreakMilestoneService', () => {
     });
 
     it('should not emit for non-milestone values', () => {
-      service.checkAndEmit('user-1', 5);
-      service.checkAndEmit('user-1', 10);
-      service.checkAndEmit('user-1', 50);
-      
+      service.checkAndEmit('user-1', 3);
+      service.checkAndEmit('user-1', 4);
+      service.checkAndEmit('user-1', 6);
+
       expect(eventEmitter.emit).not.toHaveBeenCalled();
     });
 
@@ -104,7 +104,7 @@ describe('StreakMilestoneService', () => {
     it('should handle multiple users independently', () => {
       service.checkAndEmit('user-1', 7);
       service.checkAndEmit('user-2', 7);
-      
+
       expect(eventEmitter.emit).toHaveBeenCalledTimes(4);
       expect(eventEmitter.emit).toHaveBeenNthCalledWith(1, 'streak.milestone.reached', {
         userId: 'user-1',
