@@ -59,12 +59,12 @@ export class AchievementService {
         await this.gamificationService.awardXp({
           userId,
           amount: achievement.xpReward,
-          reason: Unlocked achievement: ,
+          reason: `Unlocked achievement: ${achievement.key}`,
           sourceEvent: XpEventType.ACHIEVEMENT_UNLOCKED,
           metadata: { achievementKey: achievement.key },
         });
         
-        this.logger.log(User  unlocked achievement: );
+        this.logger.log(`User ${userId} unlocked achievement: ${achievement.key}`);
       }
     }
     
@@ -87,7 +87,7 @@ export class AchievementService {
       case 'night_task':
         return this.checkNightTask(userId, target);
       default:
-        this.logger.warn(Unknown achievement condition type: );
+        this.logger.warn(`Unknown achievement condition type: ${type}`);
         return false;
     }
   }
@@ -165,7 +165,7 @@ export class AchievementService {
     });
 
     if (!achievement) {
-      throw new Error(Achievement with key  not found);
+      throw new Error(`Achievement with key ${achievementKey} not found`);
     }
 
     const existing = await this.userAchievementRepo.findOne({
@@ -190,7 +190,7 @@ export class AchievementService {
     await this.gamificationService.awardXp({
       userId,
       amount: achievement.xpReward,
-      reason: Unlocked achievement: ,
+      reason: `Unlocked achievement: ${achievement.key}`,
       sourceEvent: XpEventType.ACHIEVEMENT_UNLOCKED,
       metadata: { achievementKey },
     });
