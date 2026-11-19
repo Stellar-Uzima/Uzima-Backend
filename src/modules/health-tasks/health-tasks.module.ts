@@ -11,6 +11,7 @@ import { PriorityService } from './services/priority.service';
 import { ArchiveService } from './services/archive.service';
 import { CompletionService } from './services/completion.service';
 import { AnalyticsService } from './services/analytics.service';
+import { ActivityLogService } from './services/activity-log.service';
 import { TaskSearchService } from './services/task-search.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
@@ -24,6 +25,7 @@ import { TaskNote } from '../../database/entities/task-note.entity';
 import { TaskShare } from '../../database/entities/task-share.entity';
 import { TaskCategory } from '../../database/entities/task-category.entity';
 import { TaskTag } from '../../database/entities/task-tag.entity';
+import { TaskActivity } from '../../database/entities/task-activity.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { User } from '../../entities/user.entity';
 import { AnalyticsModule } from '../../shared/analytics/analytics.module';
@@ -42,6 +44,7 @@ import { AnalyticsModule } from '../../shared/analytics/analytics.module';
       TaskCategory,
       User,
       TaskTag,
+      TaskActivity,
     ]),
     CacheModule.register(),
     NotificationsModule,
@@ -54,6 +57,7 @@ import { AnalyticsModule } from '../../shared/analytics/analytics.module';
     ArchiveService,
     CompletionService,
     AnalyticsService,
+    ActivityLogService,
     TaskSearchService,
     AttachmentsService,
     DuplicationService,

@@ -25,6 +25,7 @@ import { ArchiveService } from './services/archive.service';
 import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
 import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
+import { ActivityLogService } from './services/activity-log.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
@@ -64,46 +65,42 @@ export class HealthTasksController {
     private readonly completionService: CompletionService,
     private readonly analyticsService: AnalyticsService,
     private readonly searchService: TaskSearchService,
+    private readonly activityLogService: ActivityLogService,
     private readonly attachmentsService: AttachmentsService,
     private readonly duplicationService: DuplicationService,
     private readonly taskAnalyticsService: TaskAnalyticsService,
   ) {}
 
   @Get()
-  @Cache('tasks:user:{userId}:status:{status}:category:{category}:priority:{priority}:page:{page}:limit:{limit}:sortBy:{sortBy}:sortOrder:{sortOrder}', CACHE_TTL.SHORT)
-  @ApiOperation({ summary: 'Get user health tasks with filters and pagination' })
+  @Cache('tasks:user:{userId}:query:{query}:status:{status}:category:{category}:startDate:{startDate}:endDate:{endDate}:page:{page}:limit:{limit}:sortBy:{sortBy}:sortOrder:{sortOrder}', CACHE_TTL.SHORT)
+  @ApiOperation({ summary: 'Get user health tasks with validated filters and pagination' })
   @ApiResponse({ status: 200, description: 'Paginated list of the caller\'s health tasks' })
+  @ApiResponse({ status: 400, description: 'Invalid filter combination or pagination' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async findAll(
     @Req() req: AuthenticatedRequest,
-    @Query('status') status?: string,
-    @Query('category') category?: string,
-    @Query('priority') priority?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query() filters: SearchTasksDto,
   ) {
-    return this.healthTasksService.getUserTasks(req.user.userId, {
-      status,
-      category,
-      priority,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      page: page || 1,
-      limit: limit || 10,
-      sortBy: sortBy || 'createdAt',
-      sortOrder: sortOrder || 'desc',
-    });
+    return this.searchService.searchTasks(filters, req.user.userId);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search and filter the caller\'s health tasks' })
+  @ApiResponse({ status: 200, description: 'Paginated, consistently ordered matching tasks' })
+  @ApiResponse({ status: 400, description: 'Invalid filter combination or pagination' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  async search(
+    @Req() req: AuthenticatedRequest,
+    @Query() filters: SearchTasksDto,
+  ) {
+    return this.searchService.searchTasks(filters, req.user.userId);
   }
 
   @Get('search/history')
   @ApiOperation({ summary: 'Get search history for the current user' })
   @ApiResponse({ status: 200, description: 'Recent search history for the caller' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
-  async getSearchHistory(@@Req() req: AuthenticatedRequest) {
+  async getSearchHistory(@Req() req: AuthenticatedRequest) {
     return this.searchService.getSearchHistory(req.user.userId);
   }
 
@@ -169,7 +166,7 @@ export class HealthTasksController {
     return { message: 'Get categories logic to be implemented' };
   }
 
-  @Get('difficulty:/level')
+  @Get('difficulty/:level')
   @ApiOperation({ summary: 'Get tasks by difficulty level' })
   @ApiResponse({ status: 200, description: 'Tasks matching the difficulty level' })
   @ApiResponse({ status: 400, description: 'Invalid difficulty level' })
