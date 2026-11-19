@@ -20,6 +20,9 @@ import { WalletActivityListener } from './wallet-activity.listener';
 import { NotificationPreferencesModule } from '../../notifications/preferences/preferences.module';
 import { MetricsModule } from '../../shared/metrics/metrics.module';
 import { NotificationDeadLetterController } from './notification-dead-letter.controller';
+import { EmailProviderEvent } from './entities/email-provider-event.entity';
+import { EmailProviderWebhookController } from './email-provider-webhook.controller';
+import { EmailProviderWebhookService } from './email-provider-webhook.service';
 
 @Module({
   imports: [
@@ -31,6 +34,7 @@ import { NotificationDeadLetterController } from './notification-dead-letter.con
       NotificationDeliveryLog,
       NotificationPreference,
       User,
+      EmailProviderEvent,
     ]),
     // Register the retry queue — BullModule.forRoot is already called in QueueModule
     // which is imported at the app level via the modules that need it.
@@ -43,7 +47,11 @@ import { NotificationDeadLetterController } from './notification-dead-letter.con
     PushModule,
     NotificationPreferencesModule,
   ],
-  controllers: [NotificationCenterController, NotificationDeadLetterController],
+  controllers: [
+    NotificationCenterController,
+    NotificationDeadLetterController,
+    EmailProviderWebhookController,
+  ],
   providers: [
     NotificationCenterService,
     ChannelRouterService,
@@ -52,6 +60,7 @@ import { NotificationDeadLetterController } from './notification-dead-letter.con
     EmailTemplateService,
     NotificationService,
     WalletActivityListener,
+    EmailProviderWebhookService,
   ],
   exports: [NotificationCenterService, NotificationService, NotificationPreferencesModule],
 })
