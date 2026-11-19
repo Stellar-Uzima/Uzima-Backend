@@ -4,11 +4,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
 import { SearchHistory } from '../../../database/entities/search-history.entity';
 import { PaginatedResult } from '../../../common/pagination/paginated-result';
-import {
-  SearchTasksDto,
-  SortOrder,
-  TaskSortField,
-} from '../dto/search-tasks.dto';
+import { SearchTasksDto, SortOrder, TaskSortField } from '../dto/search-tasks.dto';
 
 type SortOrderSql = 'ASC' | 'DESC';
 
@@ -18,7 +14,7 @@ export class TaskSearchService {
     @InjectRepository(HealthTask)
     private readonly taskRepository: Repository<HealthTask>,
     @InjectRepository(SearchHistory)
-    private readonly historyRepository: Repository<SearchHistory>,
+    private readonly historyRepository: Repository<SearchHistory>
   ) {}
 
   /**
@@ -32,16 +28,13 @@ export class TaskSearchService {
    * - Pagination: offset-based, 1-based pages, wrapped in the shared
    *   `PaginatedResult` envelope (`{ data, meta }`).
    */
-  async searchTasks(
-    dto: SearchTasksDto,
-    userId: string,
-  ): Promise<PaginatedResult<HealthTask>> {
+  async searchTasks(dto: SearchTasksDto, userId: string): Promise<PaginatedResult<HealthTask>> {
     const page = dto.page && dto.page > 0 ? dto.page : 1;
     const limit = dto.limit && dto.limit > 0 ? dto.limit : 20;
     const sortBy = dto.sortBy ?? TaskSortField.CREATED_AT;
-    const sortOrder = ((dto.sortOrder ?? SortOrder.DESC).toUpperCase() === 'ASC'
-      ? 'ASC'
-      : 'DESC') as SortOrderSql;
+    const sortOrder = (
+      (dto.sortOrder ?? SortOrder.DESC).toUpperCase() === 'ASC' ? 'ASC' : 'DESC'
+    ) as SortOrderSql;
 
     const qb = this.taskRepository
       .createQueryBuilder('task')
@@ -84,15 +77,11 @@ export class TaskSearchService {
     });
   }
 
-  private applyFilters(
-    qb: SelectQueryBuilder<HealthTask>,
-    dto: SearchTasksDto,
-  ): void {
+  private applyFilters(qb: SelectQueryBuilder<HealthTask>, dto: SearchTasksDto): void {
     if (dto.query) {
-      qb.andWhere(
-        '(task.title ILIKE :query OR task.description ILIKE :query)',
-        { query: `%${dto.query}%` },
-      );
+      qb.andWhere('(task.title ILIKE :query OR task.description ILIKE :query)', {
+        query: `%${dto.query}%`,
+      });
     }
 
     if (dto.status) {
@@ -117,19 +106,10 @@ export class TaskSearchService {
   }
 
   private hasFilters(dto: SearchTasksDto): boolean {
-    return Boolean(
-      dto.query ||
-        dto.status ||
-        dto.category ||
-        dto.startDate ||
-        dto.endDate,
-    );
+    return Boolean(dto.query || dto.status || dto.category || dto.startDate || dto.endDate);
   }
 
-  private async recordSearch(
-    dto: SearchTasksDto,
-    userId: string,
-  ): Promise<void> {
+  private async recordSearch(dto: SearchTasksDto, userId: string): Promise<void> {
     await this.historyRepository.save({
       query: dto.query ?? '',
       filters: {

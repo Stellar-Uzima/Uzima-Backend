@@ -64,7 +64,7 @@ describe('TaskSearchService (#1502)', () => {
         startDate: '2026-01-01T00:00:00.000Z',
         endDate: '2026-02-01T00:00:00.000Z',
       }),
-      'user-1',
+      'user-1'
     );
 
     const sql = whereSql();
@@ -97,7 +97,7 @@ describe('TaskSearchService (#1502)', () => {
   it('honours a whitelisted sort field and direction', async () => {
     await service.searchTasks(
       dto({ sortBy: TaskSortField.TITLE, sortOrder: SortOrder.ASC }),
-      'user-1',
+      'user-1'
     );
 
     expect(qb.orderBy).toHaveBeenCalledWith('task.title', 'ASC');
@@ -132,8 +132,6 @@ describe('TaskSearchService (#1502)', () => {
     expect(historyRepo.save).not.toHaveBeenCalled();
 
     await service.searchTasks(dto({ category: TaskCategory.MENTAL }), 'user-1');
-    expect(historyRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: 'user-1' }),
-    );
+    expect(historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
   });
 });

@@ -4,8 +4,7 @@ import { SearchTasksDto, SortOrder, TaskSortField } from './search-tasks.dto';
 import { TaskCategory } from '../../../tasks/entities/health-task.entity';
 import { TaskStatus } from '../../../tasks/enums/task-status.enum';
 
-const build = (input: Record<string, unknown>) =>
-  plainToInstance(SearchTasksDto, input);
+const build = (input: Record<string, unknown>) => plainToInstance(SearchTasksDto, input);
 
 const errorsFor = async (input: Record<string, unknown>) =>
   validate(build(input), { whitelist: true, forbidNonWhitelisted: true });
