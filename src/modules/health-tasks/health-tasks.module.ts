@@ -27,6 +27,7 @@ import { TaskTag } from '../../database/entities/task-tag.entity';
 import { NotificationsModule } from '../../notifications/notifications.module';
 import { User } from '../../entities/user.entity';
 import { AnalyticsModule } from '../../shared/analytics/analytics.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AnalyticsModule } from '../../shared/analytics/analytics.module';
     CacheModule.register(),
     NotificationsModule,
     AnalyticsModule,
+    AuthModule,
   ],
   controllers: [HealthTasksController, NotesController],
   providers: [

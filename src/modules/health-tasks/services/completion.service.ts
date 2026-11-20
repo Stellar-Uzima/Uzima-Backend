@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +11,7 @@ import { Repository, Between, MoreThanOrEqual } from 'typeorm';
 import { TaskCompletion } from '../../../tasks/entities/task-completion.entity';
 import { HealthTask } from '../../../entities/health-task.entity';
 import { User } from '../../../entities/user.entity';
+import { Role } from '../../auth/enums/role.enum';
 
 export interface CompletionMetrics {
   totalTasks: number;
@@ -45,6 +48,7 @@ export class CompletionService {
   async markTaskComplete(
     userId: string,
     dto: MarkCompleteDto,
+    userRole: Role = Role.USER,
   ): Promise<TaskCompletion> {
     const { taskId, completionPercentage = 100, notes } = dto;
 
@@ -52,6 +56,10 @@ export class CompletionService {
     const task = await this.taskRepo.findOne({ where: { id: taskId } });
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found`);
+    }
+
+    if (task.userId !== userId && userRole !== Role.ADMIN) {
+      throw new ForbiddenException('You can only complete your own tasks');
     }
 
     // Validate user exists
@@ -63,6 +71,15 @@ export class CompletionService {
     // Validate completion percentage
     if (completionPercentage < 0 || completionPercentage > 100) {
       throw new BadRequestException('Completion percentage must be between 0 and 100');
+    }
+
+    if (completionPercentage === 100) {
+      const existingCompletion = await this.completionRepo.findOne({
+        where: { userId, taskId, isCompleted: true },
+      });
+      if (existingCompletion) {
+        throw new ConflictException('Task has already been completed');
+      }
     }
 
     const completedAt = completionPercentage === 100 ? new Date() : null;
