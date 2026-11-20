@@ -29,4 +29,15 @@ export class TransformInterceptor<T>
       })),
     );
   }
+  /**
+   * Intercepts the outgoing route handler response stream and wraps or transforms
+   * the emitted data into the standard API response envelope.
+   *
+   * @param context - The NestJS execution context for the current request.
+   * @param next - The call handler providing access to the underlying route execution stream.
+   * @returns An observable emitting the transformed response payload.
+   */
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    // ...existing implementation
+  }
 }

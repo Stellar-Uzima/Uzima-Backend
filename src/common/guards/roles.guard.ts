@@ -40,3 +40,13 @@ export class RolesGuard implements CanActivate {
     return true;
   }
 }
+/**
+   * Determines whether the current request is authorized to proceed based on
+   * required role metadata attached to the route handler or controller class.
+   *
+   * @param context - The NestJS execution context wrapping the incoming request and target handler.
+   * @returns `true` if no roles are required or the authenticated user holds an allowed role; otherwise `false`.
+   */
+  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+    // ...existing implementation
+  }
