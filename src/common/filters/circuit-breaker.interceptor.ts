@@ -41,6 +41,18 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
     this.options = { ...DEFAULT_OPTIONS, ...options };
   }
 
+  /**
+   * Applies circuit-breaker logic around the downstream request handler.
+   *
+   * When the circuit is OPEN and the reset timeout has not elapsed, fails fast
+   * with {@link ServiceUnavailableException}. After the timeout, moves to
+   * HALF_OPEN and allows a trial request. Successful responses close the
+   * circuit; failures increment the failure count and may open it.
+   *
+   * @param context - Nest execution context for the current request
+   * @param next - Call handler for the remainder of the interceptor/pipe chain
+   * @returns Observable of the downstream result, or an error when open
+   */
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (this.state === CircuitState.OPEN) {
       const elapsed = Date.now() - (this.openedAt ?? 0);
@@ -118,14 +130,31 @@ export class CircuitBreakerInterceptor implements NestInterceptor {
     );
   }
 
+  /**
+   * Returns the current circuit state (`CLOSED`, `OPEN`, or `HALF_OPEN`).
+   *
+   * @returns The active {@link CircuitState}
+   */
   getState(): CircuitState {
     return this.state;
   }
 
+  /**
+   * Returns how many consecutive failures have been recorded in the current cycle.
+   *
+   * @returns The failure counter used against `failureThreshold`
+   */
   getFailureCount(): number {
     return this.failureCount;
   }
 
+  /**
+   * Forces the circuit back to `CLOSED`, clearing failure state.
+   *
+   * Intended for tests and operational recovery; not used on the request path.
+   *
+   * @returns void
+   */
   reset(): void {
     this.transitionTo(CircuitState.CLOSED);
   }
