@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DataSource, LessThanOrEqual } from 'typeorm';
 

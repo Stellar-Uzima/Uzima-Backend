@@ -1,51 +1,24 @@
+import { Test } from '@nestjs/testing';
 import {
-  Test,
-} from "@nestjs/testing";
+  HealthCheckService,
+  TypeOrmHealthIndicator,
+} from '@nestjs/terminus';
+import { HealthController } from '../health.controller';
+import { QueueHealthIndicator } from '../indicators/queue.health';
+import { RedisHealthIndicator } from '../indicators/redis.health';
 
-import {
-  HealthController,
-} from "../health.controller";
+describe('HealthController', () => {
+  it('should be defined', async () => {
+    const module = await Test.createTestingModule({
+      controllers: [HealthController],
+      providers: [
+        { provide: HealthCheckService, useValue: {} },
+        { provide: TypeOrmHealthIndicator, useValue: {} },
+        { provide: RedisHealthIndicator, useValue: {} },
+        { provide: QueueHealthIndicator, useValue: {} },
+      ],
+    }).compile();
 
-describe(
-  "HealthController",
-  () => {
-
-    let controller:
-      HealthController;
-
-    beforeEach(
-      async () => {
-
-        const module =
-          await Test.createTestingModule({
-            controllers: [
-              HealthController,
-            ],
-
-            providers: [
-              {
-                provide:
-                  "HealthCheckService",
-
-                useValue: {},
-              },
-            ],
-          }).compile();
-
-        controller =
-          module.get(
-            HealthController,
-          );
-      },
-    );
-
-    it(
-      "should be defined",
-      () => {
-        expect(
-          controller,
-        ).toBeDefined();
-      },
-    );
-  },
-);
+    expect(module.get(HealthController)).toBeDefined();
+  });
+});

@@ -1,62 +1,49 @@
-import { Logger } from '@nestjs/common';
-import { HealthCheckError } from '@nestjs/terminus';
 import { HealthController } from './health.controller';
 
 describe('HealthController', () => {
   let controller: HealthController;
+  let health: { check: jest.Mock };
   let db: { pingCheck: jest.Mock };
   let redis: { isHealthy: jest.Mock };
+  let queue: { isHealthy: jest.Mock };
 
-  const makeController = () => new HealthController(db as any, redis as any);
+  const makeController = () =>
+    new HealthController(health as any, db as any, redis as any, queue as any);
 
   beforeEach(() => {
+    health = { check: jest.fn().mockResolvedValue({ status: 'ok' }) };
     db = {
-      pingCheck: jest.fn().mockResolvedValue({ db: { status: 'up' } }),
+      pingCheck: jest.fn().mockResolvedValue({ database: { status: 'up' } }),
     };
 
     redis = {
       isHealthy: jest.fn().mockResolvedValue({ redis: { status: 'up', responseTime: 4 } }),
     };
 
+    queue = {
+      isHealthy: jest.fn().mockResolvedValue({ queue: { status: 'up' } }),
+    };
+
     controller = makeController();
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+  it('checks database, Redis, and queue health without a scheduled-job indicator', async () => {
+    await controller.check();
 
-  it('returns top-level dependency statuses when services are healthy', async () => {
-    const response = await controller.check();
-
-    expect(db.pingCheck).toHaveBeenCalledWith('db');
+    const [checks] = health.check.mock.calls[0];
+    expect(checks).toHaveLength(3);
+    await Promise.all(checks.map((check: () => Promise<unknown>) => check()));
+    expect(db.pingCheck).toHaveBeenCalledWith('database');
     expect(redis.isHealthy).toHaveBeenCalledWith('redis');
-    expect(response).toEqual({
-      status: 'ok',
-      db: { status: 'up' },
-      redis: { status: 'up', responseTime: 4 },
-    });
+    expect(queue.isHealthy).toHaveBeenCalledWith('queue');
   });
 
-  it('logs at error level and rethrows when a health check fails', async () => {
-    redis.isHealthy.mockRejectedValueOnce(
-      new HealthCheckError('Redis unavailable', {
-        redis: { status: 'down', responseTime: 9 },
-      }),
-    );
+  it('checks queue health on the queue endpoint', async () => {
+    await controller.checkQueue();
 
-    const loggerSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
-
-    await expect(controller.check()).rejects.toMatchObject({
-      response: {
-        status: 'error',
-        db: { status: 'up' },
-        redis: { status: 'down', responseTime: 9 },
-      },
-      status: 503,
-    });
-
-    expect(loggerSpy).toHaveBeenCalledWith(
-      'Health check failed: {"status":"error","db":{"status":"up"},"redis":{"status":"down","responseTime":9}}',
-    );
+    const [checks] = health.check.mock.calls[0];
+    expect(checks).toHaveLength(1);
+    await checks[0]();
+    expect(queue.isHealthy).toHaveBeenCalledWith('queue');
   });
 });
