@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@typeorm/nestjs-typeorm';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationPreferences } from './entities/notification-preferences.entity';
 import { NotificationPreferencesService } from './notification-preferences.service';
 import { NotificationPreferencesController } from './notification-preferences.controller';
