@@ -11,8 +11,10 @@ import {
   HttpCode,
   HttpStatus,
   Req,
+  Headers,
 } from '@nestjs/common';
 import {
+  ApiHeader,
   ApiTags,
   ApiOperation,
   ApiResponse,
@@ -27,6 +29,8 @@ import {
   CreateSavingsGoalDto,
   UpdateSavingsGoalDto,
   CreateContributionDto,
+  CreateSavingsWithdrawalDto,
+  SavingsWithdrawalResponseDto,
   SavingsGoalListQueryDto,
   WalletTransactionListQueryDto,
   TopUpDto,
@@ -131,15 +135,41 @@ export class SavingsWalletController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Contribute to a savings goal' })
   @ApiParam({ name: 'id', description: 'Goal UUID' })
-  @ApiResponse({ status: 200, description: 'Contribution processed', type: ContributionResponseDto })
-  @ApiResponse({ status: 400, description: 'Insufficient balance or would exceed target' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'Client-generated key (max 255 chars) that makes the request safe to retry. ' +
+      'Scoped to the authenticated user: repeating a key returns the original ' +
+      'contribution without moving funds again.',
+  })
+  @ApiResponse({ status: 200, description: 'Contribution processed (or the original contribution, for a repeated Idempotency-Key)', type: ContributionResponseDto })
+  @ApiResponse({ status: 400, description: 'Insufficient balance, would exceed target, or invalid Idempotency-Key' })
   @ApiResponse({ status: 404, description: 'Goal not found' })
+  @ApiResponse({ status: 409, description: 'Idempotency-Key already used for a different contribution' })
   async contribute(
     @Req() req: any,
     @Param('id') id: string,
     @Body() dto: CreateContributionDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<ContributionResponseDto> {
-    return this.savingsService.contribute(req.user.sub, id, dto);
+    return this.savingsService.contribute(req.user.sub, id, dto, idempotencyKey);
+  }
+
+  @Post('savings/goals/:id/withdraw')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Withdraw saved funds from a savings goal to the wallet' })
+  @ApiParam({ name: 'id', description: 'Goal UUID' })
+  @ApiResponse({ status: 200, description: 'Withdrawal processed', type: SavingsWithdrawalResponseDto })
+  @ApiResponse({ status: 400, description: 'Withdrawal not allowed by limits or goal state' })
+  @ApiResponse({ status: 404, description: 'Goal not found' })
+  async withdraw(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateSavingsWithdrawalDto,
+  ): Promise<SavingsWithdrawalResponseDto> {
+    return this.savingsService.withdraw(req.user.sub, id, dto);
   }
 
   @Get('savings/goals/:id/contributions')

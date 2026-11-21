@@ -47,7 +47,11 @@ export class MeProfileResponseDto implements MeProfileResponse {
   @ApiProperty({ nullable: true, example: '+2348012345678' })
   phoneNumber: string | null;
 
-  @ApiProperty({ nullable: true, example: 'https://cdn.example.com/a.png' })
+  @ApiProperty({
+    nullable: true,
+    description: 'Stored avatar reference, or null when no avatar is set',
+    example: '/uploads/avatars/3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b-amina.jpg',
+  })
   avatar: string | null;
 
   @ApiProperty({ enum: ['USER', 'HEALER', 'SUPPORT', 'ADMIN'] })
@@ -113,11 +117,19 @@ export class MeProfileController {
     description:
       'Updates firstName, lastName, phoneNumber and/or avatar. Changes are persisted ' +
       'immediately and the response is the freshly read row, so the returned values ' +
-      'are exactly what was stored. Any other property is rejected with 400.',
+      'are exactly what was stored. Any other property is rejected with 400. ' +
+      'avatar must be an avatar storage reference (/uploads/avatars/<uuid>-<filename>); ' +
+      'send null to clear it.',
   })
   @ApiResponse({ status: 200, description: 'Profile updated', type: MeProfileResponseDto })
-  @ApiResponse({ status: 400, description: 'Validation failed, or a protected field was supplied' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation failed (including an avatar that is not a valid storage reference), ' +
+      'or a protected field was supplied',
+  })
   @ApiResponse({ status: 401, description: 'Missing or invalid access token' })
+  @ApiResponse({ status: 403, description: 'avatar references another account\'s avatar' })
   @ApiResponse({ status: 404, description: 'Account no longer exists' })
   @ApiResponse({ status: 409, description: 'Phone number already belongs to another account' })
   async updateMe(
