@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '@nestjs/passport';
-import { NotificationPreferencesService } from './notification-preferences.service';
+import { NotificationPreferencesService } from '../../notifications/preferences/notification-preferences.service';
 import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 type AuthenticatedRequest = Request & { user?: { id?: string; userId?: string } };
@@ -33,7 +33,7 @@ export class NotificationPreferencesController {
   @HttpCode(200)
   async getPreferences(@Req() req: AuthenticatedRequest) {
     const userId = this.resolveUserId(req);
-    return this.service.getOrCreateForUser(userId);
+    return this.service.getPreferences(userId);
   }
 
   @Patch()
@@ -43,6 +43,6 @@ export class NotificationPreferencesController {
     @Body() dto: UpdateNotificationPreferencesDto,
   ) {
     const userId = this.resolveUserId(req);
-    return this.service.updateForUser(userId, dto);
+    return this.service.updatePreferences(userId, dto);
   }
 }
