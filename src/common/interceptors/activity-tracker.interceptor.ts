@@ -10,7 +10,7 @@ import { tap } from 'rxjs/operators';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { redisConfig, getRedisUrl } from '../../config/redis.config';
-import { UsersService } from '../../users/users.service';
+import { UsersService } from '../../modules/users/users.service';
 
 @Injectable()
 export class ActivityTrackerInterceptor implements NestInterceptor {
