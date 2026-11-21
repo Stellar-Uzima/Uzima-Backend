@@ -38,6 +38,7 @@ import { ReferralService } from '../../../referral/referral.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
 import { PasswordPolicyService } from './password-policy.service';
 import { AccountLockoutService } from './account-lockout.service';
+import { LoginThrottleService } from './login-throttle.service';
 import { normalizeEmail } from './credential-normalizer';
 import { ClientIp } from '../decorators/client-ip.decorator';
 
@@ -87,6 +88,7 @@ export class AuthService {
     @Optional() private readonly referralService?: ReferralService,
     private readonly passwordPolicy: PasswordPolicyService,
     private readonly lockout: AccountLockoutService,
+    private readonly loginThrottle: LoginThrottleService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
@@ -158,12 +160,18 @@ export class AuthService {
   // Login user
   async login(dto: LoginDto, clientIp?: string) {
     const email = normalizeEmail(dto.email);
+
+    // Checked before the user lookup so the throttled response, and the moment
+    // it starts, are identical for registered and unregistered addresses.
+    await this.loginThrottle.assertAllowed(email, clientIp);
+
     const user = await this.usersService.findByEmail(email);
 
     // A miss costs a bcrypt comparison against a dummy hash, so the response
     // time does not reveal whether the address is registered.
     if (!user) {
       await this.spendConstantTime();
+      await this.loginThrottle.recordFailure(email, clientIp);
       if (clientIp) {
         await this.lockout.recordIpFailure(clientIp);
       }
@@ -177,6 +185,7 @@ export class AuthService {
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
+      await this.loginThrottle.recordFailure(email, clientIp);
       const outcome = await this.lockout.recordPasswordFailure(user.id);
       if (clientIp) {
         await this.lockout.recordIpFailure(clientIp);
@@ -278,6 +287,7 @@ export class AuthService {
     if (clientIp) {
       await this.lockout.clearIpFailures(clientIp);
     }
+    await this.loginThrottle.clearIdentity(email);
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const profile = await this.usersService.getProfile(user.id);

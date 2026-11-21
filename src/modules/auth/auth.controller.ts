@@ -4,10 +4,13 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Patch,
   UseGuards,
   Req,
+  Res,
   Version,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -27,6 +30,7 @@ import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';
 import { ClientIp } from './decorators/client-ip.decorator';
+import { LoginThrottledException } from './exceptions/login-throttled.exception';
 
 /** Minimal request shape the auth controller reads audit context from. */
 interface RequestWithContext {
@@ -87,9 +91,26 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 423, description: 'Account temporarily locked' })
-  @ApiResponse({ status: 429, description: 'Too many login attempts' })
-  async login(@Body() dto: LoginDto, @ClientIp() clientIp: string) {
-    return this.authService.login(dto, clientIp);
+  @ApiResponse({
+    status: 429,
+    description:
+      'Too many failed login attempts for this account or client. The Retry-After header and the ' +
+      'retryAfterSeconds body field say how long to wait. The response is the same whether or not the ' +
+      'account exists.',
+  })
+  async login(
+    @Body() dto: LoginDto,
+    @ClientIp() clientIp: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      return await this.authService.login(dto, clientIp);
+    } catch (error) {
+      if (error instanceof LoginThrottledException) {
+        res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      }
+      throw error;
+    }
   }
 
   @Post('2fa/enable')
