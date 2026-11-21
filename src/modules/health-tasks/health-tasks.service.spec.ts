@@ -1,331 +1,196 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HealthTasksService } from './health-tasks.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TaskStatus } from '../../tasks/enums/task-status.enum';
+import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
+import { TaskCategory } from '../../database/entities/task-category.entity';
+
+const mockQueryBuilder: any = {};
+
+const mockTaskRepository = {
+  findOne: jest.fn(),
+  find: jest.fn(),
+  save: jest.fn(),
+  create: jest.fn(),
+  softDelete: jest.fn(),
+  createQueryBuilder: jest.fn(() => mockQueryBuilder),
+  manager: {
+    createQueryBuilder: jest.fn(() => mockQueryBuilder),
+  },
+};
+
+const mockCategoryRepository = {
+  findOne: jest.fn(),
+};
+
+const mockTagRepository = {
+  findByIds: jest.fn(),
+};
+
+const mockPriorityService = {
+  resolvePriority: jest.fn().mockReturnValue('medium'),
+  sortByPriority: jest.fn((tasks) => tasks),
+  buildOverdueAlert: jest.fn().mockReturnValue(null),
+};
+
+const mockActivityLogService = {
+  logTaskChange: jest.fn(),
+  getActivityHistory: jest.fn(),
+};
 
 describe('HealthTasksService', () => {
   let service: HealthTasksService;
-  let prisma: PrismaService;
 
-  const mockHealthTasks = [
-    {
-      id: '1',
-      title: 'Morning Run',
-      description: 'Run 5km',
-      status: 'pending',
-      priority: 'high',
-      dueDate: new Date(),
-      userId: 'user1',
-      completedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      id: '2',
-      title: 'Drink Water',
-      description: 'Drink 2L water',
-      status: 'completed',
-      priority: 'medium',
-      dueDate: new Date(),
-      userId: 'user1',
-      completedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
-
-  const mockPrismaService = {
-    healthTask: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        HealthTasksService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
-      ],
-    }).compile();
-
-    service = module.get<HealthTasksService>(HealthTasksService);
-    prisma = module.get<PrismaService>(PrismaService);
-  });
-
-  afterEach(() => {
+  beforeEach(() => {
     jest.clearAllMocks();
+    Object.assign(mockQueryBuilder, {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      getMany: jest.fn().mockResolvedValue([]),
+    });
+
+    service = new HealthTasksService(
+      mockTaskRepository as any,
+      mockCategoryRepository as any,
+      mockTagRepository as any,
+      mockPriorityService as any,
+      mockActivityLogService as any
+    );
   });
 
-  describe('CRUD Operations', () => {
-    describe('create', () => {
-      it('should create a new health task', async () => {
-        const createDto = {
-          title: 'New Task',
-          description: 'Task description',
-          priority: 'high',
-          dueDate: new Date(),
-          userId: 'user1',
-        };
+  describe('findOne', () => {
+    it('loads the task with its category and tags', async () => {
+      const task = { id: 'task-1' };
+      mockTaskRepository.findOne.mockResolvedValue(task);
 
-        mockPrismaService.healthTask.create.mockResolvedValue({
-          id: '3',
-          ...createDto,
-          status: 'pending',
-          completedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-
-        const result = await service.create(createDto);
-
-        expect(mockPrismaService.healthTask.create).toHaveBeenCalled();
-        expect(result).toHaveProperty('id');
-        expect(result.title).toBe(createDto.title);
-      });
-
-      it('should throw error when required fields are missing', async () => {
-        const invalidDto = { title: 'Only Title' };
-        mockPrismaService.healthTask.create.mockRejectedValue(new Error('Missing required fields'));
-
-        await expect(service.create(invalidDto as any)).rejects.toThrow();
-      });
-    });
-
-    describe('findAll', () => {
-      it('should return all health tasks for a user', async () => {
-        mockPrismaService.healthTask.findMany.mockResolvedValue(mockHealthTasks);
-
-        const result = await service.findAll('user1');
-
-        expect(mockPrismaService.healthTask.findMany).toHaveBeenCalled();
-        expect(result).toHaveLength(2);
-      });
-
-      it('should return empty array when no tasks exist', async () => {
-        mockPrismaService.healthTask.findMany.mockResolvedValue([]);
-
-        const result = await service.findAll('user1');
-
-        expect(result).toEqual([]);
-      });
-    });
-
-    describe('findOne', () => {
-      it('should return a single health task by id', async () => {
-        mockPrismaService.healthTask.findUnique.mockResolvedValue(mockHealthTasks[0]);
-
-        const result = await service.findOne('1', 'user1');
-
-        expect(mockPrismaService.healthTask.findUnique).toHaveBeenCalled();
-        expect(result.id).toBe('1');
-      });
-
-      it('should return null when task not found', async () => {
-        mockPrismaService.healthTask.findUnique.mockResolvedValue(null);
-
-        const result = await service.findOne('999', 'user1');
-
-        expect(result).toBeNull();
-      });
-    });
-
-    describe('update', () => {
-      it('should update an existing health task', async () => {
-        const updateDto = { title: 'Updated Title', priority: 'low' };
-        const updatedTask = { ...mockHealthTasks[0], ...updateDto };
-
-        mockPrismaService.healthTask.update.mockResolvedValue(updatedTask);
-
-        const result = await service.update('1', updateDto);
-
-        expect(mockPrismaService.healthTask.update).toHaveBeenCalled();
-        expect(result.title).toBe('Updated Title');
-        expect(result.priority).toBe('low');
-      });
-
-      it('should throw error when task not found', async () => {
-        mockPrismaService.healthTask.update.mockRejectedValue(new Error('Task not found'));
-
-        await expect(service.update('999', { title: 'New' })).rejects.toThrow();
-      });
-    });
-
-    describe('delete', () => {
-      it('should delete a health task', async () => {
-        mockPrismaService.healthTask.delete.mockResolvedValue(mockHealthTasks[0]);
-
-        const result = await service.delete('1');
-
-        expect(mockPrismaService.healthTask.delete).toHaveBeenCalled();
-        expect(result.id).toBe('1');
-      });
-
-      it('should throw error when deleting non-existent task', async () => {
-        mockPrismaService.healthTask.delete.mockRejectedValue(new Error('Task not found'));
-
-        await expect(service.delete('999')).rejects.toThrow();
+      await expect(service.findOne('task-1')).resolves.toBe(task);
+      expect(mockTaskRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'task-1' },
+        relations: ['category', 'tags'],
       });
     });
   });
 
-  describe('Filtering', () => {
-    it('should filter tasks by status', async () => {
-      const pendingTasks = mockHealthTasks.filter(t => t.status === 'pending');
-      mockPrismaService.healthTask.findMany.mockResolvedValue(pendingTasks);
+  describe('findByDifficulty', () => {
+    it('filters on the JSONB targetProfile difficulty', async () => {
+      const tasks = [{ id: 'task-1' }];
+      mockQueryBuilder.getMany.mockResolvedValue(tasks);
 
-      const result = await service.findByStatus('user1', 'pending');
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user1', status: 'pending' },
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0].status).toBe('pending');
-    });
-
-    it('should filter tasks by priority', async () => {
-      const highPriorityTasks = mockHealthTasks.filter(t => t.priority === 'high');
-      mockPrismaService.healthTask.findMany.mockResolvedValue(highPriorityTasks);
-
-      const result = await service.findByPriority('user1', 'high');
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalled();
-      expect(result[0].priority).toBe('high');
-    });
-
-    it('should filter tasks by date range', async () => {
-      const startDate = new Date();
-      const endDate = new Date();
-      mockPrismaService.healthTask.findMany.mockResolvedValue(mockHealthTasks);
-
-      const result = await service.findByDateRange('user1', startDate, endDate);
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalled();
-      expect(result).toBeDefined();
-    });
-  });
-
-  describe('Sorting', () => {
-    it('should sort tasks by due date ascending', async () => {
-      const sortedTasks = [...mockHealthTasks].sort((a, b) => 
-        new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      await expect(service.findByDifficulty(TaskDifficulty.EASY)).resolves.toBe(tasks);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        "task.targetProfile->>'difficulty' = :difficulty",
+        { difficulty: TaskDifficulty.EASY }
       );
-      mockPrismaService.healthTask.findMany.mockResolvedValue(sortedTasks);
-
-      const result = await service.findAllSorted('user1', 'dueDate', 'asc');
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalledWith({
-        where: { userId: 'user1' },
-        orderBy: { dueDate: 'asc' },
-      });
-      expect(result).toBeDefined();
-    });
-
-    it('should sort tasks by priority descending', async () => {
-      mockPrismaService.healthTask.findMany.mockResolvedValue(mockHealthTasks);
-
-      const result = await service.findAllSorted('user1', 'priority', 'desc');
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalled();
-      expect(result).toBeDefined();
-    });
-
-    it('should sort tasks by creation date', async () => {
-      mockPrismaService.healthTask.findMany.mockResolvedValue(mockHealthTasks);
-
-      const result = await service.findAllSorted('user1', 'createdAt', 'desc');
-
-      expect(mockPrismaService.healthTask.findMany).toHaveBeenCalled();
-      expect(result).toBeDefined();
     });
   });
 
-  describe('Completion Tracking', () => {
-    it('should mark a task as completed', async () => {
-      const completedTask = { ...mockHealthTasks[0], status: 'completed', completedAt: new Date() };
-      mockPrismaService.healthTask.update.mockResolvedValue(completedTask);
+  describe('create', () => {
+    it('creates a task and links its category', async () => {
+      const created: any = { title: 'Walk', category: 'nutrition' };
+      const category = { id: 'cat-1' };
+      mockTaskRepository.create.mockReturnValue(created);
+      mockCategoryRepository.findOne.mockResolvedValue(category);
+      mockTagRepository.findByIds.mockResolvedValue([{ id: 'tag-1' }]);
+      mockTaskRepository.save.mockImplementation(async (task: any) => task);
 
-      const result = await service.markAsCompleted('1');
-
-      expect(mockPrismaService.healthTask.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { status: 'completed', completedAt: expect.any(Date) },
+      const result: any = await service.create({
+        title: 'Walk',
+        description: 'Daily walk',
+        category: 'nutrition' as any,
+        categoryId: 'cat-1',
+        tagIds: ['11111111-1111-4111-8111-111111111111'],
       });
-      expect(result.status).toBe('completed');
-      expect(result.completedAt).toBeDefined();
-    });
 
-    it('should mark a task as pending', async () => {
-      const pendingTask = { ...mockHealthTasks[1], status: 'pending', completedAt: null };
-      mockPrismaService.healthTask.update.mockResolvedValue(pendingTask);
-
-      const result = await service.markAsPending('2');
-
-      expect(mockPrismaService.healthTask.update).toHaveBeenCalledWith({
-        where: { id: '2' },
-        data: { status: 'pending', completedAt: null },
-      });
-      expect(result.status).toBe('pending');
-      expect(result.completedAt).toBeNull();
-    });
-
-    it('should get completion statistics', async () => {
-      mockPrismaService.healthTask.count.mockResolvedValueOnce(5); // total
-      mockPrismaService.healthTask.count.mockResolvedValueOnce(3); // completed
-
-      const stats = await service.getCompletionStats('user1');
-
-      expect(mockPrismaService.healthTask.count).toHaveBeenCalledTimes(2);
-      expect(stats.completionRate).toBe(60);
+      expect(mockTaskRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Walk', description: 'Daily walk' })
+      );
+      expect(result.categoryId).toBe('cat-1');
+      expect(result.taskCategory).toBe(category);
+      expect(result.tags).toEqual([{ id: 'tag-1' }]);
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty userId', async () => {
-      await expect(service.findAll('')).rejects.toThrow();
-    });
-
-    it('should handle large batch of tasks', async () => {
-      const largeBatch = Array(100).fill(null).map((_, i) => ({
-        id: String(i),
-        title: `Task ${i}`,
-        status: 'pending',
-        priority: 'medium',
-        userId: 'user1',
-      }));
-      mockPrismaService.healthTask.findMany.mockResolvedValue(largeBatch);
-
-      const result = await service.findAll('user1');
-      expect(result).toHaveLength(100);
-    });
-
-    it('should handle special characters in title', async () => {
-      const specialTask = {
-        title: 'Task with <script>alert("xss")</script>',
-        description: 'Special chars: !@#$%^&*()',
-        priority: 'low',
-        userId: 'user1',
+  describe('update', () => {
+    it('clears the category when an empty categoryId is supplied', async () => {
+      const task: any = {
+        id: 'task-1',
+        title: 'Walk',
+        status: TaskStatus.DRAFT,
+        targetProfile: {},
+        categoryId: 'cat-1',
+        taskCategory: { id: 'cat-1' },
       };
-      mockPrismaService.healthTask.create.mockResolvedValue({ id: 'special', ...specialTask });
+      mockTaskRepository.findOne.mockResolvedValue(task);
+      mockTaskRepository.save.mockImplementation(async (saved: any) => saved);
 
-      const result = await service.create(specialTask as any);
-      expect(result.title).toBe(specialTask.title);
+      const result: any = await service.update('task-1', {
+        categoryId: '',
+      } as any);
+
+      expect(result.categoryId).toBeNull();
+      expect(result.taskCategory).toBeNull();
     });
 
-    it('should handle future due dates', async () => {
-      const futureDate = new Date();
-      futureDate.setFullYear(futureDate.getFullYear() + 1);
-      const taskWithFutureDate = { ...mockHealthTasks[0], dueDate: futureDate };
-      mockPrismaService.healthTask.findUnique.mockResolvedValue(taskWithFutureDate);
+    it('logs an activity entry when tracked fields change', async () => {
+      const task: any = {
+        id: 'task-1',
+        title: 'Walk',
+        status: TaskStatus.DRAFT,
+        targetProfile: {},
+      };
+      mockTaskRepository.findOne.mockResolvedValue(task);
+      mockTaskRepository.save.mockImplementation(async (saved: any) => saved);
 
-      const result = await service.findOne('1', 'user1');
-      expect(new Date(result.dueDate).getFullYear()).toBeGreaterThan(new Date().getFullYear());
+      await service.update('task-1', { title: 'Run' } as any, 'user-1');
+
+      expect(mockActivityLogService.logTaskChange).toHaveBeenCalledWith(
+        'task-1',
+        'user-1',
+        'task.updated',
+        expect.objectContaining({
+          changes: expect.arrayContaining([{ field: 'title', before: 'Walk', after: 'Run' }]),
+        })
+      );
+    });
+
+    it('throws when the task does not exist', async () => {
+      mockTaskRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.update('missing', { title: 'Run' } as any)).rejects.toBeInstanceOf(
+        NotFoundException
+      );
     });
   });
-}); 
+
+  describe('remove', () => {
+    it('soft deletes a task owned by the caller', async () => {
+      mockTaskRepository.findOne.mockResolvedValue({
+        id: 'task-1',
+        createdBy: 'user-1',
+      });
+
+      await service.remove('task-1', 'user-1');
+
+      expect(mockQueryBuilder.delete).toHaveBeenCalled();
+      expect(mockTaskRepository.softDelete).toHaveBeenCalledWith('task-1');
+    });
+
+    it('forbids deleting another user task', async () => {
+      mockTaskRepository.findOne.mockResolvedValue({
+        id: 'task-1',
+        createdBy: 'user-1',
+      });
+
+      await expect(service.remove('task-1', 'user-2')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(mockTaskRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('throws when the task does not exist', async () => {
+      mockTaskRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.remove('missing', 'user-1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+});

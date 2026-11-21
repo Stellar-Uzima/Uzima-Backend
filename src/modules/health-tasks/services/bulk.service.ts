@@ -1,10 +1,8 @@
-import {
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { HealthTask, TaskCategory } from '../../../tasks/entities/health-task.entity';
+import { TaskStatus } from '../../../tasks/enums/task-status.enum';
 
 export interface BulkResult {
   affected: number;
@@ -23,10 +21,10 @@ const MAX_BULK_SIZE = 100;
 export class BulkTaskService {
   constructor(
     @InjectRepository(HealthTask)
-    private readonly taskRepo: Repository<HealthTask>,
+    private readonly taskRepo: Repository<HealthTask>
   ) {}
 
-  async bulkUpdateStatus(ids: string[], status: string): Promise<BulkResult> {
+  async bulkUpdateStatus(ids: string[], status: TaskStatus): Promise<BulkResult> {
     this.validateIds(ids);
 
     const result = await this.taskRepo
@@ -96,7 +94,9 @@ export class BulkTaskService {
       throw new BadRequestException('Task IDs list cannot be empty');
     }
     if (ids.length > MAX_BULK_SIZE) {
-      throw new BadRequestException(`Bulk operations are limited to ${MAX_BULK_SIZE} tasks at once`);
+      throw new BadRequestException(
+        `Bulk operations are limited to ${MAX_BULK_SIZE} tasks at once`
+      );
     }
     const unique = new Set(ids);
     if (unique.size !== ids.length) {

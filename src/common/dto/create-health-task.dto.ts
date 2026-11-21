@@ -1,17 +1,8 @@
-import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export enum TaskCategory {
-  HYDRATION = 'hydration',
-  EXERCISE = 'exercise',
-  NUTRITION = 'nutrition',
-  MATERNAL_HEALTH = 'maternal_health',
-  SLEEP = 'sleep',
-  MENTAL_HEALTH = 'mental_health',
-  MEDICATION = 'medication',
-  OTHER = 'other',
-}
 import { IsString, IsOptional, IsEnum, IsDate, IsNotEmpty, IsUUID, IsArray } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TaskCategory } from '../../tasks/entities/health-task.entity';
+
+export { TaskCategory };
 
 export enum TaskPriority {
   LOW = 'low',

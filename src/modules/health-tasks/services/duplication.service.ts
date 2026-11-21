@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { DeepPartial, Repository, In } from 'typeorm';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
+import { TaskStatus } from '../../../tasks/enums/task-status.enum';
 
 @Injectable()
 export class DuplicationService {
   constructor(
     @InjectRepository(HealthTask)
-    private readonly taskRepository: Repository<HealthTask>,
+    private readonly taskRepository: Repository<HealthTask>
   ) {}
 
   async duplicateTask(id: string, overrides: any = {}) {
@@ -18,7 +19,7 @@ export class DuplicationService {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _, createdAt, deletedAt, ...rest } = originalTask;
-    
+
     // Handle dueDate and settings which are in targetProfile
     const targetProfile = { ...originalTask.targetProfile };
     if (overrides.dueDate) {
@@ -34,19 +35,19 @@ export class DuplicationService {
       ...rest,
       ...overrides,
       targetProfile,
-      status: 'draft',
+      status: TaskStatus.DRAFT,
       title: overrides.title || `${originalTask.title} (Copy)`,
-    });
+    } as DeepPartial<HealthTask>);
 
     return this.taskRepository.save(duplicatedTask);
   }
 
   async bulkDuplicate(ids: string[], commonOverrides: any = {}) {
     const tasks = await this.taskRepository.find({ where: { id: In(ids) } });
-    const duplicates = tasks.map(task => {
+    const duplicates = tasks.map((task) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _, createdAt, deletedAt, ...rest } = task;
-      
+
       const targetProfile = { ...task.targetProfile };
       if (commonOverrides.dueDate) {
         targetProfile.dueDate = commonOverrides.dueDate;
@@ -56,9 +57,9 @@ export class DuplicationService {
         ...rest,
         ...commonOverrides,
         targetProfile,
-        status: 'draft',
+        status: TaskStatus.DRAFT,
         title: `${task.title} (Copy)`,
-      });
+      } as DeepPartial<HealthTask>);
     });
 
     return this.taskRepository.save(duplicates);

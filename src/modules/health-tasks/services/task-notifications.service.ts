@@ -28,11 +28,15 @@ export class TaskNotificationsService {
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
     @InjectRepository(NotificationPreference)
-    private readonly preferenceRepo: Repository<NotificationPreference>,
+    private readonly preferenceRepo: Repository<NotificationPreference>
   ) {}
 
-  async notifyDueSoon(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
-    if (!await this.isPrefEnabled(userId, 'due_soon', pref)) return;
+  async notifyDueSoon(
+    task: HealthTask,
+    userId: string,
+    pref?: NotificationPreference | null
+  ): Promise<void> {
+    if (!(await this.isPrefEnabled(userId, 'due_soon', pref))) return;
 
     await this.send(userId, task.id, 'due_soon', {
       title: `Task due soon: ${task.title}`,
@@ -40,8 +44,12 @@ export class TaskNotificationsService {
     });
   }
 
-  async notifyCompleted(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
-    if (!await this.isPrefEnabled(userId, 'completed', pref)) return;
+  async notifyCompleted(
+    task: HealthTask,
+    userId: string,
+    pref?: NotificationPreference | null
+  ): Promise<void> {
+    if (!(await this.isPrefEnabled(userId, 'completed', pref))) return;
 
     await this.send(userId, task.id, 'completed', {
       title: `Task completed: ${task.title}`,
@@ -50,7 +58,7 @@ export class TaskNotificationsService {
   }
 
   async notifyShared(task: HealthTask, recipientId: string, sharedByName: string): Promise<void> {
-    if (!await this.isEnabled(recipientId, 'shared')) return;
+    if (!(await this.isPrefEnabled(recipientId, 'shared'))) return;
 
     await this.send(recipientId, task.id, 'shared', {
       title: `Task shared with you`,
@@ -58,8 +66,12 @@ export class TaskNotificationsService {
     });
   }
 
-  async notifyOverdue(task: HealthTask, userId: string, pref?: NotificationPreference): Promise<void> {
-    if (!await this.isPrefEnabled(userId, 'overdue', pref)) return;
+  async notifyOverdue(
+    task: HealthTask,
+    userId: string,
+    pref?: NotificationPreference | null
+  ): Promise<void> {
+    if (!(await this.isPrefEnabled(userId, 'overdue', pref))) return;
 
     await this.send(userId, task.id, 'overdue', {
       title: `Overdue task: ${task.title}`,
@@ -73,7 +85,9 @@ export class TaskNotificationsService {
 
     for (const task of tasks) {
       const dueDate = (task.targetProfile as any)?.dueDate;
-      if (!dueDate || task.status === 'completed') continue;
+      // Legacy rows may hold 'completed' outside the TaskStatus enum.
+      const status: string = task.status;
+      if (!dueDate || status === 'completed') continue;
 
       const due = new Date(dueDate).getTime();
       const diff = due - now;
@@ -94,9 +108,9 @@ export class TaskNotificationsService {
   private async isPrefEnabled(
     userId: string,
     event: TaskNotificationEvent,
-    pref?: NotificationPreference,
+    pref?: NotificationPreference | null
   ): Promise<boolean> {
-    const userPref = pref || await this.preferenceRepo.findOne({ where: { userId } } as any);
+    const userPref = pref || (await this.preferenceRepo.findOne({ where: { userId } } as any));
     if (!userPref) return true;
 
     const key = `task_${event}` as keyof typeof userPref;
@@ -107,14 +121,14 @@ export class TaskNotificationsService {
     userId: string,
     taskId: string,
     event: TaskNotificationEvent,
-    content: { title: string; body: string },
+    content: { title: string; body: string }
   ): Promise<void> {
     const alreadySent = this.deliveryLog.some(
       (r) =>
         r.userId === userId &&
         r.taskId === taskId &&
         r.event === event &&
-        Date.now() - r.deliveredAt.getTime() < 60 * 60 * 1000,
+        Date.now() - r.deliveredAt.getTime() < 60 * 60 * 1000
     );
 
     if (alreadySent) return;
@@ -126,7 +140,7 @@ export class TaskNotificationsService {
           type: `task_${event}`,
           title: content.title,
           body: content.body,
-        }),
+        })
       );
 
       this.deliveryLog.push({

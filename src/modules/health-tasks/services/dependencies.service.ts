@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
@@ -21,7 +17,7 @@ export class TaskDependenciesService {
 
   constructor(
     @InjectRepository(HealthTask)
-    private readonly taskRepo: Repository<HealthTask>,
+    private readonly taskRepo: Repository<HealthTask>
   ) {}
 
   async addDependency(taskId: string, dependsOnTaskId: string): Promise<TaskDependency> {
@@ -42,7 +38,7 @@ export class TaskDependenciesService {
     }
 
     const existing = this.dependencies.find(
-      (d) => d.taskId === taskId && d.dependsOnTaskId === dependsOnTaskId,
+      (d) => d.taskId === taskId && d.dependsOnTaskId === dependsOnTaskId
     );
     if (existing) return existing;
 
@@ -59,7 +55,7 @@ export class TaskDependenciesService {
 
   removeDependency(taskId: string, dependsOnTaskId: string): boolean {
     const idx = this.dependencies.findIndex(
-      (d) => d.taskId === taskId && d.dependsOnTaskId === dependsOnTaskId,
+      (d) => d.taskId === taskId && d.dependsOnTaskId === dependsOnTaskId
     );
     if (idx === -1) return false;
     this.dependencies.splice(idx, 1);
@@ -82,7 +78,10 @@ export class TaskDependenciesService {
 
     for (const dep of deps) {
       const depTask = await this.taskRepo.findOne({ where: { id: dep.dependsOnTaskId } });
-      if (!depTask || depTask.status !== 'completed') {
+      // Legacy rows may still hold 'completed' even though TaskStatus is the
+      // narrower draft/published/archived enum.
+      const depStatus: string | undefined = depTask?.status;
+      if (!depTask || depStatus !== 'completed') {
         blockedBy.push(dep.dependsOnTaskId);
       }
     }

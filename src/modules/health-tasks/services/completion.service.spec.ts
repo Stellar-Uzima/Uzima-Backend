@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CompletionService } from './completion.service';
@@ -43,16 +44,16 @@ describe('CompletionService', () => {
           provide: getRepositoryToken(User),
           useValue: mockUserRepo,
         },
+        {
+          provide: EventEmitter2,
+          useValue: { emit: jest.fn() },
+        },
       ],
     }).compile();
 
     service = module.get<CompletionService>(CompletionService);
-    completionRepo = module.get<Repository<TaskCompletion>>(
-      getRepositoryToken(TaskCompletion),
-    );
-    taskRepo = module.get<Repository<HealthTask>>(
-      getRepositoryToken(HealthTask),
-    );
+    completionRepo = module.get<Repository<TaskCompletion>>(getRepositoryToken(TaskCompletion));
+    taskRepo = module.get<Repository<HealthTask>>(getRepositoryToken(HealthTask));
     userRepo = module.get<Repository<User>>(getRepositoryToken(User));
   });
 
@@ -103,9 +104,7 @@ describe('CompletionService', () => {
 
       mockTaskRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.markTaskComplete(userId, dto)).rejects.toThrow(
-        'Task task-1 not found',
-      );
+      await expect(service.markTaskComplete(userId, dto)).rejects.toThrow('Task task-1 not found');
     });
 
     it('should throw BadRequestException for invalid completion percentage', async () => {
@@ -117,7 +116,7 @@ describe('CompletionService', () => {
       mockTaskRepo.findOne.mockResolvedValue(mockTask);
 
       await expect(service.markTaskComplete(userId, dto)).rejects.toThrow(
-        'Completion percentage must be between 0 and 100',
+        'Completion percentage must be between 0 and 100'
       );
     });
   });
