@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-} from 'typorm';
+} from 'typeorm';
 import { User } from './user.entity';
 
 export enum CouponStatus {
