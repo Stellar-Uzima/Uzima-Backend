@@ -42,6 +42,17 @@ export class RateLimitGuard extends ThrottlerGuard {
     return request.socket?.remoteAddress || request.ip || 'unknown';
   }
 
+  /**
+   * Processes a single request against the configured throttler and sets
+   * informational rate-limit headers on the response so clients can track
+   * their quota consumption.
+   *
+   * @param requestProps - The throttler request properties injected by
+   *   {@link ThrottlerGuard}, including the execution context, rate-limit
+   *   ceiling (`limit`), and time-to-live window (`ttl`).
+   * @returns A promise that resolves to `true` when the request is within
+   *   the allowed rate and `false` when it should be blocked.
+   */
   protected async handleRequest(
     requestProps: Parameters<ThrottlerGuard['handleRequest']>[0],
   ): Promise<boolean> {
