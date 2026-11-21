@@ -183,10 +183,21 @@ export class AuthService {
     // keep guessing.
     this.lockout.assertNotLocked(user);
 
+    // Getting here with `lockedUntil` still set means the lock has expired.
+    // Release it before the password is checked: that resets the failure count
+    // (otherwise the first wrong password after expiry would lock the account
+    // again) and records the unlock in the audit trail.
+    const lockoutContext = { userEmail: user.email, ipAddress: clientIp ?? null };
+    if (user.lockedUntil) {
+      await this.lockout.releaseExpired(user.id, lockoutContext);
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    }
+
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
       await this.loginThrottle.recordFailure(email, clientIp);
-      const outcome = await this.lockout.recordPasswordFailure(user.id);
+      const outcome = await this.lockout.recordPasswordFailure(user.id, lockoutContext);
       if (clientIp) {
         await this.lockout.recordIpFailure(clientIp);
       }
@@ -277,10 +288,14 @@ export class AuthService {
       await this.lockout.clearTwoFactorFailures(user.id);
     }
 
-    // A successful login clears the lockout state, which is also how a lock
-    // that has expired is released.
+    // A successful login resets a partial failure count. A lock that had
+    // expired was already released (and audited) before the password check.
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-      await this.lockout.clear(user.id);
+      await this.lockout.clear(user.id, {
+        cause: 'successful_login',
+        hadLock: Boolean(user.lockedUntil),
+        ...lockoutContext,
+      });
       user.failedLoginAttempts = 0;
       user.lockedUntil = null;
     }
@@ -1001,7 +1016,11 @@ export class AuthService {
     // this, the person who triggered the reset is locked out while whoever
     // prompted it keeps a working refresh token and simply re-mints an access
     // token — which is the opposite of what "reset my password" is for.
-    await this.lockout.clear(user.id);
+    await this.lockout.clear(user.id, {
+      cause: 'password_reset',
+      hadLock: Boolean(user.lockedUntil),
+      userEmail: user.email,
+    });
     await this.clearAllUserRefreshTokens(user.id);
     user.refreshToken = null;
     user.refreshTokenExpiry = null;
