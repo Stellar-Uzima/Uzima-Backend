@@ -2,12 +2,21 @@ import { Transform } from 'class-transformer';
 import {
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+/**
+ * A valid avatar storage reference, as produced by the avatar upload
+ * (`StorageService.saveFile(..., 'avatars')`): `/uploads/avatars/<uuid v4>-<filename>`.
+ *
+ * The filename may not contain `/` or `\`, so a reference cannot escape the
+ * `avatars` folder (e.g. into `exports/`, which holds other users' data exports).
+ */
+export const AVATAR_STORAGE_REFERENCE_PATTERN =
+  /^\/uploads\/avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[A-Za-z0-9._-]+$/i;
 
 /**
  * Fields a signed-in user is allowed to change on their own profile (#1290).
@@ -60,23 +69,26 @@ export class UpdateMeProfileDto {
   phoneNumber?: string;
 
   @ApiPropertyOptional({
-    description: 'Avatar image URL. Must be an absolute http(s) URL.',
-    example: 'https://cdn.example.com/avatars/amina.png',
+    description:
+      'Storage reference of an uploaded avatar, as returned by the avatar upload ' +
+      '(`/uploads/avatars/<uuid>-<filename>`). External URLs and other storage ' +
+      'folders are rejected. Send `null` (or an empty string) to clear the avatar.',
+    example: '/uploads/avatars/3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b-amina.jpg',
     maxLength: 500,
+    nullable: true,
+    type: String,
   })
   @IsOptional()
-  @IsString({ message: 'avatar must be a string' })
-  @IsUrl(
-    {
-      protocols: ['http', 'https'],
-      require_protocol: true,
-      require_tld: true,
-    },
-    {
-      message: 'avatar must be an absolute http:// or https:// URL',
-    },
-  )
+  @IsString({ message: 'avatar must be a string or null' })
   @MaxLength(500, { message: 'avatar must be at most 500 characters' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  avatar?: string;
+  @Matches(AVATAR_STORAGE_REFERENCE_PATTERN, {
+    message:
+      'avatar must be a storage reference of the form /uploads/avatars/<uuid>-<filename>',
+  })
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? null : trimmed;
+  })
+  avatar?: string | null;
 }

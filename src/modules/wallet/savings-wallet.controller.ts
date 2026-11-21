@@ -27,6 +27,8 @@ import {
   CreateSavingsGoalDto,
   UpdateSavingsGoalDto,
   CreateContributionDto,
+  CreateSavingsWithdrawalDto,
+  SavingsWithdrawalResponseDto,
   SavingsGoalListQueryDto,
   WalletTransactionListQueryDto,
   TopUpDto,
@@ -140,6 +142,22 @@ export class SavingsWalletController {
     @Body() dto: CreateContributionDto,
   ): Promise<ContributionResponseDto> {
     return this.savingsService.contribute(req.user.sub, id, dto);
+  }
+
+  @Post('savings/goals/:id/withdraw')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Withdraw saved funds from a savings goal to the wallet' })
+  @ApiParam({ name: 'id', description: 'Goal UUID' })
+  @ApiResponse({ status: 200, description: 'Withdrawal processed', type: SavingsWithdrawalResponseDto })
+  @ApiResponse({ status: 400, description: 'Withdrawal not allowed by limits or goal state' })
+  @ApiResponse({ status: 404, description: 'Goal not found' })
+  async withdraw(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateSavingsWithdrawalDto,
+  ): Promise<SavingsWithdrawalResponseDto> {
+    return this.savingsService.withdraw(req.user.sub, id, dto);
   }
 
   @Get('savings/goals/:id/contributions')
