@@ -7,7 +7,7 @@ import { CouponController } from '../src/coupons/coupon.controller';
 import { CouponService } from '../src/coupons/coupon.service';
 import { Coupon, CouponStatus } from '../src/coupons/entities/coupon.entity';
 import { User } from '../src/entities/user.entity';
-import { Role } from '../src/auth/enums/role.enum';
+import { Role } from '../src/modules/auth/enums/role.enum';
 import { ValidateCouponDto } from '../src/coupons/dto/validate-coupon.dto';
 
 // Mock Redis
