@@ -1,12 +1,11 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HealthTask, TaskCategory } from './entities/health-task.entity';
 import { TaskStatus } from './enums/task-status.enum';
+import { DailyTaskAssignment } from './entities/daily-task-assignment.entity';
+import { TaskCompletion, TaskCompletionStatus } from './entities/task-completion.entity';
+import { Role } from '../modules/auth/enums/role.enum';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksDto } from './dto/list-tasks.dto';
@@ -28,8 +27,42 @@ export class TasksService {
   constructor(
     @InjectRepository(HealthTask)
     private readonly healthTaskRepository: Repository<HealthTask>,
-    private readonly queueService: QueueService,
+    private readonly queueService: QueueService
   ) {}
+
+  async findUsersWithPendingTasks(): Promise<Array<{ id: string; tasks: HealthTask[] }>> {
+    const assignments = await this.pendingAssignmentsQuery().getMany();
+    return assignments.map((assignment) => ({ id: assignment.user.id, tasks: assignment.tasks }));
+  }
+
+  async findIncompleteTasks(userId: string): Promise<HealthTask[]> {
+    const assignment = await this.pendingAssignmentsQuery()
+      .andWhere('user.id = :userId', { userId })
+      .getOne();
+    return assignment?.tasks ?? [];
+  }
+
+  private pendingAssignmentsQuery() {
+    const today = new Date().toISOString().split('T')[0];
+    const start = new Date(`${today}T00:00:00.000Z`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    return this.healthTaskRepository.manager
+      .getRepository(DailyTaskAssignment)
+      .createQueryBuilder('assignment')
+      .innerJoinAndSelect('assignment.user', 'user')
+      .innerJoinAndSelect('assignment.tasks', 'task')
+      .leftJoin(
+        TaskCompletion,
+        'completion',
+        'completion.userId = user.id AND completion.taskId = task.id ' +
+          'AND (completion.status = :verified OR completion.isCompleted = true) ' +
+          'AND COALESCE(completion.completedAt, completion.createdAt) >= :start ' +
+          'AND COALESCE(completion.completedAt, completion.createdAt) < :end',
+        { verified: TaskCompletionStatus.VERIFIED, start, end }
+      )
+      .where('assignment.assignedDate = :today', { today })
+      .andWhere('completion.id IS NULL');
+  }
 
   getCategories(): Array<{ value: string; label: string }> {
     return Object.values(TaskCategory).map((value) => ({
@@ -37,7 +70,6 @@ export class TasksService {
       label: value.charAt(0).toUpperCase() + value.slice(1),
     }));
   }
-
 
   /**
    * Enqueue a delayed notification job for a task's reminder.
@@ -80,14 +112,11 @@ export class TasksService {
         jobId,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
-      },
+      }
     );
   }
 
-  async create(
-    createTaskDto: CreateTaskDto,
-    userId: string,
-  ): Promise<HealthTask> {
+  async create(createTaskDto: CreateTaskDto, userId: string): Promise<HealthTask> {
     const task = this.healthTaskRepository.create({
       ...createTaskDto,
       createdBy: userId,
@@ -99,9 +128,7 @@ export class TasksService {
     return saved[0];
   }
 
-  async findAll(
-    listTasksDto: ListTasksDto,
-  ): Promise<PaginatedResponseDto<HealthTask>> {
+  async findAll(listTasksDto: ListTasksDto): Promise<PaginatedResponseDto<HealthTask>> {
     const { page, limit, categoryId } = listTasksDto;
 
     const query = this.healthTaskRepository
@@ -130,13 +157,9 @@ export class TasksService {
     });
   }
 
-  async updateStatus(
-    id: string,
-    status: TaskStatus,
-    userId: string,
-  ): Promise<HealthTask> {
+  async updateStatus(id: string, status: TaskStatus, userId: string): Promise<HealthTask> {
     const task = await this.findOne(id);
-    
+
     if (task.createdBy !== userId) {
       throw new ForbiddenException('You can only update your own tasks');
     }
@@ -162,7 +185,7 @@ export class TasksService {
     id: string,
     updateTaskDto: UpdateTaskDto,
     userId: string,
-    userRole: Role,
+    userRole: Role
   ): Promise<HealthTask> {
     const task = await this.findOne(id);
 
@@ -215,4 +238,3 @@ export class TasksService {
       .getMany();
   }
 }
-

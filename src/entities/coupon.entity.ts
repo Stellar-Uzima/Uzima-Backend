@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-} from 'typorm';
+} from 'typeorm';
 import { User } from './user.entity';
 
 export enum CouponStatus {
@@ -26,7 +26,7 @@ export class Coupon {
   @Column({ type: 'uuid' })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADEZ' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -45,6 +45,6 @@ export class Coupon {
   @Column({ type: 'timestamp', nullable: true })
   usedAt: Date | null;
 
-  @CreateDateColumn(() => "timestamp" )
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 }
