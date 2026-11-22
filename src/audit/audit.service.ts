@@ -136,7 +136,47 @@ export class AuditService {
       description: action,
     });
   }
+/**
+   * Retrieves audit log records matching the supplied query or filter options.
+   *
+   * @param query - Optional filtering or pagination parameters for querying audit entries.
+   * @returns A list or paginated set of matching audit log records.
+   */
+  async findAll(query?: FindAuditQueryDto) {
+    // ...
+  }
 
+  /**
+   * Retrieves a single audit log record by its unique identifier.
+   *
+   * @param id - Unique identifier of the audit log record to retrieve.
+   * @returns The matching audit log record, or throws if not found.
+   */
+  async findOne(id: string) {
+    // ...
+  }
+
+  /**
+   * Updates an existing audit log record with the provided changes.
+   *
+   * @param id - Unique identifier of the audit log record to update.
+   * @param updateAuditDto - Payload containing fields to update on the record.
+   * @returns The updated audit log record.
+   */
+  async update(id: string, updateAuditDto: UpdateAuditDto) {
+    // ...
+  }
+
+  /**
+   * Removes an existing audit log record by its unique identifier.
+   *
+   * @param id - Unique identifier of the audit log record to remove.
+   * @returns Result or confirmation of the deleted audit log record.
+   */
+  async remove(id: string) {
+    // ...
+  }
+  
   /**
    * Create audit log from DTO
    */
