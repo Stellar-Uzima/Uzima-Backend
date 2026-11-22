@@ -92,3 +92,32 @@ export class AuthEventAuditController {
     };
   }
 }
+/**
+   * Lists authentication audit events according to the supplied filter and pagination query.
+   *
+   * @param query - Filter and pagination parameters for querying authentication events.
+   * @returns A paginated or filtered list of authentication audit events.
+   */
+  async list(@Query() query: ListAuthEventAuditQueryDto) {
+    // ...
+  }
+
+  /**
+   * Summarises authentication audit event counts and activity over the requested window.
+   *
+   * @param query - Query parameters specifying filters or time bounds for the summary.
+   * @returns Aggregated summary metrics for authentication audit events.
+   */
+  async summarise(@Query() query: SummariseAuthEventAuditQueryDto) {
+    // ...
+  }
+
+  /**
+   * Retrieves or updates retention configuration/policy details for authentication audit events.
+   *
+   * @param ... - Query, body, or parameter inputs if accepted by the handler.
+   * @returns The retention policy details or updated retention configuration.
+   */
+  async retention() {
+    // ...
+  }
