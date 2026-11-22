@@ -36,6 +36,6 @@ import { User } from '../entities/user.entity';
     ProofVerificationProcessor,
     QueueService,
   ],
-  exports: [TasksService],
+  exports: [TasksService, TasksScheduler],
 })
 export class TasksModule {}

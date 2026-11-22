@@ -6,7 +6,7 @@ import {
   ReminderScheduler,
 } from "./reminder.scheduler";
 
-import { Logger } from "@nestjs/common";
+import { Injectable, Logger, Module } from "@nestjs/common";
 import { CouponService } from "../../coupons/coupon.service";
 import { TasksService } from "../../tasks/tasks.service";
 import { NotificationService } from "../notifications/services/notification.service";
@@ -19,9 +19,12 @@ import {
 } from "../../tasks/entities/task-completion.entity";
 import { QueueService } from "../queue/queue.service";
 import { Coupon, CouponStatus } from "../../entities/coupon.entity";
-import { SchedulerRegistry } from "@nestjs/schedule";
+import { Cron, ScheduleModule, SchedulerRegistry } from "@nestjs/schedule";
 import { SchedulerModule } from "./scheduler.module";
 import { CleanupScheduler } from "./cleanup.scheduler";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import * as ts from "typescript";
 
 jest.mock("../../entities/user.entity", () => ({ User: class User {} }));
 
@@ -426,6 +429,74 @@ describe("SchedulerModule reminder registration", () => {
       expect(module.get(CouponService)).toBeDefined();
       expect(module.get(NotificationService)).toBeDefined();
       expect(module.get(SchedulerRegistry).getCronJobs().size).toBe(2);
+    } finally {
+      await module.close();
+    }
+  });
+});
+
+function moduleEntries(file: string, section: string): string[] {
+  const path = resolve(__dirname, "../..", file);
+  const source = ts.createSourceFile(
+    path,
+    readFileSync(path, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  let entries: string[] = [];
+  function visit(node: ts.Node) {
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(source) === "Module" &&
+      node.arguments[0] &&
+      ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      for (const property of node.arguments[0].properties) {
+        if (
+          ts.isPropertyAssignment(property) &&
+          property.name.getText(source) === section &&
+          ts.isArrayLiteralExpression(property.initializer)
+        ) {
+          entries = property.initializer.elements.map((entry) => entry.getText(source));
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return entries;
+}
+
+describe("Scheduler provider ownership", () => {
+  it("shares the canonical TasksScheduler with the reachable admin module", () => {
+    expect(moduleEntries("app.module.ts", "imports")).toEqual(
+      expect.arrayContaining(["SchedulerModule", "AdminModule"]),
+    );
+    const providers = ["tasks/tasks.module.ts", "modules/admin/admin.module.ts"].filter((file) =>
+      moduleEntries(file, "providers").includes("TasksScheduler"),
+    );
+    expect(providers).toEqual(["tasks/tasks.module.ts"]);
+    expect(moduleEntries("tasks/tasks.module.ts", "exports")).toContain("TasksScheduler");
+    expect(moduleEntries("modules/admin/admin.module.ts", "imports")).toContain("TasksModule");
+    expect(moduleEntries("shared/scheduler/scheduler.module.ts", "imports")).toContain("TasksModule");
+  });
+
+  it("does not duplicate cron discovery for identical ScheduleModule roots", async () => {
+    @Injectable()
+    class CronProbe {
+      @Cron("0 8 * * *")
+      tick() {}
+    }
+
+    @Module({ imports: [ScheduleModule.forRoot()], providers: [CronProbe] })
+    class ProviderModule {}
+
+    const module = await Test.createTestingModule({
+      imports: [ProviderModule, ScheduleModule.forRoot()],
+    }).compile();
+    try {
+      await module.init();
+      expect(module.get(SchedulerRegistry).getCronJobs().size).toBe(1);
     } finally {
       await module.close();
     }
