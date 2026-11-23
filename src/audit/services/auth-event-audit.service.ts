@@ -308,3 +308,22 @@ export class AuthEventAuditService {
     return email.trim().toLowerCase().slice(0, 320);
   }
 }
+/**
+   * Records an authentication failure audit event with the supplied failure details.
+   *
+   * @param params - Context and metadata describing the failed authentication attempt.
+   * @returns The persisted authentication failure audit record or completion promise.
+   */
+  async recordFailure(...) {
+    // ...
+  }
+
+  /**
+   * Records an authorization or access-denied authentication audit event.
+   *
+   * @param params - Context and metadata describing the denied access attempt.
+   * @returns The persisted access-denied audit record or completion promise.
+   */
+  async recordDenied(...) {
+    // ...
+  }
