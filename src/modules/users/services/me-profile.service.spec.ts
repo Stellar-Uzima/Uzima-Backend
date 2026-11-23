@@ -1,8 +1,11 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Repository } from 'typeorm';
 import { MeProfileService } from './me-profile.service';
 import { User } from '../../../entities/user.entity';
@@ -21,6 +24,7 @@ class FakeUserRepository {
     for (const row of this.rows.values()) {
       if (where.id && row.id !== where.id) continue;
       if (where.phoneNumber && row.phoneNumber !== where.phoneNumber) continue;
+      if (where.avatar && row.avatar !== where.avatar) continue;
       return row;
     }
     return null;
@@ -155,11 +159,85 @@ describe('MeProfileService (#1290)', () => {
     expect(result.phoneNumber).toBe('+2348012345678');
   });
 
-  it('persists an avatar URL', async () => {
-    const { service } = makeService();
-    const result = await service.updateMe('user-1', {
-      avatar: 'https://cdn.example.com/a.png',
+  describe('avatar metadata (#1483)', () => {
+    const AVATAR_REF = '/uploads/avatars/3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b-amina.jpg';
+
+    it('persists a valid avatar storage reference and returns it', async () => {
+      const { service } = makeService();
+      const result = await service.updateMe('user-1', { avatar: AVATAR_REF });
+      expect(result.avatar).toBe(AVATAR_REF);
+
+      const read = await service.getMe('user-1');
+      expect(read.avatar).toBe(AVATAR_REF);
     });
-    expect(result.avatar).toBe('https://cdn.example.com/a.png');
+
+    it('returns null avatar when none is stored', async () => {
+      const { service } = makeService();
+      const result = await service.getMe('user-1');
+      expect(result.avatar).toBeNull();
+    });
+
+    it('clears the avatar when null is sent', async () => {
+      const { service, repo } = makeService([makeUser({ avatar: AVATAR_REF })]);
+      const result = await service.updateMe('user-1', { avatar: null });
+      expect(result.avatar).toBeNull();
+      expect(repo.rows.get('user-1')!.avatar).toBeNull();
+    });
+
+    it.each([
+      ['an external URL', 'https://cdn.example.com/a.png'],
+      ['another storage folder', '/uploads/exports/3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b-x.json'],
+      ['a path traversal', '/uploads/avatars/../exports/user-2/data.json'],
+      ['a reference without a uuid', '/uploads/avatars/amina.jpg'],
+    ])('rejects %s with 400', async (_label, avatar) => {
+      const { service, repo } = makeService();
+      await expect(service.updateMe('user-1', { avatar })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repo.saveCount).toBe(0);
+    });
+
+    it("rejects another account's avatar with 403", async () => {
+      const { service, repo } = makeService([
+        makeUser(),
+        makeUser({ id: 'user-2', email: 'b@example.com', avatar: AVATAR_REF }),
+      ]);
+      await expect(service.updateMe('user-1', { avatar: AVATAR_REF })).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(repo.saveCount).toBe(0);
+    });
+
+    it('lets a user re-submit their own current avatar', async () => {
+      const { service } = makeService([makeUser({ avatar: AVATAR_REF })]);
+      const result = await service.updateMe('user-1', { avatar: AVATAR_REF });
+      expect(result.avatar).toBe(AVATAR_REF);
+    });
+  });
+
+  describe('UpdateMeProfileDto avatar validation (#1483)', () => {
+    const validateAvatar = async (avatar: unknown) => {
+      const dto = plainToInstance(UpdateMeProfileDto, { avatar });
+      return { dto, errors: await validate(dto) };
+    };
+
+    it('accepts a valid storage reference', async () => {
+      const { errors } = await validateAvatar(
+        '/uploads/avatars/3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b-amina.jpg',
+      );
+      expect(errors).toHaveLength(0);
+    });
+
+    it('accepts null and turns an empty string into null (clear)', async () => {
+      expect((await validateAvatar(null)).errors).toHaveLength(0);
+      const empty = await validateAvatar('   ');
+      expect(empty.errors).toHaveLength(0);
+      expect(empty.dto.avatar).toBeNull();
+    });
+
+    it('rejects an external URL', async () => {
+      const { errors } = await validateAvatar('https://cdn.example.com/a.png');
+      expect(errors.map((e) => e.property)).toContain('avatar');
+    });
   });
 });
