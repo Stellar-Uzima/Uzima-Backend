@@ -90,6 +90,7 @@ export class SavingsGoal {
 @Index(['goalId'])
 @Index(['status'])
 @Index(['createdAt'])
+@Index('UQ_savings_contributions_user_idempotency_key', ['userId', 'idempotencyKey'], { unique: true })
 export class SavingsContribution {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -123,6 +124,13 @@ export class SavingsContribution {
 
   @Column({ name: 'failure_reason', type: 'text', nullable: true })
   failureReason: string | null;
+
+  /**
+   * Client-supplied `Idempotency-Key`, unique per user. A retried request with
+   * the same key returns this contribution instead of posting a new one.
+   */
+  @Column({ name: 'idempotency_key', type: 'varchar', length: 255, nullable: true })
+  idempotencyKey: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone', precision: 6 })
   createdAt: Date;
