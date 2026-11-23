@@ -17,6 +17,7 @@ import { NotificationsModule } from '@/notifications/notifications.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from './guards/verified-email.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { RbacGuard } from './guards/rbac.guard';
@@ -72,6 +73,7 @@ import { LoginThrottleService } from './services/login-throttle.service';
     RolesGuard,
     PermissionsGuard,
     TokenRevocationGuard,
+    VerifiedEmailGuard,
     PasswordValidationPipe,
     PasswordPolicyService,
     PasswordValidatorService,
@@ -95,6 +97,7 @@ import { LoginThrottleService } from './services/login-throttle.service';
     RbacGuard,
     PermissionsGuard,
     TokenRevocationGuard,
+    VerifiedEmailGuard,
     JwtAuthGuard,
     JwtRefreshGuard,
     // Exported so the admin and recovery flows apply the same policy and the

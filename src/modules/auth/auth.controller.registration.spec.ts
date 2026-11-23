@@ -6,6 +6,7 @@ import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './services/auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from './guards/verified-email.guard';
 
 // The real service pulls in Redis, TypeORM and half the application. These
 // tests only care about what happens before it is reached.
@@ -31,6 +32,8 @@ describe('POST /auth/register input rules', () => {
       .overrideGuard(RateLimitGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(VerifiedEmailGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -25,6 +25,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from './guards/verified-email.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';
@@ -117,7 +118,7 @@ export class AuthController {
   }
 
   @Post('2fa/enable')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -133,7 +134,7 @@ export class AuthController {
   }
 
   @Post('2fa/disable')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -215,7 +216,7 @@ export class AuthController {
   }
 
   @Patch('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update user profile' })

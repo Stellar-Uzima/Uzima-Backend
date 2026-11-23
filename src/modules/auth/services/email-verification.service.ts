@@ -127,8 +127,20 @@ export class EmailVerificationService {
       return { status: 'EXPIRED', record };
     }
 
-    record.consumedAt = new Date();
-    await this.repo.save(record);
+    // Claim the token with a conditional UPDATE instead of "load, check, save".
+    // The row only matches while it is still unused, so when two requests
+    // present the same link at the same moment exactly one of them claims it
+    // and the other is told it was already used.
+    const claimedAt = new Date();
+    const claim = await this.repo.update(
+      { id: record.id, consumedAt: IsNull() },
+      { consumedAt: claimedAt }
+    );
+    if (!claim.affected) {
+      return { status: 'ALREADY_USED', record };
+    }
+
+    record.consumedAt = claimedAt;
 
     return { status: 'OK', record };
   }
