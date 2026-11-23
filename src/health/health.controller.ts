@@ -1,8 +1,6 @@
 import {
   Controller,
   Get,
-  HttpCode,
-  HttpStatus,
 } from "@nestjs/common";
 
 import {
@@ -25,10 +23,6 @@ import {
   QueueHealthIndicator,
 } from "./indicators/queue.health";
 
-import {
-  ScheduledJobHealthIndicator,
-} from "./indicators/scheduled-job.health";
-
 @ApiTags('Health')
 @Controller("health")
 export class HealthController {
@@ -44,9 +38,6 @@ export class HealthController {
 
     private readonly queue:
       QueueHealthIndicator,
-
-    private readonly scheduledJobs:
-      ScheduledJobHealthIndicator,
   ) {}
 
   @Get()
@@ -68,11 +59,6 @@ export class HealthController {
         this.queue.isHealthy(
           "queue",
         ),
-
-      () =>
-        this.scheduledJobs.isHealthy(
-          "scheduled_jobs",
-        ),
     ]);
   }
 
@@ -84,31 +70,6 @@ export class HealthController {
   async checkQueue() {
     return this.health.check([
       () => this.queue.isHealthy('queue'),
-    ]);
-  }
-
-  @Get('scheduled-jobs')
-  @HealthCheck()
-  @ApiOperation({
-    summary:
-      'Check scheduled job health, last successful execution and status',
-  })
-  @ApiResponse({
-    status: 200,
-    description:
-      'All critical schedules are healthy',
-  })
-  @ApiResponse({
-    status: 503,
-    description:
-      'One or more schedules are missed, delayed or repeatedly failing',
-  })
-  async checkScheduledJobs() {
-    return this.health.check([
-      () =>
-        this.scheduledJobs.isHealthy(
-          "scheduled_jobs",
-        ),
     ]);
   }
 }
