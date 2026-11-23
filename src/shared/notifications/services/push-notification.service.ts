@@ -3,23 +3,31 @@ import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
 /**
+ * Type guard for non-Error throwables that still carry a string `message`
+ * (e.g. plain objects thrown by some SDKs).
+ */
+function hasStringMessage(value: unknown): value is { message: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'message' in value &&
+    typeof value.message === 'string'
+  );
+}
+
+/**
  * Narrows an unknown caught value to a human-readable message.
  * Handles native Error instances as well as non-Error throwables
  * (strings, objects with a `message` property, etc.) without
- * relying on `any`.
+ * relying on `any` or type assertions.
  */
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
 
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof (error as { message: unknown }).message === 'string'
-  ) {
-    return (error as { message: string }).message;
+  if (hasStringMessage(error)) {
+    return error.message;
   }
 
   if (typeof error === 'string') {
@@ -36,7 +44,7 @@ export class PushNotificationService implements OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {}
 
-  onModuleInit() {
+  onModuleInit(): void {
     this.logger.log('Initializing FCM push notification service...');
     try {
       const serviceAccountPath = this.configService.get<string>('FIREBASE_CREDENTIALS_PATH');
@@ -106,7 +114,7 @@ export class PushNotificationService implements OnModuleInit {
     }
 
     try {
-      const response = await this.firebaseApp.messaging().send({
+      const messageId: string = await this.firebaseApp.messaging().send({
         token,
         notification: {
           title,
@@ -114,7 +122,7 @@ export class PushNotificationService implements OnModuleInit {
         },
         data,
       });
-      this.logger.log(`FCM push notification sent successfully, messageId: ${response}`);
+      this.logger.log(`FCM push notification sent successfully, messageId: ${messageId}`);
       return true;
     } catch (error: unknown) {
       this.logger.error(
