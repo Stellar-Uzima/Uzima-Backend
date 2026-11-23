@@ -489,73 +489,106 @@ describe('Coupons E2E', () => {
         .expect(403);
     });
 
-    it('GET /coupons/validate/:code - Direct code validation (endpoint not implemented)', async () => {
-      // This test documents the requirement for a direct code validation endpoint
-      mockCouponRepository.findOne.mockResolvedValue({
-        ...sampleCoupon,
-        userId,
+
+    describe('Coupon Endpoints', () => {
+      const couponCode = 'UZIMA1A2';
+
+      const authHeader = (token: string) => ({
+        Authorization: `Bearer ${token}`,
       });
 
-      const response = await request(app.getHttpServer())
-        .get('/coupons/validate/UZIMA1A2')
-        .set('Authorization', `Bearer ${userToken}`)
-        .expect(200);
+      describe('GET /coupons/validate/:code', () => {
+        it('should validate a coupon directly using its code', async () => {
+          mockCouponRepository.findOne.mockResolvedValue({
+            ...sampleCoupon,
+            userId,
+          });
 
-      expect(response.body.valid).toBe(true);
+          const response = await request(app.getHttpServer())
+            .get(`/coupons/validate/${couponCode}`)
+            .set(authHeader(userToken))
+            .expect(200);
+
+          expect(response.body).toEqual(
+            expect.objectContaining({
+              valid: true,
+            }),
+          );
+        });
+      });
+
+      describe('GET /coupons', () => {
+        it('should return coupons filtered by status and specialist type', async () => {
+          const response = await request(app.getHttpServer())
+            .get('/coupons')
+            .query({
+              status: 'active',
+              specialistType: 'doctor',
+            })
+            .set(authHeader(adminToken))
+            .expect(200);
+
+          expect(response.body).toEqual(
+            expect.objectContaining({
+              data: expect.any(Array),
+            }),
+          );
+        });
+      });
+
+      describe('POST /coupons/apply', () => {
+        it('should apply a valid coupon to a reward calculation', async () => {
+          const applyPayload = {
+            couponCode,
+            totalAmount: 100,
+          };
+
+          const response = await request(app.getHttpServer())
+            .post('/coupons/apply')
+            .set(authHeader(userToken))
+            .send(applyPayload)
+            .expect(200);
+
+          expect(response.body).toBeDefined();
+        });
+      });
     });
 
-    it('GET /coupons - List coupons with filters (endpoint not implemented)', async () => {
-      // This test documents the requirement for a filtered coupon list endpoint
-      const response = await request(app.getHttpServer())
-        .get('/coupons?status=active&specialistType=doctor')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
 
-      expect(response.body.data).toBeDefined();
-      expect(Array.isArray(response.body.data)).toBe(true);
-    });
+    const response = await request(app.getHttpServer())
+      .post('/coupons/apply')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(applyPayload)
+      .expect(200);
 
-    it('POST /coupons/apply - Apply coupon to reward calculation (endpoint not implemented)', async () => {
-      // This test documents the requirement for a coupon application endpoint
-      const applyPayload = {
-        couponCode: 'UZIMA1A2',
-        totalAmount: 100,
-      };
-
-      const response = await request(app.getHttpServer())
-        .post('/coupons/apply')
-        .set('Authorization', `Bearer ${userToken}`)
-        .send(applyPayload)
-        .expect(200);
-
-      expect(response.body.originalAmount).toBe(100);
-      expect(response.body.discountAmount).toBe(10); // 10% discount
-      expect(response.body.finalAmount).toBe(90);
-    });
-
-    it('Database state - usedCount should increment after coupon redemption (requires redemption endpoint)', async () => {
-      // This test documents the requirement for tracking coupon usage
-      const coupon = {
-        ...sampleCoupon,
-        usedCount: 0,
-        maxUses: 1,
-      };
-
-      mockCouponRepository.findOne.mockResolvedValue(coupon);
-
-      // After applying coupon, usedCount should increment
-      await request(app.getHttpServer())
-        .post('/coupons/apply')
-        .set('Authorization', `Bearer ${userToken}`)
-        .send({ couponCode: 'UZIMA1A2', totalAmount: 100 })
-        .expect(200);
-
-      // Verify database state updated
-      expect(mockCouponRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          usedCount: 1,
-        }),
-      );
-    });
+    expect(response.body.originalAmount).toBe(100);
+    expect(response.body.discountAmount).toBe(10); // 10% discount
+    expect(response.body.finalAmount).toBe(90);
   });
+
+  it('Database state - usedCount should increment after coupon redemption (requires redemption endpoint)', async () => {
+    // This test documents the requirement for tracking coupon usage
+    const coupon = {
+      ...sampleCoupon,
+      usedCount: 0,
+      maxUses: 1,
+    };
+
+    mockCouponRepository.findOne.mockResolvedValue(coupon);
+
+    // After applying coupon, usedCount should increment
+    await request(app.getHttpServer())
+      .post('/coupons/apply')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ couponCode: 'UZIMA1A2', totalAmount: 100 })
+      .expect(200);
+
+    // Verify database state updated
+    expect(mockCouponRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usedCount: 1,
+      }),
+    );
+  });
+});
 });
