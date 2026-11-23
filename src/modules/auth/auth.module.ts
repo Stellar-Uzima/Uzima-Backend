@@ -36,6 +36,7 @@ import { PasswordValidationPipe } from '../../common/pipes/password-validation.p
 import { PasswordPolicyService } from './services/password-policy.service';
 import { PasswordValidatorService } from './services/password-validator.service';
 import { AccountLockoutService } from './services/account-lockout.service';
+import { LoginThrottleService } from './services/login-throttle.service';
 
 @Module({
   imports: [
@@ -74,6 +75,8 @@ import { AccountLockoutService } from './services/account-lockout.service';
     PasswordValidationPipe,
     PasswordPolicyService,
     PasswordValidatorService,
+    AccountLockoutService,
+    LoginThrottleService,
     // Registered globally so role/permission declarations on a handler are
     // always enforced, even on routes that forget `@UseGuards(RolesGuard)`.
     // Routes without `@Roles`/`@Permissions` metadata are unaffected.

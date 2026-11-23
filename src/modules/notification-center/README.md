@@ -35,3 +35,18 @@ sum by (channel) (rate(notification_deliveries_total{outcome="failure"}[5m]))
 /
 clamp_min(sum by (channel) (rate(notification_deliveries_total[5m])), 0.001)
 ```
+
+## Who owns what (issue #793)
+
+| Location | Role | Channels |
+| --- | --- | --- |
+| `src/modules/notification-center/` | The implementation: `/notifications` API, in-app inbox, `ChannelRouterService`, delivery log, retries, dead letters. | routes **email**, **push**, **sms**; owns **in-app** |
+| `src/modules/notifications/` | Public facade (`NotificationsModule`) registered by `AppModule`. Imports and re-exports the center. | none |
+| `src/notifications/` | Historical import paths (`NotificationService`, `NotificationsModule`) that re-export the canonical classes, plus the preferences module and entities. | none (preferences decide which channels a user gets) |
+| `src/shared/notifications/` | Provider adapters used only by the center: `PushNotificationService` (FCM), `EmailTemplateService` (HTML email). | push, email |
+
+Rules of thumb: send through `NotificationService` / `NotificationCenterService`; never call a provider adapter from a feature module; do not add behaviour to the re-export files.
+
+Removed in #793 as unreferenced: `src/notifications/notifications.controller.ts` (never registered, its routes duplicated the center controller) and `src/notifications/notification-log.entity.ts`.
+
+Left for follow-up tickets: `PushService` and the `PushSubscription` entity in `src/shared/notifications/` have no callers and its `sendPush` is a stub, so it overlaps with `PushNotificationService`; and `src/modules/notifications/notification-preferences.*` plus `src/notifications/preferences/` hold two preferences controllers, only one of which is imported anywhere.
