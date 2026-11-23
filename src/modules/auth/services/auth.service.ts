@@ -937,7 +937,7 @@ export class AuthService {
   /**
    * Password Reset Flow
    */
-  async forgotPassword(email: string, clientIp?: string) {
+  async forgotPassword(email: string, clientIp?: string, requestContext?: AuthRequestContext) {
     const normalized = normalizeEmail(email);
 
     // Throttled per address so this cannot be used to flood someone's inbox.
@@ -982,9 +982,10 @@ export class AuthService {
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${normalized}`);
 
-    // Any outstanding session is invalidated the moment a reset is requested,
-    // so a stolen token cannot outlive the credential change (#1287).
-    await this.revokeAllSessionsForUser(user.id);
+    // Sessions are deliberately NOT revoked here. Requesting a reset needs no
+    // authentication, so revoking on request would let anyone sign any user
+    // out just by typing their email address. Sessions are invalidated when
+    // the reset is actually completed, in resetPassword().
 
     await this.recordAuthEvent({
       eventType: AuthEventType.PASSWORD_RESET_REQUESTED,
@@ -1006,19 +1007,19 @@ export class AuthService {
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(token: string, newPassword: string, requestContext?: AuthRequestContext) {
     // Same policy as registration, enforced here because resetPassword is also
     // called from the admin recovery path. Skipping it would let a reset set a
     // password that registration would have rejected.
     this.passwordPolicy.assert(newPassword);
 
+    // Only the SHA-256 hash of the token is stored, so a read of the users
+    // table does not yield a usable reset link.
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Look up by token only — expiry is checked separately so we can return 410
+    // Look up by token only. Expiry is checked separately so we can return 410
     // instead of 400 when the token exists but has expired.
-    const user = await this.usersService['usersRepository'].findOne({
-      where: { passwordResetToken: hash },
-    });
+    const user = await this.usersService.findByPasswordResetToken(hash);
 
     if (!user) {
       throw new BadRequestException('Invalid reset token');
@@ -1037,26 +1038,36 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    user.password = hashedPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpiry = null;
 
-    // A password change must invalidate every outstanding session. Without
-    // this, the person who triggered the reset is locked out while whoever
-    // prompted it keeps a working refresh token and simply re-mints an access
-    // token — which is the opposite of what "reset my password" is for.
+    // Single use. The password is changed and the token cleared in one
+    // conditional UPDATE keyed on the token hash, so when two requests present
+    // the same token at the same moment only one of them matches a row.
+    // A separate "load, check, save" would let both through.
+    const applied = await this.usersService.applyPasswordReset(user.id, hash, hashedPassword);
+    if (!applied) {
+      await this.recordAuthEvent({
+        eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+        outcome: AuthEventOutcome.FAILURE,
+        reason: 'token_already_used',
+        userId: user.id,
+        userEmail: user.email,
+        context: requestContext,
+      });
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    // A password change must invalidate every refresh session. Without this,
+    // the person who triggered the reset is locked out while whoever prompted
+    // it keeps a working refresh token and simply re-mints an access token.
+    // (applyPasswordReset has already cleared the refresh token stored on the
+    // user row; this removes the ones held in Redis.)
     await this.lockout.clear(user.id, {
       cause: 'password_reset',
       hadLock: Boolean(user.lockedUntil),
       userEmail: user.email,
     });
     await this.clearAllUserRefreshTokens(user.id);
-    user.refreshToken = null;
-    user.refreshTokenExpiry = null;
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
 
-    await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
     // Audit password reset
@@ -1070,6 +1081,12 @@ export class AuthService {
       isSensitive: true,
       isComplianceEvent: true,
       metadata: { method: 'password_reset_token' },
+    });
+    await this.recordAuthEvent({
+      eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+      userId: user.id,
+      userEmail: user.email,
+      context: requestContext,
     });
 
     return { message: 'Password reset successful' };

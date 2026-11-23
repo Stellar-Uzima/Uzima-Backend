@@ -178,8 +178,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
   @ApiResponse({ status: 429, description: 'Too many password reset requests' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto, @ClientIp() clientIp: string) {
-    return this.authService.forgotPassword(dto.email, clientIp);
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @ClientIp() clientIp: string,
+    @Req() req: RequestWithContext
+  ) {
+    return this.authService.forgotPassword(dto.email, clientIp, this.contextFrom(req));
   }
 
   @Post('password/reset')

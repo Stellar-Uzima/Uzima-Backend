@@ -80,6 +80,43 @@ export class UsersService {
     });
   }
 
+  /** Looks a user up by the SHA-256 hash of a password reset token. */
+  async findByPasswordResetToken(tokenHash: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { passwordResetToken: tokenHash },
+    });
+  }
+
+  /**
+   * Completes a password reset in a single conditional UPDATE.
+   *
+   * The row is matched on both the user id and the token hash, so a token that
+   * has already been used (and therefore cleared) matches nothing. Returns
+   * false in that case, which is what makes the token single-use even when two
+   * requests arrive together. The stored refresh token is cleared in the same
+   * statement so a reset also ends the refresh session kept on the user row.
+   */
+  async applyPasswordReset(
+    userId: string,
+    tokenHash: string,
+    hashedPassword: string
+  ): Promise<boolean> {
+    const result = await this.usersRepository.update(
+      { id: userId, passwordResetToken: tokenHash },
+      {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+        refreshToken: null,
+        refreshTokenExpiry: null,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      }
+    );
+
+    return (result.affected ?? 0) === 1;
+  }
+
   async save(user: User): Promise<User> {
     return this.usersRepository.save(user);
   }
