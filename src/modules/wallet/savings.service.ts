@@ -21,10 +21,13 @@ import {
   CreateSavingsGoalDto,
   UpdateSavingsGoalDto,
   CreateContributionDto,
+  CreateSavingsWithdrawalDto,
   SavingsGoalResponseDto,
   ContributionResponseDto,
   SavingsGoalListQueryDto,
+  SavingsWithdrawalResponseDto,
 } from './dto/savings-wallet.dto';
+import { assertSavingsWithdrawalAllowed } from './savings-withdrawal.rules';
 
 @Injectable()
 export class SavingsService {
@@ -314,6 +317,117 @@ export class SavingsService {
     this.logger.log(`Contribution confirmed: ${result.contribution.id} for goal ${goalId}`);
 
     return this.mapContributionToResponse(result.contribution);
+  }
+
+  /**
+   * Withdraw saved funds from a goal back to the user's wallet.
+   * Eligibility is checked against the locked goal inside the transaction and
+   * before any write, so a rejected withdrawal leaves all records unchanged.
+   */
+  async withdraw(
+    userId: string,
+    goalId: string,
+    dto: CreateSavingsWithdrawalDto,
+  ): Promise<SavingsWithdrawalResponseDto> {
+    const goal = await this.goalRepo.findOne({ where: { id: goalId, userId } });
+    if (!goal) {
+      throw new NotFoundException('Savings goal not found');
+    }
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const goals = manager.getRepository(SavingsGoal);
+      const contributions = manager.getRepository(SavingsContribution);
+      const transactions = manager.getRepository(WalletTransaction);
+      const users = manager.getRepository(User);
+
+      const lockedGoal = await goals.findOne({
+        where: { id: goalId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedGoal) {
+        throw new NotFoundException('Savings goal not found');
+      }
+
+      const now = new Date();
+      const pendingContributions = await contributions.count({
+        where: { goalId, status: ContributionStatus.PENDING },
+      });
+      const withdrawalsInLastDay = await transactions.count({
+        where: {
+          userId,
+          type: WalletTransactionType.SAVINGS_WITHDRAWAL,
+          referenceId: goalId,
+          status: WalletTransactionStatus.CONFIRMED,
+          createdAt: MoreThanOrEqual(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+        },
+      });
+
+      assertSavingsWithdrawalAllowed({
+        goal: lockedGoal,
+        amount: dto.amount,
+        pendingContributions,
+        withdrawalsInLastDay,
+        now,
+      });
+
+      const user = await users.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      const balanceBefore = Number(user.walletBalance);
+      user.walletBalance = parseFloat((balanceBefore + dto.amount).toFixed(7));
+
+      lockedGoal.currentAmount = parseFloat(
+        (Number(lockedGoal.currentAmount) - dto.amount).toFixed(7),
+      );
+
+      const transaction = transactions.create({
+        userId,
+        type: WalletTransactionType.SAVINGS_WITHDRAWAL,
+        amount: dto.amount,
+        balanceBefore,
+        balanceAfter: user.walletBalance,
+        status: WalletTransactionStatus.CONFIRMED,
+        referenceId: goalId,
+        referenceType: 'savings_goal',
+        description: `Withdrawal from savings goal: ${lockedGoal.title}`,
+        metadata: {
+          goalId,
+          goalTitle: lockedGoal.title,
+          goalStatus: lockedGoal.status,
+          goalBalanceAfter: lockedGoal.currentAmount,
+        },
+      });
+      await transactions.save(transaction);
+      await users.save(user);
+      await goals.save(lockedGoal);
+
+      return { transaction, goalBalance: lockedGoal.currentAmount, walletBalance: user.walletBalance };
+    });
+
+    await this.invalidateGoalsCache(userId);
+    await this.walletService.invalidateCache({ userId });
+
+    this.eventEmitter.emit('savings.withdrawal.confirmed', {
+      transactionId: result.transaction.id,
+      goalId,
+      userId,
+      amount: dto.amount,
+    });
+    this.logger.log(`Savings withdrawal confirmed: ${result.transaction.id} from goal ${goalId}`);
+
+    return {
+      transactionId: result.transaction.id,
+      goalId,
+      amount: dto.amount,
+      goalBalance: result.goalBalance,
+      walletBalance: result.walletBalance,
+      status: result.transaction.status,
+      createdAt: result.transaction.createdAt,
+    };
   }
 
   /**
