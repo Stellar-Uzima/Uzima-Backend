@@ -99,10 +99,15 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @ClientIp() clientIp: string,
+    @Req() req: RequestWithContext,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const userAgent = req.headers?.['user-agent'];
     try {
-      return await this.authService.login(dto, clientIp);
+      return await this.authService.login(dto, clientIp, {
+        ip: req.ip,
+        headers: { 'user-agent': typeof userAgent === 'string' ? userAgent : undefined },
+      });
     } catch (error) {
       if (error instanceof LoginThrottledException) {
         res.setHeader('Retry-After', String(error.retryAfterSeconds));

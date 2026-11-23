@@ -6,13 +6,13 @@ import {
   InternalServerErrorException,
   Logger,
   Optional,
-  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
 import { AccountLockedException } from '../exceptions/account-locked.exception';
+import { TooManyRequestsException } from '../exceptions/too-many-requests.exception';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -29,7 +29,11 @@ import { OtpService } from '../../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
-import { AuditService, AuditAction, AuditResource } from '../../../audit/audit.service';
+import { AuditService } from '../../../audit/audit.service';
+import { AuditAction, AuditResource } from '../../../audit/entities/audit-log.entity';
+import { AuthEventAuditService, RecordAuthEventInput } from '../../../audit/services/auth-event-audit.service';
+import { AuthEventOutcome, AuthEventType } from '../../../database/entities/auth-event.entity';
+import { JwtSecurityConfig, buildJwtSecurityConfig } from '../../../config/jwt.config';
 import { EmailVerificationService } from './email-verification.service';
 import { SessionService } from './session.service';
 import { TokenBlacklist, TokenType } from '@/database/entities/token-blacklist.entity';
@@ -84,11 +88,11 @@ export class AuthService {
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
     private readonly notifications: NotificationService,
     private readonly configService: ConfigService,
-    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
-    @Optional() private readonly referralService?: ReferralService,
     private readonly passwordPolicy: PasswordPolicyService,
     private readonly lockout: AccountLockoutService,
     private readonly loginThrottle: LoginThrottleService,
+    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
+    @Optional() private readonly referralService?: ReferralService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
@@ -97,6 +101,28 @@ export class AuthService {
       url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
     });
     this.redisClient.connect();
+  }
+
+  /**
+   * Writes an auth audit event. The audit trail must never be the reason a
+   * sign-in, verification or reset fails, so a failure here is only logged.
+   */
+  private async recordAuthEvent(input: AuthEventInput): Promise<void> {
+    if (!this.authEventAuditService) {
+      return;
+    }
+
+    const { context, ...event } = input;
+    try {
+      await this.authEventAuditService.record({
+        ...event,
+        ipAddress: context?.ipAddress ?? null,
+        userAgent: context?.userAgent ?? null,
+        requestId: context?.requestId ?? null,
+      });
+    } catch (err) {
+      this.logger.warn(`Could not record auth event ${input.eventType}: ${(err as Error).message}`);
+    }
   }
 
   // Register user
@@ -128,7 +154,10 @@ export class AuthService {
 
     if (dto.referralCode && this.referralService) {
       try {
-        await this.referralService.redeemReferralCode(user.id, dto.referralCode);
+        await this.referralService.redeemReferral(user.id, {
+          userId: user.id,
+          referralCode: dto.referralCode,
+        });
       } catch (error) {
         this.logger.warn(
           `Referral code not applied for user ${user.id}: ${(error as Error).message}`,
@@ -158,7 +187,7 @@ export class AuthService {
   }
 
   // Login user
-  async login(dto: LoginDto, clientIp?: string) {
+  async login(dto: LoginDto, clientIp?: string, req?: { ip?: string; headers?: { 'user-agent'?: string } }) {
     const email = normalizeEmail(dto.email);
 
     // Checked before the user lookup so the throttled response, and the moment
