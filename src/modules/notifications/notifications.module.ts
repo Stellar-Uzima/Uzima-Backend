@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NotificationCenterModule } from '../notification-center/notification-center.module';
+import { PushModule } from '../../shared/notifications/push.module';
+import { PushSubscriptionsController } from './push-subscriptions.controller';
 
 /**
  * Public notification module.
@@ -9,7 +11,8 @@ import { NotificationCenterModule } from '../notification-center/notification-ce
  * where the implementation lives.
  */
 @Module({
-  imports: [NotificationCenterModule],
+  imports: [NotificationCenterModule, PushModule],
+  controllers: [PushSubscriptionsController],
   exports: [NotificationCenterModule],
 })
 export class NotificationsModule {}
