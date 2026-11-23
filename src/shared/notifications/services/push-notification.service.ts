@@ -88,9 +88,19 @@ export class PushNotificationService implements OnModuleInit {
     body: string,
     data: Record<string, string> = {}
   ): Promise<boolean> {
+    const result = await this.sendPushNotificationWithStatus(token, title, body, data);
+    return result.sent;
+  }
+
+  async sendPushNotificationWithStatus(
+    token: string,
+    title: string,
+    body: string,
+    data: Record<string, string> = {},
+  ): Promise<{ sent: boolean; permanentFailure: boolean }> {
     if (!token) {
       this.logger.warn('FCM token is empty, skipping push notification');
-      return false;
+      return { sent: false, permanentFailure: true };
     }
 
     this.logger.log(
@@ -102,7 +112,7 @@ export class PushNotificationService implements OnModuleInit {
       this.logger.log(
         `[MOCK FCM] Push notification sent to token: ${token} - Title: ${title}, Body: ${body}`
       );
-      return true;
+      return { sent: true, permanentFailure: false };
     }
 
     try {
@@ -115,13 +125,23 @@ export class PushNotificationService implements OnModuleInit {
         data,
       });
       this.logger.log(`FCM push notification sent successfully, messageId: ${response}`);
-      return true;
+      return { sent: true, permanentFailure: false };
     } catch (error: unknown) {
       this.logger.error(
         `FCM push notification delivery failed for token ${token}: ${getErrorMessage(error)}`
       );
-      // Failed pushes are logged and don't break the notification flow (returns false instead of throwing)
-      return false;
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? String((error as { code: unknown }).code)
+          : '';
+      const permanentFailure = new Set([
+        'messaging/registration-token-not-registered',
+        'messaging/invalid-registration-token',
+        'messaging/invalid-argument',
+      ]).has(code);
+      // Failed pushes don't break the notification flow. Permanent provider
+      // failures are returned so the subscription can be disabled.
+      return { sent: false, permanentFailure };
     }
   }
 }
