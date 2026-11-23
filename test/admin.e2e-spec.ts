@@ -7,7 +7,7 @@ import { AdminUsersController } from '../src/modules/admin/admin-users.controlle
 import { AdminUsersService } from '../src/modules/admin/services/admin-users.service';
 import { AuditService } from '../src/audit/audit.service';
 import { AuditLog } from '../src/audit/entities/audit-log.entity';
-import { JwtStrategy } from '../src/auth/strategies/jwt.strategy';
+import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { RolesGuard } from '../src/auth/guards/roles.guard';
 import { User } from '../src/entities/user.entity';
 import { Role } from '../src/auth/enums/role.enum';
