@@ -24,6 +24,23 @@ export class LoggingInterceptor implements NestInterceptor {
     private readonly logger: CustomLogger,
   ) {}
 
+  /**
+   * Logs every HTTP request that passes through the route handler and keeps a
+   * persistent record of it.
+   *
+   * The request is logged as soon as it arrives. When the handler responds, the
+   * method, URL, status code and response time are logged and a request log is
+   * stored. When the handler fails, the error is logged and stored with its
+   * status code (500 if the error has none), then re-thrown unchanged. Headers,
+   * the request body, the response body, the URL and error messages are
+   * redacted before they are stored, so secrets such as passwords and tokens
+   * never reach the log. A failure to store the log is itself only logged and
+   * never changes the response the client receives.
+   *
+   * @param context - The NestJS execution context for the current HTTP request.
+   * @param next - The call handler that runs the route handler and exposes its response stream.
+   * @returns An observable that emits the route handler's response data unchanged.
+   */
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
