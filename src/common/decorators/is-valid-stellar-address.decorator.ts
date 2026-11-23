@@ -42,3 +42,33 @@ export function IsValidStellarAddress(validationOptions?: ValidationOptions) {
     });
   };
 }
+/**
+   * Validates whether a value is a properly formatted Stellar public account address.
+   *
+   * @param value - Candidate value being validated.
+   * @param args - Validation arguments containing property and constraint context.
+   * @returns `true` if the value is a valid Stellar address, otherwise `false`.
+   */
+  validate(value: unknown, args: ValidationArguments): boolean {
+    // ...
+  }
+
+  /**
+   * Provides the default validation error message when Stellar address validation fails.
+   *
+   * @param args - Validation arguments containing property and constraint context.
+   * @returns Human-readable validation error message.
+   */
+  defaultMessage(args: ValidationArguments): string {
+    // ...
+  }
+
+/**
+ * Property validation decorator that asserts a field contains a valid Stellar address.
+ *
+ * @param validationOptions - Optional class-validator options such as custom messages or groups.
+ * @returns A property decorator registering the Stellar address validation rule.
+ */
+export function IsValidStellarAddress(validationOptions?: ValidationOptions) {
+  // ...
+}

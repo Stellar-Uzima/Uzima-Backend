@@ -4,6 +4,16 @@
  * never leaking stack traces or internal implementation details.
  */
 
+/**
+ * Builds a standardized, human-readable error message for CRUD filter and exception responses.
+ *
+ * @param params - Contextual details (such as operation, resource, or underlying error) used to format the message.
+ * @returns The formatted CRUD error message string.
+ */
+export function buildCrudErrorMessage(...) {
+  // ...
+}
+
 export type CrudErrorKind = 'validation' | 'business_rule' | 'not_found' | 'unknown';
 
 export interface CrudErrorMessage {
