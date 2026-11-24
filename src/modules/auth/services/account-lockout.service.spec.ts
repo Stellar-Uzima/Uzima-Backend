@@ -5,25 +5,34 @@ import { AccountLockedException } from '../exceptions/account-locked.exception';
 
 /** Captures the single UPDATE statement the service issues. */
 function makeRepo(result: { attempts: number; lockedUntil: Date | null }) {
-  const set = jest.fn();
+  // The service builds `createQueryBuilder().update(User).set(...).where(...)`,
+  // so every link in the chain has to hand the builder back.
+  const qb: Record<string, jest.Mock> = {};
+  const set = jest.fn(() => qb);
   const where = jest.fn().mockReturnValue({
     returning: () => ({ execute: async () => ({ raw: [{ failedLoginAttempts: result.attempts, lockedUntil: result.lockedUntil }] }) }),
   });
-  const qb = { set, where };
+  Object.assign(qb, { update: jest.fn(() => qb), set, where });
+
+  const update = jest.fn().mockResolvedValue({ affected: 1 });
+  const find = jest.fn().mockResolvedValue([]);
 
   return {
-    repo: { createQueryBuilder: () => qb, update: jest.fn() } as unknown as Repository<User>,
+    repo: { createQueryBuilder: () => qb, update, find } as unknown as Repository<User>,
     qb,
     set,
     where,
+    update,
+    find,
   };
 }
 
 function makeService(result: { attempts: number; lockedUntil: Date | null } = { attempts: 1, lockedUntil: null }) {
-  const { repo, qb, set, where } = makeRepo(result);
+  const { repo, qb, set, where, update, find } = makeRepo(result);
   const notifications = { sendEmail: jest.fn().mockResolvedValue(undefined) };
+  const authEvents = { record: jest.fn().mockResolvedValue(null) };
 
-  const service = new AccountLockoutService(repo, notifications as never);
+  const service = new AccountLockoutService(repo, notifications as never, authEvents as never);
 
   // Replace the Redis client: the counter is advisory, and the tests are about
   // the SQL statement and the state machine, not the transport. Injecting also
@@ -37,7 +46,7 @@ function makeService(result: { attempts: number; lockedUntil: Date | null } = { 
   };
   service.setRedisClient(client as never);
 
-  return { service, qb, set, where, notifications, client };
+  return { service, qb, set, where, update, find, notifications, authEvents, client };
 }
 
 describe('AccountLockoutService (#1286)', () => {
@@ -204,6 +213,230 @@ describe('AccountLockoutService (#1286)', () => {
       await service.clear('u1');
 
       expect(client.del).toHaveBeenCalledWith('2fa:failures:u1');
+    });
+
+    it('zeroes the counter and removes the lock on the user row', async () => {
+      const { service, update } = makeService();
+
+      await service.clear('u1');
+
+      expect(update).toHaveBeenCalledWith('u1', { failedLoginAttempts: 0, lockedUntil: null });
+    });
+
+    it('records an ACCOUNT_UNLOCKED event with the cause when a real lock is cleared', async () => {
+      const { service, authEvents } = makeService();
+
+      await service.clear('u1', {
+        cause: 'password_reset',
+        hadLock: true,
+        userEmail: 'a@b.c',
+        ipAddress: '10.0.0.1',
+      });
+
+      expect(authEvents.record).toHaveBeenCalledTimes(1);
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'ACCOUNT_UNLOCKED',
+          outcome: 'SUCCESS',
+          userId: 'u1',
+          userEmail: 'a@b.c',
+          ipAddress: '10.0.0.1',
+          metadata: { cause: 'password_reset' },
+        }),
+      );
+    });
+
+    it('records the cause as a successful login when none is given', async () => {
+      const { service, authEvents } = makeService();
+
+      await service.clear('u1', { hadLock: true });
+
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: { cause: 'successful_login' } }),
+      );
+    });
+
+    it('does not record an unlock when only a partial failure count is cleared', async () => {
+      const { service, authEvents } = makeService();
+
+      // Three failed attempts and then a good login: nothing was ever locked,
+      // so there is no unlock to put in the audit trail.
+      await service.clear('u1', { cause: 'successful_login', hadLock: false });
+      await service.clear('u1');
+
+      expect(authEvents.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lock audit events', () => {
+    it('records ACCOUNT_LOCKED once, on the attempt that trips the lock', async () => {
+      const lockedUntil = new Date(Date.now() + 900_000);
+      const { service, authEvents } = makeService({ attempts: 5, lockedUntil });
+
+      await service.recordPasswordFailure('u1', { userEmail: 'a@b.c', ipAddress: '10.0.0.1' });
+
+      expect(authEvents.record).toHaveBeenCalledTimes(1);
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'ACCOUNT_LOCKED',
+          outcome: 'SUCCESS',
+          userId: 'u1',
+          userEmail: 'a@b.c',
+          ipAddress: '10.0.0.1',
+          metadata: expect.objectContaining({
+            cause: 'max_failed_attempts',
+            attempts: 5,
+            threshold: 5,
+            lockedUntil: lockedUntil.toISOString(),
+            durationMs: 900_000,
+          }),
+        }),
+      );
+    });
+
+    it('records nothing for an attempt that stays under the threshold', async () => {
+      const { service, authEvents } = makeService({ attempts: 2, lockedUntil: null });
+
+      await service.recordPasswordFailure('u1');
+
+      expect(authEvents.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('releaseExpired', () => {
+    it('only matches a lock whose time has passed, and resets the counter with it', async () => {
+      const { service, update } = makeService();
+
+      await service.releaseExpired('u1');
+
+      const [where, patch] = update.mock.calls[0];
+      expect(where.id).toBe('u1');
+      // A TypeORM FindOperator, not a bare value: the update must be guarded so
+      // it cannot clear a lock that is still in force.
+      expect(where.lockedUntil).toBeDefined();
+      expect(where.lockedUntil).not.toBeInstanceOf(Date);
+      expect(patch).toEqual({ failedLoginAttempts: 0, lockedUntil: null });
+    });
+
+    it('records an ACCOUNT_UNLOCKED event with cause "expired" when it released the lock', async () => {
+      const { service, authEvents } = makeService();
+
+      await expect(service.releaseExpired('u1', { userEmail: 'a@b.c' })).resolves.toBe(true);
+
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'ACCOUNT_UNLOCKED',
+          userId: 'u1',
+          userEmail: 'a@b.c',
+          metadata: { cause: 'expired' },
+        }),
+      );
+    });
+
+    it('records nothing when another request already released the lock', async () => {
+      const { service, update, authEvents } = makeService();
+      update.mockResolvedValue({ affected: 0 });
+
+      // A login attempt and the sweep race for the same lock: only the one that
+      // actually changed the row may write the audit event.
+      await expect(service.releaseExpired('u1')).resolves.toBe(false);
+
+      expect(authEvents.record).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('releaseExpiredLocks (scheduled sweep)', () => {
+    it('releases and audits every expired lock it finds', async () => {
+      const { service, find, authEvents } = makeService();
+      find.mockResolvedValue([
+        { id: 'u1', email: 'a@b.c' },
+        { id: 'u2', email: 'd@e.f' },
+      ]);
+
+      await expect(service.releaseExpiredLocks()).resolves.toBe(2);
+
+      expect(authEvents.record).toHaveBeenCalledTimes(2);
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'u2', userEmail: 'd@e.f', metadata: { cause: 'expired' } }),
+      );
+    });
+
+    it('does nothing when no lock has expired', async () => {
+      const { service, authEvents } = makeService();
+
+      await expect(service.releaseExpiredLocks()).resolves.toBe(0);
+
+      expect(authEvents.record).not.toHaveBeenCalled();
+    });
+
+    it('keeps going when one row fails to release', async () => {
+      const { service, find, update, authEvents } = makeService();
+      find.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]);
+      update.mockRejectedValueOnce(new Error('deadlock')).mockResolvedValueOnce({ affected: 1 });
+
+      await expect(service.releaseExpiredLocks()).resolves.toBe(1);
+
+      expect(authEvents.record).toHaveBeenCalledTimes(1);
+      expect(authEvents.record).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u2' }));
+    });
+
+    it('does not throw when the lookup itself fails, so the schedule keeps running', async () => {
+      const { service, find } = makeService();
+      find.mockRejectedValue(new Error('db down'));
+
+      await expect(service.releaseExpiredLocks()).resolves.toBe(0);
+    });
+
+    it('limits how many rows one run handles', async () => {
+      const { service, find } = makeService();
+
+      await service.releaseExpiredLocks(25);
+
+      expect(find).toHaveBeenCalledWith(expect.objectContaining({ take: 25 }));
+    });
+  });
+
+  describe('configuration', () => {
+    const KEYS = ['MAX_FAILED_LOGIN_ATTEMPTS', 'ACCOUNT_LOCKOUT_DURATION_MS'] as const;
+    const saved: Record<string, string | undefined> = {};
+
+    beforeEach(() => KEYS.forEach((k) => (saved[k] = process.env[k])));
+    afterEach(() =>
+      KEYS.forEach((k) => (saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k]))),
+    );
+
+    it('uses the threshold and duration from the environment', async () => {
+      process.env.MAX_FAILED_LOGIN_ATTEMPTS = '3';
+      process.env.ACCOUNT_LOCKOUT_DURATION_MS = '60000';
+      const lockedUntil = new Date(Date.now() + 60_000);
+      const { service, set, authEvents } = makeService({ attempts: 3, lockedUntil });
+
+      await service.recordPasswordFailure('u1');
+
+      expect(set.mock.calls[0][0].lockedUntil()).toContain('>= 3');
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ threshold: 3, durationMs: 60_000 }),
+        }),
+      );
+    });
+
+    it('falls back to 5 attempts and 15 minutes for missing or invalid values', async () => {
+      process.env.MAX_FAILED_LOGIN_ATTEMPTS = 'not-a-number';
+      delete process.env.ACCOUNT_LOCKOUT_DURATION_MS;
+      const { service, set, authEvents } = makeService({
+        attempts: 5,
+        lockedUntil: new Date(Date.now() + 900_000),
+      });
+
+      await service.recordPasswordFailure('u1');
+
+      expect(set.mock.calls[0][0].lockedUntil()).toContain('>= 5');
+      expect(authEvents.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({ threshold: 5, durationMs: 900_000 }),
+        }),
+      );
     });
   });
 

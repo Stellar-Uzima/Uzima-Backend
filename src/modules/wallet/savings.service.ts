@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,10 +22,13 @@ import {
   CreateSavingsGoalDto,
   UpdateSavingsGoalDto,
   CreateContributionDto,
+  CreateSavingsWithdrawalDto,
   SavingsGoalResponseDto,
   ContributionResponseDto,
   SavingsGoalListQueryDto,
+  SavingsWithdrawalResponseDto,
 } from './dto/savings-wallet.dto';
+import { assertSavingsWithdrawalAllowed } from './savings-withdrawal.rules';
 
 @Injectable()
 export class SavingsService {
@@ -193,9 +197,32 @@ export class SavingsService {
   }
 
   /**
-   * Make a contribution to a savings goal
+   * Make a contribution to a savings goal.
+   *
+   * When `rawIdempotencyKey` is supplied the request is safe to retry: the key is
+   * scoped to the user, and a repeated key returns the original contribution
+   * without moving funds again. Reusing a key for a different goal or amount is
+   * rejected with 409.
    */
-  async contribute(userId: string, goalId: string, dto: CreateContributionDto): Promise<ContributionResponseDto> {
+  async contribute(
+    userId: string,
+    goalId: string,
+    dto: CreateContributionDto,
+    rawIdempotencyKey?: string,
+  ): Promise<ContributionResponseDto> {
+    const idempotencyKey = this.normalizeIdempotencyKey(rawIdempotencyKey);
+
+    // Fast path for retries: return the original result before any balance or
+    // goal-status checks, which may no longer pass after the first request.
+    if (idempotencyKey) {
+      const existing = await this.contributionRepo.findOne({
+        where: { userId, idempotencyKey },
+      });
+      if (existing) {
+        return this.replayContribution(existing, goalId, dto.amount);
+      }
+    }
+
     const goal = await this.goalRepo.findOne({ where: { id: goalId, userId } });
     if (!goal) {
       throw new NotFoundException('Savings goal not found');
@@ -229,75 +256,114 @@ export class SavingsService {
       );
     }
 
-    const result = await this.dataSource.transaction(async (manager) => {
-      const goals = manager.getRepository(SavingsGoal);
-      const contributions = manager.getRepository(SavingsContribution);
-      const transactions = manager.getRepository(WalletTransaction);
-      const users = manager.getRepository(User);
+    let result: {
+      contribution: SavingsContribution;
+      goalCompleted: boolean;
+      replayed: boolean;
+    };
+    try {
+      result = await this.dataSource.transaction(async (manager) => {
+        const goals = manager.getRepository(SavingsGoal);
+        const contributions = manager.getRepository(SavingsContribution);
+        const transactions = manager.getRepository(WalletTransaction);
+        const users = manager.getRepository(User);
 
-      const lockedGoal = await goals.findOne({
-        where: { id: goalId, userId },
-        lock: { mode: 'pessimistic_write' },
+        const lockedGoal = await goals.findOne({
+          where: { id: goalId, userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        // A concurrent request with the same key waits on the goal lock above;
+        // once it gets the lock it must see the first request's contribution
+        // and return it instead of posting again.
+        if (idempotencyKey) {
+          const existing = await contributions.findOne({
+            where: { userId, idempotencyKey },
+          });
+          if (existing) {
+            return { contribution: existing, goalCompleted: false, replayed: true };
+          }
+        }
+
+        if (!lockedGoal || lockedGoal.status !== SavingsGoalStatus.ACTIVE) {
+          throw new BadRequestException('Savings goal is no longer available');
+        }
+        if (
+          Number(lockedGoal.currentAmount) + dto.amount >
+          Number(lockedGoal.targetAmount)
+        ) {
+          throw new BadRequestException('Contribution would exceed the savings goal target');
+        }
+
+        const user = await users.findOne({
+          where: { id: userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!user) {
+          throw new NotFoundException('User not found');
+        }
+        const balanceBefore = user.walletBalance;
+        user.walletBalance = parseFloat((balanceBefore - dto.amount).toFixed(7));
+
+        const contribution = contributions.create({
+          userId,
+          goalId,
+          amount: dto.amount,
+          status: ContributionStatus.CONFIRMED,
+          transactionHash: `simulated_${Date.now()}`,
+          idempotencyKey,
+        });
+        await contributions.save(contribution);
+
+        const transaction = transactions.create({
+          userId,
+          type: WalletTransactionType.SAVINGS_CONTRIBUTION,
+          amount: dto.amount,
+          balanceBefore,
+          balanceAfter: user.walletBalance,
+          status: WalletTransactionStatus.CONFIRMED,
+          referenceId: contribution.id,
+          referenceType: 'savings_goal',
+          description: `Contribution to savings goal: ${lockedGoal.title}`,
+          metadata: { goalId, goalTitle: lockedGoal.title },
+          stellarTxHash: contribution.transactionHash,
+        });
+        await transactions.save(transaction);
+
+        await users.save(user);
+
+        lockedGoal.currentAmount = parseFloat(
+          (Number(lockedGoal.currentAmount) + dto.amount).toFixed(7),
+        );
+        const goalCompleted =
+          lockedGoal.currentAmount >= Number(lockedGoal.targetAmount);
+        if (goalCompleted) {
+          lockedGoal.status = SavingsGoalStatus.COMPLETED;
+          lockedGoal.completedAt = new Date();
+        }
+        await goals.save(lockedGoal);
+
+        return { contribution, goalCompleted, replayed: false };
       });
-      if (!lockedGoal || lockedGoal.status !== SavingsGoalStatus.ACTIVE) {
-        throw new BadRequestException('Savings goal is no longer available');
+    } catch (error) {
+      // Last line of defence: the unique (user_id, idempotency_key) index
+      // rejected a duplicate that raced past the checks above (e.g. same key
+      // sent for two different goals at once). The whole transaction rolled
+      // back, so no balance changed; return the original contribution.
+      if (idempotencyKey && this.isUniqueViolation(error)) {
+        const existing = await this.contributionRepo.findOne({
+          where: { userId, idempotencyKey },
+        });
+        if (existing) {
+          return this.replayContribution(existing, goalId, dto.amount);
+        }
       }
-      if (
-        Number(lockedGoal.currentAmount) + dto.amount >
-        Number(lockedGoal.targetAmount)
-      ) {
-        throw new BadRequestException('Contribution would exceed the savings goal target');
-      }
+      throw error;
+    }
 
-      const user = await users.findOne({
-        where: { id: userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-      const balanceBefore = user.walletBalance;
-      user.walletBalance = parseFloat((balanceBefore - dto.amount).toFixed(7));
-
-      const contribution = contributions.create({
-        userId,
-        goalId,
-        amount: dto.amount,
-        status: ContributionStatus.CONFIRMED,
-        transactionHash: `simulated_${Date.now()}`,
-      });
-      await contributions.save(contribution);
-
-      const transaction = transactions.create({
-        userId,
-        type: WalletTransactionType.SAVINGS_CONTRIBUTION,
-        amount: dto.amount,
-        balanceBefore,
-        balanceAfter: user.walletBalance,
-        status: WalletTransactionStatus.CONFIRMED,
-        referenceId: contribution.id,
-        referenceType: 'savings_goal',
-        description: `Contribution to savings goal: ${lockedGoal.title}`,
-        metadata: { goalId, goalTitle: lockedGoal.title },
-        stellarTxHash: contribution.transactionHash,
-      });
-      await transactions.save(transaction);
-
-      await users.save(user);
-
-      lockedGoal.currentAmount = parseFloat(
-        (Number(lockedGoal.currentAmount) + dto.amount).toFixed(7),
-      );
-      const goalCompleted =
-        lockedGoal.currentAmount >= Number(lockedGoal.targetAmount);
-      if (goalCompleted) {
-        lockedGoal.status = SavingsGoalStatus.COMPLETED;
-        lockedGoal.completedAt = new Date();
-      }
-      await goals.save(lockedGoal);
-
-      return { contribution, goalCompleted };
-    });
+    if (result.replayed) {
+      return this.replayContribution(result.contribution, goalId, dto.amount);
+    }
 
     await this.invalidateGoalsCache(userId);
     await this.walletService.invalidateCache({ userId });
@@ -314,6 +380,117 @@ export class SavingsService {
     this.logger.log(`Contribution confirmed: ${result.contribution.id} for goal ${goalId}`);
 
     return this.mapContributionToResponse(result.contribution);
+  }
+
+  /**
+   * Withdraw saved funds from a goal back to the user's wallet.
+   * Eligibility is checked against the locked goal inside the transaction and
+   * before any write, so a rejected withdrawal leaves all records unchanged.
+   */
+  async withdraw(
+    userId: string,
+    goalId: string,
+    dto: CreateSavingsWithdrawalDto,
+  ): Promise<SavingsWithdrawalResponseDto> {
+    const goal = await this.goalRepo.findOne({ where: { id: goalId, userId } });
+    if (!goal) {
+      throw new NotFoundException('Savings goal not found');
+    }
+
+    const result = await this.dataSource.transaction(async (manager) => {
+      const goals = manager.getRepository(SavingsGoal);
+      const contributions = manager.getRepository(SavingsContribution);
+      const transactions = manager.getRepository(WalletTransaction);
+      const users = manager.getRepository(User);
+
+      const lockedGoal = await goals.findOne({
+        where: { id: goalId, userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedGoal) {
+        throw new NotFoundException('Savings goal not found');
+      }
+
+      const now = new Date();
+      const pendingContributions = await contributions.count({
+        where: { goalId, status: ContributionStatus.PENDING },
+      });
+      const withdrawalsInLastDay = await transactions.count({
+        where: {
+          userId,
+          type: WalletTransactionType.SAVINGS_WITHDRAWAL,
+          referenceId: goalId,
+          status: WalletTransactionStatus.CONFIRMED,
+          createdAt: MoreThanOrEqual(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+        },
+      });
+
+      assertSavingsWithdrawalAllowed({
+        goal: lockedGoal,
+        amount: dto.amount,
+        pendingContributions,
+        withdrawalsInLastDay,
+        now,
+      });
+
+      const user = await users.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      const balanceBefore = Number(user.walletBalance);
+      user.walletBalance = parseFloat((balanceBefore + dto.amount).toFixed(7));
+
+      lockedGoal.currentAmount = parseFloat(
+        (Number(lockedGoal.currentAmount) - dto.amount).toFixed(7),
+      );
+
+      const transaction = transactions.create({
+        userId,
+        type: WalletTransactionType.SAVINGS_WITHDRAWAL,
+        amount: dto.amount,
+        balanceBefore,
+        balanceAfter: user.walletBalance,
+        status: WalletTransactionStatus.CONFIRMED,
+        referenceId: goalId,
+        referenceType: 'savings_goal',
+        description: `Withdrawal from savings goal: ${lockedGoal.title}`,
+        metadata: {
+          goalId,
+          goalTitle: lockedGoal.title,
+          goalStatus: lockedGoal.status,
+          goalBalanceAfter: lockedGoal.currentAmount,
+        },
+      });
+      await transactions.save(transaction);
+      await users.save(user);
+      await goals.save(lockedGoal);
+
+      return { transaction, goalBalance: lockedGoal.currentAmount, walletBalance: user.walletBalance };
+    });
+
+    await this.invalidateGoalsCache(userId);
+    await this.walletService.invalidateCache({ userId });
+
+    this.eventEmitter.emit('savings.withdrawal.confirmed', {
+      transactionId: result.transaction.id,
+      goalId,
+      userId,
+      amount: dto.amount,
+    });
+    this.logger.log(`Savings withdrawal confirmed: ${result.transaction.id} from goal ${goalId}`);
+
+    return {
+      transactionId: result.transaction.id,
+      goalId,
+      amount: dto.amount,
+      goalBalance: result.goalBalance,
+      walletBalance: result.walletBalance,
+      status: result.transaction.status,
+      createdAt: result.transaction.createdAt,
+    };
   }
 
   /**
@@ -474,6 +651,51 @@ export class SavingsService {
       daysRemaining,
       requiredContributionRate,
     };
+  }
+
+  /** Max length of a client `Idempotency-Key`, matching the DB column. */
+  private static readonly MAX_IDEMPOTENCY_KEY_LENGTH = 255;
+
+  private normalizeIdempotencyKey(rawKey?: string): string | null {
+    if (typeof rawKey !== 'string') return null;
+    const key = rawKey.trim();
+    if (key.length === 0) return null;
+    if (key.length > SavingsService.MAX_IDEMPOTENCY_KEY_LENGTH) {
+      throw new BadRequestException(
+        `Idempotency-Key must be at most ${SavingsService.MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
+      );
+    }
+    return key;
+  }
+
+  /**
+   * Returns the contribution originally posted for an idempotency key, after
+   * checking the retry describes the same operation (same goal and amount).
+   */
+  private replayContribution(
+    existing: SavingsContribution,
+    goalId: string,
+    amount: number,
+  ): ContributionResponseDto {
+    const sameAmount = Number(existing.amount).toFixed(7) === Number(amount).toFixed(7);
+    if (existing.goalId !== goalId || !sameAmount) {
+      throw new ConflictException(
+        'Idempotency-Key has already been used for a different contribution',
+      );
+    }
+    this.logger.log(
+      `Idempotent replay of contribution ${existing.id} for goal ${goalId}`,
+    );
+    return this.mapContributionToResponse(existing);
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const { code, driverError } = error as {
+      code?: unknown;
+      driverError?: { code?: unknown };
+    };
+    return code === '23505' || driverError?.code === '23505';
   }
 
   private mapContributionToResponse(contribution: SavingsContribution): ContributionResponseDto {

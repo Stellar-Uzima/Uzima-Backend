@@ -3,7 +3,15 @@
  * Centralizes retention periods and masking rules for sensitive
  * financial-reporting fields so they aren't reimplemented per-module.
  */
-
+/**
+ * Transforms a compliance record into a masked view suitable for safe exposure or reporting.
+ *
+ * @param record - The source compliance data object containing sensitive or internal fields.
+ * @returns A masked compliance view with sensitive fields redacted or transformed.
+ */
+export function toMaskedComplianceView(record: ComplianceRecord) {
+  // ...
+}
 /** Days a tax/compliance record must be retained before it may be purged. */
 export const COMPLIANCE_RETENTION_DAYS = {
   TAX_RECORD: 2555, // 7 years

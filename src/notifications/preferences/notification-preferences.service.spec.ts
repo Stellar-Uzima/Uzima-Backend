@@ -349,6 +349,10 @@ describe('NotificationPreferencesService', () => {
         quietHoursStart: null,
         quietHoursEnd: null,
         timezone: 'Africa/Lagos',
+        // Per-type channel defaults are part of the new-user defaults.
+        channelPreferences: expect.objectContaining({
+          appointment_reminder: { email: true, push: true, sms: true },
+        }),
       });
       expect(mockRepository.save).toHaveBeenCalled();
     });

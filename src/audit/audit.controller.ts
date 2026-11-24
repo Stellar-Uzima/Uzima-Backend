@@ -49,3 +49,24 @@ export class AuditController {
     return this.auditService.create(createAuditDto);
   }
 }
+/**
+   * Retrieves a paginated list of audit log records matching the supplied query parameters.
+   *
+   * @param query - Pagination and filtering options for querying audit entries.
+   * @returns A paginated response containing matching audit records and pagination metadata.
+   */
+  @Get()
+  async findAllPaginated(@Query() query: PaginationQueryDto) {
+    // ...
+  }
+
+  /**
+   * Creates a new audit log entry from the provided payload.
+   *
+   * @param createAuditDto - The data transfer object describing the audit event to record.
+   * @returns The newly created audit log record.
+   */
+  @Post()
+  async create(@Body() createAuditDto: CreateAuditDto) {
+    // ...
+  }

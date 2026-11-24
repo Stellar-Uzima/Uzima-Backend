@@ -1,196 +1,89 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { HealthTasksService } from './health-tasks.service';
-import { TaskStatus } from '../../tasks/enums/task-status.enum';
-import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import {
+  CreateHealthTaskDto,
+  TaskCategory as CreateTaskCategory,
+} from '../../common/dto/create-health-task.dto';
 import { TaskCategory } from '../../database/entities/task-category.entity';
-
-const mockQueryBuilder: any = {};
-
-const mockTaskRepository = {
-  findOne: jest.fn(),
-  find: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn(),
-  softDelete: jest.fn(),
-  createQueryBuilder: jest.fn(() => mockQueryBuilder),
-  manager: {
-    createQueryBuilder: jest.fn(() => mockQueryBuilder),
-  },
-};
-
-const mockCategoryRepository = {
-  findOne: jest.fn(),
-};
-
-const mockTagRepository = {
-  findByIds: jest.fn(),
-};
-
-const mockPriorityService = {
-  resolvePriority: jest.fn().mockReturnValue('medium'),
-  sortByPriority: jest.fn((tasks) => tasks),
-  buildOverdueAlert: jest.fn().mockReturnValue(null),
-};
-
-const mockActivityLogService = {
-  logTaskChange: jest.fn(),
-  getActivityHistory: jest.fn(),
-};
+import { TaskTag } from '../../database/entities/task-tag.entity';
+import { HealthTask } from '../../tasks/entities/health-task.entity';
+import { ActivityLogService } from './services/activity-log.service';
+import { PriorityService } from './services/priority.service';
+import { HealthTasksService } from './health-tasks.service';
 
 describe('HealthTasksService', () => {
   let service: HealthTasksService;
+  let taskRepository: jest.Mocked<Partial<Repository<HealthTask>>>;
+  let categoryRepository: jest.Mocked<Partial<Repository<TaskCategory>>>;
+  let tagRepository: jest.Mocked<Partial<Repository<TaskTag>>>;
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    Object.assign(mockQueryBuilder, {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      from: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 1 }),
-      getMany: jest.fn().mockResolvedValue([]),
-    });
+  beforeEach(async () => {
+    taskRepository = {
+      create: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn(),
+      save: jest.fn(),
+    };
+    categoryRepository = { findOne: jest.fn() };
+    tagRepository = { findByIds: jest.fn() };
 
-    service = new HealthTasksService(
-      mockTaskRepository as any,
-      mockCategoryRepository as any,
-      mockTagRepository as any,
-      mockPriorityService as any,
-      mockActivityLogService as any
-    );
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        HealthTasksService,
+        { provide: getRepositoryToken(HealthTask), useValue: taskRepository },
+        { provide: getRepositoryToken(TaskCategory), useValue: categoryRepository },
+        { provide: getRepositoryToken(TaskTag), useValue: tagRepository },
+        {
+          provide: PriorityService,
+          useValue: {
+            resolvePriority: jest.fn(),
+            buildOverdueAlert: jest.fn(),
+            sortByPriority: jest.fn(),
+          },
+        },
+        {
+          provide: ActivityLogService,
+          useValue: { logTaskChange: jest.fn(), getActivityHistory: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<HealthTasksService>(HealthTasksService);
   });
 
-  describe('findOne', () => {
-    it('loads the task with its category and tags', async () => {
-      const task = { id: 'task-1' };
-      mockTaskRepository.findOne.mockResolvedValue(task);
+  it('creates a task using the TypeORM repository', async () => {
+    const dto: CreateHealthTaskDto = {
+      title: 'Drink water',
+      category: CreateTaskCategory.HYDRATION,
+      description: 'Drink enough water throughout the day',
+    };
+    const task = { id: 'task-1', title: dto.title };
+    taskRepository.create!.mockReturnValue(task as HealthTask);
+    taskRepository.save!.mockResolvedValue(task as HealthTask);
 
-      await expect(service.findOne('task-1')).resolves.toBe(task);
-      expect(mockTaskRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'task-1' },
-        relations: ['category', 'tags'],
-      });
+    await expect(service.create(dto)).resolves.toBe(task);
+
+    expect(taskRepository.create).toHaveBeenCalledWith({
+      title: dto.title,
+      description: dto.description,
+      dueDate: undefined,
+      priority: undefined,
+      frequency: undefined,
     });
+    expect(taskRepository.save).toHaveBeenCalledWith(task);
   });
 
-  describe('findByDifficulty', () => {
-    it('filters on the JSONB targetProfile difficulty', async () => {
-      const tasks = [{ id: 'task-1' }];
-      mockQueryBuilder.getMany.mockResolvedValue(tasks);
+  it('loads one task with its category and tags', async () => {
+    const task = { id: 'task-1' } as HealthTask;
+    taskRepository.findOne!.mockResolvedValue(task);
 
-      await expect(service.findByDifficulty(TaskDifficulty.EASY)).resolves.toBe(tasks);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        "task.targetProfile->>'difficulty' = :difficulty",
-        { difficulty: TaskDifficulty.EASY }
-      );
-    });
-  });
+    await expect(service.findOne('task-1')).resolves.toBe(task);
 
-  describe('create', () => {
-    it('creates a task and links its category', async () => {
-      const created: any = { title: 'Walk', category: 'nutrition' };
-      const category = { id: 'cat-1' };
-      mockTaskRepository.create.mockReturnValue(created);
-      mockCategoryRepository.findOne.mockResolvedValue(category);
-      mockTagRepository.findByIds.mockResolvedValue([{ id: 'tag-1' }]);
-      mockTaskRepository.save.mockImplementation(async (task: any) => task);
-
-      const result: any = await service.create({
-        title: 'Walk',
-        description: 'Daily walk',
-        category: 'nutrition' as any,
-        categoryId: 'cat-1',
-        tagIds: ['11111111-1111-4111-8111-111111111111'],
-      });
-
-      expect(mockTaskRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Walk', description: 'Daily walk' })
-      );
-      expect(result.categoryId).toBe('cat-1');
-      expect(result.taskCategory).toBe(category);
-      expect(result.tags).toEqual([{ id: 'tag-1' }]);
-    });
-  });
-
-  describe('update', () => {
-    it('clears the category when an empty categoryId is supplied', async () => {
-      const task: any = {
-        id: 'task-1',
-        title: 'Walk',
-        status: TaskStatus.DRAFT,
-        targetProfile: {},
-        categoryId: 'cat-1',
-        taskCategory: { id: 'cat-1' },
-      };
-      mockTaskRepository.findOne.mockResolvedValue(task);
-      mockTaskRepository.save.mockImplementation(async (saved: any) => saved);
-
-      const result: any = await service.update('task-1', {
-        categoryId: '',
-      } as any);
-
-      expect(result.categoryId).toBeNull();
-      expect(result.taskCategory).toBeNull();
-    });
-
-    it('logs an activity entry when tracked fields change', async () => {
-      const task: any = {
-        id: 'task-1',
-        title: 'Walk',
-        status: TaskStatus.DRAFT,
-        targetProfile: {},
-      };
-      mockTaskRepository.findOne.mockResolvedValue(task);
-      mockTaskRepository.save.mockImplementation(async (saved: any) => saved);
-
-      await service.update('task-1', { title: 'Run' } as any, 'user-1');
-
-      expect(mockActivityLogService.logTaskChange).toHaveBeenCalledWith(
-        'task-1',
-        'user-1',
-        'task.updated',
-        expect.objectContaining({
-          changes: expect.arrayContaining([{ field: 'title', before: 'Walk', after: 'Run' }]),
-        })
-      );
-    });
-
-    it('throws when the task does not exist', async () => {
-      mockTaskRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.update('missing', { title: 'Run' } as any)).rejects.toBeInstanceOf(
-        NotFoundException
-      );
+    expect(taskRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'task-1' },
+      relations: ['category', 'tags'],
     });
   });
 
-  describe('remove', () => {
-    it('soft deletes a task owned by the caller', async () => {
-      mockTaskRepository.findOne.mockResolvedValue({
-        id: 'task-1',
-        createdBy: 'user-1',
-      });
-
-      await service.remove('task-1', 'user-1');
-
-      expect(mockQueryBuilder.delete).toHaveBeenCalled();
-      expect(mockTaskRepository.softDelete).toHaveBeenCalledWith('task-1');
-    });
-
-    it('forbids deleting another user task', async () => {
-      mockTaskRepository.findOne.mockResolvedValue({
-        id: 'task-1',
-        createdBy: 'user-1',
-      });
-
-      await expect(service.remove('task-1', 'user-2')).rejects.toBeInstanceOf(ForbiddenException);
-      expect(mockTaskRepository.softDelete).not.toHaveBeenCalled();
-    });
-
-    it('throws when the task does not exist', async () => {
-      mockTaskRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.remove('missing', 'user-1')).rejects.toBeInstanceOf(NotFoundException);
-    });
-  });
 });

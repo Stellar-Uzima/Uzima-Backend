@@ -1,10 +1,35 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { RedisClientType, createClient } from 'redis';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
 import { User } from '@/entities/user.entity';
 import { NotificationService } from '../../../notifications/services/notification.service';
+import { AuthEventAuditService } from '../../../audit/services/auth-event-audit.service';
+import { AuthEventOutcome, AuthEventType } from '../../../database/entities/auth-event.entity';
 import { AccountLockedException } from '../exceptions/account-locked.exception';
+
+/** Why a lockout (or its failure counter) was cleared. Stored in the audit event. */
+export type LockoutClearCause = 'expired' | 'successful_login' | 'password_reset';
+
+/** Request details attached to a lockout audit event when they are known. */
+export interface LockoutAuditContext {
+  userEmail?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  requestId?: string | null;
+}
+
+export interface ClearLockoutOptions extends LockoutAuditContext {
+  /** Defaults to `successful_login`. */
+  cause?: LockoutClearCause;
+  /**
+   * True when the account was actually locked (live or expired), as opposed to
+   * only having a partial failure count. Only a real lock produces an
+   * `ACCOUNT_UNLOCKED` audit event; clearing a count of 3 is not an unlock.
+   */
+  hadLock?: boolean;
+}
 
 export interface LockoutState {
   locked: boolean;
@@ -59,6 +84,7 @@ export class AccountLockoutService {
   constructor(
     @InjectRepository(User) private readonly usersRepository: Repository<User>,
     private readonly notifications: NotificationService,
+    private readonly authEvents: AuthEventAuditService
   ) {
     const num = (key: string, fallback: number) => {
       const raw = Number(process.env[key]);
@@ -106,7 +132,10 @@ export class AccountLockoutService {
    * and locks. There is no read-then-write window for a concurrent request to
    * slip through.
    */
-  async recordPasswordFailure(userId: string): Promise<FailureOutcome> {
+  async recordPasswordFailure(
+    userId: string,
+    context: LockoutAuditContext = {}
+  ): Promise<FailureOutcome> {
     const now = new Date();
     const lockedUntil = new Date(now.getTime() + this.lockoutDurationMs);
 
@@ -133,6 +162,25 @@ export class AccountLockoutService {
       this.logger.warn(
         `Account ${userId} locked until ${effectiveLock!.toISOString()} after ${attempts} failed password attempts`,
       );
+
+      // Only the attempt that crosses the threshold reaches this branch, so a
+      // lock produces exactly one audit event rather than one per later guess.
+      await this.authEvents.record({
+        eventType: AuthEventType.ACCOUNT_LOCKED,
+        outcome: AuthEventOutcome.SUCCESS,
+        userId,
+        userEmail: context.userEmail ?? null,
+        ipAddress: context.ipAddress ?? null,
+        userAgent: context.userAgent ?? null,
+        requestId: context.requestId ?? null,
+        metadata: {
+          cause: 'max_failed_attempts',
+          attempts,
+          threshold: this.maxPasswordFailures,
+          lockedUntil: effectiveLock.toISOString(),
+          durationMs: this.lockoutDurationMs,
+        },
+      });
     }
 
     return {
@@ -201,9 +249,102 @@ export class AccountLockoutService {
    * authentication, and by the password-reset flow so that a user who recovers
    * their account is not still locked out by the attacker's failed attempts.
    */
-  async clear(userId: string): Promise<void> {
+  async clear(userId: string, options: ClearLockoutOptions = {}): Promise<void> {
     await this.usersRepository.update(userId, { failedLoginAttempts: 0, lockedUntil: null });
     await this.clearTwoFactorFailures(userId);
+
+    if (options.hadLock) {
+      await this.recordUnlock(userId, options.cause ?? 'successful_login', options);
+    }
+  }
+
+  /**
+   * Releases a lock whose time has run out and records why.
+   *
+   * The update only matches while `lockedUntil` is in the past, so when a login
+   * attempt and the periodic sweep (or two instances) race to release the same
+   * lock, exactly one of them sees `affected = 1` and writes the audit event.
+   *
+   * Releasing also resets the failure counter. Without that, the counter would
+   * still read at the threshold after the lock expires and the very next wrong
+   * password would lock the account again.
+   *
+   * @returns True when this call released the lock.
+   */
+  async releaseExpired(userId: string, context: LockoutAuditContext = {}): Promise<boolean> {
+    const result = await this.usersRepository.update(
+      { id: userId, lockedUntil: LessThanOrEqual(new Date()) },
+      { failedLoginAttempts: 0, lockedUntil: null }
+    );
+
+    if (!result.affected) {
+      return false;
+    }
+
+    await this.clearTwoFactorFailures(userId);
+    await this.recordUnlock(userId, 'expired', context);
+    return true;
+  }
+
+  /**
+   * Releases every lock that has expired, so an unlock is recorded when it
+   * happens rather than whenever the owner next tries to sign in.
+   *
+   * Runs on a schedule. Each release is independent, so one failing row does
+   * not stop the rest.
+   *
+   * @param batchSize - Upper bound on rows handled per run.
+   * @returns How many locks this run released.
+   */
+  @Cron('0 */5 * * * *')
+  async releaseExpiredLocks(batchSize = 100): Promise<number> {
+    let released = 0;
+
+    try {
+      const expired = await this.usersRepository.find({
+        where: { lockedUntil: LessThanOrEqual(new Date()) },
+        select: ['id', 'email'],
+        take: batchSize,
+      });
+
+      for (const user of expired) {
+        try {
+          if (await this.releaseExpired(user.id, { userEmail: user.email })) {
+            released += 1;
+          }
+        } catch (error) {
+          this.logger.warn(
+            `Could not release expired lock for ${user.id}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Expired-lock sweep failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    if (released > 0) {
+      this.logger.log(`Released ${released} expired account lock(s)`);
+    }
+    return released;
+  }
+
+  private async recordUnlock(
+    userId: string,
+    cause: LockoutClearCause,
+    context: LockoutAuditContext
+  ): Promise<void> {
+    await this.authEvents.record({
+      eventType: AuthEventType.ACCOUNT_UNLOCKED,
+      outcome: AuthEventOutcome.SUCCESS,
+      userId,
+      userEmail: context.userEmail ?? null,
+      ipAddress: context.ipAddress ?? null,
+      userAgent: context.userAgent ?? null,
+      requestId: context.requestId ?? null,
+      metadata: { cause },
+    });
   }
 
   /** Evaluates the lock without writing. */

@@ -38,6 +38,7 @@ import { ReferralService } from '../../../referral/referral.service';
 import { NotificationService } from '../../../notifications/services/notification.service';
 import { PasswordPolicyService } from './password-policy.service';
 import { AccountLockoutService } from './account-lockout.service';
+import { LoginThrottleService } from './login-throttle.service';
 import { normalizeEmail } from './credential-normalizer';
 import { ClientIp } from '../decorators/client-ip.decorator';
 
@@ -87,6 +88,7 @@ export class AuthService {
     @Optional() private readonly referralService?: ReferralService,
     private readonly passwordPolicy: PasswordPolicyService,
     private readonly lockout: AccountLockoutService,
+    private readonly loginThrottle: LoginThrottleService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
@@ -158,12 +160,18 @@ export class AuthService {
   // Login user
   async login(dto: LoginDto, clientIp?: string) {
     const email = normalizeEmail(dto.email);
+
+    // Checked before the user lookup so the throttled response, and the moment
+    // it starts, are identical for registered and unregistered addresses.
+    await this.loginThrottle.assertAllowed(email, clientIp);
+
     const user = await this.usersService.findByEmail(email);
 
     // A miss costs a bcrypt comparison against a dummy hash, so the response
     // time does not reveal whether the address is registered.
     if (!user) {
       await this.spendConstantTime();
+      await this.loginThrottle.recordFailure(email, clientIp);
       if (clientIp) {
         await this.lockout.recordIpFailure(clientIp);
       }
@@ -175,9 +183,21 @@ export class AuthService {
     // keep guessing.
     this.lockout.assertNotLocked(user);
 
+    // Getting here with `lockedUntil` still set means the lock has expired.
+    // Release it before the password is checked: that resets the failure count
+    // (otherwise the first wrong password after expiry would lock the account
+    // again) and records the unlock in the audit trail.
+    const lockoutContext = { userEmail: user.email, ipAddress: clientIp ?? null };
+    if (user.lockedUntil) {
+      await this.lockout.releaseExpired(user.id, lockoutContext);
+      user.failedLoginAttempts = 0;
+      user.lockedUntil = null;
+    }
+
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
-      const outcome = await this.lockout.recordPasswordFailure(user.id);
+      await this.loginThrottle.recordFailure(email, clientIp);
+      const outcome = await this.lockout.recordPasswordFailure(user.id, lockoutContext);
       if (clientIp) {
         await this.lockout.recordIpFailure(clientIp);
       }
@@ -268,16 +288,21 @@ export class AuthService {
       await this.lockout.clearTwoFactorFailures(user.id);
     }
 
-    // A successful login clears the lockout state, which is also how a lock
-    // that has expired is released.
+    // A successful login resets a partial failure count. A lock that had
+    // expired was already released (and audited) before the password check.
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
-      await this.lockout.clear(user.id);
+      await this.lockout.clear(user.id, {
+        cause: 'successful_login',
+        hadLock: Boolean(user.lockedUntil),
+        ...lockoutContext,
+      });
       user.failedLoginAttempts = 0;
       user.lockedUntil = null;
     }
     if (clientIp) {
       await this.lockout.clearIpFailures(clientIp);
     }
+    await this.loginThrottle.clearIdentity(email);
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const profile = await this.usersService.getProfile(user.id);
@@ -991,7 +1016,11 @@ export class AuthService {
     // this, the person who triggered the reset is locked out while whoever
     // prompted it keeps a working refresh token and simply re-mints an access
     // token — which is the opposite of what "reset my password" is for.
-    await this.lockout.clear(user.id);
+    await this.lockout.clear(user.id, {
+      cause: 'password_reset',
+      hadLock: Boolean(user.lockedUntil),
+      userEmail: user.email,
+    });
     await this.clearAllUserRefreshTokens(user.id);
     user.refreshToken = null;
     user.refreshTokenExpiry = null;

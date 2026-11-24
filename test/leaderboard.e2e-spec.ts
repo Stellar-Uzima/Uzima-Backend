@@ -9,7 +9,7 @@ import { LeaderboardService } from '../src/leaderboard/leaderboard.service';
 import { RewardTransaction } from '../src/rewards/entities/reward-transaction.entity';
 import { User } from '../src/entities/user.entity';
 import { Role } from '../src/auth/enums/role.enum';
-import { JwtStrategy } from '../src/auth/strategies/jwt.strategy';
+import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 
 // ============================================================================
 // Mock Setup

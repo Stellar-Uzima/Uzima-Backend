@@ -10,7 +10,7 @@ import { tap } from 'rxjs/operators';
 import Redis from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 import { redisConfig, getRedisUrl } from '../../config/redis.config';
-import { UsersService } from '../../users/users.service';
+import { UsersService } from '../../modules/users/users.service';
 
 @Injectable()
 export class ActivityTrackerInterceptor implements NestInterceptor {
@@ -27,6 +27,18 @@ export class ActivityTrackerInterceptor implements NestInterceptor {
     this.redis = new Redis(getRedisUrl(config));
   }
 
+  /**
+   * Debounced last-activity tracking for authenticated users.
+   *
+   * When the request carries a user with an `id`, schedules a non-blocking
+   * update of that user's `lastActiveAt` (Redis-debounced to at most once per
+   * {@link ActivityTrackerInterceptor.DEBOUNCE_TIME} seconds). Always continues
+   * the handler chain regardless of tracking outcome.
+   *
+   * @param context - Nest execution context used to read `request.user`
+   * @param next - Call handler for the remainder of the interceptor/pipe chain
+   * @returns Observable of the downstream handler result
+   */
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;

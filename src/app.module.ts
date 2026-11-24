@@ -73,7 +73,7 @@ import { UxMonitoringModule } from './modules/ux-monitoring/ux-monitoring.module
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 // Notification preferences (implemented against Issue 091)
-import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
+import { NotificationPreferencesModule } from './modules/notifications/notification-preferences.module';
 
 @Module({
   imports: [

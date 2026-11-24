@@ -11,6 +11,18 @@ import { ApiKeyService } from '../../modules/auth/services/api-key.service';
 export class ApiKeyGuard implements CanActivate {
   constructor(private readonly apiKeyService: ApiKeyService) {}
 
+  /**
+   * Validates the request API key and attaches the resolved key/user to the request.
+   *
+   * Reads the key from the `x-api-key` header, or from a Bearer token in the
+   * `authorization` header. On success, sets `request.apiKey` and `request.user`
+   * and records key usage. Throws {@link UnauthorizedException} when the key is
+   * missing or invalid.
+   *
+   * @param context - Nest execution context used to access the HTTP request
+   * @returns `true` when the API key is present and valid
+   * @throws {UnauthorizedException} When the API key is missing or invalid
+   */
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const apiKey =

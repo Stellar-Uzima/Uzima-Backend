@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,7 +9,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../../entities/user.entity';
-import { UpdateMeProfileDto } from '../dto/update-me-profile.dto';
+import {
+  AVATAR_STORAGE_REFERENCE_PATTERN,
+  UpdateMeProfileDto,
+} from '../dto/update-me-profile.dto';
 
 /** The subset of {@link User} a caller may change on themselves. */
 const MUTABLE_PROFILE_FIELDS = [
@@ -127,8 +131,12 @@ export class MeProfileService {
     }
 
     if (dto.avatar !== undefined) {
-      changes.avatar = { from: user.avatar ?? null, to: dto.avatar };
-      user.avatar = dto.avatar;
+      const avatar = dto.avatar === null || dto.avatar === '' ? null : dto.avatar;
+      if (avatar !== null) {
+        await this.assertAvatarReferenceAllowed(avatar, userId);
+      }
+      changes.avatar = { from: user.avatar ?? null, to: avatar };
+      user.avatar = avatar;
     }
 
     const changedFields = Object.keys(changes);
@@ -179,6 +187,27 @@ export class MeProfileService {
     });
     if (existing && existing.id !== userId) {
       throw new ConflictException('Phone number is already in use by another account');
+    }
+  }
+
+  /**
+   * Accepts only references into the avatar storage folder, and never one that
+   * is already another account's avatar. The DTO checks the format too; this is
+   * repeated here so direct service calls get the same guarantee.
+   */
+  private async assertAvatarReferenceAllowed(
+    avatar: string,
+    userId: string,
+  ): Promise<void> {
+    if (!AVATAR_STORAGE_REFERENCE_PATTERN.test(avatar)) {
+      throw new BadRequestException(
+        'avatar must be a storage reference of the form /uploads/avatars/<uuid>-<filename>',
+      );
+    }
+
+    const owner = await this.userRepository.findOne({ where: { avatar } });
+    if (owner && owner.id !== userId) {
+      throw new ForbiddenException('This avatar belongs to another account');
     }
   }
 
