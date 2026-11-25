@@ -1,12 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../../src/app.module';
 
 describe('Auth Endpoints E2E Tests', () => {
   let app: INestApplication;
-  let prisma: PrismaService;
   let server: any;
 
   const testUser = {
@@ -27,14 +25,9 @@ describe('Auth Endpoints E2E Tests', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
     server = app.getHttpServer();
-    prisma = moduleFixture.get<PrismaService>(PrismaService);
   });
 
   afterAll(async () => {
-    // Clean up test user
-    await prisma.user.deleteMany({
-      where: { email: testUser.email },
-    });
     await app.close();
   });
 
@@ -321,8 +314,6 @@ describe('Auth Endpoints E2E Tests', () => {
       // Rate limit may return 429 or still 401 depending on config
       expect([401, 429]).toContain(response.status);
 
-      // Clean up
-      await prisma.user.deleteMany({ where: { email } });
     });
   });
 
