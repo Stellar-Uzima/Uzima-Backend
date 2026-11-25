@@ -1,5 +1,4 @@
-import { Injectable } from '@common/decorators/injectable.decorator';
-import { Injectable as NestInjectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { OutboxEventEntity, OutboxEventStatus } from '@database/entities/outbox-event.entity';
