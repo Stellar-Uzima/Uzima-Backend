@@ -74,6 +74,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 
 // Notification preferences (implemented against Issue 091)
 import { NotificationPreferencesModule } from './modules/notification-preferences/notification-preferences.module';
+import { HealthProgramEnrollmentModule } from './modules/health-program-enrollment/health-program-enrollment.module';
 
 @Module({
   imports: [
@@ -166,6 +167,7 @@ import { NotificationPreferencesModule } from './modules/notification-preference
     BackfillModule,
     RetentionModule,
     NotificationPreferencesModule,
+    HealthProgramEnrollmentModule,
   ],
   controllers: [AppController],
   providers: [
