@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsEnum,
   IsObject,
   IsOptional,
   IsString,
@@ -9,10 +8,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  NotificationCategory,
-  NotificationChannel,
-} from '../entities/notification-preferences.entity';
 
 const HHMM_REGEXP = /^([01]\d|2[0-3]):[0-5]\d$/;
 

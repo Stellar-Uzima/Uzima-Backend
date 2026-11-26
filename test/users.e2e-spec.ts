@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { UsersService } from '../src/users/users.service';
+import { UsersService } from '../src/modules/users/users.service';
 
 describe('Users (e2e)', () => {
   let app: INestApplication;
