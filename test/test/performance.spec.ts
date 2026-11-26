@@ -2,6 +2,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
+
 import { AppModule } from '../src/app.module';
 
 type HttpMethod = 'GET' | 'POST';
@@ -48,9 +49,7 @@ describe('Performance Tests (Load & Benchmark)', () => {
   let server: ReturnType<INestApplication['getHttpServer']>;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+    const application = await createTestApplication();
 
     app = moduleFixture.createNestApplication();
 
@@ -211,6 +210,10 @@ describe('Performance Tests (Load & Benchmark)', () => {
     });
   });
 });
+
+// =====================================================
+// Performance Benchmarks - Slow Endpoints
+// =====================================================
 
 describe('Performance Benchmarks - Slow Endpoints', () => {
   let app: INestApplication;
