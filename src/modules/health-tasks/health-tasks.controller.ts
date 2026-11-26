@@ -15,25 +15,33 @@ import {
   UseInterceptors,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+  ApiBody,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { HealthTasksService } from './health-tasks.service';
 import { UpdateHealthTaskDto } from '../../common/dto/update-health-task.dto';
 import { CreateHealthTaskDto } from '../../common/dto/create-health-task.dto';
 import { ArchiveService } from './services/archive.service';
-import { CompletionService, MarkCompleteDto, MarkIncompleteDto } from './services/completion.service';
+import {
+  CompletionService,
+  MarkCompleteDto,
+  MarkIncompleteDto,
+} from './services/completion.service';
 import { AnalyticsService } from './services/analytics.service';
 import { TaskSearchService } from './services/task-search.service';
+import { ActivityLogService } from './services/activity-log.service';
 import { AttachmentsService } from './services/attachments.service';
 import { DuplicationService } from './services/duplication.service';
 import { SearchTasksDto } from './dto/search-tasks.dto';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import {
-  TaskAnalyticsService,
-  AnalyticsPeriod,
-} from '../../shared/analytics/task-analytics.service';
 import { TaskDifficulty } from '../../tasks/enums/task-difficulty.enum';
 import { Cache } from '../../common/decorators/cache.decorator';
 import { CacheInvalidate } from '../../common/decorators/cache.decorator';
@@ -64,46 +72,38 @@ export class HealthTasksController {
     private readonly completionService: CompletionService,
     private readonly analyticsService: AnalyticsService,
     private readonly searchService: TaskSearchService,
+    private readonly activityLogService: ActivityLogService,
     private readonly attachmentsService: AttachmentsService,
-    private readonly duplicationService: DuplicationService,
-    private readonly taskAnalyticsService: TaskAnalyticsService,
+    private readonly duplicationService: DuplicationService
   ) {}
 
   @Get()
-  @Cache('tasks:user:{userId}:status:{status}:category:{category}:priority:{priority}:page:{page}:limit:{limit}:sortBy:{sortBy}:sortOrder:{sortOrder}', CACHE_TTL.SHORT)
-  @ApiOperation({ summary: 'Get user health tasks with filters and pagination' })
-  @ApiResponse({ status: 200, description: 'Paginated list of the caller\'s health tasks' })
+  @Cache(
+    'tasks:user:{userId}:query:{query}:status:{status}:category:{category}:startDate:{startDate}:endDate:{endDate}:page:{page}:limit:{limit}:sortBy:{sortBy}:sortOrder:{sortOrder}',
+    CACHE_TTL.SHORT
+  )
+  @ApiOperation({ summary: 'Get user health tasks with validated filters and pagination' })
+  @ApiResponse({ status: 200, description: "Paginated list of the caller's health tasks" })
+  @ApiResponse({ status: 400, description: 'Invalid filter combination or pagination' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
-  async findAll(
-    @Req() req: AuthenticatedRequest,
-    @Query('status') status?: string,
-    @Query('category') category?: string,
-    @Query('priority') priority?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
-  ) {
-    return this.healthTasksService.getUserTasks(req.user.userId, {
-      status,
-      category,
-      priority,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      page: page || 1,
-      limit: limit || 10,
-      sortBy: sortBy || 'createdAt',
-      sortOrder: sortOrder || 'desc',
-    });
+  async findAll(@Req() req: AuthenticatedRequest, @Query() filters: SearchTasksDto) {
+    return this.searchService.searchTasks(filters, req.user.userId);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: "Search and filter the caller's health tasks" })
+  @ApiResponse({ status: 200, description: 'Paginated, consistently ordered matching tasks' })
+  @ApiResponse({ status: 400, description: 'Invalid filter combination or pagination' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
+  async search(@Req() req: AuthenticatedRequest, @Query() filters: SearchTasksDto) {
+    return this.searchService.searchTasks(filters, req.user.userId);
   }
 
   @Get('search/history')
   @ApiOperation({ summary: 'Get search history for the current user' })
   @ApiResponse({ status: 200, description: 'Recent search history for the caller' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
-  async getSearchHistory(@@Req() req: AuthenticatedRequest) {
+  async getSearchHistory(@Req() req: AuthenticatedRequest) {
     return this.searchService.getSearchHistory(req.user.userId);
   }
 
@@ -154,7 +154,10 @@ export class HealthTasksController {
 
   @Post('archive/run')
   @ApiOperation({ summary: 'Run auto-archive for old completed tasks' })
-  @ApiResponse({ status: 200, description: 'Auto-archive sweep completed; returns the count of archived tasks' })
+  @ApiResponse({
+    status: 200,
+    description: 'Auto-archive sweep completed; returns the count of archived tasks',
+  })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   async runAutoArchive() {
     const archivedCount = await this.archiveService.autoArchiveOldCompletedTasks();
@@ -169,7 +172,7 @@ export class HealthTasksController {
     return { message: 'Get categories logic to be implemented' };
   }
 
-  @Get('difficulty:/level')
+  @Get('difficulty/:level')
   @ApiOperation({ summary: 'Get tasks by difficulty level' })
   @ApiResponse({ status: 200, description: 'Tasks matching the difficulty level' })
   @ApiResponse({ status: 400, description: 'Invalid difficulty level' })
@@ -220,7 +223,7 @@ export class HealthTasksController {
   async completeTask(
     @Param('id') id: string,
     @Body() dto: MarkCompleteDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest
   ) {
     dto.taskId = id;
     return this.completionService.markTaskComplete(req.user.userId, dto);
@@ -235,7 +238,7 @@ export class HealthTasksController {
   async markTaskIncomplete(
     @Param('id') id: string,
     @Body() dto: MarkIncompleteDto,
-    @Req() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest
   ) {
     dto.taskId = id;
     return this.completionService.markTaskIncomplete(req.user.userId, dto);
@@ -246,10 +249,7 @@ export class HealthTasksController {
   @ApiResponse({ status: 200, description: 'Completion history entries for the task' })
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  async getCompletionHistory(
-    @Param('id') id: string,
-    @Req() req: AuthenticatedRequest,
-  ) {
+  async getCompletionHistory(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.completionService.getCompletionHistory(req.user.userId, id);
   }
 
@@ -288,10 +288,7 @@ export class HealthTasksController {
   @ApiResponse({ status: 401, description: 'Missing or invalid bearer token' })
   @ApiResponse({ status: 403, description: 'Caller is neither the task creator nor an admin' })
   @ApiResponse({ status: 404, description: 'Task not found' })
-  async update(
-    @Param('id') Id: string,
-    @Body() body: UpdateHealthTaskDto,
-  ) {
+  async update(@Param('id') Id: string, @Body() body: UpdateHealthTaskDto) {
     return this.healthTasksService.update(Id, body);
   }
 }

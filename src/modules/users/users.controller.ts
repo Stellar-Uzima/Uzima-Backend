@@ -35,7 +35,6 @@ import { QueueService } from '../../shared/queue/queue.service';
 import { DATA_PROCESSING_QUEUE, DATA_EXPORT_JOB } from '../../queue/queue.constants';
 import { UpdateProfileDto, ProfileResponseDto } from '../../common/dto/update-profile.dto';
 import { DataExportService, DataExportRequester } from './services/data-export.service';
-import { Role } from '@modules/auth/enums/role.enum';
 import { UserStatus } from '@modules/auth/enums/user-status.enum';
 import { UserStatusChangeDto, UserStatusResponseDto } from './dto/user-status-change.dto';
 import { IsString, IsNotEmpty } from 'class-validator';
@@ -80,10 +79,8 @@ export class UsersController {
     private readonly userSearchService: UserSearchService,
     private readonly dataExportService: DataExportService,
     private readonly activityFeedService: ActivityFeedService,
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
     private readonly userTimelineService: UserTimelineService,
-    private readonly queueService: QueueService
-    private readonly activityFeedService: ActivityFeedService
   ) {}
 
   @Post('device-token')

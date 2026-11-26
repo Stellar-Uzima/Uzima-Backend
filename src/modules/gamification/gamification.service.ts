@@ -77,7 +77,7 @@ export class GamificationService {
   }> {
     const { userId, amount, reason, sourceEvent, metadata } = awardXpDto;
     
-    this.logger.log(Awarding  XP to user  for );
+    this.logger.log(`Awarding ${amount} XP to user ${userId} for ${reason}`);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -138,7 +138,7 @@ export class GamificationService {
           totalXp: userXp.totalXp,
         };
         this.eventEmitter.emit('level-up', levelUpEvent);
-        this.logger.log(User  leveled up to level !);
+        this.logger.log(`User ${userId} leveled up to level ${newLevel}!`);
       }
 
       await this.leaderboardService.rebuildLeaderboards();
@@ -153,7 +153,7 @@ export class GamificationService {
 
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error(Failed to award XP: );
+      this.logger.error(`Failed to award XP: ${error}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -232,7 +232,7 @@ export class GamificationService {
       if (!exists) {
         const achievement = this.achievementRepo.create(achievementData);
         await this.achievementRepo.save(achievement);
-        this.logger.log(Seeded achievement: );
+        this.logger.log(`Seeded achievement: ${achievementData.key}`);
       }
     }
   }

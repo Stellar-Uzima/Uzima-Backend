@@ -3,9 +3,18 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { TaskCompletion, TaskCompletionStatus } from '../../../tasks/entities/task-completion.entity';
+import {
+  TaskCompletion,
+  TaskCompletionStatus,
+} from '../../../tasks/entities/task-completion.entity';
 import { HealthTask } from '../../../tasks/entities/health-task.entity';
 import { DailyTaskAssignment } from '../../../tasks/entities/daily-task-assignment.entity';
+
+export interface UserTaskStats {
+  totalCompletions: number;
+  pendingCompletions: number;
+  completionRate: number;
+}
 
 @Injectable()
 export class AnalyticsService {
@@ -16,12 +25,12 @@ export class AnalyticsService {
     private readonly taskRepository: Repository<HealthTask>,
     @InjectRepository(DailyTaskAssignment)
     private readonly assignmentRepository: Repository<DailyTaskAssignment>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
-  async getUserTaskStats(userId: string) {
+  async getUserTaskStats(userId: string): Promise<UserTaskStats> {
     const cacheKey = `user_stats_${userId}`;
-    const cachedData = await this.cacheManager.get(cacheKey);
+    const cachedData = await this.cacheManager.get<UserTaskStats>(cacheKey);
     if (cachedData) return cachedData;
 
     const totalCompletions = await this.completionRepository.count({
@@ -33,9 +42,8 @@ export class AnalyticsService {
     });
 
     // Simple completion rate: verified / (verified + pending)
-    const completionRate = totalCompletions > 0 
-      ? (totalCompletions / (totalCompletions + pendingCompletions)) * 100 
-      : 0;
+    const completionRate =
+      totalCompletions > 0 ? (totalCompletions / (totalCompletions + pendingCompletions)) * 100 : 0;
 
     const stats = {
       totalCompletions,

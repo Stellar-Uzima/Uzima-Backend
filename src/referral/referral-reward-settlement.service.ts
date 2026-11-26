@@ -475,61 +475,62 @@ export class ReferralRewardSettlementService {
       return;
     }
 
-    private async findRiskSignals(
-      referralRepo: Repository<ReferralRecord>,
-      referral: ReferralRecord,
-    ): Promise<{
-      reasonCodes: ReferralRiskReasonCode[];
-      details: Record<string, unknown>;
-    }> {
-      const reasonCodes: ReferralRiskReasonCode[] = [];
-      const details: Record<string, unknown> = {};
-      const windowStart = new Date(Date.now() - this.riskReviewWindowMs);
-      const referralsInWindow = await referralRepo.count({
-        where: {
-          referrer: { id: referral.referrer.id },
-          createdAt: MoreThanOrEqual(windowStart),
-        },
-      });
-
-      if (referralsInWindow >= this.riskMaxReferralsPerWindow) {
-        reasonCodes.push(ReferralRiskReasonCode.HIGH_REFERRAL_VELOCITY);
-        details.referralVelocity = {
-          count: referralsInWindow,
-          threshold: this.riskMaxReferralsPerWindow,
-          windowMs: this.riskReviewWindowMs,
-        };
-      }
-
-      if (this.riskMinAccountAgeMs > 0 && referral.referred.createdAt) {
-        const accountAgeAtRedemptionMs =
-          referral.createdAt.getTime() - referral.referred.createdAt.getTime();
-        if (accountAgeAtRedemptionMs < this.riskMinAccountAgeMs) {
-          reasonCodes.push(ReferralRiskReasonCode.RAPID_ACCOUNT_REDEMPTION);
-          details.accountAgeAtRedemption = {
-            ageMs: accountAgeAtRedemptionMs,
-            minimumMs: this.riskMinAccountAgeMs,
-          };
-        }
-      }
-
-      return { reasonCodes, details };
-    }
-
-    private readRiskSetting(
-      key: string,
-      defaultValue: number,
-      minimum: number,
-    ): number {
-      const value = Number(this.configService.get(key, defaultValue));
-      if (!Number.isInteger(value) || value < minimum) {
-        throw new Error(`${key} must be an integer greater than or equal to ${minimum}`);
-      }
-      return value;
-    }
     referral.rewardPaid = true;
     referral.rewardPaidAt = referral.rewardPaidAt ?? at;
     await referralRepo.save(referral);
+  }
+
+  private async findRiskSignals(
+    referralRepo: Repository<ReferralRecord>,
+    referral: ReferralRecord,
+  ): Promise<{
+    reasonCodes: ReferralRiskReasonCode[];
+    details: Record<string, unknown>;
+  }> {
+    const reasonCodes: ReferralRiskReasonCode[] = [];
+    const details: Record<string, unknown> = {};
+    const windowStart = new Date(Date.now() - this.riskReviewWindowMs);
+    const referralsInWindow = await referralRepo.count({
+      where: {
+        referrer: { id: referral.referrer.id },
+        createdAt: MoreThanOrEqual(windowStart),
+      },
+    });
+
+    if (referralsInWindow >= this.riskMaxReferralsPerWindow) {
+      reasonCodes.push(ReferralRiskReasonCode.HIGH_REFERRAL_VELOCITY);
+      details.referralVelocity = {
+        count: referralsInWindow,
+        threshold: this.riskMaxReferralsPerWindow,
+        windowMs: this.riskReviewWindowMs,
+      };
+    }
+
+    if (this.riskMinAccountAgeMs > 0 && referral.referred.createdAt) {
+      const accountAgeAtRedemptionMs =
+        referral.createdAt.getTime() - referral.referred.createdAt.getTime();
+      if (accountAgeAtRedemptionMs < this.riskMinAccountAgeMs) {
+        reasonCodes.push(ReferralRiskReasonCode.RAPID_ACCOUNT_REDEMPTION);
+        details.accountAgeAtRedemption = {
+          ageMs: accountAgeAtRedemptionMs,
+          minimumMs: this.riskMinAccountAgeMs,
+        };
+      }
+    }
+
+    return { reasonCodes, details };
+  }
+
+  private readRiskSetting(
+    key: string,
+    defaultValue: number,
+    minimum: number,
+  ): number {
+    const value = Number(this.configService.get(key, defaultValue));
+    if (!Number.isInteger(value) || value < minimum) {
+      throw new Error(`${key} must be an integer greater than or equal to ${minimum}`);
+    }
+    return value;
   }
 
   private isUniqueViolation(error: unknown): boolean {

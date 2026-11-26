@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskShare, SharePermission } from '../../../database/entities/task-share.entity';
@@ -10,14 +15,14 @@ export class SharingService {
     @InjectRepository(TaskShare)
     private readonly shareRepository: Repository<TaskShare>,
     @InjectRepository(HealthTask)
-    private readonly taskRepository: Repository<HealthTask>,
+    private readonly taskRepository: Repository<HealthTask>
   ) {}
 
   async shareTask(
     taskId: string,
     sharedById: string,
     sharedWithId: string,
-    permission: SharePermission = SharePermission.VIEW,
+    permission: SharePermission = SharePermission.VIEW
   ): Promise<TaskShare> {
     // Check if task exists and belongs to sharer
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
@@ -74,7 +79,7 @@ export class SharingService {
       relations: ['task', 'sharedBy'],
     });
 
-    return shares.map(share => share.task);
+    return shares.map((share) => share.task);
   }
 
   async getTaskShares(taskId: string, userId: string): Promise<TaskShare[]> {
@@ -93,10 +98,18 @@ export class SharingService {
     });
   }
 
-  async hasPermission(taskId: string, userId: string, permission: SharePermission): Promise<boolean> {
-    // Owner always has permission
+  async hasPermission(
+    taskId: string,
+    userId: string,
+    permission: SharePermission
+  ): Promise<boolean> {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
-    if (task && task.userId === userId) {
+    if (!task) {
+      return false;
+    }
+
+    // Owner always has permission
+    if (task.userId === userId) {
       return true;
     }
 
@@ -107,7 +120,7 @@ export class SharingService {
     if (!share) return false;
 
     if (permission === SharePermission.VIEW) return true;
-    
+
     // For EDIT permission, check if share is EDIT
     return share.permission === SharePermission.EDIT;
   }

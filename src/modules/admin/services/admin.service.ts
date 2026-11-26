@@ -66,9 +66,13 @@ export class AdminService {
         ...map,
         [row.role]: Number(row.count),
       }), {} as Record<string, number>),
-      status: statusGroups.reduce((map, row) => ({
-        ...map,
-        [row.status]: Number(row.count),
+      status: statusGroups.reduce(
+        (map, row) => ({
+          ...map,
+          [row.status]: Number(row.count),
+        }),
+        {} as Record<string, number>,
+      ),
     };
   }
 
