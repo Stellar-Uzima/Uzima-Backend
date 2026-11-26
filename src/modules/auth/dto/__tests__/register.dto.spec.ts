@@ -1,162 +1,141 @@
-import { plainToInstance as plainToClass } from 'class-transformer';
-import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { validate, ValidationError } from 'class-validator';
 import { RegisterDto } from '../register.dto';
+
+const validPayload = () => ({
+  email: 'test@example.com',
+  password: 'S3cureP@ssw0rd',
+  firstName: 'Test',
+  lastName: 'User',
+  country: 'US',
+  phone: '+15551234567',
+});
+
+const check = async (payload: Record<string, unknown>): Promise<ValidationError[]> =>
+  validate(plainToInstance(RegisterDto, payload));
+
+const messagesFor = (errors: ValidationError[], property: string): string[] =>
+  Object.values(errors.find((e) => e.property === property)?.constraints ?? {});
 
 describe('RegisterDto validation', () => {
   describe('valid registration data', () => {
-    it('should pass validation for valid payload', async () => {
-      const payload = {
-        email: 'test@example.com',
-        password: 'S3cureP@ssw0rd',
-        name: 'Test User',
-        country: 'US',
-        phone: '+15551234567',
-      };
+    it('accepts a complete, valid payload', async () => {
+      expect(await check(validPayload())).toHaveLength(0);
+    });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      expect(errors.length).toBe(0);
+    it('accepts a payload without the optional phone and referral code', async () => {
+      const { phone: _phone, ...rest } = validPayload();
+      expect(await check(rest)).toHaveLength(0);
+    });
+
+    it('normalises the email and the country code before validating', async () => {
+      const dto = plainToInstance(RegisterDto, {
+        ...validPayload(),
+        email: '  Test@Example.COM ',
+        country: ' us ',
+      });
+
+      expect(await validate(dto)).toHaveLength(0);
+      expect(dto.email).toBe('test@example.com');
+      expect(dto.country).toBe('US');
     });
   });
 
   describe('email field', () => {
-    it('should reject invalid email formats', async () => {
-      const payload = {
-        email: 'not-an-email',
-        password: 'S3cureP@ssw0rd',
-        name: 'Name',
-        country: 'US',
-      };
+    it('rejects an invalid email with an email-specific message', async () => {
+      const errors = await check({ ...validPayload(), email: 'not-an-email' });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
+      expect(errors.map((e) => e.property)).toEqual(['email']);
+      expect(messagesFor(errors, 'email')).toContain('Invalid email format');
+    });
+
+    it('rejects a missing email', async () => {
+      const { email: _email, ...rest } = validPayload();
+      const errors = await check(rest);
+
       expect(errors.some((e) => e.property === 'email')).toBe(true);
     });
   });
 
   describe('password field', () => {
-    it('should reject weak (too short) passwords', async () => {
-      const payload = {
-        email: 'a@b.com',
-        password: '123',
-        name: 'Name',
-        country: 'US',
-      };
+    it('rejects a password that is too short', async () => {
+      const errors = await check({ ...validPayload(), password: '123' });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      expect(errors.some((e) => e.property === 'password')).toBe(true);
+      expect(errors.map((e) => e.property)).toEqual(['password']);
+      expect(messagesFor(errors, 'password')).toContain(
+        'Password must be between 8 and 72 characters',
+      );
     });
 
-    it('should reject passwords that lack required character types', async () => {
-      const payload = {
-        email: 'a@b.com',
-        // length >=8 but missing uppercase and special char
-        password: 'password1',
-        name: 'Name',
-        country: 'US',
-      };
+    it('rejects a long password that lacks the required character types', async () => {
+      const errors = await check({ ...validPayload(), password: 'abcdefgh1' });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
+      expect(errors.map((e) => e.property)).toEqual(['password']);
+      expect(messagesFor(errors, 'password')).toContain(
+        'Password does not meet the security policy',
+      );
+    });
+
+    it('rejects a password longer than the bcrypt limit', async () => {
+      const errors = await check({ ...validPayload(), password: 'Aa1!'.repeat(20) });
+
+      expect(messagesFor(errors, 'password')).toContain(
+        'Password must be between 8 and 72 characters',
+      );
+    });
+
+    it('reports a missing password as a validation error instead of throwing', async () => {
+      const { password: _password, ...rest } = validPayload();
+
+      await expect(check(rest)).resolves.toEqual(
+        expect.arrayContaining([expect.objectContaining({ property: 'password' })]),
+      );
+    });
+
+    it('reports a non-string password as a validation error instead of throwing', async () => {
+      const errors = await check({ ...validPayload(), password: 12345678 });
+
       expect(errors.some((e) => e.property === 'password')).toBe(true);
     });
   });
 
   describe('required fields', () => {
-    it('should reject when required fields are missing', async () => {
-      const payload = {
-        email: 'test@example.com',
-        // missing password, name, country
-      };
+    it('names every missing required field', async () => {
+      const errors = await check({ email: 'test@example.com' });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      const props = errors.map((e) => e.property);
-      expect(props).toEqual(
-        expect.arrayContaining(['password', 'name', 'country']),
+      expect(errors.map((e) => e.property)).toEqual(
+        expect.arrayContaining(['password', 'firstName', 'lastName', 'country']),
       );
+    });
+
+    it('uses field-specific messages for a missing first or last name', async () => {
+      const { firstName: _first, lastName: _last, ...rest } = validPayload();
+      const errors = await check(rest);
+
+      expect(messagesFor(errors, 'firstName')).toContain('First name is required');
+      expect(messagesFor(errors, 'lastName')).toContain('Last name is required');
+    });
+
+    it('rejects an empty payload without throwing', async () => {
+      const errors = await check({});
+
+      expect(errors.map((e) => e.property)).toEqual(
+        expect.arrayContaining(['email', 'password', 'firstName', 'lastName', 'country']),
+      );
+    });
+
+    it('rejects a country that is not a two-letter code', async () => {
+      const errors = await check({ ...validPayload(), country: 'Nigeria' });
+
+      expect(errors.some((e) => e.property === 'country')).toBe(true);
     });
   });
 
   describe('phone field', () => {
-    it('should reject invalid phone formats', async () => {
-      const payload = {
-        email: 'a@b.com',
-        password: 'S3cureP@ssw0rd',
-        name: 'Name',
-        country: 'US',
-        phone: '123-abc',
-      };
+    it('rejects an invalid phone number', async () => {
+      const errors = await check({ ...validPayload(), phone: '123-abc' });
 
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      expect(errors.some((e) => e.property === 'phone')).toBe(true);
-    });
-
-    it('should allow phone to be undefined (optional)', async () => {
-      const payload = {
-        email: 'a@b.com',
-        password: 'S3cureP@ssw0rd',
-        name: 'Name',
-        country: 'US',
-      };
-
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      expect(errors.some((e) => e.property === 'phone')).toBe(false);
-    });
-  });
-
-  describe('error message texts', () => {
-    it('should return custom message for invalid email', async () => {
-      const payload = {
-        email: 'not-an-email',
-        password: 'S3cureP@ssw0rd',
-        name: 'Name',
-        country: 'US',
-      };
-
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      const emailErr = errors.find((e) => e.property === 'email');
-      expect(emailErr).toBeDefined();
-      const msgs = Object.values(emailErr!.constraints || {});
-      expect(msgs).toContain('Invalid email format');
-    });
-
-    it('should return password complexity message for weak but long password', async () => {
-      const payload = {
-        email: 'a@b.com',
-        // long enough but missing uppercase & special
-        password: 'abcdefgh1',
-        name: 'Name',
-        country: 'US',
-      };
-
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      const passwordErr = errors.find((e) => e.property === 'password');
-      expect(passwordErr).toBeDefined();
-      const msgs = Object.values(passwordErr!.constraints || {});
-      expect(msgs).toContain(
-        'Password must be 8-32 characters and include uppercase, lowercase, number and special character',
-      );
-    });
-
-    it('should return name required message when name missing', async () => {
-      const payload = {
-        email: 'a@b.com',
-        password: 'S3cureP@ssw0rd',
-        country: 'US',
-      };
-
-      const dto = plainToClass(RegisterDto, payload);
-      const errors = await validate(dto);
-      const nameErr = errors.find((e) => e.property === 'name');
-      expect(nameErr).toBeDefined();
-      const msgs = Object.values(nameErr!.constraints || {});
-      expect(msgs).toContain('Name is required');
+      expect(messagesFor(errors, 'phone')).toContain('Phone number must be in E.164 format');
     });
   });
 });

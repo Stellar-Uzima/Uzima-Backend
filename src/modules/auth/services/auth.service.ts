@@ -6,13 +6,13 @@ import {
   InternalServerErrorException,
   Logger,
   Optional,
-  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import * as qrcode from 'qrcode';
 import { AccountLockedException } from '../exceptions/account-locked.exception';
+import { TooManyRequestsException } from '../exceptions/too-many-requests.exception';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -29,7 +29,11 @@ import { OtpService } from '../../../otp/otp.service';
 import { PhoneLoginDto } from '../dto/phone-login.dto';
 import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { VerifyEmailDto, ResendEmailVerificationDto } from '../dto/verify-email.dto';
-import { AuditService, AuditAction, AuditResource } from '../../../audit/audit.service';
+import { AuditService } from '../../../audit/audit.service';
+import { AuditAction, AuditResource } from '../../../audit/entities/audit-log.entity';
+import { AuthEventAuditService, RecordAuthEventInput } from '../../../audit/services/auth-event-audit.service';
+import { AuthEventOutcome, AuthEventType } from '../../../database/entities/auth-event.entity';
+import { JwtSecurityConfig, buildJwtSecurityConfig } from '../../../config/jwt.config';
 import { EmailVerificationService } from './email-verification.service';
 import { SessionService } from './session.service';
 import { TokenBlacklist, TokenType } from '@/database/entities/token-blacklist.entity';
@@ -84,11 +88,11 @@ export class AuthService {
     private tokenBlacklistRepo: Repository<TokenBlacklist>,
     private readonly notifications: NotificationService,
     private readonly configService: ConfigService,
-    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
-    @Optional() private readonly referralService?: ReferralService,
     private readonly passwordPolicy: PasswordPolicyService,
     private readonly lockout: AccountLockoutService,
     private readonly loginThrottle: LoginThrottleService,
+    @Optional() private readonly authEventAuditService?: AuthEventAuditService,
+    @Optional() private readonly referralService?: ReferralService,
   ) {
     this.maxFailedLoginAttempts = this.configService.get<number>('MAX_FAILED_LOGIN_ATTEMPTS', 5);
     this.lockoutDurationMs = this.configService.get<number>('ACCOUNT_LOCKOUT_DURATION_MS', 15 * 60 * 1000);
@@ -97,6 +101,28 @@ export class AuthService {
       url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
     });
     this.redisClient.connect();
+  }
+
+  /**
+   * Writes an auth audit event. The audit trail must never be the reason a
+   * sign-in, verification or reset fails, so a failure here is only logged.
+   */
+  private async recordAuthEvent(input: AuthEventInput): Promise<void> {
+    if (!this.authEventAuditService) {
+      return;
+    }
+
+    const { context, ...event } = input;
+    try {
+      await this.authEventAuditService.record({
+        ...event,
+        ipAddress: context?.ipAddress ?? null,
+        userAgent: context?.userAgent ?? null,
+        requestId: context?.requestId ?? null,
+      });
+    } catch (err) {
+      this.logger.warn(`Could not record auth event ${input.eventType}: ${(err as Error).message}`);
+    }
   }
 
   // Register user
@@ -128,7 +154,10 @@ export class AuthService {
 
     if (dto.referralCode && this.referralService) {
       try {
-        await this.referralService.redeemReferralCode(user.id, dto.referralCode);
+        await this.referralService.redeemReferral(user.id, {
+          userId: user.id,
+          referralCode: dto.referralCode,
+        });
       } catch (error) {
         this.logger.warn(
           `Referral code not applied for user ${user.id}: ${(error as Error).message}`,
@@ -158,7 +187,7 @@ export class AuthService {
   }
 
   // Login user
-  async login(dto: LoginDto, clientIp?: string) {
+  async login(dto: LoginDto, clientIp?: string, req?: { ip?: string; headers?: { 'user-agent'?: string } }) {
     const email = normalizeEmail(dto.email);
 
     // Checked before the user lookup so the throttled response, and the moment
@@ -908,7 +937,7 @@ export class AuthService {
   /**
    * Password Reset Flow
    */
-  async forgotPassword(email: string, clientIp?: string) {
+  async forgotPassword(email: string, clientIp?: string, requestContext?: AuthRequestContext) {
     const normalized = normalizeEmail(email);
 
     // Throttled per address so this cannot be used to flood someone's inbox.
@@ -953,9 +982,10 @@ export class AuthService {
     await this.usersService.save(user);
     this.logger.log(`Password reset requested for: ${normalized}`);
 
-    // Any outstanding session is invalidated the moment a reset is requested,
-    // so a stolen token cannot outlive the credential change (#1287).
-    await this.revokeAllSessionsForUser(user.id);
+    // Sessions are deliberately NOT revoked here. Requesting a reset needs no
+    // authentication, so revoking on request would let anyone sign any user
+    // out just by typing their email address. Sessions are invalidated when
+    // the reset is actually completed, in resetPassword().
 
     await this.recordAuthEvent({
       eventType: AuthEventType.PASSWORD_RESET_REQUESTED,
@@ -977,19 +1007,19 @@ export class AuthService {
     return { message: 'If an account exists, a reset link has been sent' };
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async resetPassword(token: string, newPassword: string, requestContext?: AuthRequestContext) {
     // Same policy as registration, enforced here because resetPassword is also
     // called from the admin recovery path. Skipping it would let a reset set a
     // password that registration would have rejected.
     this.passwordPolicy.assert(newPassword);
 
+    // Only the SHA-256 hash of the token is stored, so a read of the users
+    // table does not yield a usable reset link.
     const hash = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Look up by token only — expiry is checked separately so we can return 410
+    // Look up by token only. Expiry is checked separately so we can return 410
     // instead of 400 when the token exists but has expired.
-    const user = await this.usersService['usersRepository'].findOne({
-      where: { passwordResetToken: hash },
-    });
+    const user = await this.usersService.findByPasswordResetToken(hash);
 
     if (!user) {
       throw new BadRequestException('Invalid reset token');
@@ -1008,26 +1038,36 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    user.password = hashedPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpiry = null;
 
-    // A password change must invalidate every outstanding session. Without
-    // this, the person who triggered the reset is locked out while whoever
-    // prompted it keeps a working refresh token and simply re-mints an access
-    // token — which is the opposite of what "reset my password" is for.
+    // Single use. The password is changed and the token cleared in one
+    // conditional UPDATE keyed on the token hash, so when two requests present
+    // the same token at the same moment only one of them matches a row.
+    // A separate "load, check, save" would let both through.
+    const applied = await this.usersService.applyPasswordReset(user.id, hash, hashedPassword);
+    if (!applied) {
+      await this.recordAuthEvent({
+        eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+        outcome: AuthEventOutcome.FAILURE,
+        reason: 'token_already_used',
+        userId: user.id,
+        userEmail: user.email,
+        context: requestContext,
+      });
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    // A password change must invalidate every refresh session. Without this,
+    // the person who triggered the reset is locked out while whoever prompted
+    // it keeps a working refresh token and simply re-mints an access token.
+    // (applyPasswordReset has already cleared the refresh token stored on the
+    // user row; this removes the ones held in Redis.)
     await this.lockout.clear(user.id, {
       cause: 'password_reset',
       hadLock: Boolean(user.lockedUntil),
       userEmail: user.email,
     });
     await this.clearAllUserRefreshTokens(user.id);
-    user.refreshToken = null;
-    user.refreshTokenExpiry = null;
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
 
-    await this.usersService.save(user);
     this.eventEmitter.emit('user.password.reset', { userId: user.id });
 
     // Audit password reset
@@ -1041,6 +1081,12 @@ export class AuthService {
       isSensitive: true,
       isComplianceEvent: true,
       metadata: { method: 'password_reset_token' },
+    });
+    await this.recordAuthEvent({
+      eventType: AuthEventType.PASSWORD_RESET_COMPLETED,
+      userId: user.id,
+      userEmail: user.email,
+      context: requestContext,
     });
 
     return { message: 'Password reset successful' };

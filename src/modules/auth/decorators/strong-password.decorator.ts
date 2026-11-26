@@ -5,6 +5,40 @@ import {
 } from 'class-validator';
 import { PasswordValidatorService } from '../services/password-validator.service';
 
+/** Strength options a caller can override on top of the validator defaults. */
+type StrengthOverrides = {
+  minLength?: number;
+  requireUppercase?: boolean;
+  requireLowercase?: boolean;
+  requireNumbers?: boolean;
+  requireSpecialChars?: boolean;
+};
+
+/**
+ * Copies only the strength options the caller actually set.
+ *
+ * The validator merges this object over its defaults with a spread, and a
+ * spread copies keys whose value is `undefined`. Passing just `{ message }`
+ * therefore used to overwrite every default rule with `undefined`, which
+ * silently switched off the length, uppercase, number and special-character
+ * checks and let weak passwords through.
+ */
+function pickStrengthConfig(options?: StrengthOverrides): StrengthOverrides | undefined {
+  if (!options) {
+    return undefined;
+  }
+
+  const config: StrengthOverrides = {};
+  if (options.minLength !== undefined) config.minLength = options.minLength;
+  if (options.requireUppercase !== undefined) config.requireUppercase = options.requireUppercase;
+  if (options.requireLowercase !== undefined) config.requireLowercase = options.requireLowercase;
+  if (options.requireNumbers !== undefined) config.requireNumbers = options.requireNumbers;
+  if (options.requireSpecialChars !== undefined) {
+    config.requireSpecialChars = options.requireSpecialChars;
+  }
+  return config;
+}
+
 /**
  * Custom decorator for password validation using class-validator
  *
@@ -38,31 +72,22 @@ export function IsStrongPassword(
       options: validationOptions,
       validator: {
         validate(password: string, args: ValidationArguments) {
+          // A missing or non-string value is an invalid password, not a crash:
+          // without this guard `password.length` throws and the client gets a
+          // 500 instead of a field-specific validation error.
+          if (typeof password !== 'string') {
+            return false;
+          }
+
           const validator = new PasswordValidatorService();
-          const config = validationOptions
-            ? {
-                minLength: validationOptions.minLength,
-                requireUppercase: validationOptions.requireUppercase,
-                requireLowercase: validationOptions.requireLowercase,
-                requireNumbers: validationOptions.requireNumbers,
-                requireSpecialChars: validationOptions.requireSpecialChars,
-              }
-            : undefined;
+          const config = pickStrengthConfig(validationOptions);
 
           return validator.validatePassword(password, config).isValid;
         },
         defaultMessage(args?: ValidationArguments) {
           const validator = new PasswordValidatorService();
           const password = (args?.value as string) || '';
-          const config = validationOptions
-            ? {
-                minLength: validationOptions.minLength,
-                requireUppercase: validationOptions.requireUppercase,
-                requireLowercase: validationOptions.requireLowercase,
-                requireNumbers: validationOptions.requireNumbers,
-                requireSpecialChars: validationOptions.requireSpecialChars,
-              }
-            : undefined;
+          const config = pickStrengthConfig(validationOptions);
 
           const result = validator.validatePassword(password, config);
 

@@ -8,7 +8,6 @@ import {
   UseGuards,
   Req,
   Res,
-  Version,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import {
@@ -26,6 +25,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VerifiedEmailGuard } from './guards/verified-email.guard';
 import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { PasswordValidationPipe } from '../../common/pipes/password-validation.pipe';
 import { TwoFactorEnableDto, TwoFactorDisableDto } from './dto/two-factor-enable.dto';
@@ -40,8 +40,7 @@ interface RequestWithContext {
 }
 
 @ApiTags('auth')
-@Version('1')
-@Controller({ path: 'auth' })
+@Controller({ path: 'auth', version: '1' })
 @UseGuards(RateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -101,10 +100,15 @@ export class AuthController {
   async login(
     @Body() dto: LoginDto,
     @ClientIp() clientIp: string,
+    @Req() req: RequestWithContext,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const userAgent = req.headers?.['user-agent'];
     try {
-      return await this.authService.login(dto, clientIp);
+      return await this.authService.login(dto, clientIp, {
+        ip: req.ip,
+        headers: { 'user-agent': typeof userAgent === 'string' ? userAgent : undefined },
+      });
     } catch (error) {
       if (error instanceof LoginThrottledException) {
         res.setHeader('Retry-After', String(error.retryAfterSeconds));
@@ -114,7 +118,7 @@ export class AuthController {
   }
 
   @Post('2fa/enable')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -130,7 +134,7 @@ export class AuthController {
   }
 
   @Post('2fa/disable')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -174,8 +178,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
   @ApiResponse({ status: 429, description: 'Too many password reset requests' })
-  async forgotPassword(@Body() dto: ForgotPasswordDto, @ClientIp() clientIp: string) {
-    return this.authService.forgotPassword(dto.email, clientIp);
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @ClientIp() clientIp: string,
+    @Req() req: RequestWithContext
+  ) {
+    return this.authService.forgotPassword(dto.email, clientIp, this.contextFrom(req));
   }
 
   @Post('password/reset')
@@ -212,7 +220,7 @@ export class AuthController {
   }
 
   @Patch('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, VerifiedEmailGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update user profile' })

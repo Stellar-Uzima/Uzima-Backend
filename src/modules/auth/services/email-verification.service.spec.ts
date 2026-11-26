@@ -58,16 +58,33 @@ describe('EmailVerificationService (#1284)', () => {
 
   describe('single use', () => {
     it('accepts a live token exactly once', async () => {
-      const record = { token: EmailVerificationService.hashToken('tok'), consumedAt: null, expiresAt: new Date(Date.now() + 60_000), user };
+      const record = { id: 'rec-1', token: EmailVerificationService.hashToken('tok'), consumedAt: null, expiresAt: new Date(Date.now() + 60_000), user };
       const { service, repo } = makeService([record]);
       repo.findOne.mockResolvedValue(record);
 
       const outcome = await service.consume('tok');
 
       expect(outcome.status).toBe('OK');
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ consumedAt: expect.any(Date) }),
+      // The claim is a conditional UPDATE on the row id, not a plain save.
+      expect(repo.update).toHaveBeenCalledTimes(1);
+      expect(repo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'rec-1' }),
+        { consumedAt: expect.any(Date) },
       );
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('lets only one of two simultaneous requests use the same token', async () => {
+      const record = { id: 'rec-1', token: EmailVerificationService.hashToken('tok'), consumedAt: null, expiresAt: new Date(Date.now() + 60_000), user };
+      const { service, repo } = makeService([record]);
+      // Both requests read the row while it is still unused...
+      repo.findOne.mockResolvedValue({ ...record });
+      // ...but the database lets only the first conditional UPDATE match a row.
+      repo.update.mockResolvedValueOnce({ affected: 1 }).mockResolvedValueOnce({ affected: 0 });
+
+      const [first, second] = await Promise.all([service.consume('tok'), service.consume('tok')]);
+
+      expect([first.status, second.status].sort()).toEqual(['ALREADY_USED', 'OK']);
     });
 
     it('reports a replay distinctly instead of a generic failure', async () => {

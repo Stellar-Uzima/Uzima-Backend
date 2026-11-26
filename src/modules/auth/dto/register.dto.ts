@@ -6,8 +6,8 @@ import {
   Length,
   Matches,
   MaxLength,
-  Transform,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsStrongPassword } from '../decorators/strong-password.decorator';
 import {
