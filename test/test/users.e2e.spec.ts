@@ -64,29 +64,29 @@ describe('Users Endpoints E2E Tests', () => {
     await app.close();
   });
 
-  // Helper to get auth token
-  const getAuthToken = async () => {
-    // For testing, create a mock token or use actual login
-    // This assumes you have a login endpoint
-    const loginRes = await request(server)
-      .post('/api/v1/auth/login')
-      .send({
-        email: testUser.email,
-        password: 'Test123!@#',
-      });
-    return loginRes.body?.accessToken || 'mock-token';
-  };
+ 
+const getAuthToken = async (): Promise<string> => {
+  const loginResponse = await request(server)
+    .post('/api/v1/auth/login')
+    .send({
+      email: testUser.email,
+      password: 'Test123!@#',
+    })
+    .expect(200);
 
-  beforeAll(async () => {
-    // Try to get real token, otherwise use mock for testing
-    try {
-      const tokenRes = await getAuthToken();
-      accessToken = tokenRes;
-    } catch (e) {
-      // For testing without auth, we'll use a mock token
-      accessToken = 'mock-token-for-testing';
-    }
-  });
+  const accessToken = loginResponse.body?.accessToken;
+
+  if (!accessToken || typeof accessToken !== 'string') {
+    throw new Error('Authentication succeeded but no valid access token was returned');
+  }
+
+  return accessToken;
+};
+
+beforeAll(async () => {
+  accessToken = await getAuthToken();
+});
+
 
   // ========== GET PROFILE TESTS ==========
 
