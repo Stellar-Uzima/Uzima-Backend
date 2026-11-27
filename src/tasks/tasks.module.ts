@@ -15,8 +15,7 @@ import { QueueModule } from '../queue/queue.module';
 import { QueueService } from '../shared/queue/queue.service';
 import { StorageModule } from '../storage/storage.module';
 import { TaskAssignmentModule } from './assignment/task-assignment.module';
-import { ReminderService } from '../modules/health-tasks/services/reminder.service';
-import { RecurringTaskService } from './assignment/recurring-task.service';
+import { HealthTasksModule } from '../modules/health-tasks/health-tasks.module';
 import { User } from '../entities/user.entity';
 
 @Module({
@@ -26,6 +25,7 @@ import { User } from '../entities/user.entity';
     QueueModule,
     StorageModule,
     TaskAssignmentModule,
+    HealthTasksModule,
   ],
   controllers: [TasksController, TaskCompletionController],
   providers: [
@@ -36,6 +36,6 @@ import { User } from '../entities/user.entity';
     ProofVerificationProcessor,
     QueueService,
   ],
-  exports: [TasksService],
+  exports: [TasksService, TasksScheduler],
 })
 export class TasksModule {}

@@ -24,7 +24,7 @@ import { UserStatusLog } from '@/entities/user-status-log.entity';
 import { Session } from '@/database/entities/session.entity';
 import { TaskCompletion } from '@/tasks/entities/task-completion.entity';
 import { RewardTransaction } from '@/rewards/entities/reward-transaction.entity';
-import { TasksScheduler } from '@/tasks/tasks.scheduler';
+import { TasksModule } from '@/tasks/tasks.module';
 import { RewardsScheduler } from '@/rewards/rewards.scheduler';
 import { ReportsModule } from '@modules/reports/reports.module';
 import { ReferralModule } from '@/referral/referral.module';
@@ -37,6 +37,7 @@ import { StreaksModule } from '@/streaks/streaks.module';
     TypeOrmModule.forFeature([User, UserStatusLog, Session, TaskCompletion, RewardTransaction]),
     AuditModule,
     TaskAssignmentModule,
+    TasksModule,
     HealthTasksModule,
     HealthModule,
     AuthModule,
@@ -59,7 +60,6 @@ import { StreaksModule } from '@/streaks/streaks.module';
     AdminImpersonationService,
     UserDirectoryService,
     UserDeactivationService,
-    TasksScheduler,
     RewardsScheduler,
     FailedRewardJobService,
     QueueService,

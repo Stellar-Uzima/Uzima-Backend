@@ -2,12 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Coupon } from '../entities/coupon.entity'; // <-- Updated canonical import path
-import { CouponRedemption } from '../entities/coupon-redemption.entity';
 import { CouponController } from './coupon.controller';
 import { CouponService } from './coupon.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Coupon, CouponRedemption]), ConfigModule],
+  imports: [TypeOrmModule.forFeature([Coupon]), ConfigModule],
   controllers: [CouponController],
   providers: [CouponService],
   exports: [CouponService],

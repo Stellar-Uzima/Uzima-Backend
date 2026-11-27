@@ -60,6 +60,25 @@ export class CouponService implements OnModuleInit {
     this.redis = new Redis(getRedisUrl(config));
   }
 
+  async findExpiringWithinHours(hours: number): Promise<Coupon[]> {
+    if (!Number.isFinite(hours) || hours <= 0) {
+      throw new BadRequestException(
+        'Expiry window must be a positive number of hours',
+      );
+    }
+    const now = new Date();
+    const expiresBy = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    return this.couponRepository
+      .createQueryBuilder('coupon')
+      .where('coupon.status = :status', { status: CouponStatus.ACTIVE })
+      .andWhere('coupon.usedAt IS NULL')
+      .andWhere('coupon.redeemedCount = 0')
+      .andWhere('coupon.expiresAt > :now', { now })
+      .andWhere('coupon.expiresAt <= :expiresBy', { expiresBy })
+      .orderBy('coupon.expiresAt', 'ASC')
+      .getMany();
+  }
+
   onModuleInit() {
     this.eventEmitter.on(
       REWARD_MILESTONE_EVENT,

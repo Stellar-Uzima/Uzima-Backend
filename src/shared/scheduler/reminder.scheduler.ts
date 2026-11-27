@@ -11,8 +11,8 @@ import {
 import { CouponService }
   from "../../coupons/coupon.service";
 
-import { TaskService }
-  from "../../tasks/task.service";
+import { TasksService }
+  from "../../tasks/tasks.service";
 
 import { NotificationService }
   from "../notifications/services/notification.service";
@@ -28,7 +28,7 @@ export class ReminderScheduler {
   constructor(
     private readonly couponService: CouponService,
 
-    private readonly taskService: TaskService,
+    private readonly taskService: TasksService,
 
     private readonly notificationService:
       NotificationService,
@@ -51,21 +51,29 @@ export class ReminderScheduler {
 
     for (const coupon of coupons) {
 
-      await this.notificationService.sendCouponExpiryReminder(
-        {
-          userId:
-            coupon.userId,
+      try {
+        await this.notificationService.sendCouponExpiryReminder(
+          {
+            userId:
+              coupon.userId,
 
-          couponId:
-            coupon.id,
+            couponId:
+              coupon.id,
 
-          expiresAt:
-            coupon.expiresAt,
+            expiresAt:
+              coupon.expiresAt,
 
-          code:
-            coupon.code,
-        },
-      );
+            code:
+              coupon.code,
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Coupon reminder failed for user ${coupon.userId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     this.logger.log(
@@ -87,10 +95,7 @@ export class ReminderScheduler {
 
     for (const user of users) {
 
-      const tasks =
-        await this.taskService.findIncompleteTasks(
-          user.id,
-        );
+      const tasks = user.tasks;
 
       if (
         tasks.length === 0
@@ -98,14 +103,22 @@ export class ReminderScheduler {
         continue;
       }
 
-      await this.notificationService.sendPendingTaskDigest(
-        {
-          userId:
-            user.id,
+      try {
+        await this.notificationService.sendPendingTaskDigest(
+          {
+            userId:
+              user.id,
 
-          tasks,
-        },
-      );
+            tasks,
+          },
+        );
+      } catch (error) {
+        this.logger.error(
+          `Task digest failed for user ${user.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     this.logger.log(
